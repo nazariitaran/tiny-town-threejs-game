@@ -20,30 +20,28 @@
  * F / Home reset camera · Ctrl/Cmd+Z undo · Shift+Ctrl/Cmd+Z / Ctrl+Y redo. Digits belong to WP-06.
  */
 import * as THREE from 'three';
-import { EDGE_MODELS, GROUND_MODELS } from '../catalog/models';
+import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS } from '../catalog/models';
 import { objectDef } from '../catalog/objects';
 import { actionForTool, toolDef, type DragMode, type ToolId } from '../catalog/tools';
 import type { DebugTools } from '../debug/DebugTools';
 import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH, cellToWorld, edgeToWorld, worldToNearestEdge } from '../game/config';
 import type { GameBus } from '../game/events';
 import type { ModelLibrary } from '../render/ModelLibrary';
-import { cellKey, cellsOnLine, edgeInBounds, edgeKey, footprintCells, nextRotation, rotatedFootprint, sameCell, sameEdge } from '../town/grid';
+import { roadMask, roadTileFor } from '../render/roadTiles';
+import { cellKey, cellsOnLine, edgeInBounds, edgeKey, footprintCells, NEIGHBOURS, nextRotation, rotatedFootprint, sameCell, sameEdge } from '../town/grid';
 import type { TownEditor } from '../town/TownEditor';
 import type { BuildAction, Cell, Edge, GroundKind, PlacedObject, PlanResult, Rotation } from '../town/types';
 import type { CameraController } from './CameraController';
-import { GhostPreview, type GhostState } from './GhostPreview';
+import { GhostPreview, type GhostPart, type GhostState } from './GhostPreview';
 import type { GridPicker, PickResult } from './GridPicker';
 import { isEditableTarget } from './keyboard';
 import { clampCellNearPlot, isNearEdge, KeyedThrottle, lineEdges, lockAxis, segmentSamples, type GridPoint, type LineAxis } from './strokeMath';
 
-/** Ghost tile colour per ground tool when valid (kit colours, see docs/assets/models.md). */
-const GROUND_GHOST_COLORS: Readonly<Record<Exclude<GroundKind, 'field'>, string>> = {
-  road: '#6b7080',
-  pavement: '#a0a8c9',
-  walkway: GROUND_MODELS.walkway.type === 'flat' ? GROUND_MODELS.walkway.color : '#747990',
-  grass: '#4ab480',
-  meadow: '#3da679',
-};
+/** Lawn/meadow slab top height in TownRenderer (tufts and flowers stand on it). */
+const LAWN_TOP = 0.02;
+
+/** What diagnostics `hover` publishes: the cell plus the validity the UI shows for it. */
+export type HoverInfo = Cell & { valid: boolean; reason: string | null };
 
 /** Touch: a single finger becomes a tool stroke after this long / this far (px). */
 const TOUCH_COMMIT_MS = 150;
@@ -90,6 +88,12 @@ export class ToolController {
   private lastPick: PickResult | null = null;
   private hoverDirty = true;
   private hover: HoverState = { cell: null, edge: null, valid: true, reason: null };
+  private hoverInfo: HoverInfo | null = null;
+  /**
+   * Cells ('c:x,z') / edges ('e:…') this tool just filled. Hovering them is not "invalid"
+   * (no red ghost, no "Something is already here") until the pointer moves to another target.
+   */
+  private readonly justPlaced = new Set<string>();
   private readonly ghost: GhostPreview;
   private readonly invalidThrottle = new KeyedThrottle(400);
   private readonly unsubscribers: Array<() => void> = [];
@@ -122,10 +126,12 @@ export class ToolController {
       bus.on('intent:rotate', ({ direction }) => this.rotate(direction)),
       bus.on('intent:undo', () => {
         this.cancelGesture();
+        this.justPlaced.clear();
         this.editor.undo();
       }),
       bus.on('intent:redo', () => {
         this.cancelGesture();
+        this.justPlaced.clear();
         this.editor.redo();
       }),
       bus.on('town:changed', () => {
@@ -151,8 +157,9 @@ export class ToolController {
     return this.rotation;
   }
 
-  get hovered(): Cell | null {
-    return this.hover.cell;
+  /** Hovered cell plus its validity (diagnostics `hover`); null off-plot. */
+  get hovered(): HoverInfo | null {
+    return this.hoverInfo;
   }
 
   /** Input is only live in the 'building' phase. */
@@ -175,6 +182,7 @@ export class ToolController {
   selectTool(toolId: ToolId | null): void {
     this.cancelGesture();
     this.toolId = this.toolId === toolId ? null : toolId;
+    this.justPlaced.clear();
     this.cameraController.setToolActive(this.toolId !== null);
     this.hoverDirty = true;
     this.bus.emit('tool:changed', { toolId: this.toolId, rotation: this.rotation });
@@ -444,6 +452,7 @@ export class ToolController {
   private applyAction(action: BuildAction, cell: Cell, fromPress: boolean): PlanResult {
     const toolId = this.toolId!;
     const result = this.editor.apply(action, toolId);
+    if (result.ok && action.type !== 'bulldoze') this.rememberPlaced(result);
     // Only a deliberate click reports invalid; drags silently skip blocked cells.
     if (!result.ok && fromPress && result.reason !== 'no-change') {
       this.ghost.shake();
@@ -472,6 +481,19 @@ export class ToolController {
     this.finishStroke();
   }
 
+  private rememberPlaced(result: Extract<PlanResult, { ok: true }>): void {
+    for (const change of result.changes) {
+      if (change.layer === 'ground') this.justPlaced.add(`c:${cellKey(change.cell)}`);
+      else if (change.layer === 'edge' && change.op === 'add') this.justPlaced.add(`e:${edgeKey(change.placed.edge)}`);
+      else if (change.layer === 'object' && change.op === 'add') {
+        const def = objectDef(change.object.kind);
+        for (const cell of footprintCells(change.object.anchor, def.footprint, change.object.rotation)) {
+          this.justPlaced.add(`c:${cellKey(cell)}`);
+        }
+      }
+    }
+  }
+
   // ---- hover + ghost ----------------------------------------------------------------------
 
   private refreshHover(): void {
@@ -487,7 +509,7 @@ export class ToolController {
     const toolId = this.toolId;
     if (!toolId) {
       const world = cellToWorld(cell);
-      this.ghost.show({ x: world.x, z: world.z, quarterTurns: 0, state: 'neutral', model: null });
+      this.ghost.show({ x: world.x, z: world.z, quarterTurns: 0, state: 'neutral', parts: [] });
       this.publishHover({ cell, edge: null, valid: true, reason: null });
       return;
     }
@@ -499,6 +521,20 @@ export class ToolController {
     }
 
     const edge = def.layer === 'edge' && edgeInBounds(pick.edge, state.width, state.depth) ? { ...pick.edge } : null;
+
+    // Just filled by this tool (click or current stroke): calm, never "invalid".
+    const targetKey = def.layer === 'edge' ? (edge ? `e:${edgeKey(edge)}` : null) : `c:${cellKey(cell)}`;
+    if (targetKey && this.justPlaced.has(targetKey)) {
+      if (def.layer === 'edge') this.ghost.hide();
+      else {
+        const world = cellToWorld(cell);
+        this.ghost.show({ x: world.x, z: world.z, quarterTurns: 0, state: 'neutral', parts: [] });
+      }
+      this.publishHover({ cell, edge, valid: true, reason: null });
+      return;
+    }
+    if (!this.stroke) this.justPlaced.clear();
+
     const preview = this.editor.preview(actionForTool(toolId, cell, edge ?? pick.edge, this.rotation));
     const valid = preview.ok || preview.reason === 'no-change';
     const reason = preview.ok || preview.reason === 'no-change' ? null : preview.message;
@@ -506,12 +542,29 @@ export class ToolController {
 
     if (def.layer === 'ground') {
       const world = cellToWorld(cell);
-      const tileColor = ghostState === 'valid' ? GROUND_GHOST_COLORS[toolId as Exclude<GroundKind, 'field'>] : undefined;
-      this.ghost.show({ x: world.x, z: world.z, quarterTurns: 0, state: ghostState, model: null, tileColor });
+      const kind = toolId as Exclude<GroundKind, 'field'>;
+      const look = this.groundLook(kind, cell);
+      this.ghost.show({
+        x: world.x,
+        z: world.z,
+        quarterTurns: 0,
+        state: ghostState,
+        parts: ghostState === 'invalid' ? [] : look.parts,
+        fillColor: ghostState === 'valid' ? look.fill : undefined,
+        // Model tiles (road/pavement/walkway) show themselves; only lawns use the flat fill.
+        fillOpacity: ghostState === 'invalid' ? undefined : look.fill ? 0.8 : 0,
+        solid: true,
+      });
     } else if (def.layer === 'object') {
       const objectDefinition = objectDef(toolId as PlacedObject['kind']);
       const centre = this.footprintCentre(cell, objectDefinition.footprint, this.rotation);
-      this.ghost.show({ x: centre.x, z: centre.z, quarterTurns: this.rotation, state: ghostState, model: objectDefinition.models[0] });
+      this.ghost.show({
+        x: centre.x,
+        z: centre.z,
+        quarterTurns: this.rotation,
+        state: ghostState,
+        parts: [{ model: objectDefinition.models[0] }],
+      });
     } else if (edge) {
       const world = edgeToWorld(edge);
       this.ghost.show({
@@ -519,7 +572,7 @@ export class ToolController {
         z: world.z,
         quarterTurns: world.alongX ? 0 : 1,
         state: ghostState,
-        model: EDGE_MODELS[toolId as keyof typeof EDGE_MODELS],
+        parts: [{ model: EDGE_MODELS[toolId as keyof typeof EDGE_MODELS] }],
         showTile: false,
       });
     } else {
@@ -543,7 +596,7 @@ export class ToolController {
         z: centre.z,
         quarterTurns: object.rotation,
         state: 'remove',
-        model: def.models[object.variant % def.models.length],
+        parts: [{ model: def.models[object.variant % def.models.length] }],
         snap: true,
       });
     } else if (fence && edge) {
@@ -553,16 +606,65 @@ export class ToolController {
         z: world.z,
         quarterTurns: world.alongX ? 0 : 1,
         state: 'remove',
-        model: EDGE_MODELS[fence.kind],
+        parts: [{ model: EDGE_MODELS[fence.kind] }],
         tileScale: world.alongX ? [1, 0.4] : [0.4, 1],
         snap: true,
       });
     } else {
       const world = cellToWorld(cell);
       const hasGround = state.getGround(cell) !== 'field';
-      this.ghost.show({ x: world.x, z: world.z, quarterTurns: 0, state: hasGround ? 'remove' : 'neutral', model: null });
+      this.ghost.show({ x: world.x, z: world.z, quarterTurns: 0, state: hasGround ? 'remove' : 'neutral', parts: [] });
     }
     this.publishHover({ cell, edge, valid: true, reason: null });
+  }
+
+  /**
+   * What a ground tile of `kind` would look like at `cell`, built from the same library models the
+   * renderer uses: the auto-tiled road piece for the current neighbours, the pavement tile, the
+   * walkway hub + arms, or a lawn fill with a few tufts / flowers.
+   */
+  private groundLook(kind: Exclude<GroundKind, 'field'>, cell: Cell): { parts: GhostPart[]; fill?: string } {
+    const state = this.editor.state;
+    if (kind === 'road') {
+      const tile = roadTileFor(roadMask(state, cell));
+      return { parts: [{ model: ROAD_PIECE_MODELS[tile.piece], quarterTurns: tile.rotation }] };
+    }
+    if (kind === 'walkway') {
+      let mask = 0;
+      NEIGHBOURS.forEach((offset, i) => {
+        const ground = state.getGround({ x: cell.x + offset.x, z: cell.z + offset.z });
+        if (ground === 'walkway' || ground === 'pavement') mask |= 1 << i;
+      });
+      const arms = mask === 0 ? 0b0101 : mask; // a lone walkway reads as a short north–south path
+      const parts: GhostPart[] = [{ model: 'walkway-hub' }];
+      NEIGHBOURS.forEach((offset, i) => {
+        if (arms & (1 << i)) {
+          parts.push({ model: 'walkway-arm', x: offset.x * 0.25 * CELL_SIZE, z: offset.z * 0.25 * CELL_SIZE, quarterTurns: offset.x !== 0 ? 1 : 0 });
+        }
+      });
+      return { parts };
+    }
+    const visual = GROUND_MODELS[kind];
+    if (visual.type === 'model') return { parts: [{ model: visual.model }] };
+    const q = CELL_SIZE / 4;
+    if (kind === 'meadow') {
+      return {
+        fill: visual.color,
+        parts: [
+          { model: 'meadow-flowers', x: -q, z: -q, y: LAWN_TOP },
+          { model: 'meadow-flowers-tall', x: q, z: -q, y: LAWN_TOP, quarterTurns: 1 },
+          { model: 'grass-tuft', x: -q, z: q, y: LAWN_TOP },
+          { model: 'meadow-flowers', x: q, z: q, y: LAWN_TOP, quarterTurns: 2 },
+        ],
+      };
+    }
+    return {
+      fill: visual.color,
+      parts: [
+        { model: 'grass-tuft', x: -q, z: -q * 0.6, y: LAWN_TOP, scale: 0.9 },
+        { model: 'grass-tuft', x: q * 0.8, z: q, y: LAWN_TOP, scale: 0.8, quarterTurns: 1 },
+      ],
+    };
   }
 
   private footprintCentre(anchor: Cell, footprint: readonly [number, number], rotation: Rotation): { x: number; z: number } {
@@ -584,6 +686,7 @@ export class ToolController {
       previous.reason !== next.reason;
     if (!changed) return;
     this.hover = next;
+    this.hoverInfo = next.cell ? { x: next.cell.x, z: next.cell.z, valid: next.valid, reason: next.reason } : null;
     this.bus.emit('hover:changed', { cell: next.cell, edge: next.edge, valid: next.valid, reason: next.reason });
   }
 

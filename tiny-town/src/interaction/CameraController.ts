@@ -17,7 +17,13 @@ import { MapControls } from 'three/addons/controls/MapControls.js';
 import type { DebugTools } from '../debug/DebugTools';
 import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
 import { isEditableTarget } from './keyboard';
+import { fitPlotPose, insetsFor } from './framing';
 import { easeInOutCubic, easeOutCubic, shortestAngle } from './strokeMath';
+
+const DEG = Math.PI / 180;
+/** defaultPoseFor(1280, 720) rounded (see DEFAULT_POSE). */
+const DESKTOP_TARGET = 4.967;
+const DESKTOP_DISTANCE = 45.025;
 
 export interface CameraPose {
   targetX: number;
@@ -27,13 +33,44 @@ export interface CameraPose {
   distance: number;
 }
 
-export const DEFAULT_POSE: CameraPose = {
+/** Design angle of the build camera: 45° yaw, 52° polar, looking at the plot centre. */
+const BUILD_ANGLE: CameraPose = {
   targetX: 0,
   targetZ: 0,
   azimuth: Math.PI / 4,
   polar: THREE.MathUtils.degToRad(52),
   distance: 30,
 };
+
+/**
+ * Build start pose on the reference desktop viewport (1280×720, FOV 35): the whole plot between
+ * the top bar and the dock. Equal to defaultPoseFor(1280, 720) (unit-tested). Other screens use
+ * defaultPoseFor(width, height) — portrait pulls back and tilts steeper.
+ */
+export const DEFAULT_POSE: CameraPose = {
+  targetX: DESKTOP_TARGET,
+  targetZ: DESKTOP_TARGET,
+  azimuth: Math.PI / 4,
+  polar: THREE.MathUtils.degToRad(52),
+  distance: DESKTOP_DISTANCE,
+};
+
+/** Build start pose fitted to a viewport (CSS px) so the plot sits between the top bar and the dock. */
+export function defaultPoseFor(width: number, height: number, fov = 35): CameraPose {
+  if (width <= 0 || height <= 0) return { ...DEFAULT_POSE };
+  const portrait = height > width;
+  return fitPlotPose(BUILD_ANGLE, {
+    fov,
+    width,
+    height,
+    insets: insetsFor(width),
+    polars: portrait ? [52 * DEG, 58 * DEG, 64 * DEG] : [BUILD_ANGLE.polar],
+    minDistance: 6,
+    maxDistance: portrait ? 80 : 60,
+    headroom: 1.2,
+    fitVertical: true,
+  });
+}
 
 /**
  * Low 'hero' pose for the title screen: with FOV 35°, polar 78° puts the horizon (and sky/sun)
@@ -101,6 +138,7 @@ export class CameraController {
   };
 
   private mode: CameraMode = 'build';
+  private homeDistance = DEFAULT_POSE.distance;
   private inputEnabled = true;
   private toolActive = false;
   private readonly heldKeys = new Set<string>();
@@ -153,8 +191,36 @@ export class CameraController {
     this.cancelScriptedMoves();
     this.clearHeldInput();
     this.syncEnabled();
-    this.applyClamps();
-    this.setPose(mode === 'title' ? TITLE_POSE : DEFAULT_POSE);
+    const pose = mode === 'title' ? this.titlePose() : this.buildPose();
+    this.applyClamps(pose.distance);
+    this.setPose(pose);
+  }
+
+  /**
+   * The build start / reset pose for the current screen: DEFAULT_POSE's angle, pulled back and
+   * shifted so the whole plot sits between the top bar and the dock (portrait tilts steeper and
+   * pulls further back). Falls back to DEFAULT_POSE before the canvas has a size.
+   */
+  buildPose(): CameraPose {
+    const { width, height } = this.viewportSize();
+    return defaultPoseFor(width, height, this.camera.fov);
+  }
+
+  /** TITLE_POSE on landscape; on portrait pulled back so the whole plot reads as a diorama in its landscape. */
+  titlePose(): CameraPose {
+    const { width, height } = this.viewportSize();
+    if (width === 0 || height === 0 || width >= height) return { ...TITLE_POSE };
+    return fitPlotPose(TITLE_POSE, {
+      fov: this.camera.fov,
+      width,
+      height,
+      insets: { top: 0, bottom: 0, side: width * 0.06 },
+      polars: [TITLE_POSE.polar],
+      minDistance: TITLE_POSE.distance,
+      maxDistance: 150,
+      headroom: 0,
+      fitVertical: false,
+    });
   }
 
   get currentMode(): CameraMode {
@@ -171,12 +237,14 @@ export class CameraController {
   /** Back to the default build pose (F / Home, 'intent:reset-camera'), as a short eased tween. */
   reset(): void {
     if (this.mode === 'title') {
-      this.setPose(TITLE_POSE);
+      this.setPose(this.titlePose());
       return;
     }
     this.cancelScriptedMoves();
     const from = this.getPose();
-    const to: CameraPose = { ...DEFAULT_POSE, azimuth: from.azimuth + shortestAngle(from.azimuth, DEFAULT_POSE.azimuth) };
+    const home = this.buildPose();
+    this.applyClamps(home.distance);
+    const to: CameraPose = { ...home, azimuth: from.azimuth + shortestAngle(from.azimuth, home.azimuth) };
     this.poseTween = { from, to, elapsed: 0, duration: this.tuning.resetDuration };
   }
 
@@ -197,7 +265,7 @@ export class CameraController {
     const current = this.readSpherical().radius;
     const base = this.zoomTween ? this.zoomTween.to : current;
     const factor = direction === 1 ? 1 / this.tuning.zoomStep : this.tuning.zoomStep;
-    const to = THREE.MathUtils.clamp(base * factor, this.tuning.minDistance, this.tuning.maxDistance);
+    const to = THREE.MathUtils.clamp(base * factor, this.controls.minDistance, this.controls.maxDistance);
     this.zoomTween = { from: current, to, elapsed: 0, duration: this.tuning.zoomDuration };
   }
 
@@ -268,13 +336,20 @@ export class CameraController {
     this.controls.enabled = this.acceptsInput;
   }
 
-  private applyClamps(): void {
+  /** `homeDistance`: the fitted start pose may sit beyond maxDistance on portrait screens; keep it reachable. */
+  private applyClamps(homeDistance = this.homeDistance): void {
     const t = this.tuning;
+    this.homeDistance = homeDistance;
     this.controls.dampingFactor = t.damping;
     this.controls.minPolarAngle = THREE.MathUtils.degToRad(this.mode === 'title' ? 0 : t.minPolarDegrees);
     this.controls.maxPolarAngle = THREE.MathUtils.degToRad(this.mode === 'title' ? 85 : t.maxPolarDegrees);
     this.controls.minDistance = t.minDistance;
-    this.controls.maxDistance = t.maxDistance;
+    this.controls.maxDistance = this.mode === 'title' ? 200 : Math.max(t.maxDistance, homeDistance * 1.2);
+  }
+
+  private viewportSize(): { width: number; height: number } {
+    const element = this.domElement;
+    return { width: element.clientWidth || window.innerWidth || 0, height: element.clientHeight || window.innerHeight || 0 };
   }
 
   private readSpherical(): THREE.Spherical {

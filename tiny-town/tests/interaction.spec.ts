@@ -5,7 +5,10 @@
  */
 import { expect, test, type Page } from '@playwright/test';
 
-type Diagnostics = NonNullable<Window['__THREE_GAME_DIAGNOSTICS__']>;
+/** `hover` also carries the validity the UI shows (ToolController.hovered); typed narrower in vite-env.d.ts. */
+type Diagnostics = Omit<NonNullable<Window['__THREE_GAME_DIAGNOSTICS__']>, 'hover'> & {
+  hover: { x: number; z: number; valid?: boolean; reason?: string | null } | null;
+};
 
 /** Diagnostics are published once per frame, so wait for a fresh frame before reading them. */
 const diag = (page: Page): Promise<Diagnostics> =>
@@ -95,10 +98,22 @@ test.describe('desktop mouse + keyboard', () => {
     await page.mouse.move(valid.x, valid.y);
     await page.mouse.click(valid.x, valid.y);
     await expect.poll(async () => (await diag(page)).objects).toBe(1);
+    // M1 fix: the cell we just built on is NOT reported invalid ("Something is already here").
+    await diag(page);
+    await diag(page);
+    const afterPlace = await diag(page);
+    expect(afterPlace.hover).toEqual({ x: 6, z: 8, valid: true, reason: null });
+    await expect(page.locator('#ui-tooltip')).toBeHidden();
+    console.log(`[place] hover after successful click = ${JSON.stringify(afterPlace.hover)}; tooltip hidden`);
+    // Moving away and back does re-evaluate it: now it really is occupied.
+    const neighbour = await cellPoint(page, 7, 8);
+    await page.mouse.move(neighbour.x, neighbour.y, { steps: 3 });
+    await page.mouse.move(valid.x, valid.y, { steps: 3 });
+    await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 6, z: 8, valid: false });
     const beforeInvalid = await diag(page);
     const onRoad = await cellPoint(page, 6, 12);
     await page.mouse.move(onRoad.x, onRoad.y);
-    await expect.poll(async () => (await diag(page)).hover).toEqual({ x: 6, z: 12 });
+    await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 6, z: 12 });
     await page.mouse.click(onRoad.x, onRoad.y);
     await expect.poll(async () => (await diag(page)).invalidCount).toBe(beforeInvalid.invalidCount + 1);
     const afterInvalid = await diag(page);
@@ -116,6 +131,17 @@ test.describe('desktop mouse + keyboard', () => {
     await expect.poll(async () => (await diag(page)).rotation).toBe(0);
     await page.keyboard.press('r');
     console.log(`[rotate] rotation after R=${(await diag(page)).rotation}`);
+
+    // Scatter stroke (trees): the cells it just filled don't read as invalid under the pointer.
+    await selectTool(page, 'nature', 'tree-a');
+    const objectsBeforeTrees = (await diag(page)).objects;
+    await drag(page, await cellPoint(page, 3, 2), await cellPoint(page, 8, 2), 24);
+    await expect.poll(async () => (await diag(page)).objects).toBeGreaterThan(objectsBeforeTrees + 2);
+    await diag(page);
+    const afterTrees = await diag(page);
+    expect(afterTrees.hover).toMatchObject({ x: 8, z: 2, valid: true, reason: null });
+    await expect(page.locator('#ui-tooltip')).toBeHidden();
+    console.log(`[scatter] trees placed=${afterTrees.objects - objectsBeforeTrees}; hover at stroke end=${JSON.stringify(afterTrees.hover)}`);
 
     // 4. Fence drag along 4 edges (north edges of cells x = 5..8, z = 5).
     await selectTool(page, 'buildings', 'fence-tall');
@@ -139,7 +165,7 @@ test.describe('desktop mouse + keyboard', () => {
     await expect.poll(async () => (await diag(page)).town.fences).toBe(0);
     const afterBulldoze = await diag(page);
     expect(afterBulldoze.town.roadTiles).toBe(11);
-    expect(afterBulldoze.objects).toBe(1);
+    expect(afterBulldoze.objects).toBe(afterFence.objects);
     console.log(`[bulldoze] fences=${afterBulldoze.town.fences} roads=${afterBulldoze.town.roadTiles} objects=${afterBulldoze.objects}`);
 
     // 6. Ctrl+Z restores the fences in one step.
@@ -239,11 +265,17 @@ test.describe('desktop mouse + keyboard', () => {
     let p = await cellPoint(page, 11, 10);
     await page.mouse.move(p.x, p.y, { steps: 3 });
     await shot('ghost-road-tile');
+    await selectTool(page, 'paths', 'walkway');
+    await page.mouse.move(p.x + 2, p.y, { steps: 2 });
+    await shot('ghost-walkway-tile');
+    await selectTool(page, 'nature', 'meadow');
+    await page.mouse.move(p.x, p.y, { steps: 2 });
+    await shot('ghost-meadow-tile');
 
     await selectTool(page, 'buildings', 'townhouse-b');
     p = await cellPoint(page, 12, 10);
     await page.mouse.move(p.x, p.y, { steps: 3 });
-    await expect.poll(async () => (await diag(page)).hover).toEqual({ x: 12, z: 10 });
+    await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 12, z: 10 });
     await shot('ghost-house-valid');
     p = await cellPoint(page, 12, 12);
     await page.mouse.move(p.x, p.y, { steps: 3 });
@@ -289,9 +321,9 @@ test.describe('desktop mouse + keyboard', () => {
     await page.keyboard.press('f');
     await page.waitForTimeout(900);
     const pose3 = (await diag(page)).camera;
-    expect(pose3.targetX).toBeCloseTo(0, 2);
-    expect(pose3.targetZ).toBeCloseTo(0, 2);
-    expect(pose3.distance).toBeCloseTo(30, 1);
+    expect(pose3.targetX).toBeCloseTo(pose0.targetX, 2);
+    expect(pose3.targetZ).toBeCloseTo(pose0.targetZ, 2);
+    expect(pose3.distance).toBeCloseTo(pose0.distance, 1);
     console.log(`[camera] pan Δ=${Math.hypot(pose1.targetX - pose0.targetX, pose1.targetZ - pose0.targetZ).toFixed(2)} orbit Δ=${(pose2.azimuth - pose1.azimuth).toFixed(3)} reset target=(${pose3.targetX.toFixed(3)}, ${pose3.targetZ.toFixed(3)})`);
     expect(errors).toEqual([]);
   });
