@@ -26,9 +26,9 @@ Worktrees live in `<repo-parent>/ThreeJsGames-wt/<wp>`, branched from `9a4e084`.
 | WP-07 Audio | ✅ done (bf55f1d, fixes 8e6eae3, da4063d shims removed; worktree removed) | `wp-07-audio` | `wp-07` | 5207 | all SFX rebuilt, metal prop sound, stroke pitch rise; fix-up: mute test asserts aria-pressed. Local shims in AudioManager can now go |
 | WP-09a QA harness | ✅ merged (81d8a97) | `wp-09a-qa` | `wp-09a` | 5209 | smoke + build-flow specs, tests/helpers.ts; main e2e 10/10 after merge. Templates annotated, not deleted (left for 09b) |
 | WP-08 Feel & VFX | ✅ done (5fd620c) | — | removed | 5208 | 2 draw calls max, 0 idle; instanced wind sway; reduced motion OK; fx diagnostics published. Shim `__THREE_GAME_FX_DIAGNOSTICS__` remains (harmless) |
-| WP-09b Baselines + bot | 🔄 baselines running | `wp-09b-qa` | `wp-09b` | 5210 | bot green; generating+committing baselines on final look; missing baseline → fail |
+| WP-09b Baselines + bot | ✅ done (3b5ff02): 6 darwin baselines committed, deterministic capture, missing baseline fails | — | removed | 5210 | |
 | WP-10 Ambient life | ✅ done (9ae0d39) | — | removed | 5211 | ≤6 cars, BatchedMesh +1 main +1 shadow call, keep-right lanes, despawn on road removal; wired in Game.ts (142cd95). Dusk toggle skipped (optional) |
-| WP-11 Release | ⬜ wave 3 | | | 5212 | |
+| WP-11 Release | 🔄 running (wave 3) | `wp-11-release` | `wp-11` | 5212 | |
 
 ## M0 preflight evidence (run id m0, desktop, real GPU: ANGLE Metal / Apple M2 Max, softwareRendered false)
 | State | renderer.calls | triangles | textures | luminance.contrast |
@@ -55,7 +55,12 @@ Contract requests applied in commit after the Wave-1 merges: sfx `place-prop-met
 - WP-02 → Game.ts SaveStore wiring: `hasSave: () => saves.has()`; `saves.attachAutosave(bus, () => editor.serialize(camera.getPose()))`; Continue → `editor.load(saves.read())`; `saves.flush()` on pagehide; `saves.autosaveEnabled = false` inside `setState`. Optional: `save` diagnostics (`pending`, `lastError`) in vite-env.d.ts; drop unused `'edge-occupied'` from InvalidReason in types.ts.
 - WP-02 follow-up (unowned by the rule table): bus stop stays after its road is repainted away. Decide at M1.
 
+## M2
+✅ Passed 2026-09-26. See `docs/checkpoints/m2.md`.
+
 ## Next actions (current)
+0. WP-11 running → merge → M3 (reviewer, final evidence, report).
+
 1. ✅ fix2 + WP-10 merged/wired. WP-09b generating baselines now.
 2. M2 notes so far: FX puff chips read slightly rock-like (tune at M3 if reviewer agrees); FX journey video is zoomed out (tune-*.png are the useful evidence).
 3. Checkpoint M2 (PLAN §5), then WP-11 → M3.
