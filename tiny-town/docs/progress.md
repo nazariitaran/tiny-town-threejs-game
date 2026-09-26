@@ -19,11 +19,11 @@ Worktrees live in `<repo-parent>/ThreeJsGames-wt/<wp>`, branched from `9a4e084`.
 | Wave 0 scaffold | ✅ done | main | — | — | walking skeleton, contracts, assets, docs |
 | M0 preflight | ✅ done 2026-09-26 | main | — | 5188 | verify green (18 tests); e2e 2/2; inspect m0 clean (see below) |
 | WP-02 Town logic | ✅ merged (13479ad) | `wp-02-town-logic` | `wp-02` | — | full rule table, History cap 200, serialize/parseSave, SaveStore (+settings), silent applyBatch; 172 unit tests; main e2e 10/10 |
-| WP-03 Rendering | 🔄 running | `wp-03-rendering` | `wp-03` | 5203 | |
-| WP-04 World & look | 🔄 running | `wp-04-world` | `wp-04` | 5204 | |
-| WP-05 Interaction | 🔄 running | `wp-05-interaction` | `wp-05` | 5205 | |
-| WP-06 UI | 🔄 running | `wp-06-ui` | `wp-06` | 5206 | |
-| WP-07 Audio | 🔄 running | `wp-07-audio` | `wp-07` | 5207 | |
+| WP-03 Rendering | ✅ merged (17b8185) | `wp-03-rendering` | `wp-03` | 5203 | instanced pools; stress-town 599→21 calls; pop-in; walkway hub+arm; lamppost offset |
+| WP-04 World & look | ✅ merged (b0f2947) | `wp-04-world` | `wp-04` | 5204 | sky dome+clouds, diorama slab, decor ring (4 calls), shader grid, Neutral tone mapping; env calls 8 |
+| WP-05 Interaction | ✅ merged (3a1498b + fix 3cd1d16) | `wp-05-interaction` | `wp-05` | 5205 | camera gestures, ghost, tool semantics, touch; fix-up: spec cells under new dock |
+| WP-06 UI | ✅ merged (df3ed58) | `wp-06-ui` | `wp-06` | 5206 | full UI states, Nunito, SVG glyphs, StatsHud; digits 1–9 tools, Shift+1–4 categories (accepted) |
+| WP-07 Audio | ✅ merged (bf55f1d + fix 8e6eae3) | `wp-07-audio` | `wp-07` | 5207 | all SFX rebuilt, metal prop sound, stroke pitch rise; fix-up: mute test asserts aria-pressed. Local shims in AudioManager can now go |
 | WP-09a QA harness | ✅ merged (81d8a97) | `wp-09a-qa` | `wp-09a` | 5209 | smoke + build-flow specs, tests/helpers.ts; main e2e 10/10 after merge. Templates annotated, not deleted (left for 09b) |
 | WP-08 Feel & VFX | ⬜ wave 2 | | | 5208 | |
 | WP-09b Baselines + bot | ⬜ wave 2 | | | 5210 | |
@@ -45,7 +45,10 @@ No console/page errors. No blockers. Cosmetic observations routed to owners: som
 - build-flow.spec assumes current rules (cottage on field next to road; drag = 1 undo entry). Re-check after the WP-02 merge.
 - Mobile journey uses the mouse, not touch; a touch variant goes to WP-05/09b.
 
-## Pending integrator work for M1 (collected contract requests)
+## M1 checkpoint (in progress)
+Contract requests applied in commit after the Wave-1 merges: sfx `place-prop-metal`, gen-sfx `playbackRate`, CREDITS audio rows, Game.ts SaveStore wiring (autosave, Continue, camera pose, pagehide flush, grid setting, settings → AudioManager, autosave off in setState), `TownRenderer.settle()` on setState/reduced motion, diagnostics `save`. Scorecard + friction: `docs/checkpoints/m1.md` (avg 1.85). Independent reviewer running.
+
+## Pending integrator work for M1 (collected contract requests) — DONE
 - WP-02 → Game.ts SaveStore wiring: `hasSave: () => saves.has()`; `saves.attachAutosave(bus, () => editor.serialize(camera.getPose()))`; Continue → `editor.load(saves.read())`; `saves.flush()` on pagehide; `saves.autosaveEnabled = false` inside `setState`. Optional: `save` diagnostics (`pending`, `lastError`) in vite-env.d.ts; drop unused `'edge-occupied'` from InvalidReason in types.ts.
 - WP-02 follow-up (unowned by the rule table): bus stop stays after its road is repainted away. Decide at M1.
 
