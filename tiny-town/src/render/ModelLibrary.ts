@@ -3,19 +3,27 @@
  * scaled to world units, rotated so the model's front faces +z, footprint-centred
  * at the origin with its base on y = 0. Consumers never touch raw GLTF scenes.
  *
- * SCAFFOLD BASELINE — WP-03 (Rendering) owns this file. TODO(WP-03): share one
- * material per texture atlas across all models, texture filtering/anisotropy,
- * merge each model's meshes per material for instancing, diagnostics (tris per model).
+ * WP-03 (Rendering) owns this file. What it does beyond loading:
+ *  - Shared materials: Kenney kits use one colour-atlas texture per kit folder, so materials are
+ *    deduplicated by (source image URL + material parameters). The whole town needs a handful.
+ *  - Texture set-up: sRGB colour space for colour maps, anisotropic filtering.
+ *  - Per-model mesh merge: every mesh of a model that shares a material is baked into one
+ *    geometry in normalised model space, so a model is 1 part per material (1 draw call per
+ *    part per InstancedMesh pool in TownRenderer). Part matrices are therefore identity.
+ *  - Triangle counts per model (`template.triangles`) for diagnostics/budgets.
+ *  - Models with `sway: true` get their own material clone passed to applyWindSway() (WP-08).
  */
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { MODELS, type ModelId } from '../catalog/models';
 import { assetUrl } from '../game/config';
+import { applyWindSway } from '../fx/windSway';
 
 export interface ModelPart {
   geometry: THREE.BufferGeometry;
   material: THREE.Material;
-  /** Transform of this part inside the normalised model space. */
+  /** Transform of this part inside the normalised model space (identity after merging). */
   matrix: THREE.Matrix4;
 }
 
@@ -24,24 +32,37 @@ export interface ModelTemplate {
   parts: ModelPart[];
   /** Bounds in normalised model space. */
   bounds: THREE.Box3;
+  /** Triangles drawn per instance of this model. */
+  triangles: number;
 }
+
+/** Anisotropy requested for colour atlases (three clamps it to the GPU maximum). */
+const ANISOTROPY = 8;
 
 export class ModelLibrary {
   private readonly templates = new Map<ModelId, ModelTemplate>();
   private readonly loader = new GLTFLoader();
+  /** Shared materials keyed by texture source + parameters. */
+  private readonly materials = new Map<string, THREE.Material>();
+  /** Textures kept alive by shared materials (deduplicated by source image URL). */
+  private readonly textures = new Map<string, THREE.Texture>();
+  /** Private per-model clones for swaying foliage. */
+  private readonly swayMaterials = new Set<THREE.Material>();
 
   async loadAll(onProgress?: (loaded: number, total: number, label: string) => void): Promise<void> {
     const ids = Object.keys(MODELS) as ModelId[];
     let loaded = 0;
-    await Promise.all(
+    const results = await Promise.all(
       ids.map(async (id) => {
-        const spec = MODELS[id];
-        const gltf = await this.loader.loadAsync(assetUrl(spec.url));
-        this.templates.set(id, this.normalise(id, gltf.scene));
+        const url = assetUrl(MODELS[id].url);
+        const gltf = await this.loader.loadAsync(url);
         loaded += 1;
         onProgress?.(loaded, ids.length, id);
+        return { id, gltf, url };
       }),
     );
+    // Normalise in catalog order (not network order) so the shared-material choice is deterministic.
+    for (const { id, gltf, url } of results) this.templates.set(id, this.normalise(id, gltf, url));
   }
 
   has(id: ModelId): boolean {
@@ -52,6 +73,16 @@ export class ModelLibrary {
     const template = this.templates.get(id);
     if (!template) throw new Error(`Model not loaded: ${id}`);
     return template;
+  }
+
+  /** Distinct materials in use (shared + sway clones), for diagnostics. */
+  get materialCount(): number {
+    return this.materials.size + this.swayMaterials.size;
+  }
+
+  /** Distinct textures in use, for diagnostics. */
+  get textureCount(): number {
+    return this.textures.size;
   }
 
   /** A plain (non-instanced) Object3D of the model — for ghosts, title scene, debugging. Shares GPU resources. */
@@ -70,17 +101,19 @@ export class ModelLibrary {
   }
 
   dispose(): void {
-    for (const template of this.templates.values()) {
-      for (const part of template.parts) {
-        part.geometry.dispose();
-        part.material.dispose();
-      }
-    }
+    for (const template of this.templates.values()) for (const part of template.parts) part.geometry.dispose();
+    for (const material of this.materials.values()) material.dispose();
+    for (const material of this.swayMaterials) material.dispose();
+    for (const texture of this.textures.values()) texture.dispose();
     this.templates.clear();
+    this.materials.clear();
+    this.swayMaterials.clear();
+    this.textures.clear();
   }
 
-  private normalise(id: ModelId, scene: THREE.Object3D): ModelTemplate {
+  private normalise(id: ModelId, gltf: GLTF, fileUrl: string): ModelTemplate {
     const spec = MODELS[id];
+    const scene = gltf.scene;
     // root: scale + quarter-turn so "front" faces +z, then translate so base sits at y=0 and the
     // footprint centre is at the origin (plus any authored offset from the catalog).
     const root = new THREE.Group();
@@ -94,14 +127,109 @@ export class ModelLibrary {
     scene.position.set(-centre.x + ox, -bounds.min.y + oy, -centre.z + oz);
     root.updateMatrixWorld(true);
 
-    const parts: ModelPart[] = [];
+    // Bake every mesh into model space, grouped by its shared material.
+    const byMaterial = new Map<THREE.Material, THREE.BufferGeometry[]>();
+    const sourceGeometries = new Set<THREE.BufferGeometry>();
     root.traverse((object) => {
       const mesh = object as THREE.Mesh;
       if (!mesh.isMesh) return;
       const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       if (materials.length > 1) console.warn(`[models] ${id}: multi-material mesh, using first material`);
-      parts.push({ geometry: mesh.geometry, material: materials[0], matrix: mesh.matrixWorld.clone() });
+      const material = this.shareMaterial(materials[0], gltf, fileUrl);
+      sourceGeometries.add(mesh.geometry);
+      const geometry = mesh.geometry.clone().applyMatrix4(mesh.matrixWorld);
+      const list = byMaterial.get(material) ?? [];
+      list.push(geometry);
+      byMaterial.set(material, list);
     });
-    return { id, parts, bounds: new THREE.Box3().setFromObject(root) };
+    for (const geometry of sourceGeometries) geometry.dispose();
+
+    const parts: ModelPart[] = [];
+    let triangles = 0;
+    for (const [shared, geometries] of byMaterial) {
+      let material = shared;
+      if (spec.sway) {
+        // Foliage gets a private clone so the wind-sway shader patch never leaks onto shared materials.
+        material = shared.clone();
+        material.name = `${shared.name}:sway:${id}`;
+        applyWindSway(material);
+        this.swayMaterials.add(material);
+      }
+      const geometry = mergeParts(id, geometries);
+      geometry.computeBoundingBox();
+      geometry.computeBoundingSphere();
+      triangles += (geometry.index ? geometry.index.count : geometry.getAttribute('position').count) / 3;
+      parts.push({ geometry, material, matrix: new THREE.Matrix4() });
+    }
+    return { id, parts, bounds, triangles: Math.round(triangles) };
   }
+
+  /** Map a GLTF material onto a shared one (same atlas image + same parameters ⇒ same material). */
+  private shareMaterial(material: THREE.Material, gltf: GLTF, fileUrl: string): THREE.Material {
+    const standard = material as THREE.MeshStandardMaterial;
+    const imageKey = standard.map ? this.imageKey(standard.map, gltf, fileUrl) : 'none';
+    const key = [
+      material.type,
+      imageKey,
+      standard.color?.getHexString() ?? '',
+      standard.emissive?.getHexString() ?? '',
+      standard.metalness ?? '',
+      standard.roughness ?? '',
+      material.transparent,
+      material.opacity,
+      material.side,
+      material.vertexColors,
+      material.alphaTest,
+    ].join('|');
+    const existing = this.materials.get(key);
+    if (existing) return existing;
+    if (standard.map) {
+      const shared = this.textures.get(imageKey);
+      if (shared) {
+        standard.map = shared;
+      } else {
+        standard.map.colorSpace = THREE.SRGBColorSpace;
+        standard.map.anisotropy = ANISOTROPY;
+        standard.map.needsUpdate = true;
+        this.textures.set(imageKey, standard.map);
+      }
+    }
+    this.materials.set(key, material);
+    return material;
+  }
+
+  /** The texture's source image identity: resolved URL for external images, file-scoped for embedded ones. */
+  private imageKey(texture: THREE.Texture, gltf: GLTF, fileUrl: string): string {
+    const mapping = gltf.parser.associations.get(texture) as { textures?: number } | undefined;
+    const json = gltf.parser.json as { textures?: Array<{ source?: number }>; images?: Array<{ uri?: string }> };
+    if (mapping?.textures !== undefined) {
+      const source = json.textures?.[mapping.textures]?.source;
+      if (source !== undefined) {
+        const uri = json.images?.[source]?.uri;
+        if (uri && !uri.startsWith('data:')) return new URL(uri, new URL(fileUrl, window.location.href)).href;
+        return `${fileUrl}#image${source}`;
+      }
+    }
+    return `${fileUrl}#texture:${texture.uuid}`;
+  }
+}
+
+/** Merge same-material geometries of one model into one (attributes reduced to the common set). */
+function mergeParts(id: ModelId, geometries: THREE.BufferGeometry[]): THREE.BufferGeometry {
+  if (geometries.length === 1) return geometries[0];
+  const common = Object.keys(geometries[0].attributes).filter((name) => geometries.every((g) => g.getAttribute(name)));
+  const allIndexed = geometries.every((g) => g.index);
+  const prepared = geometries.map((g) => {
+    const source = allIndexed || !g.index ? g : g.toNonIndexed();
+    for (const name of Object.keys(source.attributes)) if (!common.includes(name)) source.deleteAttribute(name);
+    source.morphAttributes = {};
+    return source;
+  });
+  const merged = mergeGeometries(prepared, false);
+  if (!merged) {
+    console.warn(`[models] ${id}: could not merge meshes, keeping the first only`);
+    return prepared[0];
+  }
+  for (const g of new Set([...geometries, ...prepared])) g.dispose();
+  return merged;
 }
