@@ -51,8 +51,8 @@ export const MODELS = {
   'townhouse-c-alt': M('/assets/models/suburban/building-type-c.glb', 0.78, 2),
   garage: M('/assets/models/composed/garage.glb', 0.78, 2),
   'bus-stop': M('/assets/models/composed/bus-stop.glb', 1, 2),
-  // M1 (WP-03): 1.7× so it reads as a pillar box, not a red dot (0.18 × 0.29 tall).
-  postbox: M('/assets/models/composed/postbox.glb', 1.7, 2),
+  // M1/fix2 (WP-03): 2× so it reads as a pillar box at default zoom, not a red dot (0.21 × 0.34 tall).
+  postbox: M('/assets/models/composed/postbox.glb', 2, 2),
   // Pole is at the native origin; the arm overhangs −Z. Bounds-centring moved the pole 0.078 off-centre;
   // the offset puts it back mid-cell (WP-03, measured: pole base z -0.101..-0.056 at scale 0.9, i.e.
   // 0.0867 × scale). M1: scale 1.35 (0.91 tall, eave height) so it reads as a lamp at default zoom.
