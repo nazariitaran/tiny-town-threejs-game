@@ -9,7 +9,7 @@
  * (strokeIndex > 0) counts drop so a 30-tile road stays readable rather than a sandstorm.
  *
  * Two pools ⇒ two draw calls: `solid` (lit dust puffs, chips, leaves, petals share one
- * low-poly mesh) and `glint` (unlit additive sparkles).
+ * low-poly mesh) and `glint` (unlit gold sparkles).
  *
  * WP-08 (Feel & VFX).
  */
@@ -40,13 +40,13 @@ export const PALETTES = {
   dustNature: [hex(0xe9e3c6), hex(0xdce4b8)],
   dustBuild: [hex(0xf5ecda), hex(0xe8ddc5), hex(0xfcf8ee)],
   poof: [hex(0xdcd6cc), hex(0xcbc4ba), hex(0xefeae2)],
-  leaves: [hex(0x5cb85c), hex(0x4ab480), hex(0x86d160), hex(0x3da679)],
+  leaves: [hex(0x7fd35a), hex(0xa8e063), hex(0x5cb85c), hex(0xd8e86a)],
   petals: [hex(0xff9ec7), hex(0xffe066), hex(0xffffff), hex(0xc9a7ff)],
   debrisBuild: [hex(0xc8674f), hex(0x8a5a3c), hex(0xf2efe8), hex(0x5f6b7a)],
   debrisPath: [hex(0x7d8190), hex(0xa0a8c9), hex(0x5d6070)],
   debrisFence: [hex(0xb98a5a), hex(0xf2efe8), hex(0x8a6a4a)],
   debrisProp: [hex(0x7a7f88), hex(0xc7433a), hex(0x3a3d44)],
-  glint: [hex(0xfff3b0), hex(0xffffff), hex(0xffd66b)],
+  glint: [hex(0xffe27a), hex(0xfff4c2), hex(0xffd04d)],
 } as const satisfies Record<string, readonly Rgb[]>;
 
 interface Burst {
@@ -137,7 +137,7 @@ const dust = (count: number, radius: number, size: Range, palette: readonly Rgb[
 });
 
 const flakes = (count: number, y: Range, palette: readonly Rgb[], up: Range = [0.9, 1.4]): Burst => ({
-  count, radius: 0.12, radiusJitter: 0.16, y, speed: [0.3, 0.75], up, size: [0.035, 0.05], life: [0.9, 1.25],
+  count, radius: 0.16, radiusJitter: 0.18, y, speed: [0.35, 0.8], up, size: [0.05, 0.07], life: [0.9, 1.25],
   gravity: 2.2, drag: 2.4, spin: [6, 11], flat: 0.22, curve: Curve.Chip, palette,
 });
 
@@ -147,8 +147,8 @@ const debris = (count: number, palette: readonly Rgb[], y: Range = [0.1, 0.3], s
 });
 
 const sparkleRing = (count: number, radius: number, delay: Range): Burst => ({
-  count, radius, radiusJitter: 0.06, y: [0.3, 0.7], speed: [0.02, 0.08], up: [0.25, 0.45], size: [0.035, 0.055],
-  life: [0.55, 0.8], gravity: -0.1, drag: 1, flat: 1.8, delay, curve: Curve.Glint, palette: PALETTES.glint,
+  count, radius, radiusJitter: 0.06, y: [0.3, 0.7], speed: [0.02, 0.08], up: [0.25, 0.45], size: [0.06, 0.085],
+  life: [0.6, 0.85], gravity: -0.1, drag: 1, flat: 1.8, delay, curve: Curve.Glint, palette: PALETTES.glint,
 });
 
 const poof = (count: number, size: Range): Burst => ({
@@ -163,37 +163,37 @@ export function emitPlaced(pools: FxPools, rng: () => number, id: string, x: num
   const n = (base: number, min = 1) => strokeCount(base, strokeIndex, min);
   switch (classify(id)) {
     case 'road':
-      emitBurst(pools.solid, rng, x, z, dust(n(6, 2), 0.4, [0.05, 0.08], PALETTES.dustRoad));
+      emitBurst(pools.solid, rng, x, z, dust(n(6, 2), 0.4, [0.07, 0.11], PALETTES.dustRoad));
       return;
     case 'path':
-      emitBurst(pools.solid, rng, x, z, dust(n(6, 2), 0.4, [0.045, 0.075], PALETTES.dustPath));
+      emitBurst(pools.solid, rng, x, z, dust(n(6, 2), 0.4, [0.065, 0.1], PALETTES.dustPath));
       return;
     case 'lawn':
-      emitBurst(pools.solid, rng, x, z, dust(n(3, 1), 0.3, [0.04, 0.06], PALETTES.dustNature));
+      emitBurst(pools.solid, rng, x, z, dust(n(3, 1), 0.3, [0.06, 0.09], PALETTES.dustNature));
       emitBurst(pools.solid, rng, x, z, flakes(n(5, 2), [0.06, 0.12], PALETTES.leaves));
       return;
     case 'meadow':
-      emitBurst(pools.solid, rng, x, z, dust(n(3, 1), 0.3, [0.04, 0.06], PALETTES.dustNature));
+      emitBurst(pools.solid, rng, x, z, dust(n(3, 1), 0.3, [0.06, 0.09], PALETTES.dustNature));
       emitBurst(pools.solid, rng, x, z, flakes(n(6, 2), [0.08, 0.16], PALETTES.petals, [1.1, 1.6]));
       return;
     case 'tree':
-      emitBurst(pools.solid, rng, x, z, dust(n(5, 2), 0.22, [0.05, 0.08], PALETTES.dustNature));
+      emitBurst(pools.solid, rng, x, z, dust(n(5, 2), 0.24, [0.07, 0.11], PALETTES.dustNature));
       emitBurst(pools.solid, rng, x, z, flakes(n(9, 3), [0.42, 0.6], PALETTES.leaves, [0.3, 0.8]));
       return;
     case 'building':
-      emitBurst(pools.solid, rng, x, z, dust(14, 0.46, [0.08, 0.13], PALETTES.dustBuild, [0.9, 1.4]));
-      emitBurst(pools.solid, rng, x, z, debris(4, PALETTES.debrisBuild, [0.05, 0.15]));
+      emitBurst(pools.solid, rng, x, z, dust(14, 0.46, [0.12, 0.18], PALETTES.dustBuild, [0.9, 1.4]));
+      emitBurst(pools.solid, rng, x, z, debris(5, PALETTES.debrisBuild, [0.05, 0.15], [0.04, 0.06]));
       emitBurst(pools.glint, rng, x, z, sparkleRing(10, 0.5, [0.16, 0.3]));
       return;
     case 'small-building':
-      emitBurst(pools.solid, rng, x, z, dust(10, 0.4, [0.06, 0.1], PALETTES.dustBuild, [0.8, 1.2]));
+      emitBurst(pools.solid, rng, x, z, dust(10, 0.4, [0.09, 0.14], PALETTES.dustBuild, [0.8, 1.2]));
       emitBurst(pools.glint, rng, x, z, sparkleRing(7, 0.42, [0.16, 0.28]), 0.8);
       return;
     case 'fence':
-      emitBurst(pools.solid, rng, x, z, dust(n(4, 2), 0.28, [0.04, 0.06], PALETTES.dustPath));
+      emitBurst(pools.solid, rng, x, z, dust(n(4, 2), 0.28, [0.06, 0.09], PALETTES.dustPath));
       return;
     case 'prop':
-      emitBurst(pools.solid, rng, x, z, dust(n(6, 3), 0.22, [0.05, 0.08], PALETTES.dustPath));
+      emitBurst(pools.solid, rng, x, z, dust(n(6, 3), 0.22, [0.07, 0.1], PALETTES.dustPath));
       emitBurst(pools.glint, rng, x, z, sparkleRing(n(3, 2), 0.18, [0.12, 0.2]), 0.7);
       return;
   }
@@ -215,34 +215,34 @@ export function emitRemoved(
     case 'building':
     case 'small-building': {
       const big = fxClass === 'building';
-      emitBurst(pools.solid, rng, x, z, poof(big ? 14 : 10, big ? [0.1, 0.16] : [0.08, 0.12]));
+      emitBurst(pools.solid, rng, x, z, poof(big ? 14 : 10, big ? [0.13, 0.2] : [0.1, 0.15]));
       emitBurst(pools.solid, rng, x, z, debris(big ? 8 : 5, PALETTES.debrisBuild, [0.2, 0.45], [0.035, 0.06]));
       return;
     }
     case 'tree':
-      emitBurst(pools.solid, rng, x, z, poof(n(7, 3), [0.07, 0.11]));
+      emitBurst(pools.solid, rng, x, z, poof(n(7, 3), [0.09, 0.14]));
       emitBurst(pools.solid, rng, x, z, flakes(n(10, 4), [0.35, 0.6], PALETTES.leaves, [0.5, 1.1]));
       emitBurst(pools.solid, rng, x, z, debris(n(2, 1), PALETTES.debrisFence));
       return;
     case 'prop':
-      emitBurst(pools.solid, rng, x, z, poof(n(6, 3), [0.06, 0.09]));
+      emitBurst(pools.solid, rng, x, z, poof(n(6, 3), [0.08, 0.12]));
       emitBurst(pools.solid, rng, x, z, debris(n(4, 2), PALETTES.debrisProp));
       return;
     case 'fence':
-      emitBurst(pools.solid, rng, x, z, poof(n(4, 2), [0.05, 0.08]));
+      emitBurst(pools.solid, rng, x, z, poof(n(4, 2), [0.07, 0.1]));
       emitBurst(pools.solid, rng, x, z, debris(n(5, 2), PALETTES.debrisFence, [0.1, 0.3], [0.025, 0.04]));
       return;
     case 'lawn':
-      emitBurst(pools.solid, rng, x, z, poof(n(3, 1), [0.045, 0.07]));
+      emitBurst(pools.solid, rng, x, z, poof(n(3, 1), [0.06, 0.09]));
       emitBurst(pools.solid, rng, x, z, flakes(n(5, 2), [0.05, 0.1], PALETTES.leaves));
       return;
     case 'meadow':
-      emitBurst(pools.solid, rng, x, z, poof(n(3, 1), [0.045, 0.07]));
+      emitBurst(pools.solid, rng, x, z, poof(n(3, 1), [0.06, 0.09]));
       emitBurst(pools.solid, rng, x, z, flakes(n(6, 2), [0.06, 0.12], PALETTES.petals));
       return;
     case 'road':
     case 'path':
-      emitBurst(pools.solid, rng, x, z, poof(n(4, 2), [0.05, 0.08]));
+      emitBurst(pools.solid, rng, x, z, poof(n(4, 2), [0.07, 0.1]));
       emitBurst(pools.solid, rng, x, z, debris(n(4, 2), PALETTES.debrisPath, [0.04, 0.1], [0.03, 0.045]));
       return;
   }

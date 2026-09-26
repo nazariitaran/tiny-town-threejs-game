@@ -105,21 +105,14 @@ export class PlacementFx {
       new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true }),
       SOLID_CAPACITY,
     );
-    // Glint: unlit additive diamonds for the "building complete" sparkle ring.
+    // Glint: unlit gold diamonds for the "building complete" sparkle ring.
     this.glintMesh = this.createMesh(
       'fx:glint',
       new THREE.OctahedronGeometry(1, 0),
-      new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.95,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        toneMapped: false,
-      }),
+      // Opaque and un-tonemapped: additive washed out to white against the bright field.
+      new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }),
       GLINT_CAPACITY,
     );
-    this.glintMesh.renderOrder = 2;
 
     this.unsubscribers.push(
       bus.on('build:placed', ({ toolId, worldX, worldZ, strokeIndex }) => {
