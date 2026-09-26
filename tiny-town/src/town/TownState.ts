@@ -2,8 +2,8 @@
  * Authoritative town data store. Pure (no three.js). It stores and applies
  * changes; it does NOT decide whether a change is allowed — that is rules.ts.
  *
- * Implemented in the scaffold so every workstream has a working store to test
- * against. WP-02 owns this file from here on (extend, don't rewrite the API).
+ * WP-02 owns this file (extend, don't rewrite the API). Only TownEditor calls the
+ * mutating methods (applyChanges / clear / restoreNextObjectId / allocateObjectId).
  */
 import { cellKey, edgeKey, footprintCells } from './grid';
 import { objectDef } from '../catalog/objects';
@@ -75,6 +75,16 @@ export class TownState implements TownStateReader {
     this.nextId = Math.max(this.nextId, value);
   }
 
+  /**
+   * Set the id counter exactly (used when loading a save), but never below
+   * (highest live id + 1), so ids stay unique.
+   */
+  restoreNextObjectId(value: number): void {
+    let floor = 1;
+    for (const id of this.objectsById.keys()) floor = Math.max(floor, id + 1);
+    this.nextId = Math.max(floor, Math.floor(value));
+  }
+
   /** Apply already-validated changes in order. Throws on inconsistent input (a bug upstream). */
   applyChanges(changes: readonly TownChange[]): void {
     for (const change of changes) {
@@ -97,7 +107,10 @@ export class TownState implements TownStateReader {
     }
   }
 
-  /** Clear everything back to an empty field. Returns the changes that did it (for renderer/history). */
+  /**
+   * Clear everything back to an empty field and restart object ids at 1 (so rebuilt demo towns
+   * are id-for-id deterministic). Returns the changes that did it (for the renderer).
+   */
   clear(): TownChange[] {
     const changes: TownChange[] = [];
     for (const object of this.objectsById.values()) changes.push({ layer: 'object', op: 'remove', object });
@@ -109,6 +122,7 @@ export class TownState implements TownStateReader {
       }
     }
     this.applyChanges(changes);
+    this.nextId = 1;
     return changes;
   }
 

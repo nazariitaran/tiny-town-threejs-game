@@ -2,27 +2,44 @@
  * Deterministic demo layout used by the 'sample-town' / 'active-play' test states
  * (screenshots, perf baselines) and a future "Load example town" menu item.
  * Uses only real BuildActions through the editor, so it also exercises the rules.
- * WP-02 owns this file; keep it using every tool at least once.
+ * WP-02 owns this file; keep buildSampleTown using every placing tool at least once with ZERO
+ * rejections (sampleTown.test.ts asserts it).
+ *
+ * All builders queue their actions and apply them with `editor.applyBatch(items, { silent: true })`:
+ * one town:changed, one undo entry, and no per-item build:* events (no sound/FX spam).
  */
 import type { ToolId } from '../catalog/tools';
-import type { TownEditor } from './TownEditor';
+import type { BatchItem, TownEditor } from './TownEditor';
 import type { BuildAction, Rotation } from './types';
 
-export function buildSampleTown(editor: TownEditor): { applied: number; rejected: string[] } {
-  const rejected: string[] = [];
-  let applied = 0;
-  const run = (toolId: ToolId, action: BuildAction) => {
-    const result = editor.apply(action, toolId);
-    if (result.ok) applied += 1;
-    else rejected.push(`${toolId}@${JSON.stringify(action)}: ${result.message}`);
+export interface DemoTownResult {
+  applied: number;
+  /** Human-readable description of each rejected action (empty for a correct layout). */
+  rejected: string[];
+}
+
+/** Collects actions, then applies them as one silent batch. */
+function demoBuilder(editor: TownEditor, describe: (item: BatchItem) => string) {
+  const items: BatchItem[] = [];
+  return {
+    run: (toolId: ToolId, action: BuildAction): void => {
+      items.push({ toolId, action });
+    },
+    commit: (): DemoTownResult => {
+      const result = editor.applyBatch(items, { silent: true });
+      return { applied: result.applied, rejected: result.rejected.map((r) => `${describe(r.item)}: ${r.message || r.reason}`) };
+    },
   };
+}
+
+export function buildSampleTown(editor: TownEditor): DemoTownResult {
+  const { run, commit } = demoBuilder(editor, (item) => `${item.toolId}@${JSON.stringify(item.action)}`);
   const paint = (kind: 'road' | 'pavement' | 'walkway' | 'grass' | 'meadow', x0: number, z0: number, x1: number, z1: number) => {
     for (let z = z0; z <= z1; z += 1) for (let x = x0; x <= x1; x += 1) run(kind, { type: 'paint-ground', kind, cell: { x, z } });
   };
   const place = (kind: Extract<ToolId, `tree-${string}` | `townhouse-${string}` | 'garage' | 'bus-stop' | 'postbox' | 'lamppost'>, x: number, z: number, rotation: Rotation = 0) =>
     run(kind, { type: 'place-object', kind, cell: { x, z }, rotation });
 
-  editor.beginStroke();
   // Main street (east–west) and a side street (north–south) meeting in a T and a crossroads.
   paint('road', 2, 12, 21, 12);
   paint('road', 11, 4, 11, 11);
@@ -56,9 +73,8 @@ export function buildSampleTown(editor: TownEditor): { applied: number; rejected
   place('tree-b', 15, 19);
   for (let x = 3; x <= 9; x += 1) run('fence-small', { type: 'place-edge', kind: 'fence-small', edge: { x, z: 7, side: 'n' } });
   for (let z = 14; z <= 17; z += 1) run('fence-tall', { type: 'place-edge', kind: 'fence-tall', edge: { x: 21, z, side: 'w' } });
-  editor.endStroke();
 
-  return { applied, rejected };
+  return commit();
 }
 
 /**
@@ -68,16 +84,9 @@ export function buildSampleTown(editor: TownEditor): { applied: number; rejected
  * Layout (z): road clusters centred at z = 1, 5, 9 (mask = row * 6 + column, column x = 1 + 4c);
  * objects at z = 12 and 16; ground swatches + fences at z = 21.
  */
-export function buildAssetGallery(editor: TownEditor): { applied: number; rejected: string[] } {
-  const rejected: string[] = [];
-  let applied = 0;
-  const run = (toolId: ToolId, action: BuildAction) => {
-    const result = editor.apply(action, toolId);
-    if (result.ok) applied += 1;
-    else rejected.push(`${toolId}: ${result.message}`);
-  };
+export function buildAssetGallery(editor: TownEditor): DemoTownResult {
+  const { run, commit } = demoBuilder(editor, (item) => item.toolId);
   const road = (x: number, z: number) => run('road', { type: 'paint-ground', kind: 'road', cell: { x, z } });
-  editor.beginStroke();
   // 16 masks: a centre cell at (cx, cz) with arms N/E/S/W according to the mask bits.
   for (let mask = 0; mask < 16; mask += 1) {
     const cx = 1 + (mask % 6) * 4;
@@ -101,23 +110,15 @@ export function buildAssetGallery(editor: TownEditor): { applied: number; reject
   }
   for (let x = 14; x <= 17; x += 1) run('fence-small', { type: 'place-edge', kind: 'fence-small', edge: { x, z: 21, side: 'n' } });
   for (let x = 18; x <= 21; x += 1) run('fence-tall', { type: 'place-edge', kind: 'fence-tall', edge: { x, z: 21, side: 'n' } });
-  editor.endStroke();
-  return { applied, rejected };
+  return commit();
 }
 
 /** A dense, fully built plot for performance budgets (every cell used). Deterministic. */
-export function buildStressTown(editor: TownEditor): { applied: number; rejected: string[] } {
-  const rejected: string[] = [];
-  let applied = 0;
-  const run = (toolId: ToolId, action: BuildAction) => {
-    const result = editor.apply(action, toolId);
-    if (result.ok) applied += 1;
-    else rejected.push(`${toolId}: ${result.message}`);
-  };
+export function buildStressTown(editor: TownEditor): DemoTownResult {
+  const { run, commit } = demoBuilder(editor, (item) => item.toolId);
   const { width, depth } = editor.state;
   const houses = ['townhouse-a', 'townhouse-b', 'townhouse-c', 'garage'] as const;
   const trees = ['tree-a', 'tree-b', 'tree-c'] as const;
-  editor.beginStroke();
   for (let z = 0; z < depth; z += 1) {
     for (let x = 0; x < width; x += 1) {
       const cell = { x, z };
@@ -128,6 +129,5 @@ export function buildStressTown(editor: TownEditor): { applied: number; rejected
     }
   }
   for (let x = 0; x < width; x += 1) run('fence-small', { type: 'place-edge', kind: 'fence-small', edge: { x, z: 0, side: 'n' } });
-  editor.endStroke();
-  return { applied, rejected };
+  return commit();
 }
