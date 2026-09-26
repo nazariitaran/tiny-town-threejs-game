@@ -25,9 +25,9 @@ Worktrees live in `<repo-parent>/ThreeJsGames-wt/<wp>`, branched from `9a4e084`.
 | WP-06 UI | ✅ merged (df3ed58) | `wp-06-ui` | `wp-06` | 5206 | full UI states, Nunito, SVG glyphs, StatsHud; digits 1–9 tools, Shift+1–4 categories (accepted) |
 | WP-07 Audio | ✅ merged (bf55f1d + fix 8e6eae3) | `wp-07-audio` | `wp-07` | 5207 | all SFX rebuilt, metal prop sound, stroke pitch rise; fix-up: mute test asserts aria-pressed. Local shims in AudioManager can now go |
 | WP-09a QA harness | ✅ merged (81d8a97) | `wp-09a-qa` | `wp-09a` | 5209 | smoke + build-flow specs, tests/helpers.ts; main e2e 10/10 after merge. Templates annotated, not deleted (left for 09b) |
-| WP-08 Feel & VFX | ⬜ wave 2 | | | 5208 | |
-| WP-09b Baselines + bot | ⬜ wave 2 | | | 5210 | |
-| WP-10 Ambient life | ⬜ stretch, wave 2 | | | 5211 | |
+| WP-08 Feel & VFX | 🔄 running (wave 2) | `wp-08-fx` | `wp-08` | 5208 | |
+| WP-09b Baselines + bot | 🔄 running (wave 2) | `wp-09b-qa` | `wp-09b` | 5210 | bot first; baselines NOT committed until fix-ups merge |
+| WP-10 Ambient life | ⏸ held | | | 5211 | stretch; starts after the M1 fix-ups merge, if they land cleanly |
 | WP-11 Release | ⬜ wave 3 | | | 5212 | |
 
 ## M0 preflight evidence (run id m0, desktop, real GPU: ANGLE Metal / Apple M2 Max, softwareRendered false)
@@ -46,7 +46,7 @@ No console/page errors. No blockers. Cosmetic observations routed to owners: som
 - Mobile journey uses the mouse, not touch; a touch variant goes to WP-05/09b.
 
 ## M1 checkpoint (in progress)
-Contract requests applied in commit after the Wave-1 merges: sfx `place-prop-metal`, gen-sfx `playbackRate`, CREDITS audio rows, Game.ts SaveStore wiring (autosave, Continue, camera pose, pagehide flush, grid setting, settings → AudioManager, autosave off in setState), `TownRenderer.settle()` on setState/reduced motion, diagnostics `save`. Scorecard + friction: `docs/checkpoints/m1.md` (avg 1.85). Independent reviewer running.
+Contract requests applied in commit after the Wave-1 merges: sfx `place-prop-metal`, gen-sfx `playbackRate`, CREDITS audio rows, Game.ts SaveStore wiring (autosave, Continue, camera pose, pagehide flush, grid setting, settings → AudioManager, autosave off in setState), `TownRenderer.settle()` on setState/reduced motion, diagnostics `save`. Scorecard + friction: `docs/checkpoints/m1.md` (avg 1.85). Independent reviewer: avg 1.6 (see m1.md). Fix-ups dispatched to WP-03/04/05/06/07 on their existing branches (fix1), in parallel with Wave 2 (WP-08, WP-09b). Worktrees wp-02 and wp-09a removed, branches deleted.
 
 ## Pending integrator work for M1 (collected contract requests) — DONE
 - WP-02 → Game.ts SaveStore wiring: `hasSave: () => saves.has()`; `saves.attachAutosave(bus, () => editor.serialize(camera.getPose()))`; Continue → `editor.load(saves.read())`; `saves.flush()` on pagehide; `saves.autosaveEnabled = false` inside `setState`. Optional: `save` diagnostics (`pending`, `lastError`) in vite-env.d.ts; drop unused `'edge-occupied'` from InvalidReason in types.ts.
