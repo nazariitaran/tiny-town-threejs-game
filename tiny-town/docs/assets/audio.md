@@ -1,46 +1,64 @@
 # Audio (SFX) manifest
 
-All sounds come from Kenney.nl audio packs, which are **CC0** (public domain, so attribution is optional; we credit anyway in `CREDITS.md`). The machine-readable version is `docs/assets/audio.json`.
+All sounds come from Kenney.nl audio packs, which are **CC0** (public domain, so attribution is optional; we credit anyway in `CREDITS.md`). The machine-readable version is `docs/assets/audio.json`, and `npm run gen:sfx` turns it into `src/audio/sfxTable.ts`.
 
 - Format: MP3 (libmp3lame VBR `-q:a 4`), mono, 44.1 kHz. Kenney ships `.ogg`, but Safari's Web Audio support for Ogg Vorbis is unreliable, so everything is transcoded.
-- Total payload: **21 files, ~51 KB**.
-- Groups: `ui` (menus/toolbar) and `sfx` (world actions). UI sounds are mastered roughly 5–10 dB quieter than placement sounds, and their `suggestedVolume` in `audio.json` is lower too.
+- Total payload: **23 files, ~52 KB**.
+- Groups: `ui` (menus/toolbar) and `sfx` (world actions), both under one master gain (mute/volume).
+- Build script: **`docs/assets/audio.build.py`** (versioned; see "Processing"). WP-07 rebuilt every file with it.
 
-These were chosen by name, pack description and measurement. Nobody has listened to them yet, so play each one in the game before calling it final (see "Weak fits").
+## Event → file table (WP-07)
 
-## Event → file table
+Loudness is **one-shot LUFS**: the highest EBU R128 momentary (400 ms) loudness, measured with 0.6 s of silence padded on. For sounds shorter than 400 ms, this is the loudness of the whole hit. Standard integrated LUFS isn't meaningful for such short sounds. Peak is true peak in dBTP. All numbers are re-measured on the final MP3.
 
-Loudness is **one-shot LUFS**: the highest EBU R128 momentary (400 ms) loudness, measured with 0.6 s of silence padded on. For a sound shorter than 400 ms this is its total loudness, and it doesn't depend on tail length. Standard "integrated" LUFS isn't meaningful for sounds shorter than 400 ms. Peak is true peak in dBTP.
-
-| Event | File(s) | Source (Kenney pack / file) | Dur (ms) | Peak dBTP | LUFS (1-shot) | Why |
+| Event | File(s) | Source (Kenney pack / file, layers) | Dur (ms) | Peak dBTP | LUFS (1-shot) | Notes |
 |---|---|---|---|---|---|---|
-| `ui-hover` | `ui-hover-1.mp3`, `ui-hover-2.mp3` | UI Audio / `rollover2`, `rollover5` | 54, 109 | −2.4, −6.0 | −32.1, −32.0 | Kenney's purpose-made "rollover" ticks. These two have the lowest spectral centroid (~3 kHz), so they're the least bright. Mastered as the quietest sounds in the set. |
-| `ui-click` | `ui-click.mp3` | Interface Sounds / `click_001` | 97 | −1.7 | −31.9 | Soft, short mouse-style click (~20 ms body) with a darker spectrum than the other clicks (~2.8 kHz). |
-| `ui-open` | `ui-open.mp3` | Interface Sounds / `maximize_008` | 225 | −13.9 | −29.0 | A low (~400 Hz centroid) rising "maximize" swoosh that works well for opening a drawer. It is paired with `ui-close`. |
-| `ui-close` | `ui-close.mp3` | Interface Sounds / `minimize_008` | 211 | −14.0 | −29.0 | The matching falling counterpart of `maximize_008`. |
-| `place-path` | `place-path-1..3.mp3` | Impact Sounds / `impactGeneric_light_000/001/002` | 161, 115, 161 | −1.9, −2.0, −1.9 | −25.9, −28.2, −27.2 | Short, soft, low (~550–660 Hz centroid) generic taps that suit slabs or tarmac being laid. At about 115–160 ms they stay short enough for drag-painting. |
-| `place-nature` | `place-nature-1..3.mp3` | Impact Sounds / `footstep_grass_000/001/003` + Interface Sounds / `drop_003` layered at −6 dB | 447 each | −2.1, −2.0, −2.0 | −27.3, −26.1, −27.3 | Grass footsteps give a soft rustle. A quiet "drop" bloop is mixed in for a small pop. Each is trimmed to 0.45 s with a 180 ms fade-out. |
-| `place-building` | `place-building-1..3.mp3` | Impact Sounds / `impactWood_heavy_000/002/004` | 310 each | −2.0 | −23.7, −23.8, −23.7 | Deep (~200 Hz centroid) wooden thunks, for the "solid, satisfying" drop of a building. |
-| `place-prop` | `place-prop-1..2.mp3` | Impact Sounds / `impactWood_light_000/002` | 263 each | −2.0, −1.8 | −25.4, −25.2 | Small, light wooden knocks for small props. |
-| `rotate` | `rotate.mp3` | Interface Sounds / `tick_004` | 55 | −3.2 | −24.0 | A quick tick. It's very short, so rapid rotations don't smear together. |
-| `remove` | `remove-1..2.mp3` | Impact Sounds / `footstep_snow_001/002` | 371 each | −2.0 | −19.5, −19.4 | Soft granular crunch (~900–1000 Hz centroid), a "crunch/poof" without a harsh destruction sound. |
-| `invalid` | `invalid.mp3` | Interface Sounds / `bong_001` | 120 | −5.3 | −27.0 | A low (~500 Hz), short, soft "bong". It's gentler than Kenney's `error_*` buzzers and has a 250 ms cooldown. |
-| `undo` / `redo` | `undo-redo.mp3` (shared) | Interface Sounds / `back_004` | 94 | −5.1 | −29.0 | Soft "back" blip. **One file serves both events:** play `undo` at `playbackRate ≈ 0.89` and `redo` at `≈ 1.12`. This is recorded per event in `audio.json`. |
+| `ui-hover` | `ui-hover-1/2.mp3` | UI Audio / `rollover2`, `rollover5` | 53, 106 | −2.3, −6.6 | −32.1, −32.0 | Unchanged choice. Nothing emits it yet (WP-06 owns hover). |
+| `ui-click` | `ui-click.mp3` | Interface Sounds / `click_001` | 95 | −1.6 | −30.0 | Unchanged choice. Now hits its −30 target (the old build missed by 2 dB). |
+| `ui-open` / `ui-close` | `ui-open.mp3`, `ui-close.mp3` | Interface Sounds / `maximize_008`, `minimize_008` | 211, 210 | −13.9 | −29.0 | Unchanged. Nothing emits them yet (WP-06). |
+| `place-path` | `place-path-1..3.mp3` | Impact Sounds / `impactGeneric_light_000/001/002` | 159, 115, 161 | −2.0 | −25.1, −25.0, −25.2 | Kept. The three variants now match within 0.2 LU (they were spread over 2.3 LU), and there's no sub-bass or end click. |
+| `place-nature` | `place-nature-1..3.mp3` | `footstep_grass_000/001/003` + `drop_003` @ −6 dB | 171, 168, 158 | −2.0 | −25.8, −24.6, −25.6 | Kept. The `drop_003` layer is cut at 188 ms and used to leave an audible tick about 185 ms in. It now fades out. The trailing silence padding is trimmed (447 → ~165 ms). |
+| `place-building` | `place-building-1..3.mp3` | `impactWood_heavy_000/002/004` + `impactWood_light_001/003/004` + `impactPlank_medium_000/002/003` @ −6 dB | 310 | −2.0 to −3.9 | −23.6, −23.0, −23.7 | **Reworked.** The heavy thunk alone had its spectral centroid at 70–110 Hz, which is almost inaudible on laptop/phone speakers (−41 to −46 LUFS above 250 Hz). A light wood knock and a quiet plank clatter now sit on top, which gives +10 to +14 dB above 250 Hz (−30 to −31.5). The file is high-passed at 80 Hz. |
+| `place-prop` | `place-prop-1/2.mp3` | Impact Sounds / `impactWood_light_000/002` | 260 | −2.0 | −25.1, −25.2 | Kept for **fences** (wood on wood suits them). |
+| `place-prop-metal` *(new)* | `place-prop-metal-1/2.mp3` | `impactMetal_light_001/004` + `impactWood_light_000/002` @ −6 dB, 0.22 s cap | 177, 162 | −4.9, −3.5 | −25.0 | **New:** a short metal clink with a small wooden body for the **lamppost and postbox**. The ring is trimmed so it doesn't hang. Needs the contract change (see below); `AudioManager` shims it meanwhile. |
+| `rotate` | `rotate.mp3` | RPG Audio / `cloth2`, trimmed to 0.2 s | 191 | −6.2 | −28.0 | **Swapped.** The old `tick_004` source is truncated mid-transient: its peak is at 49 ms of 55, and it ends on a −0.17 sample, which is a click. It's replaced by a soft cloth swish, trimmed to start on the swish (−20 dB rel.) and kept quieter than placements. |
+| `remove` | `remove-1/2.mp3` | `footstep_snow_001/002` + `impactPlank_medium_001/002` @ −5 dB | 382, 370 | −4.6, −5.3 | −24.1, −24.0 | **Reworked.** The snow crunch is kept (cosy) with a wooden plank clatter under it for "demolition" weight. The level drops 5 LU (it was the loudest sound in the game, 4 LU above building placement). At runtime the pitch varies by layer: object 0.92×, edge 1×, ground 1.06×. |
+| `invalid` | `invalid.mp3` | Interface Sounds / `bong_001` | 119 | −4.8 | −26.0 | Kept, raised 1 LU. It's a 230 Hz bong, so it stays gentle on small speakers. |
+| `undo` / `redo` | `undo-redo.mp3` (shared) | Interface Sounds / `back_004` | 89 | −5.2 | −29.0 | Kept. One file serves both: `undo` plays at 0.89× and `redo` at 1.12× (`playbackRate` in `audio.json`; `AudioManager` shims it until `gen:sfx` emits it). |
 
-Measured ranges:
-- UI group: −32 to −27 LUFS (one-shot).
-- SFX group: −28 to −19 LUFS (one-shot).
-- True peak: every file is between −14.0 and −1.7 dBTP. None clip, none are silent (mean volume −27 to −17 dB), and none have leading silence (checked with `silencedetect` at −45 dB).
-- Longest file: 447 ms.
+Suggested per-event runtime gain (`suggestedVolume`): UI 0.35–0.6; SFX 0.6–1.0. Building went from 0.9 to **1.0** and remove from 0.85 to **0.75**, so a new building is the loudest thing you do. These reach the game only after `npm run gen:sfx`.
 
-### Suggested playback settings (also in `audio.json`)
-- `pitchJitter` is the ± fraction applied to `playbackRate` per play. For example, 0.07 means a random rate in [0.93, 1.07]. Use it together with random variant selection. Drag-painting events have the highest jitter (path 0.07, nature 0.08).
-- `cooldownMs` is the minimum gap before the same event plays again. It's 45 ms for `place-path` so drag-painting doesn't machine-gun, and 250 ms for `invalid` so it can't be spammed.
-- `suggestedVolume` is a per-event gain on top of the mastered level. UI events use 0.35–0.6, SFX use 0.6–0.9.
+### Every file, all events
+- Leading silence is trimmed, with a 2 ms fade-in over the pre-roll. There's an 8 ms fade-out at the end and on every mixed layer, so no file or layer ends on a non-zero sample. Every final file ends within ±0.0005 of zero; before this, `rotate` ended at −0.105, `place-path-2` at −0.025 and `place-building-2` at −0.016.
+- A 40 Hz high-pass (80 Hz for building) removes inaudible sub-bass. Before this, 10–22% of the energy in the building and path files was below 40 Hz, and it set the limiter's peaks.
+- Several SFX (path, nature, prop) still land about 4 LU under their −21 target. Kenney impacts are one transient, and the script allows at most 4 dB of limiting rather than squashing the attack. The table lists what they actually measure.
+
+## Listening test (WP-07)
+
+**Caveat:** the WP-07 agent can't hear audio. The "listen test" was therefore done by capturing **the game's actual Web Audio output** during a real-input playtest, then judging it by waveform, spectrogram, level and playback-rate measurements. The files were also compared before and after. A human ear pass is still recommended; it takes about 20 s with `artifacts/wp-07/playtest-audio.wav`.
+
+How the capture works: Playwright launches full Chromium and patches `AudioContext` so that everything connected to `destination` is also recorded by `MediaRecorder`, and every `AudioBufferSourceNode.start()` is logged with its `playbackRate`. It then plays through the game with the mouse and keyboard: category click, road click, road drag, trees, R rotate, two houses, a house on a road (invalid), a fence, a lamppost, a postbox, undo, redo, and bulldozing a house, a road tile and a tree. The outputs are in `artifacts/wp-07/`: `playtest-audio.wav/.webm`, `playtest-audio-spectrogram.png`, `playtest-levels.txt`, `playtest-starts.txt`, and the before/after waveform sheets `sfx-original-waveforms.png` / `sfx-final-waveforms.png`.
+
+In-game peak 50 ms loudness (dBFS, full range / small-speaker proxy = 2× high-pass at 250 Hz), with the current `sfxTable` gains:
+
+| Event | Full | Small speaker |
+|---|---|---|
+| place-building | −17.5 | −24 |
+| remove | −19.5 | −24.5 |
+| place-prop (fence) | −20.2 | −23.1 |
+| place-nature | −20.5 | −21.6 |
+| place-path | −21.1 | −21.6 |
+| invalid | −22.7 | −29.9 |
+| place-prop-metal | −23.2 | −23.5 |
+| undo / redo | −23.6 / −23.2 | −25.9 / −25.2 |
+| rotate | −26.3 | −27.0 |
+| ui-click | −28.2 | −29.3 |
+
+The UI sounds (click, undo/redo) sit below every placement sound. The building placement is now the loudest event.
 
 ## Processing (re-runnable)
 
-The whole pipeline is scripted in **`assets-src/audio-tools/build_audio.py`**, which uses Python 3 with numpy and scipy, plus ffmpeg. Run it from the project root:
+The whole pipeline is **`docs/assets/audio.build.py`**, which needs Python 3 with numpy and scipy, plus ffmpeg. The packs are fetched into the git-ignored `assets-src/` as before:
 
 ```bash
 # 1. fetch + extract packs (zips and License.txt are kept in assets-src/<pack>/)
@@ -55,47 +73,25 @@ for u in \
   curl -sL -o "$n/$(basename "$u")" "$u" && (cd "$n" && unzip -oq "$(basename "$u")")
 done
 cd ..
-# (zip URLs found with: curl -sL https://kenney.nl/assets/<pack> | grep -oE 'https://kenney.nl/media/pages/assets/[^"]+\.zip')
 
-# 2. build public/assets/audio/*.mp3 (+ copies chosen originals to assets-src/audio-selected/,
-#    writes a full per-file report to assets-src/audio-tools/_tmp/build-report.json)
-python3 assets-src/audio-tools/build_audio.py
+# 2. build public/assets/audio/*.mp3 and docs/assets/audio.json (from the tiny-town root)
+ASSETS_SRC="$PWD/assets-src" python3 docs/assets/audio.build.py
+npm run gen:sfx      # integrator: refresh src/audio/sfxTable.ts
 ```
 
-For each file the script does the following:
+For each file, the script:
+1. Decodes every layer to mono 44.1 kHz float and applies its gain, offset and optional length cap. Each layer gets its own end fade, then the layers are summed.
+2. High-passes the mix (40 Hz by default).
+3. Trims leading silence (−50 dBFS absolute, or a level relative to the peak for `rotate`) and adds a 2 ms fade-in. It applies the optional cap and fade-out, then an 8 ms end fade.
+4. Gains to the one-shot LUFS target. UI files get plain gain capped at −1.5 dBTP. SFX get at most 4 dB of 3 ms lookahead limiting, and only when the peak ceiling blocks the target.
+5. Encodes to MP3 (`-q:a 4`) and re-measures. `audio.json` holds these final numbers.
 
-1. **Decode, downmix and trim.** It decodes to mono 44.1 kHz float and trims leading silence. It also optionally mixes in a layer, and optionally caps the length with a fade-out.
-   ```bash
-   ffmpeg -i SRC.ogg -ac 1 -ar 44100 \
-     -af "silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.004[,atrim=0:0.45,afade=t=out:st=0.27:d=0.18]" \
-     -c:a pcm_f32le tmp.wav
-   # place-nature layers the pop via:
-   #   -filter_complex "[0:a]aformat=...mono[a];[1:a]aformat=...mono,volume=-6dB[b];[a][b]amix=inputs=2:normalize=0:duration=longest,<same -af chain>[o]"
-   ```
-2. **Measure.** One-shot LUFS is the max momentary loudness, and true peak is measured alongside it.
-   ```bash
-   ffmpeg -v verbose -i tmp.wav -af "apad=pad_dur=0.6,aresample=48000,ebur128=peak=true:framelog=verbose" -f null -   # take max "M:"
-   ffmpeg -i tmp.wav -af volumedetect -f null -
-   ```
-3. **Gain to the event target.** Targets are −32 for hover, −30 for click, −29 for open, close and undo/redo, −27 for invalid, −24 for rotate, −21 for path, nature and prop, and −18 for building and remove.
-   - UI sounds get a plain gain, capped so the true peak stays at or below −1.5 dBTP.
-   - SFX that hit the peak ceiling first get **at most 4 dB** of gentle lookahead limiting: 3 ms lookahead, 40 ms release, −2 dBFS ceiling, implemented in numpy in the script. This takes the edge off the attack.
-   - These Kenney impacts are essentially one transient, so several SFX land a few dB under target. The script chooses to accept that rather than squash them.
-4. **Encode.**
-   ```bash
-   ffmpeg -i processed.wav -ac 1 -ar 44100 -codec:a libmp3lame -q:a 4 public/assets/audio/NAME.mp3
-   ```
-5. **Re-measure the final MP3.** These are the numbers in the table and in `audio.json`.
+Change the `PLAN` list at the top of the script to swap sources, layers or targets. The original sourcing agent's `assets-src/audio-tools/build_audio.py` is superseded.
 
-The per-file gains and before/after measurements are in `assets-src/audio-tools/_tmp/build-report.json`. Change the `PLAN` list at the top of the script to swap sources or targets.
+## Known gaps
 
-## Weak fits and gaps
-
-- **Not listened to.** Every choice was made from Kenney's naming plus measurements (duration, spectral centroid, loudness). Play each one in the game before calling it final.
-- **`place-prop`** was asked for as a "click/clink". It uses light *wood* knocks, which suit fences but not metal props. If lampposts and postboxes need a metallic clink, try Impact Sounds `impactMetal_light_00x` or Interface Sounds `glass_002/003` (a short glass tink). Add those as a separate `place-prop-metal` event, not as random variants.
-- **`place-nature`** is the quietest SFX (≈ −27 LUFS one-shot), because the grass footsteps are a small transient plus a very quiet rustle. The `drop_003` layer adds the "pop". If trees need more weight, use `suggestedVolume` 0.9–1.0 or layer `impactSoft_medium_00x`.
-- **`remove`** uses a snow-footstep crunch. It's cosy, but it may feel light for bulldozing a whole townhouse. Alternatives: `impactPlank_medium_00x` (wood clatter, ~0.8 s, trim it) or `impactMining_00x` (rock crunch, ~0.9 s, trim to ~0.4 s).
-- **`rotate`** is a 55 ms tick, which is functional but not a "swish". A cloth swish from RPG Audio (`cloth1`, trimmed to ~0.25 s) would be a softer alternative.
-- **`undo` / `redo`** share one file, told apart by playback rate.
-- **MP3 encoder delay.** LAME adds roughly 25 ms of priming samples. The LAME/Xing header lets ffmpeg and current Chrome, Firefox and Safari `decodeAudioData` strip it, so the files start on the transient. Older decoders may add a few ms of latency.
-- **Ambience and music** were out of scope and are not included.
+- **Not heard by a human yet.** See the caveat above.
+- `ui-hover`, `ui-open` and `ui-close` are never emitted by the current UI, so they were judged from the files only.
+- `place-prop-metal` and the undo/redo `playbackRate` need integrator changes (`sfx.ts`, `tools.ts`, `gen-sfx-table.mjs`, `npm run gen:sfx`). `AudioManager` shims both until then.
+- **MP3 encoder delay:** LAME adds roughly 25 ms of priming. Current Chrome, Firefox and Safari strip it through the LAME/Xing header, but end-to-end input-to-sound latency wasn't measured.
+- **Ambience and music** are out of scope.

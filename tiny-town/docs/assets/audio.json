@@ -11,20 +11,21 @@
     "cooldownMs": 60,
     "source": "Kenney ui-audio / rollover2.ogg; Kenney ui-audio / rollover5.ogg",
     "license": "CC0",
-    "durationMs": 109,
-    "peakDb": -2.4,
+    "durationMs": 106,
+    "peakDb": -2.3,
     "lufs": -32.0,
+    "targetLufs": -32,
     "perFile": [
       {
         "file": "/assets/audio/ui-hover-1.mp3",
-        "durationMs": 54,
-        "peakDb": -2.4,
+        "durationMs": 53,
+        "peakDb": -2.3,
         "lufs": -32.1
       },
       {
         "file": "/assets/audio/ui-hover-2.mp3",
-        "durationMs": 109,
-        "peakDb": -6.0,
+        "durationMs": 106,
+        "peakDb": -6.6,
         "lufs": -32.0
       }
     ]
@@ -40,15 +41,16 @@
     "cooldownMs": 50,
     "source": "Kenney interface-sounds / click_001.ogg",
     "license": "CC0",
-    "durationMs": 97,
-    "peakDb": -1.7,
-    "lufs": -31.9,
+    "durationMs": 95,
+    "peakDb": -1.6,
+    "lufs": -30.0,
+    "targetLufs": -30,
     "perFile": [
       {
         "file": "/assets/audio/ui-click.mp3",
-        "durationMs": 97,
-        "peakDb": -1.7,
-        "lufs": -31.9
+        "durationMs": 95,
+        "peakDb": -1.6,
+        "lufs": -30.0
       }
     ]
   },
@@ -63,13 +65,14 @@
     "cooldownMs": 120,
     "source": "Kenney interface-sounds / maximize_008.ogg",
     "license": "CC0",
-    "durationMs": 225,
+    "durationMs": 211,
     "peakDb": -13.9,
     "lufs": -29.0,
+    "targetLufs": -29,
     "perFile": [
       {
         "file": "/assets/audio/ui-open.mp3",
-        "durationMs": 225,
+        "durationMs": 211,
         "peakDb": -13.9,
         "lufs": -29.0
       }
@@ -86,14 +89,15 @@
     "cooldownMs": 120,
     "source": "Kenney interface-sounds / minimize_008.ogg",
     "license": "CC0",
-    "durationMs": 211,
-    "peakDb": -14.0,
+    "durationMs": 210,
+    "peakDb": -13.9,
     "lufs": -29.0,
+    "targetLufs": -29,
     "perFile": [
       {
         "file": "/assets/audio/ui-close.mp3",
-        "durationMs": 211,
-        "peakDb": -14.0,
+        "durationMs": 210,
+        "peakDb": -13.9,
         "lufs": -29.0
       }
     ]
@@ -112,26 +116,27 @@
     "source": "Kenney impact-sounds / impactGeneric_light_000.ogg; Kenney impact-sounds / impactGeneric_light_001.ogg; Kenney impact-sounds / impactGeneric_light_002.ogg",
     "license": "CC0",
     "durationMs": 161,
-    "peakDb": -1.9,
-    "lufs": -27.1,
+    "peakDb": -2.0,
+    "lufs": -25.1,
+    "targetLufs": -21,
     "perFile": [
       {
         "file": "/assets/audio/place-path-1.mp3",
-        "durationMs": 161,
-        "peakDb": -1.9,
-        "lufs": -25.9
+        "durationMs": 159,
+        "peakDb": -2.0,
+        "lufs": -25.1
       },
       {
         "file": "/assets/audio/place-path-2.mp3",
         "durationMs": 115,
         "peakDb": -2.0,
-        "lufs": -28.2
+        "lufs": -25.0
       },
       {
         "file": "/assets/audio/place-path-3.mp3",
         "durationMs": 161,
-        "peakDb": -1.9,
-        "lufs": -27.2
+        "peakDb": -2.0,
+        "lufs": -25.2
       }
     ]
   },
@@ -148,27 +153,28 @@
     "cooldownMs": 60,
     "source": "Kenney impact-sounds / footstep_grass_000.ogg + interface-sounds / drop_003.ogg @ -6 dB; Kenney impact-sounds / footstep_grass_001.ogg + interface-sounds / drop_003.ogg @ -6 dB; Kenney impact-sounds / footstep_grass_003.ogg + interface-sounds / drop_003.ogg @ -6 dB",
     "license": "CC0",
-    "durationMs": 447,
+    "durationMs": 171,
     "peakDb": -2.0,
-    "lufs": -26.9,
+    "lufs": -25.3,
+    "targetLufs": -21,
     "perFile": [
       {
         "file": "/assets/audio/place-nature-1.mp3",
-        "durationMs": 447,
-        "peakDb": -2.1,
-        "lufs": -27.3
+        "durationMs": 171,
+        "peakDb": -2.0,
+        "lufs": -25.8
       },
       {
         "file": "/assets/audio/place-nature-2.mp3",
-        "durationMs": 447,
-        "peakDb": -2.0,
-        "lufs": -26.1
+        "durationMs": 168,
+        "peakDb": -2.1,
+        "lufs": -24.6
       },
       {
         "file": "/assets/audio/place-nature-3.mp3",
-        "durationMs": 447,
+        "durationMs": 158,
         "peakDb": -2.0,
-        "lufs": -27.3
+        "lufs": -25.6
       }
     ]
   },
@@ -180,26 +186,27 @@
       "/assets/audio/place-building-3.mp3"
     ],
     "group": "sfx",
-    "suggestedVolume": 0.9,
+    "suggestedVolume": 1.0,
     "pitchJitter": 0.05,
     "cooldownMs": 80,
-    "source": "Kenney impact-sounds / impactWood_heavy_000.ogg; Kenney impact-sounds / impactWood_heavy_002.ogg; Kenney impact-sounds / impactWood_heavy_004.ogg",
+    "source": "Kenney impact-sounds / impactWood_heavy_000.ogg + impact-sounds / impactWood_light_001.ogg + impact-sounds / impactPlank_medium_000.ogg @ -6 dB; Kenney impact-sounds / impactWood_heavy_002.ogg + impact-sounds / impactWood_light_003.ogg + impact-sounds / impactPlank_medium_002.ogg @ -6 dB; Kenney impact-sounds / impactWood_heavy_004.ogg + impact-sounds / impactWood_light_004.ogg + impact-sounds / impactPlank_medium_003.ogg @ -6 dB",
     "license": "CC0",
     "durationMs": 310,
     "peakDb": -2.0,
-    "lufs": -23.7,
+    "lufs": -23.4,
+    "targetLufs": -23,
     "perFile": [
       {
         "file": "/assets/audio/place-building-1.mp3",
         "durationMs": 310,
         "peakDb": -2.0,
-        "lufs": -23.7
+        "lufs": -23.6
       },
       {
         "file": "/assets/audio/place-building-2.mp3",
         "durationMs": 310,
-        "peakDb": -2.0,
-        "lufs": -23.8
+        "peakDb": -3.9,
+        "lufs": -23.0
       },
       {
         "file": "/assets/audio/place-building-3.mp3",
@@ -221,21 +228,53 @@
     "cooldownMs": 50,
     "source": "Kenney impact-sounds / impactWood_light_000.ogg; Kenney impact-sounds / impactWood_light_002.ogg",
     "license": "CC0",
-    "durationMs": 263,
-    "peakDb": -1.8,
-    "lufs": -25.3,
+    "durationMs": 261,
+    "peakDb": -2.0,
+    "lufs": -25.1,
+    "targetLufs": -21,
     "perFile": [
       {
         "file": "/assets/audio/place-prop-1.mp3",
-        "durationMs": 263,
+        "durationMs": 260,
         "peakDb": -2.0,
-        "lufs": -25.4
+        "lufs": -25.1
       },
       {
         "file": "/assets/audio/place-prop-2.mp3",
-        "durationMs": 263,
-        "peakDb": -1.8,
+        "durationMs": 261,
+        "peakDb": -2.0,
         "lufs": -25.2
+      }
+    ]
+  },
+  {
+    "event": "place-prop-metal",
+    "files": [
+      "/assets/audio/place-prop-metal-1.mp3",
+      "/assets/audio/place-prop-metal-2.mp3"
+    ],
+    "group": "sfx",
+    "suggestedVolume": 0.7,
+    "pitchJitter": 0.06,
+    "cooldownMs": 50,
+    "source": "Kenney impact-sounds / impactMetal_light_001.ogg + impact-sounds / impactWood_light_000.ogg @ -6 dB; Kenney impact-sounds / impactMetal_light_004.ogg + impact-sounds / impactWood_light_002.ogg @ -6 dB",
+    "license": "CC0",
+    "durationMs": 177,
+    "peakDb": -3.5,
+    "lufs": -25.0,
+    "targetLufs": -25,
+    "perFile": [
+      {
+        "file": "/assets/audio/place-prop-metal-1.mp3",
+        "durationMs": 177,
+        "peakDb": -4.9,
+        "lufs": -25.0
+      },
+      {
+        "file": "/assets/audio/place-prop-metal-2.mp3",
+        "durationMs": 162,
+        "peakDb": -3.5,
+        "lufs": -25.0
       }
     ]
   },
@@ -248,17 +287,18 @@
     "suggestedVolume": 0.6,
     "pitchJitter": 0.05,
     "cooldownMs": 60,
-    "source": "Kenney interface-sounds / tick_004.ogg",
+    "source": "Kenney rpg-audio / cloth2.ogg",
     "license": "CC0",
-    "durationMs": 55,
-    "peakDb": -3.2,
-    "lufs": -24.0,
+    "durationMs": 191,
+    "peakDb": -6.2,
+    "lufs": -28.0,
+    "targetLufs": -28,
     "perFile": [
       {
         "file": "/assets/audio/rotate.mp3",
-        "durationMs": 55,
-        "peakDb": -3.2,
-        "lufs": -24.0
+        "durationMs": 191,
+        "peakDb": -6.2,
+        "lufs": -28.0
       }
     ]
   },
@@ -269,26 +309,27 @@
       "/assets/audio/remove-2.mp3"
     ],
     "group": "sfx",
-    "suggestedVolume": 0.85,
+    "suggestedVolume": 0.75,
     "pitchJitter": 0.06,
     "cooldownMs": 70,
-    "source": "Kenney impact-sounds / footstep_snow_001.ogg; Kenney impact-sounds / footstep_snow_002.ogg",
+    "source": "Kenney impact-sounds / footstep_snow_001.ogg + impact-sounds / impactPlank_medium_001.ogg @ -5 dB; Kenney impact-sounds / footstep_snow_002.ogg + impact-sounds / impactPlank_medium_002.ogg @ -5 dB",
     "license": "CC0",
-    "durationMs": 371,
-    "peakDb": -2.0,
-    "lufs": -19.4,
+    "durationMs": 382,
+    "peakDb": -4.6,
+    "lufs": -24.1,
+    "targetLufs": -24,
     "perFile": [
       {
         "file": "/assets/audio/remove-1.mp3",
-        "durationMs": 371,
-        "peakDb": -2.0,
-        "lufs": -19.5
+        "durationMs": 382,
+        "peakDb": -4.6,
+        "lufs": -24.1
       },
       {
         "file": "/assets/audio/remove-2.mp3",
-        "durationMs": 371,
-        "peakDb": -2.0,
-        "lufs": -19.4
+        "durationMs": 370,
+        "peakDb": -5.3,
+        "lufs": -24.0
       }
     ]
   },
@@ -303,15 +344,16 @@
     "cooldownMs": 250,
     "source": "Kenney interface-sounds / bong_001.ogg",
     "license": "CC0",
-    "durationMs": 120,
-    "peakDb": -5.3,
-    "lufs": -27.0,
+    "durationMs": 119,
+    "peakDb": -4.8,
+    "lufs": -26.0,
+    "targetLufs": -26,
     "perFile": [
       {
         "file": "/assets/audio/invalid.mp3",
-        "durationMs": 120,
-        "peakDb": -5.3,
-        "lufs": -27.0
+        "durationMs": 119,
+        "peakDb": -4.8,
+        "lufs": -26.0
       }
     ]
   },
@@ -326,19 +368,20 @@
     "cooldownMs": 60,
     "source": "Kenney interface-sounds / back_004.ogg",
     "license": "CC0",
-    "durationMs": 94,
-    "peakDb": -5.1,
+    "durationMs": 89,
+    "peakDb": -5.2,
     "lufs": -29.0,
+    "targetLufs": -29,
     "perFile": [
       {
         "file": "/assets/audio/undo-redo.mp3",
-        "durationMs": 94,
-        "peakDb": -5.1,
+        "durationMs": 89,
+        "peakDb": -5.2,
         "lufs": -29.0
       }
     ],
     "playbackRate": 0.89,
-    "note": "Shares undo-redo.mp3 with the other undo/redo event; distinguish by playbackRate (undo ~0.89x, redo ~1.12x)."
+    "note": "One file shared by undo and redo: play undo at ~0.89x and redo at ~1.12x playbackRate."
   },
   {
     "event": "redo",
@@ -351,18 +394,19 @@
     "cooldownMs": 60,
     "source": "Kenney interface-sounds / back_004.ogg",
     "license": "CC0",
-    "durationMs": 94,
-    "peakDb": -5.1,
+    "durationMs": 89,
+    "peakDb": -5.2,
     "lufs": -29.0,
+    "targetLufs": -29,
     "perFile": [
       {
         "file": "/assets/audio/undo-redo.mp3",
-        "durationMs": 94,
-        "peakDb": -5.1,
+        "durationMs": 89,
+        "peakDb": -5.2,
         "lufs": -29.0
       }
     ],
     "playbackRate": 1.12,
-    "note": "Shares undo-redo.mp3 with the other undo/redo event; distinguish by playbackRate (undo ~0.89x, redo ~1.12x)."
+    "note": "One file shared by undo and redo: play undo at ~0.89x and redo at ~1.12x playbackRate."
   }
 ]
