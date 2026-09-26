@@ -89,7 +89,7 @@
 }
 
 .ui-mark-big {
-  font-size: clamp(2.6rem, 7vw + 1rem, 5.25rem);
+  font-size: clamp(2.6rem, 4vw + 1.5rem, 4.5rem);
   line-height: 1;
   color: var(--panel-solid);
   text-shadow:
@@ -260,16 +260,29 @@
 }
 
 .ui-title {
+  /* Mark + tagline sit in the sky; actions sit on the foreground grass below the diorama. */
   pointer-events: none;
-  align-content: start;
-  padding-top: max(14vh, var(--safe-top));
-  background: linear-gradient(rgba(255, 255, 255, 0.18), transparent 45%);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: max(4vh, var(--safe-top));
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.18), transparent 30%),
+    linear-gradient(transparent 70%, rgba(40, 60, 30, 0.18));
+}
+
+.ui-title-bottom {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  animation: ui-rise 600ms 120ms var(--ease) both;
 }
 
 .ui-title-card {
   display: grid;
   justify-items: center;
-  gap: 14px;
+  gap: 10px;
   animation: ui-rise 600ms var(--ease) both;
 }
 
@@ -292,10 +305,6 @@
 }
 
 .ui-title-credits {
-  position: absolute;
-  bottom: var(--safe-bottom);
-  left: 50%;
-  transform: translateX(-50%);
   background: var(--panel);
   text-decoration: none;
   box-shadow: var(--shadow-soft);
@@ -356,16 +365,15 @@
 
 .ui-stats {
   height: 48px;
-  gap: 4px;
-  padding: 0 14px;
+  gap: 16px;
+  padding: 0 16px;
   white-space: nowrap;
 }
 
 .ui-stat {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 0 6px;
+  gap: 4px;
 }
 
 .ui-stat .ui-glyph {
@@ -380,14 +388,15 @@
   font-weight: 900;
   font-size: 1.05rem;
   font-variant-numeric: tabular-nums;
-  text-align: right;
-  transform-origin: 70% 60%;
+  text-align: left;
+  transform-origin: 30% 60%;
 }
 
 .ui-stat-label {
   font-weight: 700;
   font-size: 0.85rem;
   color: var(--ink-soft);
+  margin-right: 1px;
 }
 
 .ui-stat.is-punch .ui-stat-num {
@@ -419,8 +428,13 @@
 }
 
 .ui-hint {
+  /* Top-centre under the top bar, so it never covers the build area above the dock. */
+  position: absolute;
+  top: calc(var(--safe-top) + 58px);
+  left: 50%;
+  translate: -50% 0;
   margin: 0;
-  max-width: 100%;
+  max-width: calc(100% - 2 * var(--gutter));
   padding: 6px 14px;
   border-radius: 999px;
   background: rgba(59, 58, 54, 0.78);
@@ -431,7 +445,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   opacity: 0;
-  transform: translateY(6px);
+  transform: translateY(-6px);
   transition:
     opacity 220ms var(--ease),
     transform 220ms var(--ease);
@@ -621,10 +635,59 @@
   transform: scale(0.96);
 }
 
+.ui-tab {
+  position: relative;
+}
+
+/* Open category = tint + underline (the selected ITEM is the raised, outlined card). */
 .ui-tab[aria-pressed='true'] {
+  background: var(--green-tint);
+  color: var(--green-dark);
+}
+
+.ui-tab[aria-pressed='true']::after {
+  content: '';
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  bottom: 3px;
+  height: 3px;
+  border-radius: 3px;
   background: var(--green);
-  color: #fff;
-  box-shadow: inset 0 -2px 0 var(--green-dark);
+}
+
+/* Tray frame: edge fades when more items are scrolled off-screen. */
+.ui-tray-frame {
+  position: relative;
+  min-width: 0;
+}
+
+.ui-tray-frame::before,
+.ui-tray-frame::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 28px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--fast) var(--ease);
+  z-index: 1;
+}
+
+.ui-tray-frame::before {
+  left: -1px;
+  background: linear-gradient(90deg, var(--panel-solid), rgba(255, 249, 239, 0));
+}
+
+.ui-tray-frame::after {
+  right: -1px;
+  background: linear-gradient(270deg, var(--panel-solid), rgba(255, 249, 239, 0));
+}
+
+.ui-tray-frame.has-more-left::before,
+.ui-tray-frame.has-more-right::after {
+  opacity: 1;
 }
 
 .ui-mode.is-idle {
@@ -888,12 +951,11 @@
     grid-area: stats;
     justify-self: start;
     height: 36px;
-    padding: 0 8px;
-    gap: 0;
+    padding: 0 12px;
+    gap: 10px;
   }
 
   .ui-stat {
-    padding: 0 4px;
     gap: 3px;
   }
 
@@ -923,7 +985,7 @@
   }
 
   .ui-hint {
-    max-width: calc(100% - 24px);
+    top: calc(var(--safe-top) + 102px);
     font-size: 0.82rem;
   }
 
@@ -945,15 +1007,9 @@
     height: 50px;
   }
 
-  .ui-tabbar {
-    gap: 4px;
-  }
 
-  .ui-tabs {
-    gap: 2px;
-  }
-
-  .ui-tab {
+  .ui-tab,
+  .ui-mode {
     flex: 1 1 0;
     min-width: 0;
     height: 48px;
@@ -963,24 +1019,28 @@
     font-size: 0.72rem;
   }
 
-  .ui-tab span {
+  .ui-tab span,
+  .ui-mode-label {
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  .ui-mode {
-    width: 48px;
-    height: 48px;
-    padding: 0;
+  .ui-tabbar,
+  .ui-tabs,
+  .ui-modes {
+    gap: 2px;
   }
 
-  .ui-mode .ui-glyph {
-    width: 22px;
-    height: 22px;
+  .ui-tabs {
+    flex: 4 1 0;
   }
 
-  .ui-mode-label {
+  .ui-modes {
+    flex: 2 1 0;
+  }
+
+  .ui-card kbd {
     display: none;
   }
 
@@ -994,7 +1054,7 @@
   }
 
   .ui-title {
-    padding-top: max(12vh, var(--safe-top));
+    padding-top: max(7vh, var(--safe-top));
   }
 
   .ui-mark-big {
@@ -1003,6 +1063,10 @@
 }
 
 @media (pointer: coarse) {
+  .ui-card kbd {
+    display: none;
+  }
+
   /* Touch players see their gestures first. */
   .ui-help-cols > :last-child {
     order: -1;

@@ -1,5 +1,7 @@
 /**
- * Top-left stats cluster (WP-06): fixed-width tabular numerals that count up/down to the
+ * Top-left stats cluster (WP-06). Each group reads icon · label · number, packed tightly and
+ * left-aligned so the 4ch numeral slack sits AFTER the number (between groups, not inside one).
+ * Fixed-width tabular numerals that count up/down to the
  * latest `town:stats` value and "punch" when a value changes. One rAF loop runs only while a
  * counter is moving; nothing allocates per frame.
  */
@@ -39,7 +41,7 @@ export class StatsHud {
     this.element.setAttribute('role', 'status');
     this.element.setAttribute('aria-label', 'Town stats');
     this.element.innerHTML = STATS.map(
-      (s) => `<span class="ui-stat" data-stat="${s.key}" title="${s.label}">${GLYPHS[s.glyph]}<b class="ui-stat-num">0</b><span class="ui-stat-label">${s.label}</span></span>`,
+      (s) => `<span class="ui-stat" data-stat="${s.key}" title="${s.label}">${GLYPHS[s.glyph]}<span class="ui-stat-label">${s.label}</span><b class="ui-stat-num">0</b></span>`,
     ).join('');
     for (const el of this.element.querySelectorAll<HTMLElement>('.ui-stat')) {
       const num = el.querySelector<HTMLElement>('.ui-stat-num')!;

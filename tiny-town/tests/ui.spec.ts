@@ -6,8 +6,10 @@ import { mkdirSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { TOOL_CATEGORIES, toolsInCategory } from '../src/catalog/tools';
 import { UI_TEST_IDS } from '../src/ui/UiRoot';
+import { clickCell } from './helpers';
 
-const OUT = 'artifacts/wp-06';
+// UI_RUN_ID picks the evidence folder, e.g. UI_RUN_ID=wp06-fix1 → artifacts/wp06-fix1.
+const OUT = `artifacts/${process.env.UI_RUN_ID ?? 'wp-06'}`;
 const id = (x: string) => `#${x}`;
 
 const diag = (page: Page) => page.evaluate(() => window.__THREE_GAME_DIAGNOSTICS__!);
@@ -110,6 +112,35 @@ test('undo/redo disabled states follow history', async ({ page }) => {
   await expect.poll(async () => (await diag(page)).town.roadTiles).toBeGreaterThan(0);
   await expect(undo).toBeEnabled();
   await expect(redo).toBeDisabled();
+  expect(errors).toEqual([]);
+});
+
+test('refusal tooltip shows on an invalid click and is gone after the next successful placement', async ({ page }) => {
+  const errors = trackErrors(page);
+  await start(page);
+  const tip = page.locator(id(UI_TEST_IDS.tooltip));
+  await page.locator(id(UI_TEST_IDS.category('buildings'))).click();
+  await page.locator(id(UI_TEST_IDS.tool('townhouse-a'))).click();
+
+  await clickCell(page, 9, 9);
+  await expect.poll(async () => (await diag(page)).town.homes).toBe(1);
+  const invalidBefore = (await diag(page)).invalidCount;
+  await clickCell(page, 9, 9); // occupied → refused
+  await expect.poll(async () => (await diag(page)).invalidCount).toBe(invalidBefore + 1);
+  await expect(tip).toBeVisible();
+  await expect(tip).not.toHaveText('');
+
+  await clickCell(page, 14, 9); // valid → placed
+  await expect.poll(async () => (await diag(page)).town.homes).toBe(2);
+  await expect(tip).toBeHidden();
+
+  // A refusal followed by a tool switch also clears it. (build:invalid is throttled to one per
+  // 400 ms per reason, so wait before refusing the same reason again.)
+  await page.waitForTimeout(450);
+  await clickCell(page, 14, 9);
+  await expect(tip).toBeVisible();
+  await page.locator(id(UI_TEST_IDS.tool('garage'))).click();
+  await expect(tip).toBeHidden();
   expect(errors).toEqual([]);
 });
 

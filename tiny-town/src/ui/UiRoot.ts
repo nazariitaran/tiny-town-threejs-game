@@ -26,7 +26,17 @@ type ModalView = 'menu' | 'confirm' | 'help' | 'credits';
 type UiSfx = 'ui-hover' | 'ui-click' | 'ui-open' | 'ui-close';
 
 const HINT_MAX_USES = 3;
-const HINT_MS = 5000;
+const HINT_MS = 3500;
+const PICK_HINT_MOUSE = 'Pick something below, then click the map to build';
+const PICK_HINT_TOUCH = 'Pick an item below · two fingers move the view';
+
+/** Catalog hints are written for mouse + keys; reword them for touch (no key cues). */
+export function touchHint(hint: string): string {
+  return hint
+    .replace(/ · R to rotate$/, ' · tap Rotate to turn it')
+    .replace(/^Click or drag/, 'Tap or drag')
+    .replace(/^Click/, 'Tap');
+}
 const INVALID_TOOLTIP_MS = 1500;
 
 const escapeHtml = (text: string): string =>
@@ -54,6 +64,8 @@ export class UiRoot {
   private pointerX = -1;
   private pointerY = -1;
   private pointerTouch = false;
+  private hoverKey: string | null = null;
+  private quietHoverKey: string | null = null;
   private statsSeen = false;
 
   constructor(
@@ -69,6 +81,8 @@ export class UiRoot {
     this.root.addEventListener('input', this.onInput);
     this.root.addEventListener('change', this.onInput);
     this.root.addEventListener('pointerover', this.onPointerOver);
+    this.el(UI_TEST_IDS.tray).addEventListener('scroll', this.updateTrayCue, { passive: true });
+    window.addEventListener('resize', this.updateTrayCue);
     // Capture phase on window: runs before ToolController's keydown, so Esc inside an overlay
     // closes that overlay and is not also seen as "Esc with no tool → open menu".
     window.addEventListener('keydown', this.onKeyDown, { capture: true });
@@ -82,11 +96,16 @@ export class UiRoot {
       }),
       bus.on('tool:changed', ({ toolId, rotation }) => this.onToolChanged(toolId, rotation)),
       bus.on('build:rotated', ({ rotation }) => this.renderRotation(rotation)),
-      bus.on('hover:changed', ({ valid, reason }) => {
-        this.hoverReason = !valid && reason ? reason : null;
+      bus.on('hover:changed', ({ cell, edge, valid, reason }) => {
+        const key = cell ? `${cell.x},${cell.z}` + (edge ? `,${edge.x},${edge.z},${edge.side}` : '') : null;
+        // Right after a placement the hovered spot is "occupied"; stay quiet until the pointer moves on.
+        if (key !== this.quietHoverKey) this.quietHoverKey = null;
+        this.hoverKey = key;
+        this.hoverReason = !valid && reason && !this.quietHoverKey ? reason : null;
         this.renderTooltip();
       }),
       bus.on('build:invalid', ({ reason }) => this.flashInvalid(reason)),
+      bus.on('build:placed', () => this.clearTooltip(true)),
       bus.on('town:stats', (stats) => this.renderStats(stats)),
       bus.on('history:changed', ({ canUndo, canRedo }) => {
         this.button(UI_TEST_IDS.undo).disabled = !canUndo;
@@ -114,6 +133,7 @@ export class UiRoot {
     this.root.removeEventListener('pointerover', this.onPointerOver);
     window.removeEventListener('keydown', this.onKeyDown, { capture: true });
     window.removeEventListener('pointermove', this.onPointerMove);
+    window.removeEventListener('resize', this.updateTrayCue);
     window.clearTimeout(this.hintTimer);
     window.clearTimeout(this.tooltipTimer);
     this.stats.dispose();
@@ -140,12 +160,14 @@ export class UiRoot {
         <div class="ui-title-card">
           <h1 class="ui-mark ui-mark-big">${mark}</h1>
           <p class="ui-tagline">Paint roads, plant trees, grow a cosy town.</p>
+        </div>
+        <div class="ui-title-bottom">
           <div class="ui-title-actions">
             <button id="${id.start}" type="button" class="ui-btn ui-btn-primary ui-btn-big">${GLYPHS.play}<span class="ui-start-label">Start building</span></button>
             <button id="${id.titleNew}" type="button" class="ui-btn ui-btn-big" hidden>${GLYPHS.plus}<span>New town</span></button>
           </div>
+          <button id="${id.titleCredits}" type="button" class="ui-link ui-title-credits">Credits</button>
         </div>
-        <button id="${id.titleCredits}" type="button" class="ui-link ui-title-credits">Credits</button>
       </section>
 
       <header class="ui-topbar ui-hud" data-phase="building menu">
@@ -161,10 +183,10 @@ export class UiRoot {
         </div>
       </header>
 
+      <p class="ui-hint ui-hud" id="${id.hint}" data-phase="building" aria-live="polite"></p>
       <div class="ui-dock-wrap ui-hud" data-phase="building menu">
-        <p class="ui-hint" id="${id.hint}" aria-live="polite"></p>
         <nav class="ui-dock" id="${id.dock}" aria-label="Build tools">
-          <div class="ui-tray" id="${id.tray}" role="group" aria-label="Items"></div>
+          <div class="ui-tray-frame"><div class="ui-tray" id="${id.tray}" role="group" aria-label="Items"></div></div>
           <div class="ui-tabbar">
             <div class="ui-tabs" role="group" aria-label="Categories">
               ${TOOL_CATEGORIES.map(
@@ -185,7 +207,7 @@ export class UiRoot {
 
       <div class="ui-modal" hidden>
         <section class="ui-panel" id="${id.menuPanel}" data-view="menu" role="dialog" aria-modal="true" aria-labelledby="ui-menu-h">
-          <h2 id="ui-menu-h">Paused</h2>
+          <h2 id="ui-menu-h">Menu</h2>
           <button type="button" class="ui-btn ui-btn-primary" id="${id.resume}">${GLYPHS.play}<span>Resume</span></button>
           <div class="ui-row">
             <button type="button" class="ui-btn" id="${id.help}">${GLYPHS.help}<span>Controls</span></button>
@@ -425,9 +447,10 @@ export class UiRoot {
     if (phase === 'menu') this.openModal(this.pendingView ?? 'menu');
     else if (this.modal && (previous === 'menu' || phase !== 'title')) this.closeModal();
     if (phase === 'building' && previous === 'title') {
-      this.showHint(this.coarse.matches ? 'Tap to build · two fingers move the camera' : 'Pick something below, then click the map to build');
+      this.showHint(this.coarse.matches ? PICK_HINT_TOUCH : PICK_HINT_MOUSE);
     }
     if (phase !== 'building') this.hideTransient();
+    else this.clearTooltip();
   }
 
   private renderTitle(): void {
@@ -454,17 +477,16 @@ export class UiRoot {
     }
     this.renderTray(false);
     this.renderRotation(rotation);
+    if (toolId !== previous) this.clearTooltip();
     if (toolId && toolId !== previous) {
       const uses = (this.toolUses.get(toolId) ?? 0) + 1;
       this.toolUses.set(toolId, uses);
       if (uses <= HINT_MAX_USES) {
-        const hint = toolDef(toolId).hint;
-        this.showHint(this.coarse.matches ? hint.replace(/^Click/, 'Tap') : hint);
+        this.showHint(this.coarse.matches ? touchHint(toolDef(toolId).hint) : toolDef(toolId).hint);
       } else this.hideHint();
     } else if (!toolId) {
-      this.hideHint();
-      this.hoverReason = null;
-      this.renderTooltip();
+      if (previous && this.coarse.matches && this.phase === 'building') this.showHint(PICK_HINT_TOUCH);
+      else this.hideHint();
     }
   }
 
@@ -487,6 +509,7 @@ export class UiRoot {
       card.setAttribute('aria-pressed', String(pressed));
       if (pressed && !same) card.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
+    this.updateTrayCue();
     if (animate) {
       tray.classList.remove('is-entering');
       void tray.offsetWidth;
@@ -499,6 +522,16 @@ export class UiRoot {
     const rotatable = this.activeTool !== null && toolDef(this.activeTool).layer === 'object';
     this.button(UI_TEST_IDS.rotate).classList.toggle('is-idle', !rotatable);
   }
+
+  /** Edge fades on the tray frame when more items are scrolled off either side. */
+  private readonly updateTrayCue = (): void => {
+    const tray = this.root.querySelector<HTMLElement>(`#${UI_TEST_IDS.tray}`);
+    const frame = tray?.parentElement;
+    if (!tray || !frame) return;
+    const max = tray.scrollWidth - tray.clientWidth;
+    frame.classList.toggle('has-more-left', tray.scrollLeft > 2);
+    frame.classList.toggle('has-more-right', tray.scrollLeft < max - 2);
+  };
 
   private renderRotation(rotation: Rotation): void {
     const rot = this.root.querySelector<HTMLElement>('.ui-rot');
@@ -532,6 +565,15 @@ export class UiRoot {
   private hideHint(): void {
     window.clearTimeout(this.hintTimer);
     this.el(UI_TEST_IDS.hint).classList.remove('is-visible');
+  }
+
+  /** Drop any refusal tooltip. `afterPlacement` also mutes the hover reason for the current spot. */
+  private clearTooltip(afterPlacement = false): void {
+    window.clearTimeout(this.tooltipTimer);
+    this.flashReason = null;
+    this.hoverReason = null;
+    this.quietHoverKey = afterPlacement ? this.hoverKey : null;
+    this.renderTooltip();
   }
 
   private flashInvalid(reason: string): void {
@@ -574,8 +616,7 @@ export class UiRoot {
 
   private hideTransient(): void {
     this.hideHint();
-    this.flashReason = null;
-    this.renderTooltip();
+    this.clearTooltip();
   }
 
   // ---------------------------------------------------------------- helpers
