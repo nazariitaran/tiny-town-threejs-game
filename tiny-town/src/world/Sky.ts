@@ -83,7 +83,10 @@ void main() {
   float sd = max(dot(d, uSunDir), 0.0);
   float disc = smoothstep(0.99935, 0.99965, sd);
   float halo = pow(sd, 48.0) * 0.45 + pow(sd, 6.0) * 0.22 + pow(sd, 2.0) * 0.08;
-  col += uSunColor * halo;
+  // Sun-side bloom: a soft warm lift that reaches down into the low sky visible from the title
+  // pose (the disc itself sits above/left of that frame).
+  float bloom = pow(sunSide, 3.0) * (1.0 - smoothstep(0.0, 0.55, up)) * smoothstep(-0.01, 0.03, y);
+  col += uSunColor * (halo + bloom * 0.16);
 
   // Clouds: fbm on a curved sky plane, fading out at the horizon (haze) and the zenith.
   vec2 uv = d.xz / (up + 0.22) * 1.35 + vec2(uTime * 0.006, uTime * 0.0025);
