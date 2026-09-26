@@ -7,7 +7,8 @@ interface ThreeGameDiagnostics {
   phase: import('./game/events').GamePhase;
   tool: import('./catalog/tools').ToolId | null;
   rotation: number;
-  hover: { x: number; z: number } | null;
+  /** Hovered cell; valid/reason mirror hover:changed (a just-placed cell reports valid). */
+  hover: { x: number; z: number; valid: boolean; reason: string | null } | null;
   town: import('./town/types').TownStats;
   /** Objects in TownState. Compare with render.objects (what TownRenderer actually draws). */
   objects: number;
