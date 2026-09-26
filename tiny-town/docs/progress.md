@@ -28,7 +28,7 @@ Worktrees live in `<repo-parent>/ThreeJsGames-wt/<wp>`, branched from `9a4e084`.
 | WP-08 Feel & VFX | ✅ done (5fd620c) | — | removed | 5208 | 2 draw calls max, 0 idle; instanced wind sway; reduced motion OK; fx diagnostics published. Shim `__THREE_GAME_FX_DIAGNOSTICS__` remains (harmless) |
 | WP-09b Baselines + bot | ✅ done (3b5ff02): 6 darwin baselines committed, deterministic capture, missing baseline fails | — | removed | 5210 | |
 | WP-10 Ambient life | ✅ done (9ae0d39) | — | removed | 5211 | ≤6 cars, BatchedMesh +1 main +1 shadow call, keep-right lanes, despawn on road removal; wired in Game.ts (142cd95). Dusk toggle skipped (optional) |
-| WP-11 Release | 🔄 running (wave 3) | `wp-11-release` | `wp-11` | 5212 | |
+| WP-11 Release | ✅ done (5be9faf): base './', hidden sourcemaps, cssMinify off (lightningcss bug), preview e2e 56/12/0, final evidence (avg 2.05) | — | removed | 5212 | evidence in artifacts/final, artifacts/wp-11 |
 
 ## M0 preflight evidence (run id m0, desktop, real GPU: ANGLE Metal / Apple M2 Max, softwareRendered false)
 | State | renderer.calls | triangles | textures | luminance.contrast |
@@ -59,7 +59,8 @@ Contract requests applied in commit after the Wave-1 merges: sfx `place-prop-met
 ✅ Passed 2026-09-26. See `docs/checkpoints/m2.md`.
 
 ## Next actions (current)
-0. WP-11 running → merge → M3 (reviewer, final evidence, report).
+0. WP-11 merged; shims removed (bc1ae5b). M3 in progress: independent reviewer running; WP-06 fix2 (mobile tooltip overlap, count-up spacing, .ui-hint centring so cssMinify can return) running on `wp-06-ui-fix2`.
+   Deferred/optional (WP-11 requests, budgets already met): shadowMap.autoUpdate=false + cars castShadow off (−17% GPU); lil-gui dynamic import (−30 kB); reuse diagnostics object; compileAsync warm-up for first-placement hitch.
 
 1. ✅ fix2 + WP-10 merged/wired. WP-09b generating baselines now.
 2. M2 notes so far: FX puff chips read slightly rock-like (tune at M3 if reviewer agrees); FX journey video is zoomed out (tune-*.png are the useful evidence).
