@@ -121,17 +121,30 @@ export async function applyState(page: Page, name: string, seed = 12345): Promis
 }
 
 /**
- * Setup for screenshot baselines / canvas captures (WP-09b): load, seed, apply the state,
- * then freeze simulation, reduce motion, hide debug UI and let two frames render.
+ * Setup for screenshot baselines / canvas captures (WP-09b): load, reduce motion, pause,
+ * then seed + apply the state (already frozen), hide debug UI and let two frames render.
  * Used by tests/visual-regression.spec.ts (the capture procedure for baselines).
  */
 export async function prepareDeterministicState(page: Page, name: string, seed = 12345): Promise<void> {
   await gotoTitle(page);
-  await page.evaluate(async () => window.__THREE_GAME_TEST_HOOKS__!.setPausedForScreenshot(false));
+  // Order matters (WP-09b): freeze time BEFORE the state exists, so nothing (ambient cars,
+  // title orbit, clouds) advances between setState and the capture.
+  //  1. Reduced motion while still running: the next frames tick every animation with
+  //     delta/elapsed 0 (clouds back to t=0, wind at rest, particles cleared).
+  //  2. Pause: simulation stops entirely; rendering continues.
+  //  3. Seed + setState: the state is built and settled while already frozen.
+  await page.evaluate(async () => {
+    const hooks = window.__THREE_GAME_TEST_HOOKS__!;
+    const frames = () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    await hooks.setPausedForScreenshot(false);
+    await hooks.setReducedMotion(true);
+    await frames();
+    await hooks.setPausedForScreenshot(true);
+  });
   await applyState(page, name, seed);
   await page.evaluate(async () => {
     const hooks = window.__THREE_GAME_TEST_HOOKS__!;
-    await hooks.setPausedForScreenshot(true);
+    // Re-apply after setState so its settle() pass also runs on the new town.
     await hooks.setReducedMotion(true);
     await hooks.hideDebugUi(true);
     await document.fonts.ready;

@@ -2,20 +2,26 @@
  * WP-09b visual regression: screenshot baselines for `title`, `sample-town` and `asset-gallery`
  * on every project (desktop-chrome 1280×720, mobile-chrome Pixel 7).
  *
- * Capture procedure (prepareDeterministicState in helpers.ts): load → unpause → seed(12345) →
- * setState (acknowledged) → pause → reduced motion → hide debug UI → fonts ready → 2 frames.
- * Then we assert the diagnostics are settled (no pop-in animations, renderer matches TownState,
- * no autosave pending) before comparing pixels, so a failing diff means the LOOK changed,
- * not that the capture raced the scene.
+ * Capture procedure (prepareDeterministicState in helpers.ts): load → reduced motion → pause →
+ * seed(12345) → setState (acknowledged, built while already frozen) → hide debug UI → fonts →
+ * 2 frames. Before comparing pixels we also require:
+ *  - settled diagnostics (renderer matches TownState, no pop-in/dying, no particles, no autosave
+ *    pending) and a frozen camera, town and car set across frames;
+ *  - no hovered cell (the hover highlight fades on real time; the mouse never enters the canvas);
+ *  - the stats HUD count-up (real-time rAF) finished: every HUD number equals diagnostics.town;
+ *  - two captures 400 ms apart are byte-identical, so nothing on screen is still moving.
  *
- * Baselines are generated explicitly and never implicitly on a normal run:
+ * Baselines are committed under tests/visual-regression.spec.ts-snapshots/. A missing baseline
+ * FAILS. Regenerate deliberately after an approved look change:
  *   PORT=5210 npx playwright test tests/visual-regression.spec.ts --update-snapshots
- * With no baseline on disk and no --update-snapshots, a test is SKIPPED with a visible reason
- * (not failed), so `npm run test:e2e` stays green until the integrator commits baselines.
- * Baselines are per platform (GPU raster differs), e.g. `title-desktop-chrome-darwin.png`.
+ * and review every PNG before committing.
+ *
+ * Platform caveat: baselines are per OS (Playwright appends the platform, e.g.
+ * `title-desktop-chrome-darwin.png`) because GPU raster and font hinting differ. Only darwin
+ * baselines exist; a Linux CI job would fail on missing `-linux` files until it generates and
+ * commits its own set (ideally from the same pinned Playwright/Chromium Docker image it runs in).
  */
-import { existsSync } from 'node:fs';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { diagnostics, prepareDeterministicState, trackErrors } from './helpers';
 
 const SEED = 12345;
@@ -28,13 +34,24 @@ const STATES = [
   { name: 'asset-gallery', phase: 'building', minObjects: 1 },
 ] as const;
 
+const SHOT = { animations: 'disabled', caret: 'hide', scale: 'css' } as const;
+
+const twoFrames = (page: Page) =>
+  page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
+
+/** Numbers shown by the stats HUD (WP-06), keyed by data-stat. */
+const hudNumbers = (page: Page) =>
+  page.evaluate(() => {
+    const out: Record<string, number> = {};
+    for (const el of document.querySelectorAll<HTMLElement>('#ui-stats [data-stat]')) {
+      out[el.dataset.stat!] = Number(el.querySelector('.ui-stat-num')?.textContent ?? NaN);
+    }
+    return out;
+  });
+
 for (const state of STATES) {
   test(`visual baseline: ${state.name}`, async ({ page }, testInfo) => {
     const snapshot = `${state.name}.png`;
-    const baseline = testInfo.snapshotPath(snapshot, { kind: 'screenshot' });
-    const updating = testInfo.config.updateSnapshots === 'all' || testInfo.config.updateSnapshots === 'changed';
-    test.skip(!updating && !existsSync(baseline), `no baseline yet at ${baseline}; generate with --update-snapshots`);
-
     const errors = trackErrors(page);
     await prepareDeterministicState(page, state.name, SEED);
 
@@ -47,37 +64,43 @@ for (const state of STATES) {
           matches: d.render.objects === d.objects,
           animating: d.render.animating ?? 0,
           dying: d.render.dying ?? 0,
+          particles: d.fx.active,
+          hover: d.hover,
           hasObjects: d.objects >= state.minObjects,
           savePending: d.save.pending,
         };
       }, { message: `${state.name} settled before capture` })
-      .toEqual({ phase: state.phase, matches: true, animating: 0, dying: 0, hasObjects: true, savePending: false });
+      .toEqual({ phase: state.phase, matches: true, animating: 0, dying: 0, particles: 0, hover: null, hasObjects: true, savePending: false });
 
-    // Paused means paused: the frame counter may tick (rendering continues) but the camera
-    // and town must not move between two reads.
+    // Stats HUD count-up runs on real time: wait until it shows the final town stats.
+    if (state.phase === 'building') {
+      const town = (await diagnostics(page)).town;
+      await expect
+        .poll(() => hudNumbers(page), { message: 'stats HUD finished counting' })
+        .toEqual({ homes: town.homes, residents: town.residents, trees: town.trees, roadTiles: town.roadTiles });
+    }
+
+    // Paused means paused: frames still render, but camera, town and cars must not move.
     const a = await diagnostics(page);
-    await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
+    await twoFrames(page);
     const b = await diagnostics(page);
+    expect(b.frame, 'rendering continues while paused').toBeGreaterThan(a.frame);
     expect(b.camera, 'camera frozen while paused').toEqual(a.camera);
     expect(b.town, 'town frozen while paused').toEqual(a.town);
+    expect(b.life.carCells, 'cars frozen while paused').toEqual(a.life.carCells);
 
-    await expect(page).toHaveScreenshot(snapshot, {
-      maxDiffPixelRatio: MAX_DIFF_PIXEL_RATIO,
-      animations: 'disabled',
-      caret: 'hide',
-    });
+    // Pixel stability independent of the baseline: two captures 400 ms apart are identical.
+    const first = await page.screenshot(SHOT);
+    await page.waitForTimeout(400);
+    const second = await page.screenshot(SHOT);
+    expect(Buffer.compare(first, second), `${state.name}: screen still changing while frozen`).toBe(0);
 
-    // Evidence copy (artifacts/ is gitignored) with the same settings as the baseline capture
-    // (CSS animations finished, CSS-pixel scale), so the title's fade-in is never caught mid-way.
-    await page.screenshot({
-      path: `artifacts/wp-09b/visual-${state.name}-${testInfo.project.name}.png`,
-      animations: 'disabled',
-      caret: 'hide',
-      scale: 'css',
-    });
+    await expect(page).toHaveScreenshot(snapshot, { maxDiffPixelRatio: MAX_DIFF_PIXEL_RATIO, animations: 'disabled', caret: 'hide' });
 
+    // Evidence copy (artifacts/ is gitignored) for hand-offs.
+    await page.screenshot({ ...SHOT, path: `artifacts/wp-09b/visual-${state.name}-${testInfo.project.name}.png` });
     await testInfo.attach(`${state.name}-${testInfo.project.name}-diagnostics`, {
-      body: JSON.stringify({ phase: b.phase, objects: b.objects, render: b.render, renderer: b.renderer, camera: b.camera, canvas: b.canvas }, null, 2),
+      body: JSON.stringify({ phase: b.phase, objects: b.objects, render: b.render, renderer: b.renderer, camera: b.camera, canvas: b.canvas, cars: b.life.cars }, null, 2),
       contentType: 'application/json',
     });
     errors.expectNone();
