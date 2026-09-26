@@ -83,6 +83,8 @@ export class TownEditor {
   apply(action: BuildAction, toolId: ToolId): PlanResult {
     const result = this.plan(action);
     if (!result.ok) return result;
+    // Outside a stroke every apply is its own one-item stroke (strokeIndex 0).
+    if (!this.stroke) this.strokeCount = 0;
     this.state.applyChanges(result.changes);
     this.record(result.changes);
     this.publish(result.changes, 'edit');
@@ -97,6 +99,8 @@ export class TownEditor {
    */
   applyBatch(items: readonly BatchItem[], options: BatchOptions = {}): BatchResult {
     const result: BatchResult = { applied: 0, rejected: [], changes: [] };
+    // Outside a stroke the batch is its own stroke (strokeIndex from 0); inside, it continues it.
+    if (!this.stroke) this.strokeCount = 0;
     items.forEach((item, index) => {
       const plan = this.plan(item.action);
       if (!plan.ok) {
