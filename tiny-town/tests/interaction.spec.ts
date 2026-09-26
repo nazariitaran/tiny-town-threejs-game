@@ -400,3 +400,42 @@ test.describe('mobile touch', () => {
     expect(errors).toEqual([]);
   });
 });
+
+// Evidence for the M3 "valid ghost reads on the green field" fix, at the DEFAULT zoom on both
+// projects. On mobile the ghost is shown via a mouse hover (touch has no hover; on a phone the
+// same ghost shows while the finger is down).
+test('valid ghost at default zoom: house, road tile, fence (screenshots)', async ({ page }, testInfo) => {
+  const errors = collectErrors(page);
+  await startBuilding(page);
+  const project = testInfo.project.name;
+  const hoverAndShoot = async (point: { x: number; y: number }, name: string) => {
+    await page.mouse.move(point.x, point.y, { steps: 3 });
+    await diag(page);
+    await page.waitForTimeout(200); // ghost lerp settles
+    const clip = { x: Math.max(0, point.x - 160), y: Math.max(0, point.y - 120), width: 320, height: 200 };
+    await page.screenshot({ path: testInfo.outputPath(`${project}-${name}.png`) });
+    await page.screenshot({ path: testInfo.outputPath(`${project}-${name}-crop.png`), clip });
+  };
+
+  await selectTool(page, 'buildings', 'townhouse-b');
+  const house = await cellPoint(page, 12, 10);
+  await hoverAndShoot(house, 'ghost-valid-house');
+  await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 12, z: 10, valid: true });
+
+  await selectTool(page, 'paths', 'road');
+  const road = await cellPoint(page, 10, 12);
+  await hoverAndShoot(road, 'ghost-valid-road');
+  await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 10, z: 12, valid: true });
+
+  await selectTool(page, 'buildings', 'fence-tall');
+  const fence = await northEdgePoint(page, 13, 12);
+  await hoverAndShoot(fence, 'ghost-valid-fence');
+  expect((await diag(page)).hover?.valid).toBe(true);
+
+  // Nothing was built by hovering.
+  const final = await diag(page);
+  expect(final.objects).toBe(0);
+  expect(final.town.roadTiles).toBe(0);
+  expect(final.town.fences).toBe(0);
+  expect(errors).toEqual([]);
+});
