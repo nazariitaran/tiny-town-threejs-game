@@ -1,132 +1,215 @@
 /**
  * Sky, lighting, surrounding terrain, fog and the plot's grid overlay.
  *
- * SCAFFOLD STUB — WP-04 (World & look) owns this file. The public API below is
- * the contract Game.ts relies on; the internals are a minimal baseline to replace.
+ * WP-04 (World & look). Public API (constructor, populate, setQuality, setGridVisible, update,
+ * dispose, sun) is the contract Game.ts relies on.
+ *
+ * Look: a single "golden afternoon". Warm key sun (shadow frustum fitted to the plot), cool
+ * hemisphere fill, a low-intensity RoomEnvironment PMREM for gentle speculars (high tier only).
+ * The plot is a raised diorama slab; the meadow undulates beyond it and rolls into hazy hills.
+ * Fog colour == sky horizon colour, so distant ground melts into the horizon with no seam.
  */
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import type { DebugTools } from '../debug/DebugTools';
-import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH, type QualityTier } from '../game/config';
+import type { QualityTier } from '../game/config';
 import type { ModelLibrary } from '../render/ModelLibrary';
+import { DecorRing } from './DecorRing';
+import { GridOverlay } from './GridOverlay';
+import { Sky, type SkyPalette } from './Sky';
+import { createOuterTerrain, createPlotBase } from './Terrain';
+import { KERB_WIDTH, PLOT_HALF_X, PLOT_HALF_Z, SLAB_BOTTOM_Y } from './terrainShape';
+
+export const SKY_PALETTE: SkyPalette = {
+  top: '#4f9fe3',
+  horizon: '#d4ebf6',
+  sunGlow: '#ffd49a',
+  sun: '#fff1d2',
+};
+
+/** Direction TOWARDS the sun: afternoon, ~42° up, from the build camera's left. */
+export const SUN_DIRECTION = new THREE.Vector3(-0.66, 0.74, 0.42).normalize();
+
+export const LIGHTING = {
+  sunColor: '#ffe6c4',
+  sunIntensity: 3.0,
+  hemiSky: '#cfe6ff',
+  hemiGround: '#7d9a5c',
+  hemiIntensity: 0.8,
+  /** Extra hemisphere fill on the low tier, standing in for the env map's diffuse light. */
+  hemiLowTierBoost: 0.35,
+  envIntensity: 0.18,
+  fogNear: 55,
+  fogFar: 420,
+};
+
+const SHADOW_DISTANCE = 60;
+/** Tallest thing the plot can hold (with margin) — the shadow frustum must enclose it. */
+const PLOT_CONTENT_HEIGHT = 4;
 
 export class Environment {
   readonly sun: THREE.DirectionalLight;
   private readonly root = new THREE.Group();
-  private readonly gridOverlay: THREE.LineSegments;
+  private readonly hemi: THREE.HemisphereLight;
+  private readonly sky: Sky;
+  private readonly plotBase: THREE.Mesh;
+  private readonly terrain: THREE.Mesh;
+  private readonly grid: GridOverlay;
+  private readonly decor = new DecorRing();
+  private readonly fog: THREE.Fog;
+  private envMap: THREE.Texture | null = null;
+  private tier: QualityTier = 'high';
 
   constructor(
     private readonly scene: THREE.Scene,
     private readonly renderer: THREE.WebGLRenderer,
-    _debug?: DebugTools,
+    debug?: DebugTools,
   ) {
     this.root.name = 'environment';
     scene.add(this.root);
 
-    // --- Sky: gradient dome (see shader-cookbook "Gradient Sky Dome"). WP-04: add sun halo, clouds.
-    const sky = new THREE.Mesh(
-      new THREE.SphereGeometry(400, 32, 16),
-      new THREE.ShaderMaterial({
-        side: THREE.BackSide,
-        depthWrite: false,
-        uniforms: {
-          uTop: { value: new THREE.Color('#5aa7e8') },
-          uHorizon: { value: new THREE.Color('#dff1ff') },
-        },
-        vertexShader: /* glsl */ `varying vec3 vDir;
-          void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-        fragmentShader: /* glsl */ `varying vec3 vDir; uniform vec3 uTop, uHorizon;
-          void main(){ float h = clamp(vDir.y, 0.0, 1.0); gl_FragColor = vec4(mix(uHorizon, uTop, pow(h, 0.55)), 1.0); }`,
-      }),
-    );
-    sky.name = 'sky';
-    sky.frustumCulled = false;
-    this.root.add(sky);
-    this.scene.fog = new THREE.Fog('#dff1ff', 40, 140);
+    // --- Sky + fog (fog colour is the sky's horizon colour: seamless horizon).
+    this.sky = new Sky(SKY_PALETTE, SUN_DIRECTION);
+    this.root.add(this.sky.mesh);
+    this.fog = new THREE.Fog(SKY_PALETTE.horizon, LIGHTING.fogNear, LIGHTING.fogFar);
+    scene.fog = this.fog;
+    scene.background = null;
 
-    // --- Lights: hemisphere fill + warm key sun with shadows sized to the plot.
-    this.root.add(new THREE.HemisphereLight('#dff1ff', '#6d8f4e', 1.4));
-    this.sun = new THREE.DirectionalLight('#fff1d6', 2.4);
-    this.sun.position.set(-14, 22, 10);
+    // --- Lights.
+    this.hemi = new THREE.HemisphereLight(LIGHTING.hemiSky, LIGHTING.hemiGround, LIGHTING.hemiIntensity);
+    this.root.add(this.hemi);
+    this.sun = new THREE.DirectionalLight(LIGHTING.sunColor, LIGHTING.sunIntensity);
+    this.sun.name = 'sun';
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
-    const half = (Math.max(PLOT_WIDTH, PLOT_DEPTH) * CELL_SIZE) / 2 + 4;
-    Object.assign(this.sun.shadow.camera, { left: -half, right: half, top: half, bottom: -half, near: 1, far: 80 });
-    this.sun.shadow.camera.updateProjectionMatrix();
-    this.sun.shadow.bias = -0.0005;
-    this.root.add(this.sun);
+    this.sun.shadow.bias = -0.00025;
+    this.sun.shadow.normalBias = 0.022;
+    this.sun.shadow.radius = 2.5;
+    this.root.add(this.sun, this.sun.target);
+    this.fitSunShadow();
 
-    // --- Ground: big surrounding meadow + the buildable plot (field). WP-04: textures, edge treatment, decor ring.
-    const outer = new THREE.Mesh(
-      new THREE.CircleGeometry(160, 48),
-      new THREE.MeshStandardMaterial({ color: '#7fb45a', roughness: 1 }),
-    );
-    outer.rotation.x = -Math.PI / 2;
-    outer.position.y = -0.02;
-    outer.receiveShadow = true;
-    outer.name = 'terrain-outer';
-    this.root.add(outer);
+    // --- Ground.
+    this.terrain = createOuterTerrain();
+    this.plotBase = createPlotBase();
+    this.root.add(this.terrain, this.plotBase);
 
-    const plot = new THREE.Mesh(
-      new THREE.PlaneGeometry(PLOT_WIDTH * CELL_SIZE, PLOT_DEPTH * CELL_SIZE),
-      new THREE.MeshStandardMaterial({ color: '#8cc063', roughness: 1 }),
-    );
-    plot.rotation.x = -Math.PI / 2;
-    plot.position.y = -0.005;
-    plot.receiveShadow = true;
-    plot.name = 'plot-field';
-    this.root.add(plot);
+    this.grid = new GridOverlay();
+    this.root.add(this.grid.mesh);
+    this.root.add(this.decor.group);
 
-    this.gridOverlay = this.createGridOverlay();
-    this.root.add(this.gridOverlay);
+    this.installDebug(debug);
   }
 
-  /**
-   * Called once after models load: build decor that needs GLB templates (distant tree ring from
-   * 'tree-a'/'tree-b'/'decor-bush'/'decor-rocks', instanced). TODO(WP-04).
-   */
-  populate(_library: ModelLibrary): void {}
+  /** Called once after models load: instanced distant tree/bush/rock ring (≤ 4 draw calls). */
+  populate(library: ModelLibrary): void {
+    this.decor.populate(library);
+    this.decor.setQuality(this.tier);
+  }
 
-  /** 'low': 1024 shadow map, no env map. Game applies the matching DPR cap (MAX_DPR[tier]). TODO(WP-04). */
-  setQuality(_tier: QualityTier): void {}
+  /** 'low': 1024 shadow map, no env map, thinner decor ring. Game applies the DPR cap (MAX_DPR[tier]). */
+  setQuality(tier: QualityTier): void {
+    this.tier = tier;
+    const size = tier === 'low' ? 1024 : 2048;
+    if (this.sun.shadow.mapSize.x !== size) {
+      this.sun.shadow.mapSize.set(size, size);
+      // Force the renderer to reallocate the shadow render target at the new size.
+      this.sun.shadow.map?.dispose();
+      this.sun.shadow.map = null;
+    }
+    if (tier === 'high') {
+      this.envMap ??= this.createEnvMap();
+      this.scene.environment = this.envMap;
+      this.scene.environmentIntensity = LIGHTING.envIntensity;
+    } else {
+      this.scene.environment = null;
+    }
+    this.hemi.intensity = LIGHTING.hemiIntensity + (tier === 'low' ? LIGHTING.hemiLowTierBoost : 0);
+    this.decor.setQuality(tier);
+  }
 
   setGridVisible(visible: boolean): void {
-    this.gridOverlay.visible = visible;
+    this.grid.setVisible(visible);
   }
 
-  /** Ambient animation (clouds, water, etc.). `elapsed` is frozen under reduced motion. */
-  update(_delta: number, _elapsed: number): void {}
+  /** Ambient animation (clouds drift). `elapsed` is frozen under reduced motion. */
+  update(_delta: number, elapsed: number): void {
+    this.sky.setTime(elapsed);
+  }
 
   dispose(): void {
-    this.root.traverse((object) => {
-      const mesh = object as THREE.Mesh;
-      mesh.geometry?.dispose();
-      const material = mesh.material as THREE.Material | THREE.Material[] | undefined;
-      if (Array.isArray(material)) material.forEach((m) => m.dispose());
-      else material?.dispose();
-    });
+    this.decor.dispose(); // shares GPU resources with ModelLibrary: never dispose those here
+    this.sky.dispose();
+    this.grid.dispose();
+    for (const mesh of [this.terrain, this.plotBase]) {
+      mesh.geometry.dispose();
+      (mesh.material as THREE.Material).dispose();
+    }
+    this.sun.shadow.map?.dispose();
+    this.sun.dispose();
+    this.hemi.dispose();
+    if (this.scene.environment === this.envMap) this.scene.environment = null;
+    this.envMap?.dispose();
+    this.envMap = null;
+    if (this.scene.fog === this.fog) this.scene.fog = null;
     this.scene.remove(this.root);
-    void this.renderer;
   }
 
-  private createGridOverlay(): THREE.LineSegments {
-    const points: number[] = [];
-    const w = PLOT_WIDTH * CELL_SIZE;
-    const d = PLOT_DEPTH * CELL_SIZE;
-    for (let i = 0; i <= PLOT_WIDTH; i += 1) {
-      const x = -w / 2 + i * CELL_SIZE;
-      points.push(x, 0.01, -d / 2, x, 0.01, d / 2);
+  /** Aim the sun along SUN_DIRECTION and fit its orthographic shadow camera tightly around the plot. */
+  private fitSunShadow(): void {
+    this.sun.target.position.set(0, 0, 0);
+    this.sun.position.copy(SUN_DIRECTION).multiplyScalar(SHADOW_DISTANCE);
+    this.sky.setSunDirection(SUN_DIRECTION);
+
+    // Same orientation the renderer will give the shadow camera (lookAt target, up = +y). Must be a
+    // camera: Object3D.lookAt points +z at the target, cameras point -z.
+    const view = new THREE.OrthographicCamera();
+    view.position.copy(this.sun.position);
+    view.lookAt(this.sun.target.position);
+    view.updateMatrixWorld(true);
+    const toLight = view.matrixWorld.clone().invert();
+
+    const hx = PLOT_HALF_X + KERB_WIDTH + 0.3;
+    const hz = PLOT_HALF_Z + KERB_WIDTH + 0.3;
+    const box = new THREE.Box3();
+    const p = new THREE.Vector3();
+    for (const x of [-hx, hx]) {
+      for (const z of [-hz, hz]) {
+        for (const y of [SLAB_BOTTOM_Y, PLOT_CONTENT_HEIGHT]) box.expandByPoint(p.set(x, y, z).applyMatrix4(toLight));
+      }
     }
-    for (let i = 0; i <= PLOT_DEPTH; i += 1) {
-      const z = -d / 2 + i * CELL_SIZE;
-      points.push(-w / 2, 0.01, z, w / 2, 0.01, z);
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
-    const lines = new THREE.LineSegments(
-      geometry,
-      new THREE.LineBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.18 }),
-    );
-    lines.name = 'grid-overlay';
-    return lines;
+    const cam = this.sun.shadow.camera;
+    cam.left = box.min.x;
+    cam.right = box.max.x;
+    cam.bottom = box.min.y;
+    cam.top = box.max.y;
+    // Camera looks down -z in its own space.
+    cam.near = Math.max(0.5, -box.max.z - 1);
+    cam.far = -box.min.z + 1;
+    cam.updateProjectionMatrix();
+  }
+
+  private createEnvMap(): THREE.Texture {
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    const room = new RoomEnvironment();
+    const texture = pmrem.fromScene(room, 0.04).texture;
+    room.dispose();
+    pmrem.dispose();
+    return texture;
+  }
+
+  private installDebug(debug?: DebugTools): void {
+    const folder = debug?.folder('World');
+    if (!folder) return;
+    folder.add(this.sun, 'intensity', 0, 6, 0.05).name('sun');
+    folder.add(this.hemi, 'intensity', 0, 3, 0.05).name('hemi fill');
+    folder.add(LIGHTING, 'envIntensity', 0, 1.5, 0.01).name('env map').onChange((v: number) => {
+      if (this.scene.environment) this.scene.environmentIntensity = v;
+    });
+    folder.add(this.fog, 'near', 0, 200, 1).name('fog near');
+    folder.add(this.fog, 'far', 50, 900, 1).name('fog far');
+    folder.add(this.sun.shadow, 'normalBias', 0, 0.1, 0.001);
+    folder.add(this.sun.shadow, 'bias', -0.005, 0.005, 0.0001);
+    folder.add(this.sky, 'cloudCover', 0.2, 0.9, 0.01).name('cloud cover');
+    folder.add(this.grid, 'opacity', 0, 0.2, 0.005).name('grid opacity');
   }
 }
