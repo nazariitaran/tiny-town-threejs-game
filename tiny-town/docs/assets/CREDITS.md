@@ -18,7 +18,7 @@ All 3D models in `public/assets/models/` are licensed **CC0 1.0 Universal** (pub
 
 The composed models (`public/assets/models/composed/`) are rearranged or re-centred copies of the Kenney models above, built by `scripts/compose-models.mjs`, and remain CC0.
 
-Preview icons in `public/assets/icons/` are Kenney's own CC0 preview renders. The exceptions are `bus-stop.png` and `postbox.png`, which were rendered for this project (CC0).
+The 17 tool icons in `public/assets/icons/` were rendered in this project from the CC0 Kenney models above with `scripts/render-icons.mjs` (CC0). The other icons in that folder (cars, bench, etc., currently unused) are Kenney's own CC0 preview renders.
 
 ## Sound Effects
 
