@@ -24,7 +24,7 @@ Worktrees live in `<repo-parent>/ThreeJsGames-wt/<wp>`, branched from `9a4e084`.
 | WP-05 Interaction | 🔄 running | `wp-05-interaction` | `wp-05` | 5205 | |
 | WP-06 UI | 🔄 running | `wp-06-ui` | `wp-06` | 5206 | |
 | WP-07 Audio | 🔄 running | `wp-07-audio` | `wp-07` | 5207 | |
-| WP-09a QA harness | 🔄 running | `wp-09a-qa` | `wp-09a` | 5209 | |
+| WP-09a QA harness | ✅ merged (81d8a97) | `wp-09a-qa` | `wp-09a` | 5209 | smoke + build-flow specs, tests/helpers.ts; main e2e 10/10 after merge. Templates annotated, not deleted (left for 09b) |
 | WP-08 Feel & VFX | ⬜ wave 2 | | | 5208 | |
 | WP-09b Baselines + bot | ⬜ wave 2 | | | 5210 | |
 | WP-10 Ambient life | ⬜ stretch, wave 2 | | | 5211 | |
@@ -41,8 +41,11 @@ No console/page errors. No blockers. Cosmetic observations routed to owners: som
 
 ## Open defects
 - (none blocking) See M0 observations above.
+- tests/helpers.ts imports `UI_TEST_IDS` from `src/ui/UiRoot.ts` in Node, so UiRoot must stay importable in Node. WP-06 was told to keep the ids in a side-effect-free module.
+- build-flow.spec assumes current rules (cottage on field next to road; drag = 1 undo entry). Re-check after the WP-02 merge.
+- Mobile journey uses the mouse, not touch; a touch variant goes to WP-05/09b.
 
 ## Next actions
-1. Wait for Wave-1 hand-offs; merge per HANDOVER §4 in order 02 → 03 → 04 → 05 → 06 → 07 → 09a.
+1. Wait for Wave-1 hand-offs; merge per HANDOVER §4 in order 02 → 03 → 04 → 05 → 06 → 07 (09a merged early: it was the only one ready, and its specs now gate later merges).
 2. Collect contract change requests; apply after the wave's merges.
 3. Checkpoint M1 (PLAN §5 + SaveStore wiring in Game.ts).
