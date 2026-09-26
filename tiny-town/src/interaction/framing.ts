@@ -1,10 +1,11 @@
 /**
- * Aspect-aware camera framing (WP-05). Finds the closest pose (at a given azimuth) whose view
- * fits the whole plot inside the screen area left free by the HUD: below the top bar, above the
- * dock and inside the side gutters. Used for the build start / reset pose and the portrait title
- * pose. Runs only on mode changes and resets (a few thousand projections), never per frame.
+ * Aspect-aware camera framing (WP-05). Readability first: the plot is fitted WIDTH-wise (its
+ * left/right corners inside the side insets) and its centre is placed at a chosen screen height,
+ * so the near corner may tuck under the dock and the far corner may reach the top bar, while the
+ * plot centre always stays clear above the dock. Used for the build start / reset pose and the
+ * portrait title pose. Runs only on mode changes and resets, never per frame.
  *
- * The HUD insets mirror WP-06's layout (desktop dock ≤ 150 px + gap; mobile dock ≈ bottom 30 %).
+ * The HUD insets mirror WP-06's layout (desktop dock ≤ 150 px + gap; mobile dock ≈ bottom 32 %).
  * If the UI layout changes, retune SAFE_INSETS here.
  */
 import * as THREE from 'three';
@@ -12,21 +13,28 @@ import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
 import type { CameraPose } from './CameraController';
 
 export interface ScreenInsets {
-  /** CSS px kept clear at the top (top bar). */
+  /** CSS px covered by the top bar. */
   top: number;
-  /** CSS px kept clear at the bottom (dock), or a fraction of the height when ≤ 1. */
+  /** CSS px covered by the dock, or a fraction of the height when ≤ 1. */
   bottom: number;
-  /** CSS px kept clear on each side (negative lets the plot's side corners overflow). */
+  /**
+   * CSS px kept between the plot's side corners and the screen edge. Larger = the camera stays
+   * further back; negative lets the side corners run off-screen (phones, so cells stay tappable).
+   */
   side: number;
 }
 
-/** Build-view HUD insets per layout. Narrow = the mobile layout (≤ 760 px wide). */
+/** Build-view insets per layout. Narrow = the mobile layout (≤ 760 px wide). */
 export const SAFE_INSETS: Readonly<{ wide: ScreenInsets; narrow: ScreenInsets }> = {
-  wide: { top: 76, bottom: 172, side: 24 },
-  // Negative side inset: on phones the plot's far left/right corners may run off-screen, so the
-  // cells stay big enough to tap. Those corners are only reachable by panning.
-  narrow: { top: 88, bottom: 0.32, side: -36 },
+  // side 128: the plot spans ~80 % of a 1280 px screen, so a townhouse reads clearly.
+  wide: { top: 76, bottom: 172, side: 128 },
+  // side −150: on phones the plot is ~1.8× the screen width (its side corners are off-screen, reachable by
+  // panning) so cells stay big enough to tap; the centre stays well above the dock.
+  narrow: { top: 88, bottom: 0.32, side: -150 },
 };
+
+/** The plot centre must stay at least this far (CSS px) above the dock top. */
+export const CENTRE_ABOVE_DOCK_PX = 60;
 
 const NARROW_MAX_WIDTH = 760;
 
@@ -34,45 +42,44 @@ export function insetsFor(width: number): ScreenInsets {
   return width <= NARROW_MAX_WIDTH ? SAFE_INSETS.narrow : SAFE_INSETS.wide;
 }
 
-interface FitOptions {
+/** Dock top in CSS px from the top of the screen. */
+export function dockTopPx(insets: ScreenInsets, height: number): number {
+  return height - (insets.bottom <= 1 ? insets.bottom * height : insets.bottom);
+}
+
+export interface FitOptions {
   fov: number;
   width: number;
   height: number;
-  insets: ScreenInsets;
-  /** Polar angles (radians) to try, in order of preference; the first that fits wins. */
-  polars: readonly number[];
+  /** Side corners stay inside this many CSS px from each screen edge. */
+  side: number;
+  /**
+   * Where the plot centre should appear, in CSS px from the top of the screen. Omit to keep the
+   * target where `base` has it (title: the auto-orbit must keep circling the plot).
+   */
+  centreY?: number;
+  polar: number;
   minDistance: number;
   maxDistance: number;
-  /** Also keep this height (world units) above the plot in view (houses on the back row). */
-  headroom: number;
-  /** When false, only the horizontal extent must fit and the target stays put (title shots). */
-  fitVertical: boolean;
 }
 
 const scratchCamera = new THREE.PerspectiveCamera();
 const scratchTarget = new THREE.Vector3();
 const scratchOffset = new THREE.Vector3();
 const scratchPoint = new THREE.Vector3();
+const HALF_X = (PLOT_WIDTH / 2) * CELL_SIZE;
+const HALF_Z = (PLOT_DEPTH / 2) * CELL_SIZE;
+const CORNERS: readonly THREE.Vector3[] = [
+  new THREE.Vector3(-HALF_X, 0, -HALF_Z),
+  new THREE.Vector3(HALF_X, 0, -HALF_Z),
+  new THREE.Vector3(-HALF_X, 0, HALF_Z),
+  new THREE.Vector3(HALF_X, 0, HALF_Z),
+];
+const ORIGIN = new THREE.Vector3();
 
-/** Plot corners at ground level and at `headroom` height. */
-function plotPoints(headroom: number): THREE.Vector3[] {
-  const hx = (PLOT_WIDTH / 2) * CELL_SIZE;
-  const hz = (PLOT_DEPTH / 2) * CELL_SIZE;
-  const points: THREE.Vector3[] = [];
-  for (const y of [0, headroom]) for (const x of [-hx, hx]) for (const z of [-hz, hz]) points.push(new THREE.Vector3(x, y, z));
-  return points;
-}
-
-interface Extent {
-  minX: number;
-  maxX: number;
-  minY: number;
-  maxY: number;
-}
-
-function project(pose: CameraPose, options: FitOptions, points: readonly THREE.Vector3[], out: Extent): Extent {
-  scratchCamera.fov = options.fov;
-  scratchCamera.aspect = options.width / options.height;
+function place(pose: CameraPose, fov: number, aspect: number): THREE.PerspectiveCamera {
+  scratchCamera.fov = fov;
+  scratchCamera.aspect = aspect;
   scratchCamera.near = 0.1;
   scratchCamera.far = 2000;
   scratchCamera.updateProjectionMatrix();
@@ -81,85 +88,63 @@ function project(pose: CameraPose, options: FitOptions, points: readonly THREE.V
   scratchCamera.position.copy(scratchTarget).add(scratchOffset);
   scratchCamera.lookAt(scratchTarget);
   scratchCamera.updateMatrixWorld();
-  out.minX = Infinity;
-  out.maxX = -Infinity;
-  out.minY = Infinity;
-  out.maxY = -Infinity;
-  for (const point of points) {
-    scratchPoint.copy(point).project(scratchCamera);
-    out.minX = Math.min(out.minX, scratchPoint.x);
-    out.maxX = Math.max(out.maxX, scratchPoint.x);
-    out.minY = Math.min(out.minY, scratchPoint.y);
-    out.maxY = Math.max(out.maxY, scratchPoint.y);
-  }
-  return out;
+  return scratchCamera;
 }
 
 /**
- * Closest pose (same azimuth as `base`) that frames the plot in the free screen area. The target
- * slides along the view's ground-forward direction so the plot is centred in that area.
- * Falls back to maxDistance when nothing fits (very narrow portrait screens).
+ * Closest pose (azimuth of `base`, polar `options.polar`) whose plot fits the screen width inside
+ * `side`, with the plot centre at `centreY`. The target slides along the view's ground-forward
+ * direction to place the centre. Falls back to maxDistance when nothing fits.
  */
 export function fitPlotPose(base: CameraPose, options: FitOptions): CameraPose {
-  const { width, height, insets } = options;
-  const bottomPx = insets.bottom <= 1 ? insets.bottom * height : insets.bottom;
-  // Safe area in NDC (y up).
-  const safeTop = 1 - (2 * insets.top) / height;
-  const safeBottom = -1 + (2 * bottomPx) / height;
-  const safeSide = 1 - (2 * insets.side) / width;
-  const safeCentre = (safeTop + safeBottom) / 2;
-  const points = plotPoints(options.headroom);
-  const extent: Extent = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
-  // Ground-forward (away from the camera) at this azimuth.
+  const { width, height, fov } = options;
+  const aspect = width / height;
+  const centreY = options.centreY;
+  const wantNdcY = centreY === undefined ? 0 : 1 - (2 * centreY) / height;
+  const safeSide = 1 - (2 * options.side) / width;
   const forwardX = -Math.sin(base.azimuth);
   const forwardZ = -Math.cos(base.azimuth);
-
-  const poseAt = (polar: number, distance: number, shift: number): CameraPose => ({
+  const poseAt = (distance: number, shift: number): CameraPose => ({
     targetX: base.targetX + forwardX * shift,
     targetZ: base.targetZ + forwardZ * shift,
     azimuth: base.azimuth,
-    polar,
+    polar: options.polar,
     distance,
   });
 
-  /** Target shift that centres the plot vertically in the safe band (bisection; centre y falls as shift grows). */
-  const centredShift = (polar: number, distance: number): number => {
-    if (!options.fitVertical) return 0;
+  /** Target shift putting the plot centre at centreY (bisection: the centre rises on screen as the target comes nearer). */
+  const shiftFor = (distance: number): number => {
+    if (centreY === undefined) return 0;
     let lo = -PLOT_DEPTH * CELL_SIZE;
     let hi = PLOT_DEPTH * CELL_SIZE;
-    for (let i = 0; i < 32; i += 1) {
+    for (let i = 0; i < 40; i += 1) {
       const mid = (lo + hi) / 2;
-      project(poseAt(polar, distance, mid), options, points, extent);
-      if ((extent.minY + extent.maxY) / 2 > safeCentre) lo = mid;
+      scratchPoint.copy(ORIGIN).project(place(poseAt(distance, mid), fov, aspect));
+      if (scratchPoint.y > wantNdcY) lo = mid;
       else hi = mid;
     }
     return (lo + hi) / 2;
   };
 
-  const fits = (polar: number, distance: number): { ok: boolean; shift: number } => {
-    const shift = centredShift(polar, distance);
-    project(poseAt(polar, distance, shift), options, points, extent);
-    const horizontal = extent.minX >= -safeSide && extent.maxX <= safeSide;
-    const vertical = !options.fitVertical || (extent.maxY <= safeTop && extent.minY >= safeBottom);
-    return { ok: horizontal && vertical, shift };
+  const fits = (distance: number): boolean => {
+    const camera = place(poseAt(distance, shiftFor(distance)), fov, aspect);
+    for (const corner of CORNERS) {
+      scratchPoint.copy(corner).project(camera);
+      if (scratchPoint.z > 1 || Math.abs(scratchPoint.x) > safeSide) return false;
+    }
+    return true;
   };
 
-  let best: CameraPose | null = null;
-  for (const polar of options.polars) {
-    if (!fits(polar, options.maxDistance).ok) continue;
+  let distance = options.maxDistance;
+  if (fits(options.maxDistance)) {
     let lo = options.minDistance;
     let hi = options.maxDistance;
-    for (let i = 0; i < 24; i += 1) {
+    for (let i = 0; i < 28; i += 1) {
       const mid = (lo + hi) / 2;
-      if (fits(polar, mid).ok) hi = mid;
+      if (fits(mid)) hi = mid;
       else lo = mid;
     }
-    const pose = poseAt(polar, hi, fits(polar, hi).shift);
-    if (!best || pose.distance < best.distance - 0.5) best = pose;
-    // Prefer the first (designed) polar when it fits at a reasonable distance.
-    if (polar === options.polars[0]) break;
+    distance = hi;
   }
-  if (best) return best;
-  const polar = options.polars[options.polars.length - 1];
-  return poseAt(polar, options.maxDistance, centredShift(polar, options.maxDistance));
+  return poseAt(distance, shiftFor(distance));
 }
