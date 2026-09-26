@@ -4,6 +4,10 @@ import { defineConfig } from 'vite';
 const port = Number(process.env.PORT ?? 5188);
 
 export default defineConfig({
+  // Relative base (WP-11): the built dist/ works from any static-host sub-path
+  // (e.g. GitHub Pages https://<user>.github.io/<repo>/). Runtime asset URLs go through
+  // assetUrl() in src/game/config.ts, which prefixes import.meta.env.BASE_URL ('./').
+  base: './',
   server: {
     host: '127.0.0.1',
     port,
@@ -15,7 +19,14 @@ export default defineConfig({
     strictPort: true,
   },
   build: {
-    sourcemap: true,
+    // 'hidden': maps are still written for debugging crash reports, but the shipped JS carries
+    // no sourceMappingURL comment, so players' browsers never fetch them. Don't deploy *.map.
+    sourcemap: 'hidden',
     chunkSizeWarningLimit: 900,
+    // lightningcss 1.32 (Vite 8's CSS minifier) drops an individual `translate:` property when the
+    // same rule also sets `transform:` — it de-centred the .ui-hint pill in production only
+    // (caught by the visual baselines run against `vite preview`). Unminified CSS costs +~5 kB raw,
+    // ~0 after gzip. Re-enable ('lightningcss') once the upstream bug is fixed and baselines pass.
+    cssMinify: false,
   },
 });
