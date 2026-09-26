@@ -18,7 +18,7 @@ Worktrees live in `<repo-parent>/ThreeJsGames-wt/<wp>`, branched from `9a4e084`.
 | --- | --- | --- | --- | --- | --- |
 | Wave 0 scaffold | ✅ done | main | — | — | walking skeleton, contracts, assets, docs |
 | M0 preflight | ✅ done 2026-09-26 | main | — | 5188 | verify green (18 tests); e2e 2/2; inspect m0 clean (see below) |
-| WP-02 Town logic | 🔄 running | `wp-02-town-logic` | `wp-02` | — | |
+| WP-02 Town logic | ✅ merged (13479ad) | `wp-02-town-logic` | `wp-02` | — | full rule table, History cap 200, serialize/parseSave, SaveStore (+settings), silent applyBatch; 172 unit tests; main e2e 10/10 |
 | WP-03 Rendering | 🔄 running | `wp-03-rendering` | `wp-03` | 5203 | |
 | WP-04 World & look | 🔄 running | `wp-04-world` | `wp-04` | 5204 | |
 | WP-05 Interaction | 🔄 running | `wp-05-interaction` | `wp-05` | 5205 | |
@@ -44,6 +44,10 @@ No console/page errors. No blockers. Cosmetic observations routed to owners: som
 - tests/helpers.ts imports `UI_TEST_IDS` from `src/ui/UiRoot.ts` in Node, so UiRoot must stay importable in Node. WP-06 was told to keep the ids in a side-effect-free module.
 - build-flow.spec assumes current rules (cottage on field next to road; drag = 1 undo entry). Re-check after the WP-02 merge.
 - Mobile journey uses the mouse, not touch; a touch variant goes to WP-05/09b.
+
+## Pending integrator work for M1 (collected contract requests)
+- WP-02 → Game.ts SaveStore wiring: `hasSave: () => saves.has()`; `saves.attachAutosave(bus, () => editor.serialize(camera.getPose()))`; Continue → `editor.load(saves.read())`; `saves.flush()` on pagehide; `saves.autosaveEnabled = false` inside `setState`. Optional: `save` diagnostics (`pending`, `lastError`) in vite-env.d.ts; drop unused `'edge-occupied'` from InvalidReason in types.ts.
+- WP-02 follow-up (unowned by the rule table): bus stop stays after its road is repainted away. Decide at M1.
 
 ## Next actions
 1. Wait for Wave-1 hand-offs; merge per HANDOVER §4 in order 02 → 03 → 04 → 05 → 06 → 07 (09a merged early: it was the only one ready, and its specs now gate later merges).
