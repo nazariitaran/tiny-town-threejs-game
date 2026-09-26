@@ -59,7 +59,8 @@ Contract requests applied in commit after the Wave-1 merges: sfx `place-prop-met
 ✅ Passed 2026-09-26. See `docs/checkpoints/m2.md`.
 
 ## Next actions (current)
-0. WP-11 merged; shims removed (bc1ae5b). M3 in progress: independent reviewer running; WP-06 fix2 (mobile tooltip overlap, count-up spacing, .ui-hint centring so cssMinify can return) running on `wp-06-ui-fix2`.
+0. WP-11 merged; shims removed (bc1ae5b). M3 in progress: independent reviewer DONE (avg 2.00; blockers = the 2 known mobile UI issues + no exact 390×844 capture; inspector fixed in 8f6db9d). Polish running for margin: WP-05 fix3 (valid ghost visibility, `wp-05-ghost-fix3`), WP-08 fix1 (softer dust, `wp-08-fx-fix1`); WP-06 fix2 (mobile tooltip overlap, count-up spacing, .ui-hint centring so cssMinify can return) running on `wp-06-ui-fix2`.
+   Post-v1 from M3 review: auto-orient buildings to road, crossroad tile markings, portrait dead band / mobile title crop, hint auto-fade while zoomed.
    Deferred/optional (WP-11 requests, budgets already met): shadowMap.autoUpdate=false + cars castShadow off (−17% GPU); lil-gui dynamic import (−30 kB); reuse diagnostics object; compileAsync warm-up for first-placement hitch.
 
 1. ✅ fix2 + WP-10 merged/wired. WP-09b generating baselines now.
