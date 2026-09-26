@@ -1,14 +1,52 @@
 /*
- * SCAFFOLD BASELINE — WP-06 (UI) owns styling. Replace with the visual language in
- * docs/design/02-interaction-and-ui.md §6 (move component styles to src/ui/ui.css).
+ * Global page styles + design tokens (WP-06). Component styles live in src/ui/ui.css.
+ * Both are pulled in from here (main.ts imports this file) so that src/ui/*.ts stays free of
+ * CSS side effects and can be imported by Playwright in Node.
+ * Font: Nunito variable, bundled from npm (@fontsource-variable/nunito, OFL) — no CDN.
  */
+@import '@fontsource-variable/nunito/wght.css';
+@import './ui/ui.css';
+
 :root {
+  /* surfaces */
   --panel: rgba(255, 249, 239, 0.92);
+  --panel-solid: #fff9ef;
+  --card: #fffdf8;
+  --line: rgba(60, 40, 20, 0.08);
+  --line-strong: rgba(60, 40, 20, 0.16);
+  --shadow: 0 8px 22px rgba(60, 40, 20, 0.16), 0 1px 3px rgba(60, 40, 20, 0.12);
+  --shadow-soft: 0 3px 8px rgba(60, 40, 20, 0.1);
+  /* ink */
   --ink: #3b3a36;
-  --accent: #5db36a;
-  --danger: #e0674f;
+  --ink-soft: #6f685c;
+  --ink-faint: #a39a8a;
+  /* accents (design doc §6) */
+  --green: #5db36a;
+  --green-dark: #3e8d4c;
+  --green-tint: #eaf6e8;
+  --blue: #4a9be8;
+  --brick: #e0674f;
+  --brick-dark: #b84a35;
+  --brick-tint: #fcebe6;
+  --sun: #f4c44e;
+  /* shape + motion */
+  --radius: 16px;
+  --radius-sm: 12px;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --fast: 140ms;
+  --tray-slide: 180ms;
+  --gutter: 12px;
+  --safe-top: max(var(--gutter), env(safe-area-inset-top));
+  --safe-right: max(var(--gutter), env(safe-area-inset-right));
+  --safe-bottom: max(var(--gutter), env(safe-area-inset-bottom));
+  --safe-left: max(var(--gutter), env(safe-area-inset-left));
+
   color: var(--ink);
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: 'Nunito Variable', 'Nunito', ui-rounded, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
 * {
@@ -25,6 +63,12 @@ body,
   background: #bfe3ff;
 }
 
+body {
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 #game-canvas {
   display: block;
   width: 100vw;
@@ -37,94 +81,4 @@ body,
   position: absolute;
   inset: 0;
   pointer-events: none;
-}
-
-#ui-root [hidden] {
-  display: none !important;
-}
-
-#ui-root button {
-  pointer-events: auto;
-  min-width: 44px;
-  min-height: 44px;
-  border: 0;
-  border-radius: 12px;
-  background: var(--panel);
-  color: var(--ink);
-  font: inherit;
-  cursor: pointer;
-}
-
-#ui-root button[aria-pressed='true'] {
-  outline: 3px solid var(--accent);
-}
-
-#ui-root button:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.ui-loading,
-.ui-title {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-content: center;
-  gap: 16px;
-  text-align: center;
-}
-
-.ui-title h1,
-.ui-loading h1 {
-  margin: 0;
-  font-size: 3rem;
-  color: #fff;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
-}
-
-.ui-topbar {
-  position: absolute;
-  top: max(12px, env(safe-area-inset-top));
-  left: max(12px, env(safe-area-inset-left));
-  right: max(12px, env(safe-area-inset-right));
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.ui-stats {
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: var(--panel);
-  font-variant-numeric: tabular-nums;
-}
-
-.ui-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.ui-dock {
-  position: absolute;
-  left: 50%;
-  bottom: max(12px, env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  display: grid;
-  gap: 8px;
-  max-width: calc(100vw - 24px);
-}
-
-.ui-tray,
-.ui-tabs {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-}
-
-.ui-tray button {
-  display: grid;
-  justify-items: center;
-  gap: 2px;
-  padding: 6px;
-  font-size: 0.75rem;
 }
