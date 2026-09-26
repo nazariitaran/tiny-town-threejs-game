@@ -1,0 +1,130 @@
+/*
+ * SCAFFOLD BASELINE — WP-06 (UI) owns styling. Replace with the visual language in
+ * docs/design/02-interaction-and-ui.md §6 (move component styles to src/ui/ui.css).
+ */
+:root {
+  --panel: rgba(255, 249, 239, 0.92);
+  --ink: #3b3a36;
+  --accent: #5db36a;
+  --danger: #e0674f;
+  color: var(--ink);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #bfe3ff;
+}
+
+#game-canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  outline: none;
+  touch-action: none;
+}
+
+#ui-root {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+#ui-root [hidden] {
+  display: none !important;
+}
+
+#ui-root button {
+  pointer-events: auto;
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+#ui-root button[aria-pressed='true'] {
+  outline: 3px solid var(--accent);
+}
+
+#ui-root button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ui-loading,
+.ui-title {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.ui-title h1,
+.ui-loading h1 {
+  margin: 0;
+  font-size: 3rem;
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+}
+
+.ui-topbar {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left));
+  right: max(12px, env(safe-area-inset-right));
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ui-stats {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--panel);
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.ui-dock {
+  position: absolute;
+  left: 50%;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: grid;
+  gap: 8px;
+  max-width: calc(100vw - 24px);
+}
+
+.ui-tray,
+.ui-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.ui-tray button {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 6px;
+  font-size: 0.75rem;
+}

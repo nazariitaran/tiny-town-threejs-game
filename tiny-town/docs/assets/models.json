@@ -1,0 +1,1498 @@
+[
+  {
+    "id": "road-straight",
+    "category": "path",
+    "tool": "road",
+    "file": "/assets/models/roads/road-straight.glb",
+    "icon": "/assets/icons/road-straight.png",
+    "source": "Kenney City Kit (Roads) 2.1 — https://kenney.nl/assets/city-kit-roads",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1,
+      "y": 0.02,
+      "z": 1
+    },
+    "boundsMinNative": {
+      "x": -0.5,
+      "y": 0,
+      "z": -0.5
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a — connects -X,+X",
+    "suggestedScale": 1,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 44,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 5248,
+    "notes": "Tile exactly 1×1 at scale 1. Top surface y=0.02 (sidewalk strips on ±Z edges)."
+  },
+  {
+    "id": "road-corner",
+    "category": "path",
+    "tool": "road",
+    "file": "/assets/models/roads/road-bend.glb",
+    "icon": "/assets/icons/road-corner.png",
+    "source": "Kenney City Kit (Roads) 2.1 — https://kenney.nl/assets/city-kit-roads",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1,
+      "y": 0.02,
+      "z": 1
+    },
+    "boundsMinNative": {
+      "x": -0.5,
+      "y": 0,
+      "z": -0.5
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a — connects -X,+Z",
+    "suggestedScale": 1,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 260,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 20164,
+    "notes": "Curved bend; outside of the curve is empty (ground shows through)."
+  },
+  {
+    "id": "road-corner-sidewalk",
+    "category": "path",
+    "tool": "road",
+    "file": "/assets/models/roads/road-bend-sidewalk.glb",
+    "icon": "/assets/icons/road-corner-sidewalk.png",
+    "source": "Kenney City Kit (Roads) 2.1 — https://kenney.nl/assets/city-kit-roads",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1,
+      "y": 0.02,
+      "z": 1
+    },
+    "boundsMinNative": {
+      "x": -0.5,
+      "y": 0,
+      "z": -0.5
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a — connects -X,+Z",
+    "suggestedScale": 1,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 220,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 17024,
+    "notes": "Curved bend with the outer corner filled with sidewalk (seamless next to pavement)."
+  },
+  {
+    "id": "road-corner-square",
+    "category": "path",
+    "tool": "road",
+    "file": "/assets/models/roads/road-bend-square.glb",
+    "icon": "/assets/icons/road-corner-square.png",
+    "source": "Kenney City Kit (Roads) 2.1 — https://kenney.nl/assets/city-kit-roads",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1,
+      "y": 0.02,
+      "z": 1
+    },
+    "boundsMinNative": {
+      "x": -0.5,
+      "y": 0,
+      "z": -0.5
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a — connects -X,+Z",
+    "suggestedScale": 1,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 60,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 6268,
+    "notes": "Square corner, sidewalk on -Z and +X edges; matches the square T/X pieces best."
+  },
+  {
+    "id": "road-tee",
+    "category": "path",
+    "tool": "road",
+    "file": "/assets/models/roads/road-intersection.glb",
+    "icon": "/assets/icons/road-tee.png",
+    "source": "Kenney City Kit (Roads) 2.1 — https://kenney.nl/assets/city-kit-roads",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1,
+      "y": 0.02,
+      "z": 1
+    },
+    "boundsMinNative": {
+      "x": -0.5,
+      "y": 0,
+      "z": -0.5
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a — connects -X,+X,+Z (closed -Z)",
+    "suggestedScale": 1,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 84,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 7900,
+    "notes": "T-junction."
+  },
+  {
+    "id": "road-cross",
+    "category": "path",
+    "tool": "road",
+    "file": "/assets/models/roads/road-crossroad.glb",
+    "icon": "/assets/icons/road-cross.png",
+    "source": "Kenney City Kit (Roads) 2.1 — https://kenney.nl/assets/city-kit-roads",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1,
+      "y": 0.02,
+      "z": 1
+    },
+    "boundsMinNative": {
+      "x": -0.5,
+      "y": 0,
+      "z": -0.5
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a — connects all four",
+    "suggestedScale": 1,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 116,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 10084,
+    "notes": "Crossroads."
+  },
+  {
+    "id": "road-end",
+    "category": "path",
+    "tool": "road",
+    "file": "/assets/models/roads/road-end.glb",
+    "icon": "/assets/icons/road-end.png",
+    "source": "Kenney City Kit (Roads) 2.1 — https://kenney.nl/assets/city-kit-roads",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1,
+      "y": 0.02,
+      "z": 1
+    },
+    "boundsMinNative": {
+      "x": -0.5,
+      "y": 0,
+      "z": -0.5
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a — connects +X only",
+    "suggestedScale": 1,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 42,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 4940,
+    "notes": "Square dead end."
+  },
+  {
+    "id": "road-end-round",
+    "category": "path",
+    "tool": "road",
+    "file": "/assets/models/roads/road-end-round.glb",
+    "icon": "/assets/icons/road-end-round.png",
+    "source": "Kenney City Kit (Roads) 2.1 — https://kenney.nl/assets/city-kit-roads",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1,
+      "y": 0.02,
+      "z": 1
+    },
+    "boundsMinNative": {
+      "x": -0.5,
+      "y": 0,
+      "z": -0.5
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a — connects +X only",
+    "suggestedScale": 1,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 218,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 17532,
+    "notes": "Rounded cul-de-sac dead end (nicer looking alternative to road-end)."
+  },
+  {
+    "id": "road-single",
+    "category": "path",
+    "tool": "road",
+    "file": "/assets/models/roads/road-square.glb",
+    "icon": "/assets/icons/road-single.png",
+    "source": "Kenney City Kit (Roads) 2.1 — https://kenney.nl/assets/city-kit-roads",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1,
+      "y": 0.02,
+      "z": 1
+    },
+    "boundsMinNative": {
+      "x": -0.5,
+      "y": 0,
+      "z": -0.5
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a — no connections",
+    "suggestedScale": 1,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 36,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 4436,
+    "notes": "Isolated road cell (asphalt square ringed by sidewalk)."
+  },
+  {
+    "id": "road-crossing",
+    "category": "path",
+    "tool": "road",
+    "file": "/assets/models/roads/road-crossing.glb",
+    "icon": "/assets/icons/road-crossing.png",
+    "source": "Kenney City Kit (Roads) 2.1 — https://kenney.nl/assets/city-kit-roads",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1,
+      "y": 0.02,
+      "z": 1
+    },
+    "boundsMinNative": {
+      "x": -0.5,
+      "y": 0,
+      "z": -0.5
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a — connects -X,+X",
+    "suggestedScale": 1,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 104,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 8700,
+    "notes": "Zebra-crossing variant of road-straight (optional)."
+  },
+  {
+    "id": "road-driveway",
+    "category": "path",
+    "tool": "road",
+    "file": "/assets/models/roads/road-driveway-single.glb",
+    "icon": "/assets/icons/road-driveway.png",
+    "source": "Kenney City Kit (Roads) 2.1 — https://kenney.nl/assets/city-kit-roads",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1,
+      "y": 0.02,
+      "z": 1
+    },
+    "boundsMinNative": {
+      "x": -0.5,
+      "y": 0,
+      "z": -0.5
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a — connects -X,+X; driveway gap in +Z sidewalk",
+    "suggestedScale": 1,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 60,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 6568,
+    "notes": "Straight with a dropped kerb on +Z — use where a garage/house front touches the road (optional)."
+  },
+  {
+    "id": "pavement-tile",
+    "category": "path",
+    "tool": "pavement",
+    "file": "/assets/models/roads/tile-low.glb",
+    "icon": "/assets/icons/pavement-tile.png",
+    "source": "Kenney City Kit (Roads) 2.1 — https://kenney.nl/assets/city-kit-roads",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1,
+      "y": 0.02,
+      "z": 1
+    },
+    "boundsMinNative": {
+      "x": -0.5,
+      "y": 0,
+      "z": -0.5
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a",
+    "suggestedScale": 1,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 12,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 2800,
+    "notes": "Flat 1×1 sidewalk slab, 0.02 high = same height as road sidewalks. Top colour #a0a8c9 (road-edge sidewalk is lighter, #bdc6ee)."
+  },
+  {
+    "id": "walkway-path-long",
+    "category": "path",
+    "tool": "walkway",
+    "file": "/assets/models/suburban/path-long.glb",
+    "icon": "/assets/icons/walkway-path-long.png",
+    "source": "Kenney City Kit (Suburban) 2.0 — https://kenney.nl/assets/city-kit-suburban",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 0.2,
+      "y": 0.01,
+      "z": 0.4
+    },
+    "boundsMinNative": {
+      "x": -0.1,
+      "y": 0,
+      "z": -0.2
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a — runs along Z",
+    "suggestedScale": 1.25,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 12,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 2940,
+    "notes": "Grey slab path with brick edging, 0.2×0.4 native. At ×1.25 it is 0.25×0.5 = one \"arm\" from cell centre to a cell edge; combine with walkway-path-short as the hub."
+  },
+  {
+    "id": "walkway-path-short",
+    "category": "path",
+    "tool": "walkway",
+    "file": "/assets/models/suburban/path-short.glb",
+    "icon": "/assets/icons/walkway-path-short.png",
+    "source": "Kenney City Kit (Suburban) 2.0 — https://kenney.nl/assets/city-kit-suburban",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 0.2,
+      "y": 0.01,
+      "z": 0.2
+    },
+    "boundsMinNative": {
+      "x": -0.1,
+      "y": 0,
+      "z": -0.1
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a — runs along Z",
+    "suggestedScale": 1.25,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 12,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 2944,
+    "notes": "0.2×0.2 native; ×1.25 = 0.25² hub at the cell centre."
+  },
+  {
+    "id": "walkway-stones-long",
+    "category": "path",
+    "tool": "walkway",
+    "file": "/assets/models/suburban/path-stones-long.glb",
+    "icon": "/assets/icons/walkway-stones-long.png",
+    "source": "Kenney City Kit (Suburban) 2.0 — https://kenney.nl/assets/city-kit-suburban",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 0.14,
+      "y": 0.01,
+      "z": 0.4
+    },
+    "boundsMinNative": {
+      "x": -0.07,
+      "y": 0,
+      "z": -0.2
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a — runs along Z",
+    "suggestedScale": 1.25,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 48,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 6664,
+    "notes": "Stepping-stone variant of the arm piece (garden path look)."
+  },
+  {
+    "id": "walkway-stones-short",
+    "category": "path",
+    "tool": "walkway",
+    "file": "/assets/models/suburban/path-stones-short.glb",
+    "icon": "/assets/icons/walkway-stones-short.png",
+    "source": "Kenney City Kit (Suburban) 2.0 — https://kenney.nl/assets/city-kit-suburban",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 0.14,
+      "y": 0.01,
+      "z": 0.2
+    },
+    "boundsMinNative": {
+      "x": -0.07,
+      "y": 0,
+      "z": -0.1
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a — runs along Z",
+    "suggestedScale": 1.25,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 24,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 4284,
+    "notes": "Stepping-stone hub."
+  },
+  {
+    "id": "grass-tuft",
+    "category": "nature",
+    "tool": "grass",
+    "file": "/assets/models/platformer/grass.glb",
+    "icon": "/assets/icons/grass-tuft.png",
+    "source": "Kenney Platformer Kit 4.1 — https://kenney.nl/assets/platformer-kit",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 0.519,
+      "y": 0.314,
+      "z": 0.544
+    },
+    "boundsMinNative": {
+      "x": -0.259,
+      "y": 0,
+      "z": -0.272
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a (symmetric)",
+    "suggestedScale": 0.35,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 72,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 8964,
+    "notes": "Grass tuft for scattering on grass cells (2–4 per cell, random yaw/offset). Ground itself: flat tile, kit greens #4ab480 / #3da679."
+  },
+  {
+    "id": "meadow-flowers",
+    "category": "nature",
+    "tool": "meadow",
+    "file": "/assets/models/platformer/flowers.glb",
+    "icon": "/assets/icons/meadow-flowers.png",
+    "source": "Kenney Platformer Kit 4.1 — https://kenney.nl/assets/platformer-kit",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 0.777,
+      "y": 0.137,
+      "z": 0.786
+    },
+    "boundsMinNative": {
+      "x": -0.379,
+      "y": 0,
+      "z": -0.402
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a (symmetric)",
+    "suggestedScale": 0.35,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 264,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 25928,
+    "notes": "Low blue flower clump. Scatter with meadow-flowers-tall + grass-tuft, 3–6 per cell."
+  },
+  {
+    "id": "meadow-flowers-tall",
+    "category": "nature",
+    "tool": "meadow",
+    "file": "/assets/models/platformer/flowers-tall.glb",
+    "icon": "/assets/icons/meadow-flowers-tall.png",
+    "source": "Kenney Platformer Kit 4.1 — https://kenney.nl/assets/platformer-kit",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 0.546,
+      "y": 0.462,
+      "z": 0.618
+    },
+    "boundsMinNative": {
+      "x": -0.274,
+      "y": 0,
+      "z": -0.308
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a (symmetric)",
+    "suggestedScale": 0.35,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 398,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 39256,
+    "notes": "Tall red flowers."
+  },
+  {
+    "id": "tree-a",
+    "category": "nature",
+    "tool": "tree-a",
+    "file": "/assets/models/platformer/tree.glb",
+    "icon": "/assets/icons/tree-a.png",
+    "source": "Kenney Platformer Kit 4.1 — https://kenney.nl/assets/platformer-kit",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1.089,
+      "y": 1.931,
+      "z": 1.109
+    },
+    "boundsMinNative": {
+      "x": -0.539,
+      "y": 0,
+      "z": -0.551
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a (symmetric)",
+    "suggestedScale": 0.36,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 408,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 42680,
+    "notes": "Round deciduous tree (\"Oak\"). ~0.70 tall at ×0.36."
+  },
+  {
+    "id": "tree-b",
+    "category": "nature",
+    "tool": "tree-b",
+    "file": "/assets/models/platformer/tree-pine.glb",
+    "icon": "/assets/icons/tree-b.png",
+    "source": "Kenney Platformer Kit 4.1 — https://kenney.nl/assets/platformer-kit",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 0.948,
+      "y": 1.997,
+      "z": 0.948
+    },
+    "boundsMinNative": {
+      "x": -0.474,
+      "y": 0,
+      "z": -0.474
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a (symmetric)",
+    "suggestedScale": 0.36,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 204,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 22396,
+    "notes": "Pine (\"Pine\"). ~0.72 tall at ×0.36."
+  },
+  {
+    "id": "tree-c",
+    "category": "nature",
+    "tool": "tree-c",
+    "file": "/assets/models/suburban/tree-large.glb",
+    "icon": "/assets/icons/tree-c.png",
+    "source": "Kenney City Kit (Suburban) 2.0 — https://kenney.nl/assets/city-kit-suburban",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 0.21,
+      "y": 0.767,
+      "z": 0.243
+    },
+    "boundsMinNative": {
+      "x": -0.105,
+      "y": 0,
+      "z": -0.121
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a (symmetric)",
+    "suggestedScale": 1,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 42,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 5812,
+    "notes": "Slim columnar tree (\"Birch\"/tall). 0.77 tall at ×1."
+  },
+  {
+    "id": "tree-c-small",
+    "category": "nature",
+    "tool": "tree-c",
+    "file": "/assets/models/suburban/tree-small.glb",
+    "icon": "/assets/icons/tree-c-small.png",
+    "source": "Kenney City Kit (Suburban) 2.0 — https://kenney.nl/assets/city-kit-suburban",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 0.21,
+      "y": 0.567,
+      "z": 0.243
+    },
+    "boundsMinNative": {
+      "x": -0.105,
+      "y": 0,
+      "z": -0.121
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a (symmetric)",
+    "suggestedScale": 1,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 42,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 5812,
+    "notes": "Smaller variant of tree-c (0.57 tall)."
+  },
+  {
+    "id": "townhouse-a",
+    "category": "building",
+    "tool": "townhouse-a",
+    "file": "/assets/models/suburban/building-type-a.glb",
+    "icon": "/assets/icons/townhouse-a.png",
+    "source": "Kenney City Kit (Suburban) 2.0 — https://kenney.nl/assets/city-kit-suburban",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1.3,
+      "y": 0.834,
+      "z": 1.028
+    },
+    "boundsMinNative": {
+      "x": -0.65,
+      "y": 0,
+      "z": -0.514
+    },
+    "pivot": "centre-bottom",
+    "front": "-Z (door + planters)",
+    "suggestedScale": 0.75,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 1174,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 98604,
+    "notes": "\"Cottage\": 1.5-storey, twin gables. 0.975×0.63×0.77 at ×0.75. Roof colour can be swapped via Textures/variation-{a,b,c}.png."
+  },
+  {
+    "id": "townhouse-b",
+    "category": "building",
+    "tool": "townhouse-b",
+    "file": "/assets/models/suburban/building-type-k.glb",
+    "icon": "/assets/icons/townhouse-b.png",
+    "source": "Kenney City Kit (Suburban) 2.0 — https://kenney.nl/assets/city-kit-suburban",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 0.921,
+      "y": 1.15,
+      "z": 1.02
+    },
+    "boundsMinNative": {
+      "x": -0.46,
+      "y": 0,
+      "z": -0.51
+    },
+    "pivot": "centre-bottom",
+    "front": "-Z (door + planters)",
+    "suggestedScale": 0.75,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 1024,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 89152,
+    "notes": "\"Townhouse\": narrow 2-storey. 0.69×0.86×0.77 at ×0.75."
+  },
+  {
+    "id": "townhouse-c",
+    "category": "building",
+    "tool": "townhouse-c",
+    "file": "/assets/models/suburban/building-type-e.glb",
+    "icon": "/assets/icons/townhouse-c.png",
+    "source": "Kenney City Kit (Suburban) 2.0 — https://kenney.nl/assets/city-kit-suburban",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1.3,
+      "y": 1.138,
+      "z": 1.028
+    },
+    "boundsMinNative": {
+      "x": -0.65,
+      "y": 0,
+      "z": -0.514
+    },
+    "pivot": "centre-bottom",
+    "front": "-Z (door, awning, planters)",
+    "suggestedScale": 0.75,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 1731,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 145512,
+    "notes": "\"Family home\": wide 2-storey with dormer. 0.975×0.85×0.77 at ×0.75."
+  },
+  {
+    "id": "townhouse-b-alt",
+    "category": "building",
+    "tool": "townhouse-b",
+    "file": "/assets/models/suburban/building-type-r.glb",
+    "icon": "/assets/icons/townhouse-b-alt.png",
+    "source": "Kenney City Kit (Suburban) 2.0 — https://kenney.nl/assets/city-kit-suburban",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1.028,
+      "y": 1.141,
+      "z": 1.02
+    },
+    "boundsMinNative": {
+      "x": -0.514,
+      "y": 0,
+      "z": -0.51
+    },
+    "pivot": "centre-bottom",
+    "front": "-Z (door)",
+    "suggestedScale": 0.75,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 1030,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 88544,
+    "notes": "Optional variant: gabled narrow 2-storey."
+  },
+  {
+    "id": "townhouse-c-alt",
+    "category": "building",
+    "tool": "townhouse-c",
+    "file": "/assets/models/suburban/building-type-c.glb",
+    "icon": "/assets/icons/townhouse-c-alt.png",
+    "source": "Kenney City Kit (Suburban) 2.0 — https://kenney.nl/assets/city-kit-suburban",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1.286,
+      "y": 1.034,
+      "z": 1.028
+    },
+    "boundsMinNative": {
+      "x": -0.643,
+      "y": 0,
+      "z": -0.514
+    },
+    "pivot": "centre-bottom",
+    "front": "-Z (door + garage door)",
+    "suggestedScale": 0.75,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 1196,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 99592,
+    "notes": "Optional variant: 2-storey with integral garage."
+  },
+  {
+    "id": "garage",
+    "category": "building",
+    "tool": "garage",
+    "file": "/assets/models/composed/garage.glb",
+    "icon": "/assets/icons/garage.png",
+    "source": "Composed by scripts/compose-models.mjs from Kenney City Kit (Industrial) building-j (re-centred only)",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1.027,
+      "y": 0.861,
+      "z": 1.3
+    },
+    "boundsMinNative": {
+      "x": -0.513,
+      "y": 0,
+      "z": -0.65
+    },
+    "pivot": "centre-bottom",
+    "front": "-Z (big garage door)",
+    "suggestedScale": 0.75,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 886,
+    "materials": 2,
+    "textures": [
+      "(embedded bufferView 6)"
+    ],
+    "fileBytes": 92976,
+    "notes": "Kenney industrial building-j, re-centred. 0.77×0.65×0.98 at ×0.75."
+  },
+  {
+    "id": "garage-row",
+    "category": "building",
+    "tool": "garage",
+    "file": "/assets/models/industrial/building-s.glb",
+    "icon": "/assets/icons/garage-row.png",
+    "source": "Kenney City Kit (Industrial) 2.0 — https://kenney.nl/assets/city-kit-industrial",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 2.12,
+      "y": 0.837,
+      "z": 0.916
+    },
+    "boundsMinNative": {
+      "x": -1.07,
+      "y": 0,
+      "z": -0.458
+    },
+    "pivot": "centre-bottom",
+    "front": "-Z (4 garage doors)",
+    "suggestedScale": 0.75,
+    "footprintCells": [
+      2,
+      1
+    ],
+    "triangles": 876,
+    "materials": 2,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 81192,
+    "notes": "Optional 2×1 lock-up garage block. 1.59×0.63×0.69 at ×0.75."
+  },
+  {
+    "id": "bus-stop",
+    "category": "building",
+    "tool": "bus-stop",
+    "file": "/assets/models/composed/bus-stop.glb",
+    "icon": "/assets/icons/bus-stop.png",
+    "source": "Composed by scripts/compose-models.mjs from Kenney City Kit (Commercial) detail-overhang-wide + Holiday Kit bench + City Kit (Roads) road-sign-street",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 0.944,
+      "y": 0.428,
+      "z": 0.456
+    },
+    "boundsMinNative": {
+      "x": -0.45,
+      "y": 0,
+      "z": -0.274
+    },
+    "pivot": "centre-bottom (bounds centre ≈ (0.02, -0.05))",
+    "front": "-Z (open side, bench faces -Z; sign pole at +X/-Z)",
+    "suggestedScale": 1,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 378,
+    "materials": 3,
+    "textures": [
+      "(embedded bufferView 5)",
+      "(embedded bufferView 11)",
+      "(embedded bufferView 17)"
+    ],
+    "fileBytes": 73740,
+    "notes": "Canopy + bench + sign. 0.94×0.43×0.46."
+  },
+  {
+    "id": "fence-tall",
+    "category": "building",
+    "tool": "fence-tall",
+    "file": "/assets/models/composed/fence-tall.glb",
+    "icon": "/assets/icons/fence-tall.png",
+    "source": "Composed by scripts/compose-models.mjs from 2× Kenney City Kit (Suburban) fence",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1,
+      "y": 0.229,
+      "z": 0.079
+    },
+    "boundsMinNative": {
+      "x": -0.5,
+      "y": 0,
+      "z": -0.039
+    },
+    "pivot": "edge-centre-bottom",
+    "front": "n/a — runs along X (both faces finished)",
+    "suggestedScale": 1,
+    "footprintCells": [
+      1,
+      0
+    ],
+    "triangles": 176,
+    "materials": 2,
+    "textures": [
+      "(embedded bufferView 5)"
+    ],
+    "fileBytes": 31060,
+    "notes": "Terracotta privacy fence, 0.23 tall. Edge piece: 1 cell long along X, centred on the origin (the cell-edge midpoint), base y=0. Rotate 90° for edges running along Z."
+  },
+  {
+    "id": "fence-small",
+    "category": "building",
+    "tool": "fence-small",
+    "file": "/assets/models/composed/fence-small.glb",
+    "icon": "/assets/icons/fence-small.png",
+    "source": "Composed by scripts/compose-models.mjs from Kenney Fantasy Town Kit fence (rotated, re-centred, height ×0.37)",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1,
+      "y": 0.141,
+      "z": 0.075
+    },
+    "boundsMinNative": {
+      "x": -0.5,
+      "y": 0,
+      "z": -0.038
+    },
+    "pivot": "edge-centre-bottom",
+    "front": "n/a — runs along X",
+    "suggestedScale": 1,
+    "footprintCells": [
+      1,
+      0
+    ],
+    "triangles": 84,
+    "materials": 1,
+    "textures": [
+      "(embedded bufferView 5)"
+    ],
+    "fileBytes": 19032,
+    "notes": "Wooden rail garden fence, 0.14 tall. Edge piece: 1 cell long along X, centred on the origin (the cell-edge midpoint), base y=0. Rotate 90° for edges running along Z."
+  },
+  {
+    "id": "fence-small-gate",
+    "category": "building",
+    "tool": "fence-small",
+    "file": "/assets/models/composed/fence-small-gate.glb",
+    "icon": "/assets/icons/fence-small-gate.png",
+    "source": "Composed by scripts/compose-models.mjs from Kenney Fantasy Town Kit fence-gate (rotated, re-centred, height ×0.37)",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1,
+      "y": 0.141,
+      "z": 0.075
+    },
+    "boundsMinNative": {
+      "x": -0.5,
+      "y": 0,
+      "z": -0.038
+    },
+    "pivot": "edge-centre-bottom",
+    "front": "n/a — runs along X",
+    "suggestedScale": 1,
+    "footprintCells": [
+      1,
+      0
+    ],
+    "triangles": 560,
+    "materials": 1,
+    "textures": [
+      "(embedded bufferView 10)"
+    ],
+    "fileBytes": 57664,
+    "notes": "Optional gate variant of fence-small (same size). Edge piece: 1 cell long along X, centred on the origin (the cell-edge midpoint), base y=0. Rotate 90° for edges running along Z."
+  },
+  {
+    "id": "postbox",
+    "category": "other",
+    "tool": "postbox",
+    "file": "/assets/models/composed/postbox.glb",
+    "icon": "/assets/icons/postbox.png",
+    "source": "Original primitive model generated by scripts/compose-models.mjs (no CC0 match in the Kenney style)",
+    "license": "CC0 1.0",
+    "author": "tiny-town project",
+    "boundsNative": {
+      "x": 0.104,
+      "y": 0.172,
+      "z": 0.104
+    },
+    "boundsMinNative": {
+      "x": -0.052,
+      "y": 0,
+      "z": -0.052
+    },
+    "pivot": "centre-bottom",
+    "front": "-Z (slot + plate)",
+    "suggestedScale": 1,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 216,
+    "materials": 4,
+    "textures": [],
+    "fileBytes": 19516,
+    "notes": "Red pillar box, 0.17 tall (≈2× real size relative to the houses, for readability). Flat materials, no texture."
+  },
+  {
+    "id": "lamppost",
+    "category": "other",
+    "tool": "lamppost",
+    "file": "/assets/models/roads/light-curved.glb",
+    "icon": "/assets/icons/lamppost.png",
+    "source": "Kenney City Kit (Roads) 2.1 — https://kenney.nl/assets/city-kit-roads",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 0.05,
+      "y": 0.675,
+      "z": 0.225
+    },
+    "boundsMinNative": {
+      "x": -0.025,
+      "y": 0,
+      "z": -0.2
+    },
+    "pivot": "pole at origin, base y=0 (bounds offset toward -Z by the arm)",
+    "front": "-Z (lamp arm overhangs -Z by 0.2 native)",
+    "suggestedScale": 0.9,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 92,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 9492,
+    "notes": "Modern street light, 0.61 tall at ×0.9. Emissive-looking head is part of the colormap — add a small PointLight/sprite for dusk."
+  },
+  {
+    "id": "lamppost-classic",
+    "category": "other",
+    "tool": "lamppost",
+    "file": "/assets/models/fantasy-town/lantern.glb",
+    "icon": "/assets/icons/lamppost-classic.png",
+    "source": "Kenney Fantasy Town Kit 2.0 — https://kenney.nl/assets/fantasy-town-kit",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 0.216,
+      "y": 1.556,
+      "z": 0.224
+    },
+    "boundsMinNative": {
+      "x": -0.108,
+      "y": 0,
+      "z": -0.112
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a (symmetric)",
+    "suggestedScale": 0.4,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 158,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 14984,
+    "notes": "Optional old-town lantern post, 0.62 tall at ×0.4."
+  },
+  {
+    "id": "car-sedan",
+    "category": "decor",
+    "tool": "extra",
+    "file": "/assets/models/cars/sedan.glb",
+    "icon": "/assets/icons/car-sedan.png",
+    "source": "Kenney Car Kit 3.1 — https://kenney.nl/assets/car-kit",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1.5,
+      "y": 1.3,
+      "z": 2.55
+    },
+    "boundsMinNative": {
+      "x": -0.75,
+      "y": 0,
+      "z": -1.3
+    },
+    "pivot": "centre-bottom",
+    "front": "-Z (bonnet/headlights)",
+    "suggestedScale": 0.14,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 2032,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 172216,
+    "notes": "Ambient car. 0.21×0.18×0.36 at ×0.14; a road lane is ~0.37 wide."
+  },
+  {
+    "id": "car-hatchback",
+    "category": "decor",
+    "tool": "extra",
+    "file": "/assets/models/cars/hatchback-sports.glb",
+    "icon": "/assets/icons/car-hatchback.png",
+    "source": "Kenney Car Kit 3.1 — https://kenney.nl/assets/car-kit",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1.3,
+      "y": 1.1,
+      "z": 2.85
+    },
+    "boundsMinNative": {
+      "x": -0.65,
+      "y": 0,
+      "z": -1.45
+    },
+    "pivot": "centre-bottom",
+    "front": "-Z",
+    "suggestedScale": 0.14,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 2088,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 197804,
+    "notes": "Ambient car."
+  },
+  {
+    "id": "car-van",
+    "category": "decor",
+    "tool": "extra",
+    "file": "/assets/models/cars/van.glb",
+    "icon": "/assets/icons/car-van.png",
+    "source": "Kenney Car Kit 3.1 — https://kenney.nl/assets/car-kit",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1.5,
+      "y": 1.35,
+      "z": 2.75
+    },
+    "boundsMinNative": {
+      "x": -0.75,
+      "y": 0,
+      "z": -1.4
+    },
+    "pivot": "centre-bottom",
+    "front": "-Z",
+    "suggestedScale": 0.14,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 2082,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 175664,
+    "notes": "Ambient car."
+  },
+  {
+    "id": "car-taxi",
+    "category": "decor",
+    "tool": "extra",
+    "file": "/assets/models/cars/taxi.glb",
+    "icon": "/assets/icons/car-taxi.png",
+    "source": "Kenney Car Kit 3.1 — https://kenney.nl/assets/car-kit",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1.5,
+      "y": 1.5,
+      "z": 2.75
+    },
+    "boundsMinNative": {
+      "x": -0.75,
+      "y": 0,
+      "z": -1.4
+    },
+    "pivot": "centre-bottom",
+    "front": "-Z",
+    "suggestedScale": 0.14,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 2072,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 175608,
+    "notes": "Ambient car. (More in assets-src/car-kit: suv, police, delivery, truck, ambulance…)"
+  },
+  {
+    "id": "bench",
+    "category": "decor",
+    "tool": "extra",
+    "file": "/assets/models/holiday/bench.glb",
+    "icon": "/assets/icons/bench.png",
+    "source": "Kenney Holiday Kit 2.0 — https://kenney.nl/assets/holiday-kit",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1.121,
+      "y": 0.731,
+      "z": 0.632
+    },
+    "boundsMinNative": {
+      "x": -0.561,
+      "y": 0,
+      "z": -0.316
+    },
+    "pivot": "centre-bottom",
+    "front": "-Z (seat faces -Z)",
+    "suggestedScale": 0.26,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 160,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 15956,
+    "notes": "Park bench, 0.29×0.19×0.16 at ×0.26."
+  },
+  {
+    "id": "rocks",
+    "category": "decor",
+    "tool": "extra",
+    "file": "/assets/models/platformer/rocks.glb",
+    "icon": "/assets/icons/rocks.png",
+    "source": "Kenney Platformer Kit 4.1 — https://kenney.nl/assets/platformer-kit",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 0.653,
+      "y": 0.4,
+      "z": 0.662
+    },
+    "boundsMinNative": {
+      "x": -0.327,
+      "y": 0,
+      "z": -0.331
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a",
+    "suggestedScale": 0.3,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 100,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 9556,
+    "notes": "Rock cluster."
+  },
+  {
+    "id": "bush",
+    "category": "decor",
+    "tool": "extra",
+    "file": "/assets/models/platformer/plant.glb",
+    "icon": "/assets/icons/bush.png",
+    "source": "Kenney Platformer Kit 4.1 — https://kenney.nl/assets/platformer-kit",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 0.511,
+      "y": 0.172,
+      "z": 0.443
+    },
+    "boundsMinNative": {
+      "x": -0.256,
+      "y": 0,
+      "z": -0.287
+    },
+    "pivot": "centre-bottom (≈)",
+    "front": "n/a",
+    "suggestedScale": 0.45,
+    "footprintCells": [
+      1,
+      1
+    ],
+    "triangles": 108,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 13124,
+    "notes": "Leafy bush/plant."
+  }
+]
