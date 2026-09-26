@@ -26,8 +26,8 @@ Worktrees live in `<repo-parent>/ThreeJsGames-wt/<wp>`, branched from `9a4e084`.
 | WP-07 Audio | ✅ done (bf55f1d, fixes 8e6eae3, da4063d shims removed; worktree removed) | `wp-07-audio` | `wp-07` | 5207 | all SFX rebuilt, metal prop sound, stroke pitch rise; fix-up: mute test asserts aria-pressed. Local shims in AudioManager can now go |
 | WP-09a QA harness | ✅ merged (81d8a97) | `wp-09a-qa` | `wp-09a` | 5209 | smoke + build-flow specs, tests/helpers.ts; main e2e 10/10 after merge. Templates annotated, not deleted (left for 09b) |
 | WP-08 Feel & VFX | ✅ done (5fd620c) | — | removed | 5208 | 2 draw calls max, 0 idle; instanced wind sway; reduced motion OK; fx diagnostics published. Shim `__THREE_GAME_FX_DIAGNOSTICS__` remains (harmless) |
-| WP-09b Baselines + bot | ✅ merged (09adbfa), baselines PENDING | `wp-09b-qa` | `wp-09b` | 5210 | bot 200 steps green both projects; visual spec skips without baselines; commit baselines after WP-03/05 fix2 |
-| WP-10 Ambient life | 🔄 running (stretch) | `wp-10-life` | `wp-10` | 5211 | Game.ts wiring via contract request |
+| WP-09b Baselines + bot | 🔄 baselines running | `wp-09b-qa` | `wp-09b` | 5210 | bot green; generating+committing baselines on final look; missing baseline → fail |
+| WP-10 Ambient life | ✅ done (9ae0d39) | — | removed | 5211 | ≤6 cars, BatchedMesh +1 main +1 shadow call, keep-right lanes, despawn on road removal; wired in Game.ts (142cd95). Dusk toggle skipped (optional) |
 | WP-11 Release | ⬜ wave 3 | | | 5212 | |
 
 ## M0 preflight evidence (run id m0, desktop, real GPU: ANGLE Metal / Apple M2 Max, softwareRendered false)
@@ -56,8 +56,8 @@ Contract requests applied in commit after the Wave-1 merges: sfx `place-prop-met
 - WP-02 follow-up (unowned by the rule table): bus stop stays after its road is repainted away. Decide at M1.
 
 ## Next actions (current)
-1. ✅ WP-03/05 fix2 merged. Baselines wait for WP-10 (cars change sample-town); then ask WP-09b to generate and commit the visual baselines (switch missing-baseline skip → fail).
-2. Merge WP-10 and apply its Game.ts contract request.
+1. ✅ fix2 + WP-10 merged/wired. WP-09b generating baselines now.
+2. M2 notes so far: FX puff chips read slightly rock-like (tune at M3 if reviewer agrees); FX journey video is zoomed out (tune-*.png are the useful evidence).
 3. Checkpoint M2 (PLAN §5), then WP-11 → M3.
 
 ## Next actions (old)
