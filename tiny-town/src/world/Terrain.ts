@@ -1,5 +1,5 @@
 /**
- * Ground meshes: the buildable plot as a raised diorama slab (field top + cream kerb + soil faces,
+ * Ground meshes: the buildable plot as a raised diorama slab (field top + warm sandstone kerb + soil faces,
  * one vertex-coloured mesh) and the surrounding meadow disc that undulates gently and rolls into
  * distant hills (one vertex-coloured mesh). Heights come from terrainShape.ts.
  *
@@ -27,8 +27,8 @@ import {
 export const TERRAIN_PALETTE = {
   field: '#84c27c',
   fieldAlt: '#8dc882',
-  kerbTop: '#efe4c6',
-  kerbSide: '#d6c59c',
+  kerbTop: '#e6cf9e',
+  kerbSide: '#c4a674',
   soilTop: '#a0693f',
   soilBottom: '#6e4429',
   meadowA: '#55a765',
