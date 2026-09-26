@@ -18,6 +18,7 @@
     "gen:sfx": "node scripts/gen-sfx-table.mjs"
   },
   "dependencies": {
+    "@fontsource-variable/nunito": "^5.3.0",
     "lil-gui": "^0.21.0",
     "three": "^0.184.0"
   },
