@@ -2,30 +2,25 @@
  * Web Audio SFX manager (WP-07): unlock on the first user gesture, decode every file in SFX_TABLE,
  * play with variant pools, pitch jitter, per-event cooldowns and ui/sfx groups under one master gain.
  *
- * - Mute/volume persist under SETTINGS_STORAGE_KEY (merged with the other settings keys, never clobbered).
+ * - Mute/volume persist through the SettingsPort (SaveStore → SETTINGS_STORAGE_KEY, merged with the other keys).
  *   The stored values are announced with `audio:changed` right after construction so the UI shows them.
  * - The context is suspended while the page is hidden and resumed when it's visible again.
  * - Load/decode failures are reported once, as a single console.warn listing every failed file; never thrown.
  * - Drag strokes: at most one build sound per BUILD_SOUND_GAP_MS, and placements rise in pitch by
  *   STROKE_PITCH_STEP per consecutive placement (build:placed.strokeIndex; resets with each new stroke).
+ * - Per-event base playbackRate (undo 0.89×, redo 1.12×) comes from SFX_TABLE.
  *
- * LOCAL SHIMS (remove once the integrator lands the matching contract changes, see the WP-07 hand-off):
- *  - `place-prop-metal`: lamppost/postbox get a metal clink instead of the wooden fence knock. Until
- *    sfx.ts/tools.ts/sfxTable.ts know the event, its table entry and tool mapping live here.
- *  - undo/redo `playbackRate` (0.89 / 1.12) is in audio.json but not yet emitted by gen-sfx-table.mjs.
- *  - settings storage: until Game passes WP-02's SaveStore as the 3rd constructor argument, `localSettings`
- *    below reads/writes the same SETTINGS_STORAGE_KEY with the same merge semantics.
+ * Settings come from the SettingsPort (Game passes WP-02's SaveStore). If none is given, the manager
+ * runs on DEFAULT_SETTINGS and doesn't persist.
  */
-import { SETTINGS_STORAGE_KEY, assetUrl } from '../game/config';
+import { assetUrl } from '../game/config';
 import type { GameBus } from '../game/events';
 import type { SfxEvent } from './sfx';
-import { SFX_TABLE, type SfxEntry } from './sfxTable';
+import { SFX_TABLE } from './sfxTable';
 import type { ToolId } from '../catalog/tools';
 import { toolDef } from '../catalog/tools';
 
 type Group = 'ui' | 'sfx';
-/** SfxEvent plus the events this file shims until the contract catches up. */
-type PlayableEvent = SfxEvent | 'place-prop-metal';
 
 export interface AudioSettings {
   muted: boolean;
@@ -54,65 +49,21 @@ const DEFAULT_SETTINGS: AudioSettings = { muted: false, volume: 0.8 };
 /** Master-gain ramp time constant (s): mute/volume changes fade instead of clicking. */
 const GAIN_RAMP_S = 0.015;
 
-// ---- LOCAL SHIM: contract additions requested in the WP-07 hand-off -------------------------------
-const SHIM_TABLE: Partial<Record<PlayableEvent, SfxEntry>> = {
-  'place-prop-metal': {
-    files: ['/assets/audio/place-prop-metal-1.mp3', '/assets/audio/place-prop-metal-2.mp3'],
-    group: 'sfx',
-    volume: 0.7,
-    pitchJitter: 0.06,
-    cooldownMs: 50,
-  },
-};
-const SHIM_TOOL_SFX: Partial<Record<ToolId, PlayableEvent>> = { lamppost: 'place-prop-metal', postbox: 'place-prop-metal' };
-const SHIM_PLAYBACK_RATE: Partial<Record<PlayableEvent, number>> = { undo: 0.89, redo: 1.12 };
 /** Removal pitch by layer: objects sound heavier, ground tiles lighter. */
 const REMOVE_RATE: Record<'ground' | 'object' | 'edge', number> = { ground: 1.06, object: 0.92, edge: 1 };
 
-function entryFor(event: PlayableEvent): SfxEntry | undefined {
-  return (SFX_TABLE as Partial<Record<PlayableEvent, SfxEntry>>)[event] ?? SHIM_TABLE[event];
-}
-
-/** LOCAL SHIM for WP-02's SaveStore settings API: same key, merges with whatever else is stored there. */
-export const localSettings: SettingsPort = {
-  getSettings() {
-    try {
-      const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
-      const parsed: unknown = raw ? JSON.parse(raw) : null;
-      if (!parsed || typeof parsed !== 'object') return {};
-      const { muted, volume } = parsed as Record<string, unknown>;
-      const out: Partial<AudioSettings> = {};
-      if (typeof muted === 'boolean') out.muted = muted;
-      if (typeof volume === 'number' && Number.isFinite(volume)) out.volume = Math.min(1, Math.max(0, volume));
-      return out;
-    } catch {
-      return {};
-    }
-  },
-  setSettings(patch) {
-    try {
-      const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
-      let current: Record<string, unknown> = {};
-      try {
-        const parsed: unknown = raw ? JSON.parse(raw) : null;
-        if (parsed && typeof parsed === 'object') current = parsed as Record<string, unknown>;
-      } catch {
-        // corrupted settings: start over rather than throw
-      }
-      window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ ...current, ...patch }));
-    } catch {
-      // quota / privacy mode: settings just don't persist
-    }
-  },
+/** Used when no SettingsPort is passed: defaults, nothing persisted. */
+const memorySettings: SettingsPort = {
+  getSettings: () => ({}),
+  setSettings: () => undefined,
 };
-// ----------------------------------------------------------------------------------------------------
 
 export class AudioManager {
   private context: AudioContext | null = null;
   private master: GainNode | null = null;
   private readonly groups = new Map<Group, GainNode>();
   private readonly buffers = new Map<string, AudioBuffer>();
-  private readonly lastPlayed = new Map<PlayableEvent, number>();
+  private readonly lastPlayed = new Map<SfxEvent, number>();
   private readonly unsubscribers: Array<() => void> = [];
   private muted: boolean;
   private volume: number;
@@ -126,7 +77,7 @@ export class AudioManager {
   constructor(
     private readonly bus: GameBus,
     private readonly rng: () => number,
-    private readonly settings: SettingsPort = localSettings,
+    private readonly settings: SettingsPort = memorySettings,
   ) {
     const stored = { ...DEFAULT_SETTINGS, ...settings.getSettings() };
     this.muted = stored.muted;
@@ -183,9 +134,9 @@ export class AudioManager {
     }
   }
 
-  play(event: PlayableEvent, rate = 1, jitterScale = 1): void {
+  play(event: SfxEvent, rate = 1, jitterScale = 1): void {
     const ctx = this.context;
-    const entry = entryFor(event);
+    const entry = SFX_TABLE[event];
     if (!ctx || ctx.state !== 'running' || !entry || this.muted) return;
     const now = performance.now();
     if (now - (this.lastPlayed.get(event) ?? -Infinity) < entry.cooldownMs) return;
@@ -196,7 +147,7 @@ export class AudioManager {
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     const jitter = 1 + (this.rng() * 2 - 1) * entry.pitchJitter * jitterScale;
-    source.playbackRate.value = rate * (SHIM_PLAYBACK_RATE[event] ?? 1) * jitter;
+    source.playbackRate.value = rate * (entry.playbackRate ?? 1) * jitter;
     const gain = ctx.createGain();
     gain.gain.value = entry.volume;
     source.connect(gain).connect(this.groups.get(entry.group) ?? ctx.destination);
@@ -240,7 +191,7 @@ export class AudioManager {
   }
 
   /** Place/remove sounds share one rate limiter so a fast drag gives at most one sound per gap. */
-  private playBuild(event: PlayableEvent, rate: number, jitterScale = 1): void {
+  private playBuild(event: SfxEvent, rate: number, jitterScale = 1): void {
     const now = performance.now();
     if (now - this.lastBuildSoundAt < BUILD_SOUND_GAP_MS) return;
     const before = this.starts;
@@ -248,9 +199,8 @@ export class AudioManager {
     if (this.starts !== before) this.lastBuildSoundAt = now;
   }
 
-  private placeEventFor(toolId: ToolId): PlayableEvent {
-    // LOCAL SHIM: once tools.ts maps lamppost/postbox to 'place-prop-metal', toolDef(toolId).sfx alone is enough.
-    return SHIM_TOOL_SFX[toolId] ?? toolDef(toolId).sfx;
+  private placeEventFor(toolId: ToolId): SfxEvent {
+    return toolDef(toolId).sfx;
   }
 
   private announce(): void {
@@ -288,9 +238,7 @@ export class AudioManager {
     const ctx = this.context;
     if (!ctx) return;
     const files = new Set<string>();
-    for (const entry of [...Object.values(SFX_TABLE), ...Object.values(SHIM_TABLE)]) {
-      if (entry) for (const file of entry.files) files.add(file);
-    }
+    for (const entry of Object.values(SFX_TABLE)) for (const file of entry.files) files.add(file);
     const failures: string[] = [];
     await Promise.all(
       [...files].map(async (file) => {
