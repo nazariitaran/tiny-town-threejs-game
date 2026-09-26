@@ -23,7 +23,7 @@ Worktrees live in `<repo-parent>/ThreeJsGames-wt/<wp>`, branched from `9a4e084`.
 | WP-04 World & look | ✅ merged (b0f2947) | `wp-04-world` | `wp-04` | 5204 | sky dome+clouds, diorama slab, decor ring (4 calls), shader grid, Neutral tone mapping; env calls 8 |
 | WP-05 Interaction | ✅ merged (3a1498b + fix 3cd1d16) | `wp-05-interaction` | `wp-05` | 5205 | camera gestures, ghost, tool semantics, touch; fix-up: spec cells under new dock |
 | WP-06 UI | ✅ merged (df3ed58) | `wp-06-ui` | `wp-06` | 5206 | full UI states, Nunito, SVG glyphs, StatsHud; digits 1–9 tools, Shift+1–4 categories (accepted) |
-| WP-07 Audio | ✅ merged (bf55f1d + fix 8e6eae3) | `wp-07-audio` | `wp-07` | 5207 | all SFX rebuilt, metal prop sound, stroke pitch rise; fix-up: mute test asserts aria-pressed. Local shims in AudioManager can now go |
+| WP-07 Audio | ✅ done (bf55f1d, fixes 8e6eae3, da4063d shims removed; worktree removed) | `wp-07-audio` | `wp-07` | 5207 | all SFX rebuilt, metal prop sound, stroke pitch rise; fix-up: mute test asserts aria-pressed. Local shims in AudioManager can now go |
 | WP-09a QA harness | ✅ merged (81d8a97) | `wp-09a-qa` | `wp-09a` | 5209 | smoke + build-flow specs, tests/helpers.ts; main e2e 10/10 after merge. Templates annotated, not deleted (left for 09b) |
 | WP-08 Feel & VFX | 🔄 running (wave 2) | `wp-08-fx` | `wp-08` | 5208 | |
 | WP-09b Baselines + bot | 🔄 running (wave 2) | `wp-09b-qa` | `wp-09b` | 5210 | bot first; baselines NOT committed until fix-ups merge |
