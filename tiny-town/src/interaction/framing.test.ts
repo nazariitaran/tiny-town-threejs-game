@@ -1,39 +1,47 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
-import { DEFAULT_POSE, defaultPoseFor, TITLE_POSE, type CameraPose } from './CameraController';
-import { SAFE_INSETS } from './framing';
+import { DEFAULT_POSE, defaultPoseFor, TITLE_POSE, titlePoseFor, type CameraPose } from './CameraController';
+import { CENTRE_ABOVE_DOCK_PX, dockTopPx, SAFE_INSETS } from './framing';
 
-/** Screen-space (CSS px) bounds of the plot corners at a pose. */
+/** Screen-space (CSS px) bounds of the plot corners and its centre at a pose. */
 function plotRect(pose: CameraPose, width: number, height: number) {
   const camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 2000);
   camera.position.setFromSphericalCoords(pose.distance, pose.polar, pose.azimuth).add(new THREE.Vector3(pose.targetX, 0, pose.targetZ));
   camera.lookAt(pose.targetX, 0, pose.targetZ);
   camera.updateMatrixWorld();
+  const toScreen = (x: number, z: number) => {
+    const p = new THREE.Vector3(x, 0, z).project(camera);
+    return { x: ((p.x + 1) / 2) * width, y: ((1 - p.y) / 2) * height };
+  };
   const hx = (PLOT_WIDTH / 2) * CELL_SIZE;
   const hz = (PLOT_DEPTH / 2) * CELL_SIZE;
-  const xs: number[] = [];
-  const ys: number[] = [];
-  for (const x of [-hx, hx]) {
-    for (const z of [-hz, hz]) {
-      const p = new THREE.Vector3(x, 0, z).project(camera);
-      xs.push(((p.x + 1) / 2) * width);
-      ys.push(((1 - p.y) / 2) * height);
-    }
-  }
-  const centre = new THREE.Vector3(0, 0, 0).project(camera);
-  return { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys), centreY: ((1 - centre.y) / 2) * height };
+  const corners = [toScreen(-hx, -hz), toScreen(hx, -hz), toScreen(-hx, hz), toScreen(hx, hz)];
+  const round = (v: number) => Math.round(v);
+  return {
+    left: round(Math.min(...corners.map((c) => c.x))),
+    right: round(Math.max(...corners.map((c) => c.x))),
+    top: round(Math.min(...corners.map((c) => c.y))),
+    bottom: round(Math.max(...corners.map((c) => c.y))),
+    centreY: round(toScreen(0, 0).y),
+  };
 }
 
-describe('build camera framing', () => {
-  it('desktop 1280×720: the whole plot sits between the top bar and the dock', () => {
+describe('build camera framing (readability first)', () => {
+  it('desktop 1280×720: plot fills the width inside the side insets, centre well above the dock', () => {
     const pose = defaultPoseFor(1280, 720);
     const rect = plotRect(pose, 1280, 720);
     console.log('defaultPoseFor(1280,720)', JSON.stringify(pose), JSON.stringify(rect));
-    expect(rect.top).toBeGreaterThanOrEqual(SAFE_INSETS.wide.top - 1);
-    expect(rect.bottom).toBeLessThanOrEqual(720 - (SAFE_INSETS.wide.bottom as number) + 1);
-    expect(rect.left).toBeGreaterThanOrEqual(0);
-    expect(rect.right).toBeLessThanOrEqual(1280);
+    const dockTop = dockTopPx(SAFE_INSETS.wide, 720);
+    expect(rect.left).toBeGreaterThanOrEqual(SAFE_INSETS.wide.side - 1);
+    expect(rect.right).toBeLessThanOrEqual(1280 - SAFE_INSETS.wide.side + 1);
+    // Tight width fit: the plot spans at least ~75 % of the screen width.
+    expect(rect.right - rect.left).toBeGreaterThan(0.75 * 1280);
+    expect(rect.centreY).toBeLessThanOrEqual(dockTop - CENTRE_ABOVE_DOCK_PX);
+    expect(rect.centreY).toBeGreaterThan(SAFE_INSETS.wide.top);
+    // Close enough that buildings read (M1 review target ≈ 33–36).
+    expect(pose.distance).toBeGreaterThan(32);
+    expect(pose.distance).toBeLessThan(37);
   });
 
   it('DEFAULT_POSE is the desktop fit', () => {
@@ -45,17 +53,25 @@ describe('build camera framing', () => {
     expect(DEFAULT_POSE.azimuth).toBeCloseTo(pose.azimuth, 5);
   });
 
-  it('phone 390×844: the plot centre sits clearly above the dock and the plot top below the top bar', () => {
+  it('phone 390×844: plot centre clearly above the dock, plot ~1.8× the screen width so cells stay tappable', () => {
     const pose = defaultPoseFor(390, 844);
     const rect = plotRect(pose, 390, 844);
     console.log('defaultPoseFor(390,844)', JSON.stringify(pose), JSON.stringify(rect));
-    const dockTop = 844 * (1 - 0.32);
-    expect(rect.centreY).toBeLessThan(dockTop - 120);
-    expect(rect.bottom).toBeLessThanOrEqual(dockTop + 1);
-    expect(rect.top).toBeGreaterThanOrEqual(SAFE_INSETS.narrow.top - 1);
+    const dockTop = dockTopPx(SAFE_INSETS.narrow, 844);
+    expect(rect.centreY).toBeLessThanOrEqual(dockTop - CENTRE_ABOVE_DOCK_PX);
+    expect(rect.centreY).toBeGreaterThan(SAFE_INSETS.narrow.top);
+    expect(rect.right - rect.left).toBeGreaterThanOrEqual(1.6 * 390);
+    expect(pose.distance).toBeLessThan(62);
   });
 
-  it('TITLE_POSE keeps its landscape values', () => {
-    expect(TITLE_POSE.polar).toBeCloseTo((78 * Math.PI) / 180);
+  it('title: landscape keeps TITLE_POSE; portrait fills the width around the same orbit centre', () => {
+    expect(titlePoseFor(1280, 720)).toEqual(TITLE_POSE);
+    const pose = titlePoseFor(390, 844);
+    const rect = plotRect(pose, 390, 844);
+    console.log('titlePoseFor(390,844)', JSON.stringify(pose), JSON.stringify(rect));
+    expect(rect.right - rect.left).toBeGreaterThan(0.9 * 390);
+    expect(rect.right - rect.left).toBeLessThan(1.8 * 390);
+    expect(pose.targetX).toBe(TITLE_POSE.targetX);
+    expect(pose.targetZ).toBe(TITLE_POSE.targetZ);
   });
 });

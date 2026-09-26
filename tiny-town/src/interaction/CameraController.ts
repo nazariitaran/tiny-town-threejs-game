@@ -17,13 +17,13 @@ import { MapControls } from 'three/addons/controls/MapControls.js';
 import type { DebugTools } from '../debug/DebugTools';
 import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
 import { isEditableTarget } from './keyboard';
-import { fitPlotPose, insetsFor } from './framing';
+import { CENTRE_ABOVE_DOCK_PX, dockTopPx, fitPlotPose, insetsFor } from './framing';
 import { easeInOutCubic, easeOutCubic, shortestAngle } from './strokeMath';
 
 const DEG = Math.PI / 180;
 /** defaultPoseFor(1280, 720) rounded (see DEFAULT_POSE). */
-const DESKTOP_TARGET = 4.967;
-const DESKTOP_DISTANCE = 45.025;
+const DESKTOP_TARGET = 1.827;
+const DESKTOP_DISTANCE = 35.808;
 
 export interface CameraPose {
   targetX: number;
@@ -55,20 +55,26 @@ export const DEFAULT_POSE: CameraPose = {
   distance: DESKTOP_DISTANCE,
 };
 
-/** Build start pose fitted to a viewport (CSS px) so the plot sits between the top bar and the dock. */
+/**
+ * Build start pose fitted to a viewport (CSS px): the plot fills the width (inside the side
+ * insets) and its centre sits midway between the top bar and the dock, at least
+ * CENTRE_ABOVE_DOCK_PX above the dock. The front corner may tuck under the dock.
+ */
 export function defaultPoseFor(width: number, height: number, fov = 35): CameraPose {
   if (width <= 0 || height <= 0) return { ...DEFAULT_POSE };
   const portrait = height > width;
+  const insets = insetsFor(width);
+  const dockTop = dockTopPx(insets, height);
+  const centreY = Math.min((insets.top + dockTop) / 2, dockTop - CENTRE_ABOVE_DOCK_PX);
   return fitPlotPose(BUILD_ANGLE, {
     fov,
     width,
     height,
-    insets: insetsFor(width),
-    polars: portrait ? [52 * DEG, 58 * DEG, 64 * DEG] : [BUILD_ANGLE.polar],
+    side: insets.side,
+    centreY,
+    polar: portrait ? 58 * DEG : BUILD_ANGLE.polar,
     minDistance: 6,
     maxDistance: portrait ? 80 : 60,
-    headroom: 1.2,
-    fitVertical: true,
   });
 }
 
@@ -85,6 +91,24 @@ export const TITLE_POSE: CameraPose = {
 };
 
 export type CameraMode = 'title' | 'build';
+
+/**
+ * Title pose for a viewport. Landscape: TITLE_POSE. Portrait: same angle and orbit centre, pulled in
+ * so the diorama fills the width (its side corners run off-screen) instead of sitting small
+ * above a big empty foreground.
+ */
+export function titlePoseFor(width: number, height: number, fov = 35): CameraPose {
+  if (width <= 0 || height <= 0 || width >= height) return { ...TITLE_POSE };
+  return fitPlotPose(TITLE_POSE, {
+    fov,
+    width,
+    height,
+    side: -0.3 * width,
+    polar: TITLE_POSE.polar,
+    minDistance: 20,
+    maxDistance: 150,
+  });
+}
 
 interface ScalarTween {
   from: number;
@@ -206,21 +230,10 @@ export class CameraController {
     return defaultPoseFor(width, height, this.camera.fov);
   }
 
-  /** TITLE_POSE on landscape; on portrait pulled back so the whole plot reads as a diorama in its landscape. */
+  /** TITLE_POSE on landscape; see titlePoseFor for portrait. */
   titlePose(): CameraPose {
     const { width, height } = this.viewportSize();
-    if (width === 0 || height === 0 || width >= height) return { ...TITLE_POSE };
-    return fitPlotPose(TITLE_POSE, {
-      fov: this.camera.fov,
-      width,
-      height,
-      insets: { top: 0, bottom: 0, side: width * 0.06 },
-      polars: [TITLE_POSE.polar],
-      minDistance: TITLE_POSE.distance,
-      maxDistance: 150,
-      headroom: 0,
-      fitVertical: false,
-    });
+    return titlePoseFor(width, height, this.camera.fov);
   }
 
   get currentMode(): CameraMode {
