@@ -8,6 +8,7 @@ A cosy browser city-builder sandbox (three.js + TypeScript + Vite). Start here, 
 3. `docs/design/02-interaction-and-ui.md` — camera, gestures, tool behaviour, UI layout/states.
 4. `docs/design/03-architecture.md` — module map, data flow, grid conventions, placement rules, budgets.
 5. `docs/assets/models.md`, `docs/assets/audio.md` — what assets exist, their scale/orientation, licences.
+6. `docs/HANDOVER.md` — how the swarm is orchestrated (worktrees, ports, merge runbook, hand-off format).
 
 Skills in `../.claude/skills/` (load them when your WP says so): `threejs-gameplay-systems`, `threejs-aaa-graphics-builder`, `threejs-game-ui-designer`, `threejs-qa-release`, `threejs-debug-profiler`.
 
@@ -23,7 +24,8 @@ npm run gen:sfx        # regenerate src/audio/sfxTable.ts from docs/assets/audio
 ```
 If `npm install` fails with EACCES on `~/.npm`, add `--cache ../.npm-cache`.
 Browser checks (Playwright, `inspect:canvas`) need a session where Chromium can launch. Inside a nono sandbox it segfaults; say so in your hand-off rather than skipping the check.
-Port 5188 is `strictPort`: if it's taken, another agent's dev server is running — use `npx vite --port <free port>` and pass `--url` to the inspector rather than killing it.
+Ports: dev server, Playwright and the canvas inspector all honour the `PORT` env var (default 5188, strict). Parallel agents each use their assigned port, e.g. `PORT=5203 npm run dev`, `PORT=5203 npm run test:e2e`, `PORT=5203 npm run inspect:canvas -- ...`. Never kill a dev server you didn't start.
+Worktrees: `node_modules/` and `assets-src/` are gitignored, so they aren't in a fresh worktree. Run `npm install --cache <repo-parent>/ThreeJsGames/.npm-cache`, and read raw assets from the main checkout's `tiny-town/assets-src/` by absolute path.
 
 ## Hard rules
 - **Stay inside your WP's owned files.** Contract files (marked `CONTRACT FILE` at the top) and `src/game/Game.ts` belong to the integrator. If you need a contract change, write it under "Contract change requests" in your hand-off. Don't edit them.

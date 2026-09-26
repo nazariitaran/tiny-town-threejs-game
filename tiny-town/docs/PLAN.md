@@ -2,7 +2,7 @@
 
 This plan takes the scaffold in this folder to a finished v1 of **Tiny Town**, a cosy sandbox city builder that runs in the browser. It is written for implementation agents working **in parallel**. Each work package (WP) has its own files, contracts, dependencies and **verifiable acceptance checks**.
 
-Read `CLAUDE.md` first (commands and hard rules), then the three design docs in `docs/design/`.
+Read `CLAUDE.md` first (commands and hard rules), then the three design docs in `docs/design/`. To run the swarm (orchestrator prompt, worker template, branches, ports, merge runbook), see `docs/HANDOVER.md`.
 
 ---
 

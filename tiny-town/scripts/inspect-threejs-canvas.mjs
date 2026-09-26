@@ -28,7 +28,7 @@ function validateIdentifier(value, flag) {
 
 export function parseArgs(argv) {
   const args = {
-    url: 'http://127.0.0.1:5188',
+    url: `http://127.0.0.1:${process.env.PORT ?? 5188}`,
     out: 'artifacts/canvas-inspection',
     mobile: false,
     wait: 750,
