@@ -11,7 +11,7 @@
 
 /** How a particle's size evolves over its life (see sizeAt()). */
 export const Curve = {
-  /** Dust / poof: quick swell, then shrinks away. */
+  /** Soft dust / poof billboard: scales OUT over its life while its alpha fades to 0 (alphaAt()). */
   Puff: 0,
   /** Debris, leaves, petals: full size, shrinks in the last quarter. */
   Chip: 1,
@@ -191,10 +191,9 @@ export class ParticlePool {
     const size = this.size[i];
     switch (this.curve[i]) {
       case Curve.Puff: {
-        const swell = Math.min(1, t / 0.18);
-        const grow = 0.45 + 0.55 * (1 - (1 - swell) * (1 - swell));
-        const fade = t < 0.4 ? 1 : 1 - smooth((t - 0.4) / 0.6);
-        return size * grow * fade;
+        // Scale out: starts at 40 %, expands to 115 % (ease-out) while alphaAt() fades it away.
+        const k = 1 - t;
+        return size * (0.4 + 0.75 * (1 - k * k * k));
       }
       case Curve.Chip:
         return t < 0.72 ? size : size * (1 - smooth((t - 0.72) / 0.28));
@@ -204,6 +203,19 @@ export class ParticlePool {
         return size * envelope * twinkle;
       }
     }
+  }
+
+  /**
+   * Opacity multiplier (0..1) of particle `i`. Puffs fade in over the first 12 % of their life
+   * hold, then ease out to exactly 0 at the end; other curves are opaque while alive (they shrink instead).
+   */
+  alphaAt(i: number): number {
+    const age = this.age[i];
+    if (age <= 0) return 0;
+    if (this.curve[i] !== Curve.Puff) return 1;
+    const t = Math.min(1, age / this.life[i]);
+    const fadeIn = Math.min(1, t / 0.1);
+    return fadeIn * (1 - smooth((t - 0.3) / 0.7));
   }
 
   private removeAt(i: number): void {
