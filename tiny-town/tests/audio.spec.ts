@@ -2,7 +2,7 @@
  * WP-07 audio checks, all through real input (clicks, mouse drags) and the published diagnostics.
  *  - Start unlocks the AudioContext and decodes every SFX file with no load/decode warnings.
  *  - A 30-tile road drag is rate-limited: audio.starts rises by 10..30.
- *  - Mute persists across a reload (SETTINGS_STORAGE_KEY) and the mute button reflects it.
+ *  - Mute persists across a reload (SETTINGS_STORAGE_KEY) and the mute button reflects it (aria-pressed).
  *  - Hiding the page suspends the context; showing it resumes.
  *  - A broken sound file produces exactly one console warning and the game keeps going.
  */
@@ -105,7 +105,7 @@ test('mute persists across reloads and silences playback', async ({ page }) => {
   await waitForAudio(page, 13);
   await page.locator('#btn-mute').click();
   await expect.poll(async () => (await diag(page)).audio.muted).toBe(true);
-  await expect(page.locator('#btn-mute')).toHaveText('🔇');
+  await expect(page.locator('#btn-mute')).toHaveAttribute('aria-pressed', 'true');
   const stored = await page.evaluate((key) => window.localStorage.getItem(key), SETTINGS_KEY);
   expect(JSON.parse(stored ?? '{}')).toMatchObject({ muted: true });
 
@@ -118,7 +118,7 @@ test('mute persists across reloads and silences playback', async ({ page }) => {
   await page.reload();
   await page.waitForFunction(() => window.__THREE_GAME_DIAGNOSTICS__?.phase === 'title', undefined, { timeout: 15_000 });
   expect((await diag(page)).audio.muted).toBe(true);
-  await expect(page.locator('#btn-mute')).toHaveText('🔇');
+  await expect(page.locator('#btn-mute')).toHaveAttribute('aria-pressed', 'true');
 
   // unmute again → persisted as false, other settings keys are kept
   await page.evaluate((key) => {
@@ -128,6 +128,7 @@ test('mute persists across reloads and silences playback', async ({ page }) => {
   await startGame(page);
   await page.locator('#btn-mute').click();
   await expect.poll(async () => (await diag(page)).audio.muted).toBe(false);
+  await expect(page.locator('#btn-mute')).toHaveAttribute('aria-pressed', 'false');
   const stored2 = JSON.parse((await page.evaluate((key) => window.localStorage.getItem(key), SETTINGS_KEY)) ?? '{}');
   expect(stored2).toMatchObject({ muted: false, grid: false });
 });
