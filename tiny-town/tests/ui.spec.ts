@@ -144,6 +144,87 @@ test('refusal tooltip shows on an invalid click and is gone after the next succe
   expect(errors).toEqual([]);
 });
 
+test('refusal tooltip never overlaps the dock, top bar or hint (refusal right above the dock)', async ({ page }, info) => {
+  const errors = trackErrors(page);
+  await start(page);
+  await page.locator(id(UI_TEST_IDS.category('buildings'))).click();
+  await page.locator(id(UI_TEST_IDS.tool('townhouse-c'))).click();
+  // The on-canvas cell closest above the dock: the worst case for a tooltip near the finger.
+  const target = await page.evaluate(() => {
+    const dockTop = document.querySelector('#ui-dock')!.getBoundingClientRect().top;
+    let best: { x: number; z: number; px: number; py: number } | null = null;
+    for (let z = 0; z < 24; z += 1)
+      for (let x = 0; x < 24; x += 1) {
+        const p = window.__THREE_GAME_TEST_HOOKS__!.cellToClient(x, z);
+        if (p.y > dockTop - 24 || document.elementFromPoint(p.x, p.y)?.id !== 'game-canvas') continue;
+        if (!best || p.y > best.py) best = { x, z, px: p.x, py: p.y };
+      }
+    return best;
+  });
+  expect(target, 'a canvas cell above the dock').not.toBeNull();
+  const tap = async () => {
+    if (info.project.name === 'mobile-chrome') await page.touchscreen.tap(target!.px, target!.py);
+    else await page.mouse.click(target!.px, target!.py);
+  };
+  await tap();
+  await expect.poll(async () => (await diag(page)).town.homes).toBe(1);
+  const before = (await diag(page)).invalidCount;
+  await tap(); // occupied → refused
+  await expect.poll(async () => (await diag(page)).invalidCount).toBe(before + 1);
+  const tip = page.locator(id(UI_TEST_IDS.tooltip));
+  await expect(tip).toBeVisible();
+  const rects = await page.evaluate(() => {
+    const r = (sel: string) => {
+      const el = document.querySelector<HTMLElement>(sel);
+      if (!el) return null;
+      const visible = el.classList.contains('ui-hint') ? el.classList.contains('is-visible') && !!el.textContent : true;
+      const b = el.getBoundingClientRect();
+      return visible && b.width > 0 ? { left: b.left, top: b.top, right: b.right, bottom: b.bottom } : null;
+    };
+    return { tip: r('#ui-tooltip')!, dock: r('#ui-dock')!, topbar: r('.ui-topbar')!, stats: r('#ui-stats')!, hint: r('#ui-hint') };
+  });
+  const hits = (a: typeof rects.tip, b: typeof rects.tip | null) =>
+    !!b && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+  console.log(`${info.project.name} tooltip ${JSON.stringify(rects.tip)} dock top ${rects.dock.top}`);
+  expect(hits(rects.tip, rects.dock), 'tooltip × dock').toBe(false);
+  expect(hits(rects.tip, rects.topbar), 'tooltip × top bar').toBe(false);
+  expect(hits(rects.tip, rects.stats), 'tooltip × stats').toBe(false);
+  expect(hits(rects.tip, rects.hint), 'tooltip × hint').toBe(false);
+  await page.screenshot({ path: `${OUT}/tooltip-${info.project.name}.png` });
+  expect(errors).toEqual([]);
+});
+
+test('stat label and number keep a gap in every frame of the count-up and punch', async ({ page }, info) => {
+  test.skip(info.project.name === 'mobile-chrome', 'labels are hidden on phones');
+  await start(page);
+  const setState = page.evaluate(() => window.__THREE_GAME_TEST_HOOKS__!.setState('stress-town'));
+  const result = await page.evaluate(
+    () =>
+      new Promise<{ frames: number; minGap: number; animatedFrames: number }>((resolve) => {
+        let frames = 0;
+        let animatedFrames = 0;
+        let minGap = Infinity;
+        const t0 = performance.now();
+        const tick = () => {
+          frames += 1;
+          for (const stat of document.querySelectorAll('.ui-stat')) {
+            const label = stat.querySelector('.ui-stat-label')!.getBoundingClientRect();
+            const num = stat.querySelector('.ui-stat-num')!;
+            if (stat.classList.contains('is-punch')) animatedFrames += 1;
+            minGap = Math.min(minGap, num.getBoundingClientRect().left - label.right);
+          }
+          if (performance.now() - t0 < 900) requestAnimationFrame(tick);
+          else resolve({ frames, minGap, animatedFrames });
+        };
+        requestAnimationFrame(tick);
+      }),
+  );
+  await setState;
+  console.log(`stat gap: ${JSON.stringify(result)}`);
+  expect(result.animatedFrames).toBeGreaterThan(0);
+  expect(result.minGap).toBeGreaterThanOrEqual(2);
+});
+
 test('mute toggle flips diagnostics audio.muted', async ({ page }) => {
   await start(page);
   const mute = page.locator(id(UI_TEST_IDS.mute));

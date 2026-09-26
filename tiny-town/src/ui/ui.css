@@ -389,14 +389,15 @@
   font-size: 1.05rem;
   font-variant-numeric: tabular-nums;
   text-align: left;
-  transform-origin: 30% 60%;
+  /* Fixed gap after the label that no animation frame can eat: punches grow rightwards only. */
+  margin-left: 3px;
+  transform-origin: 0 60%;
 }
 
 .ui-stat-label {
   font-weight: 700;
   font-size: 0.85rem;
   color: var(--ink-soft);
-  margin-right: 1px;
 }
 
 .ui-stat.is-punch .ui-stat-num {
@@ -431,9 +432,11 @@
   /* Top-centre under the top bar, so it never covers the build area above the dock. */
   position: absolute;
   top: calc(var(--safe-top) + 58px);
-  left: 50%;
-  translate: -50% 0;
-  margin: 0;
+  /* Centred with left/right + auto margins (no `translate`: lightningcss drops it next to `transform`). */
+  left: var(--gutter);
+  right: var(--gutter);
+  width: fit-content;
+  margin: 0 auto;
   max-width: calc(100% - 2 * var(--gutter));
   padding: 6px 14px;
   border-radius: 999px;

@@ -589,7 +589,7 @@ export class UiRoot {
   private renderTooltip(shake = false): void {
     const tip = this.el(UI_TEST_IDS.tooltip);
     const text = this.phase === 'building' ? (this.flashReason ?? this.hoverReason) : null;
-    tip.hidden = !text || this.pointerX < 0;
+    tip.hidden = !text || (this.pointerX < 0 && !this.coarse.matches);
     if (tip.hidden) return;
     tip.querySelector('.ui-tooltip-text')!.innerHTML = escapeHtml(text!);
     this.positionTooltip();
@@ -600,17 +600,35 @@ export class UiRoot {
     }
   }
 
-  /** Anchored near the pointer but never under it (above-right; centred above a finger). */
+  /**
+   * Mouse: anchored near the pointer but never under it (above-right).
+   * Touch / coarse pointer: a finger hides the spot anyway, so the tooltip sits top-centre in the
+   * free scene area below the top bar and the hint pill. In both cases it never overlaps the top
+   * bar, the hint pill or the dock.
+   */
   private positionTooltip(): void {
     const tip = this.el(UI_TEST_IDS.tooltip);
     const w = tip.offsetWidth;
     const h = tip.offsetHeight;
     const margin = 8;
-    let x = this.pointerTouch ? this.pointerX - w / 2 : this.pointerX + 18;
-    let y = this.pointerY - h - (this.pointerTouch ? 56 : 14);
-    if (y < margin) y = this.pointerY + 28;
+    const topbar = this.root.querySelector<HTMLElement>('.ui-topbar')!.getBoundingClientRect();
+    const hint = this.el(UI_TEST_IDS.hint);
+    const hintRect = hint.classList.contains('is-visible') && hint.textContent ? hint.getBoundingClientRect() : null;
+    const dockTop = this.el(UI_TEST_IDS.dock).getBoundingClientRect().top;
+    const minY = Math.max(topbar.bottom, hintRect?.bottom ?? 0) + margin;
+    const maxY = dockTop - h - margin;
+    let x: number;
+    let y: number;
+    if (this.pointerTouch || this.coarse.matches) {
+      x = (window.innerWidth - w) / 2;
+      y = minY;
+    } else {
+      x = this.pointerX + 18;
+      y = this.pointerY - h - 14;
+      if (y < minY) y = this.pointerY + 28;
+    }
     x = Math.max(margin, Math.min(window.innerWidth - w - margin, x));
-    y = Math.max(margin, Math.min(window.innerHeight - h - margin, y));
+    y = Math.max(minY, Math.min(maxY, y));
     tip.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
   }
 
