@@ -11,6 +11,7 @@ import { Loop } from '../core/Loop';
 import { createRenderer, resizeRenderer } from '../core/Renderer';
 import { DebugTools, type DebugTuning } from '../debug/DebugTools';
 import { PlacementFx } from '../fx/PlacementFx';
+import { LifeSystem } from '../life/LifeSystem';
 import { SaveStore } from '../persistence/SaveStore';
 import { CameraController } from '../interaction/CameraController';
 import { GridPicker } from '../interaction/GridPicker';
@@ -60,6 +61,7 @@ export class Game {
   private readonly tools: ToolController;
   private readonly townRenderer: TownRenderer;
   private readonly fx: PlacementFx;
+  private readonly life: LifeSystem;
   private readonly audio: AudioManager;
   private readonly ui: UiRoot;
   private readonly debug: DebugTools;
@@ -89,6 +91,8 @@ export class Game {
     this.tools = new ToolController(canvas, this.picker, this.editor, this.cameraController, this.bus, this.scene, this.library, this.debug);
     this.townRenderer = new TownRenderer(this.scene, this.library, this.town, this.bus, this.debug);
     this.fx = new PlacementFx(this.scene, this.bus, fxRand);
+    // Ambient cars use the cosmetic stream so they never shift gameplay variants.
+    this.life = new LifeSystem(this.scene, this.town, this.bus, fxRand, this.debug);
     this.audio = new AudioManager(this.bus, fxRand, this.saves);
     this.ui = new UiRoot(uiHost, this.bus, () => this.saves.has());
 
@@ -141,6 +145,7 @@ export class Game {
     this.cameraController.dispose();
     this.townRenderer.dispose();
     this.fx.dispose();
+    this.life.dispose();
     this.audio.dispose();
     this.ui.dispose();
     this.environment.dispose();
@@ -158,7 +163,10 @@ export class Game {
 
   private async load(): Promise<void> {
     try {
-      await this.library.loadAll((loaded, total, label) => this.bus.emit('load:progress', { loaded, total, label }));
+      await Promise.all([
+        this.library.loadAll((loaded, total, label) => this.bus.emit('load:progress', { loaded, total, label })),
+        this.life.load(),
+      ]);
       this.townRenderer.rebuildAll();
       this.environment.populate(this.library);
       this.bus.emit('town:stats', this.town.stats());
@@ -192,6 +200,7 @@ export class Game {
       this.tools.update(delta);
       this.cameraController.update(delta);
       this.townRenderer.update(animDelta);
+      this.life.update(animDelta);
       this.environment.update(animDelta, animElapsed);
       this.fx.update(animDelta);
     }
@@ -217,6 +226,7 @@ export class Game {
     this.setPhase(name === 'title' ? 'title' : 'building');
     this.cameraController.setMode(name === 'title' ? 'title' : 'build');
     this.townRenderer.settle();
+    this.life.settle();
   }
 
   private installTestHooks(): void {
@@ -243,6 +253,7 @@ export class Game {
         if (enabled) {
           this.fx.stabilize();
           this.townRenderer.settle();
+          this.life.settle();
         }
         this.render();
         this.publishDiagnostics();
@@ -275,6 +286,7 @@ export class Game {
       audio: this.audio.state,
       save: { available: this.saves.available, pending: this.saves.pending, lastError: this.saves.lastError },
       fx: this.fx.getDiagnostics(),
+      life: this.life.getDiagnostics(),
       renderer: {
         calls: info.render.calls,
         triangles: info.render.triangles,

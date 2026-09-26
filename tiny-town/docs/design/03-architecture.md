@@ -65,7 +65,7 @@ Rules of the road:
 7. **Two RNG streams**: gameplay (`Game.rng`: variants) and cosmetic (`Game.fxRng`: audio/fx jitter), so a sound never changes the next house variant.
 
 ## Frame update order (Game.update)
-`ToolController.update` → `CameraController.update` → `TownRenderer.update(animDelta)` → `Environment.update(animDelta, animElapsed)` → `PlacementFx.update(animDelta)` → diagnostics → render. With `setReducedMotion(true)`, `animDelta`/`animElapsed` are 0. With `setPausedForScreenshot(true)`, nothing updates but rendering continues.
+`ToolController.update` → `CameraController.update` → `TownRenderer.update(animDelta)` → `LifeSystem.update(animDelta)` → `Environment.update(animDelta, animElapsed)` → `PlacementFx.update(animDelta)` → diagnostics → render. With `setReducedMotion(true)`, `animDelta`/`animElapsed` are 0. With `setPausedForScreenshot(true)`, nothing updates but rendering continues.
 
 ## Grid
 - Plot `24 × 24` cells (`PLOT_WIDTH/DEPTH`), `CELL_SIZE` world units per cell, centred on the origin. Cell `{x, z}` centre = `cellToWorld`.

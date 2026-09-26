@@ -23,6 +23,8 @@ interface ThreeGameDiagnostics {
   save: { available: boolean; pending: boolean; lastError: string | null };
   /** Placement FX pool (WP-08): active particles, fx draw calls, spawn/drop counters, wind state. */
   fx: import('./fx/PlacementFx').FxDiagnostics;
+  /** Ambient cars (WP-10). */
+  life: import('./life/LifeSystem').LifeDiagnostics;
   renderer: {
     calls: number;
     triangles: number;
