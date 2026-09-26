@@ -3,12 +3,14 @@
  * ModelLibrary it already receives (createObject API only). Never shares materials with the town:
  * each source material gets one translucent clone, re-tinted in place when the state changes.
  *
- *  - model: translucent model at the hovered footprint/edge, tinted valid (soft white-green),
- *    invalid (red) or remove (bulldoze target, brick red, slightly enlarged)
- *  - tile:  flat tinted tile (ground tools, bulldoze on ground, plain pointer highlight)
+ *  - parts: one or more translucent models (an object, a fence, or the pieces of a ground tile:
+ *    the auto-tiled road piece, the pavement tile, walkway hub + arms, lawn tufts / flowers),
+ *    tinted valid (soft white-green), invalid (brick red) or remove (bulldoze target, pulsing)
+ *  - tile:  a flat fill (ground colour, or the state tint) with a crisp square frame on top
  *
  * It follows the cursor with a light lerp, animates rotation over 100 ms, shakes on an invalid
  * click (±0.05 for 150 ms) and is hidden off-plot / outside the build phase.
+ * Tints are not tone-mapped, so brick red stays brick red over the green field.
  */
 import * as THREE from 'three';
 import type { ModelId } from '../catalog/models';
@@ -18,27 +20,63 @@ import { shortestAngle } from './strokeMath';
 
 export type GhostState = 'valid' | 'invalid' | 'remove' | 'neutral';
 
-const TINTS: Readonly<Record<GhostState, string>> = {
-  valid: '#d9ffe0',
-  invalid: '#ff4a3d',
-  remove: '#e0473f',
+/** Brick red (design doc §6 accent) for both invalid and remove, on tiles and models alike. */
+export const GHOST_TINTS: Readonly<Record<GhostState, string>> = {
+  valid: '#dcffe2',
+  invalid: '#d8392b',
+  remove: '#d8392b',
   neutral: '#ffffff',
 };
 
-const TILE_OPACITY: Readonly<Record<GhostState, number>> = { valid: 0.5, invalid: 0.5, remove: 0.7, neutral: 0.22 };
+/** Tile fill opacity per state (fill = ground colour for ground tools, else the tint). */
+const FILL_OPACITY: Readonly<Record<GhostState, number>> = { valid: 0.45, invalid: 0.62, remove: 0.62, neutral: 0.16 };
+const FRAME_OPACITY: Readonly<Record<GhostState, number>> = { valid: 0.85, invalid: 0.95, remove: 0.95, neutral: 0.45 };
+
+/** A model placed inside the ghost, in cell-local coordinates (before the ghost's own yaw). */
+export interface GhostPart {
+  model: ModelId;
+  x?: number;
+  y?: number;
+  z?: number;
+  quarterTurns?: number;
+  scale?: number;
+}
+
+export interface GhostShowOptions {
+  x: number;
+  z: number;
+  /** Yaw of the whole ghost in quarter turns (objects rotate with R; ground tiles use 0). */
+  quarterTurns: number;
+  state: GhostState;
+  parts: readonly GhostPart[];
+  /** Fill colour of the tile (ground tools show their own colour); defaults to the state tint. */
+  fillColor?: string;
+  /** Fill opacity override. */
+  fillOpacity?: number;
+  showTile?: boolean;
+  /** Ground tiles: keep the parts' real colours and draw them nearly opaque (valid/neutral only). */
+  solid?: boolean;
+  /** Tile size in cells along [x, z] (e.g. a thin strip under a fence). */
+  tileScale?: readonly [number, number];
+  snap?: boolean;
+}
 
 export class GhostPreview {
   readonly root = new THREE.Group();
-  readonly tuning = { followRate: 28, rotateDuration: 0.1, shakeAmplitude: 0.05, shakeDuration: 0.15, modelOpacity: 0.6 };
+  readonly tuning = { followRate: 28, rotateDuration: 0.1, shakeAmplitude: 0.05, shakeDuration: 0.15, modelOpacity: 0.62 };
 
-  private readonly tile: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
+  private readonly tileGroup = new THREE.Group();
+  private readonly fill: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
+  private readonly frame: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
   private readonly modelHolder = new THREE.Group();
-  private readonly models = new Map<ModelId, THREE.Group>();
+  /** Pooled model instances per id (a walkway ghost needs several arms). */
+  private readonly pool = new Map<ModelId, THREE.Group[]>();
+  private readonly active: THREE.Group[] = [];
   private readonly ghostMaterials = new Map<THREE.Material, THREE.MeshStandardMaterial>();
   private readonly baseColors = new Map<THREE.MeshStandardMaterial, THREE.Color>();
   private readonly tint = new THREE.Color();
-  private currentModel: THREE.Group | null = null;
   private modelState: GhostState | null = null;
+  private modelSolid = false;
 
   private readonly targetPosition = new THREE.Vector3();
   private targetYaw = 0;
@@ -54,14 +92,25 @@ export class GhostPreview {
     private readonly library: ModelLibrary,
   ) {
     this.root.name = 'ghost-preview';
-    this.tile = new THREE.Mesh(
-      new THREE.PlaneGeometry(CELL_SIZE * 0.96, CELL_SIZE * 0.96).rotateX(-Math.PI / 2),
-      new THREE.MeshBasicMaterial({ color: TINTS.neutral, transparent: true, opacity: 0.25, depthWrite: false }),
+    this.fill = new THREE.Mesh(
+      new THREE.PlaneGeometry(CELL_SIZE * 0.98, CELL_SIZE * 0.98).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: GHOST_TINTS.neutral, transparent: true, opacity: 0.2, depthWrite: false, toneMapped: false }),
     );
-    this.tile.name = 'ghost-tile';
-    this.tile.position.y = 0.035;
-    this.tile.renderOrder = 10;
-    this.root.add(this.tile, this.modelHolder);
+    this.fill.name = 'ghost-fill';
+    this.fill.position.y = 0.036;
+    this.fill.renderOrder = 10;
+    // RingGeometry with 4 segments is a diamond; turned 45° it is a square frame (outer half-size 0.49, inner 0.43).
+    this.frame = new THREE.Mesh(
+      new THREE.RingGeometry(CELL_SIZE * 0.43 * Math.SQRT2, CELL_SIZE * 0.49 * Math.SQRT2, 4, 1)
+        .rotateZ(Math.PI / 4)
+        .rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: GHOST_TINTS.neutral, transparent: true, opacity: 0.5, depthWrite: false, toneMapped: false }),
+    );
+    this.frame.name = 'ghost-frame';
+    this.frame.position.y = 0.04;
+    this.frame.renderOrder = 12;
+    this.tileGroup.add(this.fill, this.frame);
+    this.root.add(this.tileGroup, this.modelHolder);
     this.root.visible = false;
     scene.add(this.root);
   }
@@ -75,23 +124,7 @@ export class GhostPreview {
     this.root.visible = false;
   }
 
-  /**
-   * Show at world (x, z) with a yaw in quarter turns. `model` null = tile only. `tileColor`
-   * overrides the tile tint (ground tools show their own colour when valid). `showTile` false
-   * hides the footprint tile under a model (fences).
-   */
-  show(options: {
-    x: number;
-    z: number;
-    quarterTurns: number;
-    state: GhostState;
-    model: ModelId | null;
-    tileColor?: string;
-    showTile?: boolean;
-    /** Tile size in cells along [x, z] (e.g. a thin strip under a fence). */
-    tileScale?: readonly [number, number];
-    snap?: boolean;
-  }): void {
+  show(options: GhostShowOptions): void {
     const wasVisible = this.visible;
     this.visible = true;
     this.root.visible = true;
@@ -109,11 +142,15 @@ export class GhostPreview {
       this.yawProgress = 0;
     }
 
-    this.setModel(options.model, options.state);
-    this.tile.visible = options.showTile ?? true;
-    this.tile.scale.set(options.tileScale?.[0] ?? 1, 1, options.tileScale?.[1] ?? 1);
-    this.tile.material.color.set(options.tileColor ?? TINTS[options.state]);
-    this.tile.material.opacity = options.model ? TILE_OPACITY[options.state] * 0.6 : TILE_OPACITY[options.state];
+    this.setParts(options.parts, options.state, options.solid ?? false);
+    const tint = GHOST_TINTS[options.state];
+    this.tileGroup.visible = options.showTile ?? true;
+    this.tileGroup.scale.set(options.tileScale?.[0] ?? 1, 1, options.tileScale?.[1] ?? 1);
+    this.fill.material.color.set(options.fillColor ?? tint);
+    const baseFill = options.fillOpacity ?? FILL_OPACITY[options.state];
+    this.fill.material.opacity = options.parts.length > 0 && !options.fillColor ? baseFill * 0.6 : baseFill;
+    this.frame.material.color.set(tint);
+    this.frame.material.opacity = FRAME_OPACITY[options.state];
   }
 
   /** Invalid click feedback: a quick sideways shake. */
@@ -144,56 +181,71 @@ export class GhostPreview {
       shakeOffset = Math.sin(t * 90) * this.tuning.shakeAmplitude * decay;
     }
     this.modelHolder.position.x = shakeOffset;
+    this.tileGroup.position.x = shakeOffset;
     if (this.modelState === 'remove') {
       // A gentle pulse so "this will be removed" reads even on red-brown models (fences, roofs).
       this.pulseTime += delta;
       const pulse = 0.5 + 0.5 * Math.sin(this.pulseTime * 9);
-      for (const material of this.ghostMaterials.values()) material.emissiveIntensity = 0.45 + 0.5 * pulse;
+      for (const material of this.ghostMaterials.values()) material.emissiveIntensity = 0.4 + 0.45 * pulse;
     }
-    this.tile.position.x = shakeOffset;
   }
 
   dispose(): void {
     this.root.removeFromParent();
-    this.tile.geometry.dispose();
-    this.tile.material.dispose();
+    this.fill.geometry.dispose();
+    this.fill.material.dispose();
+    this.frame.geometry.dispose();
+    this.frame.material.dispose();
     for (const material of this.ghostMaterials.values()) material.dispose();
     this.ghostMaterials.clear();
-    this.models.clear();
+    this.pool.clear();
   }
 
-  private setModel(id: ModelId | null, state: GhostState): void {
-    const next = id && this.library.has(id) ? this.modelFor(id) : null;
-    if (next !== this.currentModel) {
-      if (this.currentModel) this.currentModel.visible = false;
-      if (next) next.visible = true;
-      this.currentModel = next;
+  private setParts(parts: readonly GhostPart[], state: GhostState, solid: boolean): void {
+    for (const group of this.active) group.visible = false;
+    this.active.length = 0;
+    const used = new Map<ModelId, number>();
+    for (const part of parts) {
+      if (!this.library.has(part.model)) continue;
+      const index = used.get(part.model) ?? 0;
+      used.set(part.model, index + 1);
+      const group = this.instance(part.model, index);
+      group.visible = true;
+      group.position.set(part.x ?? 0, part.y ?? 0, part.z ?? 0);
+      group.rotation.y = ((part.quarterTurns ?? 0) * Math.PI) / 2;
+      group.scale.setScalar((part.scale ?? 1) * (state === 'remove' ? 1.08 : 1));
+      this.active.push(group);
     }
-    if (next) next.scale.setScalar(state === 'remove' ? 1.08 : 1);
-    if (state !== this.modelState) {
+    if (state !== this.modelState || solid !== this.modelSolid) {
       this.modelState = state;
-      this.tint.set(TINTS[state]);
+      this.modelSolid = solid;
+      this.tint.set(GHOST_TINTS[state]);
       for (const material of this.ghostMaterials.values()) this.applyTint(material, state);
     }
   }
 
-  private modelFor(id: ModelId): THREE.Group {
-    let group = this.models.get(id);
-    if (group) return group;
-    group = this.library.createObject(id);
-    group.name = `ghost:${id}`;
-    group.traverse((object) => {
-      const mesh = object as THREE.Mesh;
-      if (!mesh.isMesh) return;
-      mesh.castShadow = false;
-      mesh.receiveShadow = false;
-      mesh.renderOrder = 11;
-      mesh.material = this.ghostMaterial(mesh.material as THREE.Material);
-    });
-    group.visible = false;
-    this.models.set(id, group);
-    this.modelHolder.add(group);
-    return group;
+  private instance(id: ModelId, index: number): THREE.Group {
+    let list = this.pool.get(id);
+    if (!list) {
+      list = [];
+      this.pool.set(id, list);
+    }
+    while (list.length <= index) {
+      const group = this.library.createObject(id);
+      group.name = `ghost:${id}`;
+      group.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
+        mesh.renderOrder = 11;
+        mesh.material = this.ghostMaterial(mesh.material as THREE.Material);
+      });
+      group.visible = false;
+      this.modelHolder.add(group);
+      list.push(group);
+    }
+    return list[index];
   }
 
   private ghostMaterial(source: THREE.Material): THREE.MeshStandardMaterial {
@@ -203,6 +255,7 @@ export class GhostPreview {
     ghost = new THREE.MeshStandardMaterial({
       map: standard.map ?? null,
       color: standard.color ? standard.color.clone() : new THREE.Color('#ffffff'),
+      vertexColors: standard.vertexColors ?? false,
       roughness: 0.8,
       metalness: 0,
       transparent: true,
@@ -219,9 +272,11 @@ export class GhostPreview {
   private applyTint(material: THREE.MeshStandardMaterial, state: GhostState): void {
     const base = this.baseColors.get(material);
     const calm = state === 'valid' || state === 'neutral';
-    if (base) material.color.copy(base).lerp(this.tint, calm ? 0.25 : state === 'remove' ? 0.9 : 0.65);
+    const solid = calm && this.modelSolid;
+    // Red states replace most of the texture colour so every model reads the same brick red.
+    if (base) material.color.copy(base).lerp(this.tint, solid ? 0 : calm ? 0.2 : 0.88);
     material.emissive.copy(this.tint);
-    material.emissiveIntensity = calm ? 0.18 : 0.45;
-    material.opacity = state === 'invalid' ? this.tuning.modelOpacity * 0.85 : state === 'remove' ? 0.8 : this.tuning.modelOpacity;
+    material.emissiveIntensity = solid ? 0.06 : calm ? 0.12 : 0.5;
+    material.opacity = solid ? 0.95 : calm ? this.tuning.modelOpacity : 0.78;
   }
 }
