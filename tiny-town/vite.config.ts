@@ -23,10 +23,8 @@ export default defineConfig({
     // no sourceMappingURL comment, so players' browsers never fetch them. Don't deploy *.map.
     sourcemap: 'hidden',
     chunkSizeWarningLimit: 900,
-    // lightningcss 1.32 (Vite 8's CSS minifier) drops an individual `translate:` property when the
-    // same rule also sets `transform:` — it de-centred the .ui-hint pill in production only
-    // (caught by the visual baselines run against `vite preview`). Unminified CSS costs +~5 kB raw,
-    // ~0 after gzip. Re-enable ('lightningcss') once the upstream bug is fixed and baselines pass.
-    cssMinify: false,
+    // CSS minification (lightningcss) is on. Caution: lightningcss 1.32 drops an individual
+    // `translate:` property when the same rule also sets `transform:`. That once de-centred .ui-hint
+    // in production only, so don't combine them. Keep running the visual baselines against `vite preview`.
   },
 });
