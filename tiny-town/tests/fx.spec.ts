@@ -7,8 +7,7 @@
  *  3. setReducedMotion(true) hides particles and freezes wind sway: two canvas captures 700 ms apart
  *     (simulation NOT paused) are pixel-identical. With motion on, the same captures differ.
  *
- * FX counters come from `window.__THREE_GAME_FX_DIAGNOSTICS__` (WP-08 local shim) or, once the
- * integrator lands the contract request, `__THREE_GAME_DIAGNOSTICS__.fx`.
+ * FX counters come from `__THREE_GAME_DIAGNOSTICS__.fx` (published by Game).
  */
 import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -30,7 +29,7 @@ const PARK: [number, number] = [18, 8];
 async function fx(page: Page): Promise<FxDiagnostics> {
   const value = await page.evaluate(() => {
     const published = (window.__THREE_GAME_DIAGNOSTICS__ as unknown as { fx?: FxDiagnostics } | undefined)?.fx;
-    return published ?? window.__THREE_GAME_FX_DIAGNOSTICS__ ?? null;
+    return published ?? null;
   });
   if (!value) throw new Error('FX diagnostics are not published');
   return { ...value };

@@ -19,8 +19,7 @@
  *   diagnostics: life: this.life.getDiagnostics()
  * Reduced motion (animDelta 0) freezes the cars; setPausedForScreenshot skips update entirely.
  *
- * LOCAL SHIM until `life` is added to ThreeGameDiagnostics (src/vite-env.d.ts, contract file):
- * the system also publishes window.__THREE_GAME_LIFE_DIAGNOSTICS__ every update.
+ * Diagnostics are published by Game as __THREE_GAME_DIAGNOSTICS__.life (getDiagnostics()).
  */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -60,13 +59,6 @@ export interface LifeDiagnostics {
   shadowDrawCalls: number;
   /** Every car: road cell (tests bulldoze under a car with real input) + world position (px, pz). */
   carCells: Array<{ id: number; x: number; z: number; px: number; pz: number }>;
-}
-
-declare global {
-  interface Window {
-    /** WP-10 local shim; replaced by __THREE_GAME_DIAGNOSTICS__.life once the contract lands. */
-    __THREE_GAME_LIFE_DIAGNOSTICS__?: LifeDiagnostics;
-  }
 }
 
 interface CarVisual {
@@ -207,7 +199,6 @@ export class LifeSystem {
     this.mesh = null;
     this.material = null;
     this.visuals.clear();
-    if (typeof window !== 'undefined' && window.__THREE_GAME_LIFE_DIAGNOSTICS__ === this.diag) window.__THREE_GAME_LIFE_DIAGNOSTICS__ = undefined;
   }
 
   // ---------------------------------------------------------------------------------------
@@ -275,7 +266,6 @@ export class LifeSystem {
       entry.px = Math.round(car.x * 1000) / 1000;
       entry.pz = Math.round(car.z * 1000) / 1000;
     });
-    if (typeof window !== 'undefined' && !this.disposed) window.__THREE_GAME_LIFE_DIAGNOSTICS__ = d;
   }
 }
 

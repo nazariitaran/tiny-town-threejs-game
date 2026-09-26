@@ -12,9 +12,8 @@
  *  4. Determinism + reduced motion: the same seed/state gives the same cars; with reduced motion
  *     the cars don't move.
  *
- * Life diagnostics come from `__THREE_GAME_DIAGNOSTICS__.life` or, until the integrator lands
- * the contract request, the WP-10 local shim `window.__THREE_GAME_LIFE_DIAGNOSTICS__`. If the
- * LifeSystem isn't constructed in Game.ts yet, every test here is skipped with that reason.
+ * Life diagnostics come from `__THREE_GAME_DIAGNOSTICS__.life` (published by Game). If the
+ * LifeSystem isn't constructed in Game.ts, every test here is skipped with that reason.
  */
 import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -29,7 +28,7 @@ const NOT_WIRED = 'LifeSystem is not constructed in Game.ts yet (WP-10 contract 
 async function life(page: Page): Promise<LifeDiagnostics | null> {
   return page.evaluate(() => {
     const published = (window.__THREE_GAME_DIAGNOSTICS__ as unknown as { life?: LifeDiagnostics } | undefined)?.life;
-    const value = published ?? window.__THREE_GAME_LIFE_DIAGNOSTICS__ ?? null;
+    const value = published ?? null;
     return value ? (JSON.parse(JSON.stringify(value)) as LifeDiagnostics) : null;
   });
 }

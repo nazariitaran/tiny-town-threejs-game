@@ -48,14 +48,6 @@ export interface FxDiagnostics {
   windStrength: number;
 }
 
-// LOCAL SHIM (WP-08) until the integrator adds `fx: this.fx.getDiagnostics()` to
-// __THREE_GAME_DIAGNOSTICS__ (see hand-off contract request). Read by tests/fx.spec.ts.
-declare global {
-  interface Window {
-    __THREE_GAME_FX_DIAGNOSTICS__?: FxDiagnostics;
-  }
-}
-
 export class PlacementFx {
   private readonly unsubscribers: Array<() => void> = [];
   private readonly pools: FxPools = {
@@ -124,7 +116,6 @@ export class PlacementFx {
         emitRemoved(this.pools, this.rng, layer, kind, worldX, worldZ, strokeIndex);
       }),
     );
-    if (typeof window !== 'undefined') window.__THREE_GAME_FX_DIAGNOSTICS__ = this.diag;
   }
 
   /** Advance particles and the wind clock. `delta` is 0 while reduced motion is on. */
@@ -174,9 +165,6 @@ export class PlacementFx {
     this.pools.solid.clear();
     this.pools.glint.clear();
     setWindStrength(1);
-    if (typeof window !== 'undefined' && window.__THREE_GAME_FX_DIAGNOSTICS__ === this.diag) {
-      window.__THREE_GAME_FX_DIAGNOSTICS__ = undefined;
-    }
   }
 
   private motionOff(): boolean {
