@@ -20,9 +20,9 @@ Worktrees live in `<repo-parent>/ThreeJsGames-wt/<wp>`, branched from `9a4e084`.
 | M0 preflight | ✅ done 2026-09-26 | main | — | 5188 | verify green (18 tests); e2e 2/2; inspect m0 clean (see below) |
 | WP-02 Town logic | ✅ merged (13479ad) | `wp-02-town-logic` | `wp-02` | — | full rule table, History cap 200, serialize/parseSave, SaveStore (+settings), silent applyBatch; 172 unit tests; main e2e 10/10 |
 | WP-03 Rendering | ✅ merged (17b8185) | `wp-03-rendering` | `wp-03` | 5203 | instanced pools; stress-town 599→21 calls; pop-in; walkway hub+arm; lamppost offset |
-| WP-04 World & look | ✅ merged (b0f2947) | `wp-04-world` | `wp-04` | 5204 | sky dome+clouds, diorama slab, decor ring (4 calls), shader grid, Neutral tone mapping; env calls 8 |
+| WP-04 World & look | ✅ done (b0f2947, fix1 4b61607: hedgerow frame, 3 decor calls, sun bloom, sandstone kerb) | — | removed | 5204 | evidence copied to artifacts/wp-04/wp04-fix1. Note: DecorRing imports DEFAULT_POSE + fov 35 |
 | WP-05 Interaction | ✅ merged (3a1498b + fix 3cd1d16) | `wp-05-interaction` | `wp-05` | 5205 | camera gestures, ghost, tool semantics, touch; fix-up: spec cells under new dock |
-| WP-06 UI | ✅ merged (df3ed58) | `wp-06-ui` | `wp-06` | 5206 | full UI states, Nunito, SVG glyphs, StatsHud; digits 1–9 tools, Shift+1–4 categories (accepted) |
+| WP-06 UI | ✅ done (df3ed58, fix1 d3ac460: tooltip clearing, stats grouping, touch cues, hint top-centre, title layout) | — | removed | 5206 | evidence copied to artifacts/wp-06/wp06-fix1. Re-check title after WP-05 portrait pose |
 | WP-07 Audio | ✅ done (bf55f1d, fixes 8e6eae3, da4063d shims removed; worktree removed) | `wp-07-audio` | `wp-07` | 5207 | all SFX rebuilt, metal prop sound, stroke pitch rise; fix-up: mute test asserts aria-pressed. Local shims in AudioManager can now go |
 | WP-09a QA harness | ✅ merged (81d8a97) | `wp-09a-qa` | `wp-09a` | 5209 | smoke + build-flow specs, tests/helpers.ts; main e2e 10/10 after merge. Templates annotated, not deleted (left for 09b) |
 | WP-08 Feel & VFX | 🔄 running (wave 2) | `wp-08-fx` | `wp-08` | 5208 | |
@@ -38,6 +38,9 @@ Worktrees live in `<repo-parent>/ThreeJsGames-wt/<wp>`, branched from `9a4e084`.
 | stress-town | 599 | 108,457 | 20 | 106.5 |
 | asset-gallery | 85 | 16,419 | 23 | 27.9 |
 No console/page errors. No blockers. Cosmetic observations routed to owners: some road pieces look mis-rotated in the gallery, thin/offset lamppost (WP-03); flat title sky with a hard seam, no terrain beyond the plot (WP-04). stress-town at 599 calls is the naive "before" for WP-03.
+
+## Process note
+- 2026-09-26: removing the wp-07 worktree with --force deleted its gitignored audio evidence (playtest-audio.wav). From now on, copy artifacts/<wp> into the main checkout before removing a worktree.
 
 ## Open defects
 - (none blocking) See M0 observations above.
