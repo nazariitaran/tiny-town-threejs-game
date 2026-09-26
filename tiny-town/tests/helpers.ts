@@ -123,7 +123,7 @@ export async function applyState(page: Page, name: string, seed = 12345): Promis
 /**
  * Setup for screenshot baselines / canvas captures (WP-09b): load, seed, apply the state,
  * then freeze simulation, reduce motion, hide debug UI and let two frames render.
- * Ported from tests/visual-regression.template.ts, adapted to Tiny Town's state names.
+ * Used by tests/visual-regression.spec.ts (the capture procedure for baselines).
  */
 export async function prepareDeterministicState(page: Page, name: string, seed = 12345): Promise<void> {
   await gotoTitle(page);
