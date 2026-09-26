@@ -9,9 +9,14 @@
  *    signature did not change is left alone.
  *  - Pop-in on add (0 → 1.08 → 1, easeOutBack), shrink-out on remove. No animation for cause
  *    'load'/'reset', for neighbour re-tiles, or while reduced motion is on (update(0) settles).
- *    Burst guard: when more than BURST_EVENTS town:changed events arrive within one frame
- *    (scripted test states, sample towns), everything settles instantly, so screenshots taken
- *    right after setState() never catch half-grown instances even while paused.
+ *    Burst guard: when more than BURST_EVENTS town:changed events or BURST_CHANGES changes
+ *    arrive within one frame (scripted test states and sample towns, which WP-02's applyBatch
+ *    sends as ONE big 'edit'; undo of a huge stroke), everything settles instantly, so
+ *    screenshots taken right after setState() never catch half-grown instances even while paused.
+ *    Anything arriving in the same frame after a 'reset'/'load' (setState = reset + build) is
+ *    also drawn without animation.
+ *    Object ids are reused after reset/load (TownState.clear): removes free the old visual before
+ *    the add with the same id, and addObject() defensively frees any visual under that id.
  *  - Variants: PlacedObject.variant picks from ObjectDef.models; trees get a stable scale/yaw
  *    jitter from hash(id) (never the RNG, so it survives reloads).
  *  - Ground: road auto-tiles (roadTiles.ts); pavement = kit tile; grass/meadow = slightly raised
@@ -34,6 +39,8 @@ import { easeOutBack, easeOutBackPeak, easeShrink, hash01 } from './tween';
 const QUARTER = Math.PI / 2;
 /** More town:changed events than this in one frame ⇒ scripted batch ⇒ no animation. */
 const BURST_EVENTS = 24;
+/** More changes than this in one frame ⇒ scripted batch / huge undo ⇒ no animation. */
+const BURST_CHANGES = 64;
 /** Lawn slab (grass/meadow) top height; matches the road/pavement tile tops (y = 0.02). */
 const LAWN_HEIGHT = 0.02;
 /** Side (lip) shade of the lawn slab relative to its top. */
@@ -99,6 +106,9 @@ export class TownRenderer {
   private readonly ownedMaterials: THREE.Material[] = [];
   private readonly off: () => void;
   private eventsThisFrame = 0;
+  private changesThisFrame = 0;
+  /** A 'reset'/'load' happened this frame: whatever follows in the same frame is a scripted rebuild. */
+  private quietFrame = false;
   private pendingRebuild = false;
   // Scratch (no per-frame allocations).
   private readonly scratch = new THREE.Matrix4();
@@ -192,6 +202,8 @@ export class TownRenderer {
   /** Per-frame animation hook. delta 0 (reduced motion) settles every tween immediately. */
   update(delta: number): void {
     this.eventsThisFrame = 0;
+    this.changesThisFrame = 0;
+    this.quietFrame = false;
     if (this.pendingRebuild && this.ready()) this.rebuildAll();
     if (this.animating.size === 0) return;
     if (delta <= 0 || !this.tuning.animate) {
@@ -257,9 +269,11 @@ export class TownRenderer {
       this.pendingRebuild = true;
       return;
     }
-    let animate = this.tuning.animate && cause !== 'load' && cause !== 'reset';
+    if (cause === 'load' || cause === 'reset') this.quietFrame = true;
+    let animate = this.tuning.animate && !this.quietFrame;
     this.eventsThisFrame += 1;
-    if (this.eventsThisFrame > BURST_EVENTS) {
+    this.changesThisFrame += changes.length;
+    if (this.eventsThisFrame > BURST_EVENTS || this.changesThisFrame > BURST_CHANGES) {
       if (this.animating.size > 0) this.settle();
       animate = false;
     }
