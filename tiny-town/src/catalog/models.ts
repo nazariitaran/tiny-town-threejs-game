@@ -50,8 +50,9 @@ export const MODELS = {
   garage: M('/assets/models/composed/garage.glb', 0.75, 2),
   'bus-stop': M('/assets/models/composed/bus-stop.glb', 1, 2),
   postbox: M('/assets/models/composed/postbox.glb', 1, 2),
-  // Pole is at the native origin; the arm overhangs −Z. WP-03: verify centring keeps the pole mid-cell.
-  lamppost: M('/assets/models/roads/light-curved.glb', 0.9, 2),
+  // Pole is at the native origin; the arm overhangs −Z. Bounds-centring moved the pole 0.078 off-centre;
+  // the offset puts it back mid-cell (WP-03, measured: pole base z -0.101..-0.056 before).
+  lamppost: M('/assets/models/roads/light-curved.glb', 0.9, 2, { offset: [0, 0, 0.078] }),
   'fence-tall': M('/assets/models/composed/fence-tall.glb', 1, 0),
   'fence-small': M('/assets/models/composed/fence-small.glb', 1, 0),
   // Scatter pieces for grass/meadow cells (WP-03 task 6).
