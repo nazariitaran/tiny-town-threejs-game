@@ -18,6 +18,8 @@ interface ThreeGameDiagnostics {
   camera: import('./interaction/CameraController').CameraPose;
   quality: import('./game/config').QualityTier;
   audio: { muted: boolean; volume: number; unlocked: boolean; loaded: number; starts: number };
+  /** Autosave state (SaveStore). pending = a debounced write is waiting. */
+  save: { available: boolean; pending: boolean; lastError: string | null };
   renderer: {
     calls: number;
     triangles: number;

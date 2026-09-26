@@ -26,8 +26,9 @@ All sound effects in `public/assets/audio/` are derived from **Kenney** audio pa
 
 | Pack | URL | Files used |
 |---|---|---|
-| Interface Sounds (1.0) | https://kenney.nl/assets/interface-sounds | click_001, maximize_008, minimize_008, tick_004, bong_001, back_004, drop_003 |
+| Interface Sounds (1.0) | https://kenney.nl/assets/interface-sounds | click_001, maximize_008, minimize_008, bong_001, back_004, drop_003 |
 | UI Audio | https://kenney.nl/assets/ui-audio | rollover2, rollover5 |
-| Impact Sounds | https://kenney.nl/assets/impact-sounds | impactGeneric_light_000/001/002, footstep_grass_000/001/003, impactWood_heavy_000/002/004, impactWood_light_000/002, footstep_snow_001/002 |
+| Impact Sounds | https://kenney.nl/assets/impact-sounds | impactGeneric_light_000/001/002, footstep_grass_000/001/003, impactWood_heavy_000/002/004, impactWood_light_000/001/002/003/004, impactPlank_medium_000/001/002/003, impactMetal_light_001/004, footstep_snow_001/002 |
+| RPG Audio | https://kenney.nl/assets/rpg-audio | cloth2 |
 
 Original License.txt files are kept in `assets-src/<pack>/License.txt`.

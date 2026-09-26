@@ -7,6 +7,8 @@ export interface SfxEntry {
   volume: number;
   pitchJitter: number;
   cooldownMs: number;
+  /** Base playback rate (e.g. undo 0.89×, redo 1.12× share one file). Default 1. */
+  playbackRate?: number;
 }
 
 export const SFX_TABLE: Record<SfxEvent, SfxEntry> = {
@@ -16,11 +18,12 @@ export const SFX_TABLE: Record<SfxEvent, SfxEntry> = {
   'ui-close': { files: ['/assets/audio/ui-close.mp3'], group: 'ui', volume: 0.55, pitchJitter: 0, cooldownMs: 120 },
   'place-path': { files: ['/assets/audio/place-path-1.mp3', '/assets/audio/place-path-2.mp3', '/assets/audio/place-path-3.mp3'], group: 'sfx', volume: 0.7, pitchJitter: 0.07, cooldownMs: 45 },
   'place-nature': { files: ['/assets/audio/place-nature-1.mp3', '/assets/audio/place-nature-2.mp3', '/assets/audio/place-nature-3.mp3'], group: 'sfx', volume: 0.8, pitchJitter: 0.08, cooldownMs: 60 },
-  'place-building': { files: ['/assets/audio/place-building-1.mp3', '/assets/audio/place-building-2.mp3', '/assets/audio/place-building-3.mp3'], group: 'sfx', volume: 0.9, pitchJitter: 0.05, cooldownMs: 80 },
+  'place-building': { files: ['/assets/audio/place-building-1.mp3', '/assets/audio/place-building-2.mp3', '/assets/audio/place-building-3.mp3'], group: 'sfx', volume: 1, pitchJitter: 0.05, cooldownMs: 80 },
   'place-prop': { files: ['/assets/audio/place-prop-1.mp3', '/assets/audio/place-prop-2.mp3'], group: 'sfx', volume: 0.75, pitchJitter: 0.06, cooldownMs: 50 },
+  'place-prop-metal': { files: ['/assets/audio/place-prop-metal-1.mp3', '/assets/audio/place-prop-metal-2.mp3'], group: 'sfx', volume: 0.7, pitchJitter: 0.06, cooldownMs: 50 },
   'rotate': { files: ['/assets/audio/rotate.mp3'], group: 'sfx', volume: 0.6, pitchJitter: 0.05, cooldownMs: 60 },
-  'remove': { files: ['/assets/audio/remove-1.mp3', '/assets/audio/remove-2.mp3'], group: 'sfx', volume: 0.85, pitchJitter: 0.06, cooldownMs: 70 },
+  'remove': { files: ['/assets/audio/remove-1.mp3', '/assets/audio/remove-2.mp3'], group: 'sfx', volume: 0.75, pitchJitter: 0.06, cooldownMs: 70 },
   'invalid': { files: ['/assets/audio/invalid.mp3'], group: 'ui', volume: 0.6, pitchJitter: 0, cooldownMs: 250 },
-  'undo': { files: ['/assets/audio/undo-redo.mp3'], group: 'ui', volume: 0.6, pitchJitter: 0.02, cooldownMs: 60 },
-  'redo': { files: ['/assets/audio/undo-redo.mp3'], group: 'ui', volume: 0.6, pitchJitter: 0.02, cooldownMs: 60 },
+  'undo': { files: ['/assets/audio/undo-redo.mp3'], group: 'ui', volume: 0.6, pitchJitter: 0.02, cooldownMs: 60, playbackRate: 0.89 },
+  'redo': { files: ['/assets/audio/undo-redo.mp3'], group: 'ui', volume: 0.6, pitchJitter: 0.02, cooldownMs: 60, playbackRate: 1.12 },
 };

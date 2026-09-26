@@ -48,8 +48,8 @@ export const TOOLS: readonly ToolDef[] = [
   { id: 'fence-tall', label: 'Tall fence', category: 'buildings', layer: 'edge', drag: 'line', icon: icon('fence-tall'), sfx: 'place-prop', hint: 'Drag along cell edges to build a fence' },
   { id: 'fence-small', label: 'Low fence', category: 'buildings', layer: 'edge', drag: 'line', icon: icon('fence-small'), sfx: 'place-prop', hint: 'Drag along cell edges to build a fence' },
   // Other
-  { id: 'postbox', label: 'Postbox', category: 'other', layer: 'object', drag: 'single', icon: icon('postbox'), sfx: 'place-prop', hint: 'Click to place · R to rotate' },
-  { id: 'lamppost', label: 'Lamppost', category: 'other', layer: 'object', drag: 'scatter', icon: icon('lamppost'), sfx: 'place-prop', hint: 'Click to place · R to rotate' },
+  { id: 'postbox', label: 'Postbox', category: 'other', layer: 'object', drag: 'single', icon: icon('postbox'), sfx: 'place-prop-metal', hint: 'Click to place · R to rotate' },
+  { id: 'lamppost', label: 'Lamppost', category: 'other', layer: 'object', drag: 'scatter', icon: icon('lamppost'), sfx: 'place-prop-metal', hint: 'Click to place · R to rotate' },
   // Modes
   { id: 'bulldoze', label: 'Bulldoze', category: 'mode', layer: 'bulldoze', drag: 'paint', icon: '/assets/ui/bulldoze.svg', sfx: 'remove', hint: 'Click or drag to remove things' },
 ];

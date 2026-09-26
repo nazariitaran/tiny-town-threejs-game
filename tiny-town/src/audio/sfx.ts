@@ -12,6 +12,7 @@ export type SfxEvent =
   | 'place-nature'
   | 'place-building'
   | 'place-prop'
+  | 'place-prop-metal'
   | 'rotate'
   | 'remove'
   | 'invalid'
@@ -27,6 +28,7 @@ export const SFX_EVENTS: readonly SfxEvent[] = [
   'place-nature',
   'place-building',
   'place-prop',
+  'place-prop-metal',
   'rotate',
   'remove',
   'invalid',

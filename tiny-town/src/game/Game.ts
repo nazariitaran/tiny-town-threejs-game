@@ -11,6 +11,7 @@ import { Loop } from '../core/Loop';
 import { createRenderer, resizeRenderer } from '../core/Renderer';
 import { DebugTools, type DebugTuning } from '../debug/DebugTools';
 import { PlacementFx } from '../fx/PlacementFx';
+import { SaveStore } from '../persistence/SaveStore';
 import { CameraController } from '../interaction/CameraController';
 import { GridPicker } from '../interaction/GridPicker';
 import { ToolController } from '../interaction/ToolController';
@@ -52,6 +53,7 @@ export class Game {
   private readonly town = new TownState(PLOT_WIDTH, PLOT_DEPTH);
   private readonly editor: TownEditor;
   private readonly library = new ModelLibrary();
+  private readonly saves = new SaveStore();
   private readonly environment: Environment;
   private readonly cameraController: CameraController;
   private readonly picker: GridPicker;
@@ -87,12 +89,21 @@ export class Game {
     this.tools = new ToolController(canvas, this.picker, this.editor, this.cameraController, this.bus, this.scene, this.library, this.debug);
     this.townRenderer = new TownRenderer(this.scene, this.library, this.town, this.bus, this.debug);
     this.fx = new PlacementFx(this.scene, this.bus, fxRand);
-    this.audio = new AudioManager(this.bus, fxRand);
-    this.ui = new UiRoot(uiHost, this.bus, () => false /* TODO(M1): SaveStore.has() from WP-02 */);
+    this.audio = new AudioManager(this.bus, fxRand, this.saves);
+    this.ui = new UiRoot(uiHost, this.bus, () => this.saves.has());
 
-    this.bus.on('intent:start', () => {
+    // Persistence: autosave 1 s after edits (never on 'load'); flush on page hide.
+    this.saves.attachAutosave(this.bus, () => this.editor.serialize(this.cameraController.getPose()));
+    window.addEventListener('pagehide', this.onPageHide);
+    this.gridPreferred = this.saves.getSettings().grid;
+
+    this.bus.on('intent:start', ({ mode }) => {
       void this.audio.unlock(); // must stay inside the click's call stack
+      const save = mode === 'continue' ? this.saves.read() : null;
+      if (save) this.editor.load(save);
+      else this.editor.reset(); // 'new': cause 'reset' also clears the stored save
       this.setPhase('building');
+      if (save?.camera) this.cameraController.setPose(save.camera);
     });
     this.bus.on('intent:new-town', () => this.editor.reset());
     this.bus.on('intent:open-menu', () => {
@@ -104,12 +115,14 @@ export class Game {
     this.bus.on('intent:reset-camera', () => this.cameraController.reset());
     this.bus.on('intent:toggle-grid', ({ visible }) => {
       this.gridPreferred = visible;
+      this.saves.setSettings({ grid: visible });
       this.environment.setGridVisible(visible && this.phase === 'building');
     });
     this.bus.on('build:invalid', () => {
       this.invalidCount += 1;
     });
 
+    if (!this.gridPreferred) this.bus.emit('intent:toggle-grid', { visible: false }); // sync the UI switch
     resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr);
     this.installTestHooks();
     this.ready = this.load();
@@ -121,6 +134,9 @@ export class Game {
 
   dispose(): void {
     this.loop.stop();
+    window.removeEventListener('pagehide', this.onPageHide);
+    this.saves.flush();
+    this.saves.dispose();
     this.tools.dispose();
     this.cameraController.dispose();
     this.townRenderer.dispose();
@@ -135,6 +151,10 @@ export class Game {
     window.__THREE_GAME_DIAGNOSTICS__ = undefined;
     window.__THREE_GAME_TEST_HOOKS__ = undefined;
   }
+
+  private readonly onPageHide = (): void => {
+    this.saves.flush();
+  };
 
   private async load(): Promise<void> {
     try {
@@ -184,6 +204,8 @@ export class Game {
 
   private async applyTestState(name: TestState): Promise<void> {
     await this.ready;
+    // Demo/test towns must never overwrite or clear the player's save (stays off until reload).
+    this.saves.autosaveEnabled = false;
     // Reseed so a state is identical no matter what happened before it.
     this.rng = createSeededRandom(this.seedValue);
     this.fxRng = createSeededRandom(this.seedValue ^ 0x9e3779b9);
@@ -194,6 +216,7 @@ export class Game {
     if (name === 'stress-town') buildStressTown(this.editor);
     this.setPhase(name === 'title' ? 'title' : 'building');
     this.cameraController.setMode(name === 'title' ? 'title' : 'build');
+    this.townRenderer.settle();
   }
 
   private installTestHooks(): void {
@@ -217,7 +240,10 @@ export class Game {
       },
       setReducedMotion: (enabled: boolean) => {
         this.reducedMotion = enabled;
-        if (enabled) this.fx.stabilize();
+        if (enabled) {
+          this.fx.stabilize();
+          this.townRenderer.settle();
+        }
         this.render();
         this.publishDiagnostics();
       },
@@ -247,6 +273,7 @@ export class Game {
       camera: this.cameraController.getPose(),
       quality: this.quality,
       audio: this.audio.state,
+      save: { available: this.saves.available, pending: this.saves.pending, lastError: this.saves.lastError },
       renderer: {
         calls: info.render.calls,
         triangles: info.render.triangles,
