@@ -42,17 +42,21 @@ export const MODELS = {
   'tree-b': M('/assets/models/platformer/tree-pine.glb', 0.36, 0, { sway: true }),
   'tree-c': M('/assets/models/suburban/tree-large.glb', 1, 0, { sway: true }),
   'tree-c-small': M('/assets/models/suburban/tree-small.glb', 1, 0, { sway: true }),
-  'townhouse-a': M('/assets/models/suburban/building-type-a.glb', 0.75, 2),
-  'townhouse-b': M('/assets/models/suburban/building-type-k.glb', 0.75, 2),
-  'townhouse-b-alt': M('/assets/models/suburban/building-type-r.glb', 0.75, 2),
-  'townhouse-c': M('/assets/models/suburban/building-type-e.glb', 0.75, 2),
-  'townhouse-c-alt': M('/assets/models/suburban/building-type-c.glb', 0.75, 2),
-  garage: M('/assets/models/composed/garage.glb', 0.75, 2),
+  // M1 (WP-03): scaled up to fill the 1×1 footprint. Wide models (a, c, c-alt, garage) are width-
+  // limited at ~1.01 of a cell; the narrow type-k/-r houses grow more (largest side ≈ 0.9 cell).
+  'townhouse-a': M('/assets/models/suburban/building-type-a.glb', 0.78, 2),
+  'townhouse-b': M('/assets/models/suburban/building-type-k.glb', 0.88, 2),
+  'townhouse-b-alt': M('/assets/models/suburban/building-type-r.glb', 0.87, 2),
+  'townhouse-c': M('/assets/models/suburban/building-type-e.glb', 0.78, 2),
+  'townhouse-c-alt': M('/assets/models/suburban/building-type-c.glb', 0.78, 2),
+  garage: M('/assets/models/composed/garage.glb', 0.78, 2),
   'bus-stop': M('/assets/models/composed/bus-stop.glb', 1, 2),
-  postbox: M('/assets/models/composed/postbox.glb', 1, 2),
+  // M1 (WP-03): 1.7× so it reads as a pillar box, not a red dot (0.18 × 0.29 tall).
+  postbox: M('/assets/models/composed/postbox.glb', 1.7, 2),
   // Pole is at the native origin; the arm overhangs −Z. Bounds-centring moved the pole 0.078 off-centre;
-  // the offset puts it back mid-cell (WP-03, measured: pole base z -0.101..-0.056 before).
-  lamppost: M('/assets/models/roads/light-curved.glb', 0.9, 2, { offset: [0, 0, 0.078] }),
+  // the offset puts it back mid-cell (WP-03, measured: pole base z -0.101..-0.056 at scale 0.9, i.e.
+  // 0.0867 × scale). M1: scale 1.35 (0.91 tall, eave height) so it reads as a lamp at default zoom.
+  lamppost: M('/assets/models/roads/light-curved.glb', 1.35, 2, { offset: [0, 0, 0.117] }),
   'fence-tall': M('/assets/models/composed/fence-tall.glb', 1, 0),
   'fence-small': M('/assets/models/composed/fence-small.glb', 1, 0),
   // Scatter pieces for grass/meadow cells (WP-03 task 6).
@@ -90,9 +94,11 @@ export const GROUND_MODELS: Readonly<Record<Exclude<GroundKind, 'field' | 'road'
   // Colours sampled from the Kenney kits (docs/assets/models.md). WP-03: walkway = path hub+arms
   // composition, grass/meadow = flat tile + instanced tuft/flower scatter.
   pavement: { type: 'model', model: 'pavement-tile' },
-  walkway: { type: 'flat', color: '#747990', height: 0.012 },
-  grass: { type: 'flat', color: '#4ab480', height: 0.008 },
-  meadow: { type: 'flat', color: '#3da679', height: 0.008 },
+  // M1 (WP-03): walkway = warm sandstone paving (drawn as a 0.5-wide hub + arms by TownRenderer);
+  // lawns pulled from kit teal toward the WP-04 field green (#84c27c), a little deeper.
+  walkway: { type: 'flat', color: '#c9b99a', height: 0.016 },
+  grass: { type: 'flat', color: '#6cb562', height: 0.016 },
+  meadow: { type: 'flat', color: '#5fa959', height: 0.016 },
 };
 
 export const EDGE_MODELS: Readonly<Record<EdgeKind, ModelId>> = {

@@ -19,9 +19,13 @@
  *    the add with the same id, and addObject() defensively frees any visual under that id.
  *  - Variants: PlacedObject.variant picks from ObjectDef.models; trees get a stable scale/yaw
  *    jitter from hash(id) (never the RNG, so it survives reloads).
- *  - Ground: road auto-tiles (roadTiles.ts); pavement = kit tile; grass/meadow = slightly raised
- *    lawn slab with a darker lip; meadow adds a deterministic flower/tuft scatter (hidden under
- *    objects); walkway = hub + an arm towards every walkway/pavement neighbour.
+ *  - Ground: road auto-tiles (roadTiles.ts; a lone tile = two squashed round caps); pavement = kit
+ *    tile; grass/meadow = slightly raised lawn slab with a soft darker lip; meadow adds a
+ *    deterministic flower/tuft scatter (hidden under objects); walkway = a 0.5-wide sandstone
+ *    paving hub + an arm towards every walkway/pavement neighbour (procedural slabs).
+ *  - Look overrides (MODEL_STYLES, M1 review): the roads atlas's periwinkle kerb/paving texels are
+ *    re-tinted to warm stone (one recoloured atlas copy shared by all road pieces); the tall fence is
+ *    cream and 1.55× taller, the low fence dark wood; the lamppost is dark iron and stouter.
  */
 import * as THREE from 'three';
 import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS, type ModelId } from '../catalog/models';
@@ -42,9 +46,39 @@ const BURST_EVENTS = 24;
 /** More changes than this in one frame ⇒ scripted batch / huge undo ⇒ no animation. */
 const BURST_CHANGES = 64;
 /** Lawn slab (grass/meadow) top height; matches the road/pavement tile tops (y = 0.02). */
-const LAWN_HEIGHT = 0.02;
+const LAWN_HEIGHT = 0.016;
 /** Side (lip) shade of the lawn slab relative to its top. */
-const LAWN_LIP_SHADE = 0.72;
+const LAWN_LIP_SHADE = 0.86;
+/** Garden path (walkway): paving width (≥ half a cell so it reads as a path, not a fence). */
+const WALKWAY_WIDTH = 0.5;
+const WALKWAY_HEIGHT = 0.016;
+const WALKWAY_LIP_SHADE = 0.78;
+/**
+ * Per-model look overrides (M1 review). `color` replaces the atlas colour (map dropped): the Kenney
+ * roads atlas pavement is periwinkle, the composed tall fence is the same brown as the low one.
+ * `scale` is a non-uniform local scale (fences must stay exactly one cell long, so only Y grows).
+ */
+interface ModelStyle {
+  color?: string;
+  /** Warm the atlas's light periwinkle texels (kerb, paving, lane paint) to cream-grey stone. */
+  warmAtlas?: boolean;
+  scale?: readonly [number, number, number];
+}
+/** Warm-stone multipliers applied to a light periwinkle texel's luminance (M1 review). */
+const WARM_STONE: readonly [number, number, number] = [1.17, 1.15, 1.1];
+const MODEL_STYLES: Partial<Record<ModelId, ModelStyle>> = {
+  'pavement-tile': { warmAtlas: true },
+  'road-straight': { warmAtlas: true },
+  'road-corner': { warmAtlas: true },
+  'road-tee': { warmAtlas: true },
+  'road-cross': { warmAtlas: true },
+  'road-end': { warmAtlas: true },
+  'road-single': { warmAtlas: true },
+  'fence-tall': { color: '#f2eadb', scale: [1, 1.55, 1] },
+  'fence-small': { color: '#9a6a42' },
+  // Thin grey hook → darker, slightly stouter iron lamp that reads against the field.
+  lamppost: { color: '#46505e', scale: [1.5, 1, 1.15] },
+};
 const TREE_KINDS = new Set(['tree-a', 'tree-b', 'tree-c']);
 
 /** Something that can be instanced: a model's merged parts or a procedural tile. */
@@ -104,6 +138,8 @@ export class TownRenderer {
   private readonly lawnSources = new Map<string, PieceSource>();
   private readonly ownedGeometries: THREE.BufferGeometry[] = [];
   private readonly ownedMaterials: THREE.Material[] = [];
+  private readonly ownedTextures: THREE.Texture[] = [];
+  private readonly warmMaterials = new Map<THREE.Material, THREE.Material>();
   private readonly off: () => void;
   private eventsThisFrame = 0;
   private changesThisFrame = 0;
@@ -159,6 +195,10 @@ export class TownRenderer {
   /**
    * What is actually drawn (NOT derived from TownState), so tests can compare the two.
    * objects/groundTiles/edges count live visuals (not ones shrinking out, see `dying`).
+   * drawCallsEstimate = the town's share of the MAIN pass (one call per non-empty pool), the same
+   * pass three's renderer.info.render.calls counts (info is reset after the shadow pass, so shadow
+   * draws never show up there). renderer.calls = drawCallsEstimate + non-town meshes (terrain, sky,
+   * decor, ghost, fx). shadowCallsEstimate = extra shadow-pass calls from shadow-casting pools.
    */
   getDiagnostics(): {
     objects: number;
@@ -167,6 +207,7 @@ export class TownRenderer {
     instances: number;
     pools: number;
     drawCallsEstimate: number;
+    shadowCallsEstimate: number;
     trianglesEstimate: number;
     animating: number;
     dying: number;
@@ -175,12 +216,14 @@ export class TownRenderer {
     let instances = 0;
     let pools = 0;
     let drawCalls = 0;
+    let shadowCalls = 0;
     let triangles = 0;
     for (const pool of this.pools.values()) {
       if (pool.count === 0) continue;
       instances += pool.count;
       pools += 1;
-      drawCalls += pool.castShadow ? 2 : 1;
+      drawCalls += 1;
+      if (pool.castShadow) shadowCalls += 1;
       triangles += pool.count * pool.trianglesPerInstance;
     }
     let dying = 0;
@@ -192,6 +235,7 @@ export class TownRenderer {
       instances,
       pools,
       drawCallsEstimate: drawCalls,
+      shadowCallsEstimate: shadowCalls,
       trianglesEstimate: triangles,
       animating: this.animating.size,
       dying,
@@ -255,6 +299,7 @@ export class TownRenderer {
     this.pools.clear();
     for (const geometry of this.ownedGeometries) geometry.dispose();
     for (const material of this.ownedMaterials) material.dispose();
+    for (const texture of this.ownedTextures) texture.dispose();
     this.groundByCell.clear();
     this.objectsById.clear();
     this.edgesByKey.clear();
@@ -348,6 +393,14 @@ export class TownRenderer {
   private describeGround(kind: Exclude<GroundKind, 'field'>, cell: Cell): { sig: string; rotation: number; pieces: PieceSpec[] } {
     if (kind === 'road') {
       const tile = roadTileFor(roadMask(this.town, cell));
+      if (tile.piece === 'single') {
+        // Isolated road: two round dead-end caps squashed to half a cell each, back to back, so a
+        // lone tile matches the rounded ends of every other dead end (road-square looked like a slab).
+        const end = this.modelSource(ROAD_PIECE_MODELS.end, false);
+        const north = new THREE.Matrix4().makeTranslation(0, 0, -0.25 * CELL_SIZE).multiply(new THREE.Matrix4().makeScale(1, 1, 0.5));
+        const south = new THREE.Matrix4().makeRotationY(Math.PI).multiply(north);
+        return { sig: 'road:single:0', rotation: 0, pieces: [{ source: end, local: north }, { source: end, local: south }] };
+      }
       return {
         sig: `road:${tile.piece}:${tile.rotation}`,
         rotation: tile.rotation,
@@ -373,16 +426,19 @@ export class TownRenderer {
       const ground = this.town.getGround({ x: cell.x + offset.x, z: cell.z + offset.z });
       if (ground === 'walkway' || ground === 'pavement') mask |= 1 << i;
     });
-    // A lone walkway still reads as a short path (north–south) rather than a tiny slab.
+    // A lone walkway still reads as a short path (north–south) rather than a square pad.
     const arms = mask === 0 ? 0b0101 : mask;
-    const hub = this.modelSource('walkway-hub', false);
-    const arm = this.modelSource('walkway-arm', false);
+    const color = GROUND_MODELS.walkway.type === 'flat' ? GROUND_MODELS.walkway.color : '#c9b99a';
+    const hub = this.slabSource('walkway-hub', color, WALKWAY_WIDTH, WALKWAY_HEIGHT, WALKWAY_WIDTH, WALKWAY_LIP_SHADE);
+    const armLength = (CELL_SIZE - WALKWAY_WIDTH) / 2;
+    const arm = this.slabSource('walkway-arm', color, WALKWAY_WIDTH, WALKWAY_HEIGHT, armLength, WALKWAY_LIP_SHADE);
     const pieces: PieceSpec[] = [{ source: hub, local: new THREE.Matrix4() }];
-    // Arms are 0.5 long along Z, centred: push each 0.25 towards its neighbour (N, E, S, W).
+    // Arms run along Z, from the hub edge to the cell edge, towards each connected neighbour (N, E, S, W).
+    const reach = WALKWAY_WIDTH / 2 + armLength / 2;
     NEIGHBOURS.forEach((offset, i) => {
       if (!(arms & (1 << i))) return;
       const local = new THREE.Matrix4().makeRotationY(offset.x !== 0 ? QUARTER : 0);
-      local.setPosition(offset.x * 0.25 * CELL_SIZE, 0, offset.z * 0.25 * CELL_SIZE);
+      local.setPosition(offset.x * reach, 0, offset.z * reach);
       pieces.push({ source: arm, local });
     });
     return { sig: `walkway:${arms}`, rotation: 0, pieces };
@@ -424,7 +480,9 @@ export class TownRenderer {
       origin.makeRotationY(yaw).scale(new THREE.Vector3(scale, scale, scale));
     }
     origin.setPosition(first.x + ((w - 1) * CELL_SIZE) / 2, 0, first.z + ((d - 1) * CELL_SIZE) / 2);
-    const visual = this.createVisual(`object:${model}`, origin, [{ source: this.modelSource(model, true), local: new THREE.Matrix4() }], animate);
+    const style = MODEL_STYLES[model]?.scale;
+    const local = style ? new THREE.Matrix4().makeScale(style[0], style[1], style[2]) : new THREE.Matrix4();
+    const visual = this.createVisual(`object:${model}`, origin, [{ source: this.modelSource(model, true), local }], animate);
     this.objectsById.set(placed.id, visual);
   }
 
@@ -445,7 +503,9 @@ export class TownRenderer {
     const world = edgeToWorld(placed.edge);
     const origin = new THREE.Matrix4().makeRotationY(world.alongX ? 0 : QUARTER).setPosition(world.x, 0, world.z);
     const model = EDGE_MODELS[placed.kind];
-    const visual = this.createVisual(`edge:${model}`, origin, [{ source: this.modelSource(model, true), local: new THREE.Matrix4() }], animate);
+    const scale = MODEL_STYLES[model]?.scale;
+    const local = scale ? new THREE.Matrix4().makeScale(scale[0], scale[1], scale[2]) : new THREE.Matrix4();
+    const visual = this.createVisual(`edge:${model}`, origin, [{ source: this.modelSource(model, true), local }], animate);
     this.edgesByKey.set(key, visual);
   }
 
@@ -538,9 +598,24 @@ export class TownRenderer {
     let source = this.modelSources.get(id);
     if (!source) {
       const template = this.library.get(id);
+      const style = MODEL_STYLES[id];
+      const parts = style?.warmAtlas
+        ? template.parts.map((part) => ({ geometry: part.geometry, material: this.warmAtlasMaterial(part.material) }))
+        : style?.color
+        ? template.parts.map((part) => {
+            // Private recoloured clone (one per styled model, shared by all its instances).
+            const material = part.material.clone() as THREE.MeshStandardMaterial;
+            material.map = null;
+            material.color.set(style.color!);
+            material.name = `${part.material.name}:style:${id}`;
+            material.needsUpdate = true;
+            this.ownedMaterials.push(material);
+            return { geometry: part.geometry, material };
+          })
+        : template.parts;
       source = {
         key: id,
-        parts: template.parts,
+        parts,
         castShadow,
         triangles: template.parts.map((p) => (p.geometry.index ? p.geometry.index.count : p.geometry.getAttribute('position').count) / 3),
       };
@@ -549,30 +624,82 @@ export class TownRenderer {
     return source;
   }
 
-  /** Procedural lawn slab: 1×1 top at LAWN_HEIGHT, darker vertical lip so painted lawns read against the field. */
+  /** Procedural lawn slab: 1×1 top at LAWN_HEIGHT, softly darker lip so painted lawns read against the field. */
   private lawnSource(kind: string, color: string): PieceSource {
-    let source = this.lawnSources.get(kind);
+    return this.slabSource(`lawn-${kind}`, color, CELL_SIZE, LAWN_HEIGHT, CELL_SIZE, LAWN_LIP_SHADE);
+  }
+
+  /** A flat box (base on y = 0) with vertex-colour shading: top 1, sides `lipShade`. Cached by key. */
+  private slabSource(key: string, color: string, width: number, height: number, depth: number, lipShade: number): PieceSource {
+    let source = this.lawnSources.get(key);
     if (!source) {
-      let geometry = this.ownedGeometries.find((g) => g.name === 'lawn-slab');
-      if (!geometry) {
-        geometry = new THREE.BoxGeometry(CELL_SIZE, LAWN_HEIGHT, CELL_SIZE).translate(0, LAWN_HEIGHT / 2, 0);
-        geometry.name = 'lawn-slab';
-        const normals = geometry.getAttribute('normal');
-        const colors = new Float32Array(normals.count * 3);
-        for (let i = 0; i < normals.count; i += 1) {
-          const shade = normals.getY(i) > 0.5 ? 1 : LAWN_LIP_SHADE;
-          colors.set([shade, shade, shade], i * 3);
-        }
-        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-        this.ownedGeometries.push(geometry);
+      const geometry = new THREE.BoxGeometry(width, height, depth).translate(0, height / 2, 0);
+      geometry.name = `slab:${key}`;
+      const normals = geometry.getAttribute('normal');
+      const colors = new Float32Array(normals.count * 3);
+      for (let i = 0; i < normals.count; i += 1) {
+        const shade = normals.getY(i) > 0.5 ? 1 : lipShade;
+        colors[i * 3] = shade;
+        colors[i * 3 + 1] = shade;
+        colors[i * 3 + 2] = shade;
       }
+      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      this.ownedGeometries.push(geometry);
       const material = new THREE.MeshStandardMaterial({ color, roughness: 1, vertexColors: true });
-      material.name = `lawn:${kind}`;
+      material.name = `slab:${key}`;
       this.ownedMaterials.push(material);
-      source = { key: `lawn-${kind}`, parts: [{ geometry, material }], castShadow: false, triangles: [12] };
-      this.lawnSources.set(kind, source);
+      source = { key, parts: [{ geometry, material }], castShadow: false, triangles: [12] };
+      this.lawnSources.set(key, source);
     }
     return source;
+  }
+
+  /**
+   * A clone of `base` whose colour atlas has its light periwinkle texels (blue ≫ red, luminance > 130:
+   * kerbs, paving, lane paint) re-tinted to warm stone at the same luminance. Dark blue-grey asphalt
+   * and every saturated colour are untouched. Cached per base material, so all road pieces still share
+   * one material + one texture.
+   */
+  private warmAtlasMaterial(base: THREE.Material): THREE.Material {
+    const cached = this.warmMaterials.get(base);
+    if (cached) return cached;
+    const source = (base as THREE.MeshStandardMaterial).map;
+    const image = source?.image as (CanvasImageSource & { width: number; height: number }) | undefined;
+    if (!source || !image || typeof document === 'undefined') return base;
+    const canvas = document.createElement('canvas');
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) return base;
+    context.drawImage(image, 0, 0);
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+    const data = pixels.data;
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const luminance = 0.3 * r + 0.59 * g + 0.11 * b;
+      if (b - r < 20 || b - g < 10 || luminance < 130) continue;
+      data[i] = Math.min(255, luminance * WARM_STONE[0]);
+      data[i + 1] = Math.min(255, luminance * WARM_STONE[1]);
+      data[i + 2] = Math.min(255, luminance * WARM_STONE[2]);
+    }
+    context.putImageData(pixels, 0, 0);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.flipY = source.flipY;
+    texture.colorSpace = source.colorSpace;
+    texture.anisotropy = source.anisotropy;
+    texture.wrapS = source.wrapS;
+    texture.wrapT = source.wrapT;
+    texture.magFilter = source.magFilter;
+    texture.minFilter = source.minFilter;
+    this.ownedTextures.push(texture);
+    const material = base.clone() as THREE.MeshStandardMaterial;
+    material.map = texture;
+    material.name = `${base.name}:warm`;
+    this.ownedMaterials.push(material);
+    this.warmMaterials.set(base, material);
+    return material;
   }
 
   private ready(): boolean {
