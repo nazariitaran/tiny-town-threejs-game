@@ -13,8 +13,8 @@
  *  - `place-prop-metal`: lamppost/postbox get a metal clink instead of the wooden fence knock. Until
  *    sfx.ts/tools.ts/sfxTable.ts know the event, its table entry and tool mapping live here.
  *  - undo/redo `playbackRate` (0.89 / 1.12) is in audio.json but not yet emitted by gen-sfx-table.mjs.
- *  - settings storage: WP-02's SaveStore settings API isn't merged yet; `localSettings` below reads and
- *    writes the same key directly. Pass a SettingsPort as the 3rd constructor argument to replace it.
+ *  - settings storage: until Game passes WP-02's SaveStore as the 3rd constructor argument, `localSettings`
+ *    below reads/writes the same SETTINGS_STORAGE_KEY with the same merge semantics.
  */
 import { SETTINGS_STORAGE_KEY, assetUrl } from '../game/config';
 import type { GameBus } from '../game/events';
@@ -32,10 +32,14 @@ export interface AudioSettings {
   volume: number;
 }
 
-/** Where mute/volume are persisted. WP-02's SaveStore settings get/set fits this shape. */
+/**
+ * Where mute/volume are persisted. Structurally matches WP-02's SaveStore (`getSettings()` /
+ * `setSettings(patch)`), so Game can pass its SaveStore instance straight in:
+ * `new AudioManager(bus, fxRand, saves)`.
+ */
 export interface SettingsPort {
-  get(): Partial<AudioSettings>;
-  set(patch: Partial<AudioSettings>): void;
+  getSettings(): Partial<AudioSettings>;
+  setSettings(patch: Partial<AudioSettings>): unknown;
 }
 
 /** Minimum gap between two build (place/remove) sounds, so drag-painting never machine-guns. */
@@ -44,6 +48,8 @@ export const BUILD_SOUND_GAP_MS = 60;
 export const STROKE_PITCH_STEP = 0.02;
 /** Cap on the stroke pitch rise (+40%, reached at the 20th placement) so long strokes don't squeak. */
 export const STROKE_PITCH_MAX = 0.4;
+/** Pitch jitter multiplier for placements after the first in a stroke. */
+const STROKE_JITTER_SCALE = 0.35;
 const DEFAULT_SETTINGS: AudioSettings = { muted: false, volume: 0.8 };
 /** Master-gain ramp time constant (s): mute/volume changes fade instead of clicking. */
 const GAIN_RAMP_S = 0.015;
@@ -67,9 +73,9 @@ function entryFor(event: PlayableEvent): SfxEntry | undefined {
   return (SFX_TABLE as Partial<Record<PlayableEvent, SfxEntry>>)[event] ?? SHIM_TABLE[event];
 }
 
-/** LOCAL SHIM for WP-02's settings API: same key, merges with whatever else is stored there. */
+/** LOCAL SHIM for WP-02's SaveStore settings API: same key, merges with whatever else is stored there. */
 export const localSettings: SettingsPort = {
-  get() {
+  getSettings() {
     try {
       const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
       const parsed: unknown = raw ? JSON.parse(raw) : null;
@@ -83,7 +89,7 @@ export const localSettings: SettingsPort = {
       return {};
     }
   },
-  set(patch) {
+  setSettings(patch) {
     try {
       const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
       let current: Record<string, unknown> = {};
@@ -122,7 +128,7 @@ export class AudioManager {
     private readonly rng: () => number,
     private readonly settings: SettingsPort = localSettings,
   ) {
-    const stored = { ...DEFAULT_SETTINGS, ...settings.get() };
+    const stored = { ...DEFAULT_SETTINGS, ...settings.getSettings() };
     this.muted = stored.muted;
     this.volume = stored.volume;
 
@@ -130,7 +136,12 @@ export class AudioManager {
     this.unsubscribers.push(
       on('ui:sfx', ({ event }) => this.play(event)),
       on('build:placed', ({ toolId, strokeIndex }) =>
-        this.playBuild(this.placeEventFor(toolId), 1 + Math.min(STROKE_PITCH_MAX, strokeIndex * STROKE_PITCH_STEP)),
+        this.playBuild(
+          this.placeEventFor(toolId),
+          1 + Math.min(STROKE_PITCH_MAX, strokeIndex * STROKE_PITCH_STEP),
+          // less random jitter inside a stroke, so the +2% steps read as a rising run
+          strokeIndex > 0 ? STROKE_JITTER_SCALE : 1,
+        ),
       ),
       on('build:removed', ({ layer }) => this.playBuild('remove', REMOVE_RATE[layer])),
       on('build:invalid', () => this.play('invalid')),
@@ -172,7 +183,7 @@ export class AudioManager {
     }
   }
 
-  play(event: PlayableEvent, rate = 1): void {
+  play(event: PlayableEvent, rate = 1, jitterScale = 1): void {
     const ctx = this.context;
     const entry = entryFor(event);
     if (!ctx || ctx.state !== 'running' || !entry || this.muted) return;
@@ -184,7 +195,7 @@ export class AudioManager {
     this.lastPlayed.set(event, now);
     const source = ctx.createBufferSource();
     source.buffer = buffer;
-    const jitter = 1 + (this.rng() * 2 - 1) * entry.pitchJitter;
+    const jitter = 1 + (this.rng() * 2 - 1) * entry.pitchJitter * jitterScale;
     source.playbackRate.value = rate * (SHIM_PLAYBACK_RATE[event] ?? 1) * jitter;
     const gain = ctx.createGain();
     gain.gain.value = entry.volume;
@@ -197,14 +208,14 @@ export class AudioManager {
   setMuted(muted: boolean): void {
     this.muted = muted;
     this.applyVolume();
-    this.settings.set({ muted });
+    this.settings.setSettings({ muted });
     this.announce();
   }
 
   setVolume(volume: number): void {
     this.volume = Number.isFinite(volume) ? Math.min(1, Math.max(0, volume)) : this.volume;
     this.applyVolume();
-    this.settings.set({ volume: this.volume });
+    this.settings.setSettings({ volume: this.volume });
     this.announce();
   }
 
@@ -229,11 +240,11 @@ export class AudioManager {
   }
 
   /** Place/remove sounds share one rate limiter so a fast drag gives at most one sound per gap. */
-  private playBuild(event: PlayableEvent, rate: number): void {
+  private playBuild(event: PlayableEvent, rate: number, jitterScale = 1): void {
     const now = performance.now();
     if (now - this.lastBuildSoundAt < BUILD_SOUND_GAP_MS) return;
     const before = this.starts;
-    this.play(event, rate);
+    this.play(event, rate, jitterScale);
     if (this.starts !== before) this.lastBuildSoundAt = now;
   }
 
