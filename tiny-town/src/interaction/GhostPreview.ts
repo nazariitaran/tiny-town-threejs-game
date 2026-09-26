@@ -20,17 +20,29 @@ import { shortestAngle } from './strokeMath';
 
 export type GhostState = 'valid' | 'invalid' | 'remove' | 'neutral';
 
-/** Brick red (design doc §6 accent) for both invalid and remove, on tiles and models alike. */
+/**
+ * Model tint / rim per state. Valid is a cool mint that separates from the warm yellow-green field;
+ * brick red (design doc §6 accent) is shared by invalid and remove, on tiles and models alike.
+ */
 export const GHOST_TINTS: Readonly<Record<GhostState, string>> = {
-  valid: '#dcffe2',
+  valid: '#7dffc0',
   invalid: '#d8392b',
   remove: '#d8392b',
   neutral: '#ffffff',
 };
 
-/** Tile fill opacity per state (fill = ground colour for ground tools, else the tint). */
-const FILL_OPACITY: Readonly<Record<GhostState, number>> = { valid: 0.45, invalid: 0.62, remove: 0.62, neutral: 0.16 };
-const FRAME_OPACITY: Readonly<Record<GhostState, number>> = { valid: 0.85, invalid: 0.95, remove: 0.95, neutral: 0.45 };
+/** Tile fill colour when no ground colour is given (valid: pale mint, reads brighter than the field). */
+const FILL_COLORS: Readonly<Record<GhostState, string>> = { valid: '#c4ffe4', invalid: '#d8392b', remove: '#d8392b', neutral: '#ffffff' };
+/** Cell frame colour: valid is a near-white mint line with a mint glow around it. */
+const FRAME_COLORS: Readonly<Record<GhostState, string>> = { valid: '#f4fffa', invalid: '#d8392b', remove: '#d8392b', neutral: '#ffffff' };
+/** Tile fill opacity per state (fill = ground colour for ground tools, else FILL_COLORS). */
+const FILL_OPACITY: Readonly<Record<GhostState, number>> = { valid: 0.5, invalid: 0.62, remove: 0.62, neutral: 0.16 };
+const FRAME_OPACITY: Readonly<Record<GhostState, number>> = { valid: 1, invalid: 0.95, remove: 0.95, neutral: 0.45 };
+/** Additive mint glow around the frame, valid only (its opacity breathes gently). */
+const GLOW_COLOR = '#56f5a8';
+const GLOW_OPACITY = 0.42;
+/** Fresnel rim strength per state (soft mint rim on valid models). */
+const RIM_STRENGTH: Readonly<Record<GhostState, number>> = { valid: 1.1, invalid: 0.5, remove: 0.6, neutral: 0.3 };
 
 /** A model placed inside the ghost, in cell-local coordinates (before the ghost's own yaw). */
 export interface GhostPart {
@@ -63,11 +75,16 @@ export interface GhostShowOptions {
 
 export class GhostPreview {
   readonly root = new THREE.Group();
-  readonly tuning = { followRate: 28, rotateDuration: 0.1, shakeAmplitude: 0.05, shakeDuration: 0.15, modelOpacity: 0.62 };
+  readonly tuning = { followRate: 28, rotateDuration: 0.1, shakeAmplitude: 0.05, shakeDuration: 0.15, modelOpacity: 0.82 };
 
   private readonly tileGroup = new THREE.Group();
   private readonly fill: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   private readonly frame: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
+  private readonly glow: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
+  /** Shared by every ghost material's fresnel rim (one program, updated in place). */
+  private readonly rimUniforms = { uGhostRimColor: { value: new THREE.Color(GHOST_TINTS.valid) }, uGhostRimStrength: { value: 1 } };
+  private glowTime = 0;
+  private tileState: GhostState = 'neutral';
   private readonly modelHolder = new THREE.Group();
   /** Pooled model instances per id (a walkway ghost needs several arms). */
   private readonly pool = new Map<ModelId, THREE.Group[]>();
@@ -99,9 +116,9 @@ export class GhostPreview {
     this.fill.name = 'ghost-fill';
     this.fill.position.y = 0.036;
     this.fill.renderOrder = 10;
-    // RingGeometry with 4 segments is a diamond; turned 45° it is a square frame (outer half-size 0.49, inner 0.43).
+    // RingGeometry with 4 segments is a diamond; turned 45° it is a square frame (outer half-size 0.5, inner 0.41).
     this.frame = new THREE.Mesh(
-      new THREE.RingGeometry(CELL_SIZE * 0.43 * Math.SQRT2, CELL_SIZE * 0.49 * Math.SQRT2, 4, 1)
+      new THREE.RingGeometry(CELL_SIZE * 0.41 * Math.SQRT2, CELL_SIZE * 0.5 * Math.SQRT2, 4, 1)
         .rotateZ(Math.PI / 4)
         .rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({ color: GHOST_TINTS.neutral, transparent: true, opacity: 0.5, depthWrite: false, toneMapped: false }),
@@ -109,7 +126,24 @@ export class GhostPreview {
     this.frame.name = 'ghost-frame';
     this.frame.position.y = 0.04;
     this.frame.renderOrder = 12;
-    this.tileGroup.add(this.fill, this.frame);
+    // Soft glow band just outside the frame (additive, so it brightens the field rather than covering it).
+    this.glow = new THREE.Mesh(
+      new THREE.RingGeometry(CELL_SIZE * 0.5 * Math.SQRT2, CELL_SIZE * 0.62 * Math.SQRT2, 4, 1)
+        .rotateZ(Math.PI / 4)
+        .rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({
+        color: GLOW_COLOR,
+        transparent: true,
+        opacity: GLOW_OPACITY,
+        depthWrite: false,
+        toneMapped: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    this.glow.name = 'ghost-glow';
+    this.glow.position.y = 0.038;
+    this.glow.renderOrder = 11;
+    this.tileGroup.add(this.fill, this.glow, this.frame);
     this.root.add(this.tileGroup, this.modelHolder);
     this.root.visible = false;
     scene.add(this.root);
@@ -143,14 +177,16 @@ export class GhostPreview {
     }
 
     this.setParts(options.parts, options.state, options.solid ?? false);
-    const tint = GHOST_TINTS[options.state];
+    const state = options.state;
+    this.tileState = state;
     this.tileGroup.visible = options.showTile ?? true;
     this.tileGroup.scale.set(options.tileScale?.[0] ?? 1, 1, options.tileScale?.[1] ?? 1);
-    this.fill.material.color.set(options.fillColor ?? tint);
-    const baseFill = options.fillOpacity ?? FILL_OPACITY[options.state];
+    this.fill.material.color.set(options.fillColor ?? FILL_COLORS[state]);
+    const baseFill = options.fillOpacity ?? FILL_OPACITY[state];
     this.fill.material.opacity = options.parts.length > 0 && !options.fillColor ? baseFill * 0.6 : baseFill;
-    this.frame.material.color.set(tint);
-    this.frame.material.opacity = FRAME_OPACITY[options.state];
+    this.frame.material.color.set(FRAME_COLORS[state]);
+    this.frame.material.opacity = FRAME_OPACITY[state];
+    this.glow.visible = state === 'valid';
   }
 
   /** Invalid click feedback: a quick sideways shake. */
@@ -182,6 +218,11 @@ export class GhostPreview {
     }
     this.modelHolder.position.x = shakeOffset;
     this.tileGroup.position.x = shakeOffset;
+    if (this.tileState === 'valid') {
+      // Gentle breathing glow (cheap: one uniform write, no allocations).
+      this.glowTime += delta;
+      this.glow.material.opacity = GLOW_OPACITY * (0.75 + 0.25 * Math.sin(this.glowTime * 4));
+    }
     if (this.modelState === 'remove') {
       // A gentle pulse so "this will be removed" reads even on red-brown models (fences, roofs).
       this.pulseTime += delta;
@@ -196,6 +237,8 @@ export class GhostPreview {
     this.fill.material.dispose();
     this.frame.geometry.dispose();
     this.frame.material.dispose();
+    this.glow.geometry.dispose();
+    this.glow.material.dispose();
     for (const material of this.ghostMaterials.values()) material.dispose();
     this.ghostMaterials.clear();
     this.pool.clear();
@@ -220,6 +263,8 @@ export class GhostPreview {
       this.modelState = state;
       this.modelSolid = solid;
       this.tint.set(GHOST_TINTS[state]);
+      this.rimUniforms.uGhostRimColor.value.copy(this.tint);
+      this.rimUniforms.uGhostRimStrength.value = solid && state === 'valid' ? 0.35 : RIM_STRENGTH[state];
       for (const material of this.ghostMaterials.values()) this.applyTint(material, state);
     }
   }
@@ -263,6 +308,20 @@ export class GhostPreview {
       depthWrite: false,
     });
     ghost.name = `ghost:${source.name}`;
+    // Soft fresnel rim in the state colour (shared uniforms: one extra program for all ghosts).
+    const uniforms = this.rimUniforms;
+    ghost.onBeforeCompile = (shader) => {
+      shader.uniforms.uGhostRimColor = uniforms.uGhostRimColor;
+      shader.uniforms.uGhostRimStrength = uniforms.uGhostRimStrength;
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform vec3 uGhostRimColor;\nuniform float uGhostRimStrength;')
+        .replace(
+          '#include <opaque_fragment>',
+          'float ghostRim = pow(1.0 - saturate(dot(normalize(vViewPosition), normal)), 2.0);\n' +
+            'outgoingLight += uGhostRimColor * ghostRim * uGhostRimStrength;\n#include <opaque_fragment>',
+        );
+    };
+    ghost.customProgramCacheKey = () => 'tiny-town-ghost-rim';
     this.baseColors.set(ghost, ghost.color.clone());
     this.ghostMaterials.set(source, ghost);
     if (this.modelState) this.applyTint(ghost, this.modelState);
@@ -274,9 +333,9 @@ export class GhostPreview {
     const calm = state === 'valid' || state === 'neutral';
     const solid = calm && this.modelSolid;
     // Red states replace most of the texture colour so every model reads the same brick red.
-    if (base) material.color.copy(base).lerp(this.tint, solid ? 0 : calm ? 0.2 : 0.88);
+    if (base) material.color.copy(base).lerp(this.tint, solid ? 0 : state === 'valid' ? 0.15 : calm ? 0.2 : 0.88);
     material.emissive.copy(this.tint);
-    material.emissiveIntensity = solid ? 0.06 : calm ? 0.12 : 0.5;
+    material.emissiveIntensity = solid ? 0.06 : state === 'valid' ? 0.2 : calm ? 0.12 : 0.5;
     material.opacity = solid ? 0.95 : calm ? this.tuning.modelOpacity : 0.78;
   }
 }

@@ -573,7 +573,8 @@ export class ToolController {
         quarterTurns: world.alongX ? 0 : 1,
         state: ghostState,
         parts: [{ model: EDGE_MODELS[toolId as keyof typeof EDGE_MODELS] }],
-        showTile: false,
+        // A thin mint strip + frame along the edge, so the fence target reads on the field.
+        tileScale: world.alongX ? [1, 0.36] : [0.36, 1],
       });
     } else {
       this.ghost.hide();
