@@ -16,14 +16,32 @@ const diag = (page: Page): Promise<Diagnostics> =>
       ),
   );
 
-const cellPoint = (page: Page, x: number, z: number) =>
-  page.evaluate(([cx, cz]) => window.__THREE_GAME_TEST_HOOKS__!.cellToClient(cx, cz), [x, z] as const);
+/** Fails loudly if a UI panel (dock, top bar) covers the point, instead of silently eating the input. */
+async function assertOnCanvas(page: Page, point: { x: number; y: number }, label: string) {
+  const id = await page.evaluate(([px, py]) => document.elementFromPoint(px, py)?.id ?? null, [point.x, point.y] as const);
+  expect(id, `${label} at (${point.x.toFixed(0)}, ${point.y.toFixed(0)}) must hit the canvas`).toBe('game-canvas');
+  return point;
+}
+
+/** Id of the element at a cell centre (no assertion), for picking on-canvas cells. */
+const canvasId = (page: Page, x: number, z: number) =>
+  page.evaluate(([cx, cz]) => {
+    const p = window.__THREE_GAME_TEST_HOOKS__!.cellToClient(cx, cz);
+    return document.elementFromPoint(p.x, p.y)?.id ?? null;
+  }, [x, z] as const);
+
+const cellPoint = async (page: Page, x: number, z: number) =>
+  assertOnCanvas(
+    page,
+    await page.evaluate(([cx, cz]) => window.__THREE_GAME_TEST_HOOKS__!.cellToClient(cx, cz), [x, z] as const),
+    `cell (${x}, ${z})`,
+  );
 
 /** Screen point on the north edge of cell (x, z): halfway between the two cell centres it separates. */
 async function northEdgePoint(page: Page, x: number, z: number) {
   const a = await cellPoint(page, x, z - 1);
   const b = await cellPoint(page, x, z);
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  return assertOnCanvas(page, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, `north edge of (${x}, ${z})`);
 }
 
 function collectErrors(page: Page): string[] {
@@ -191,8 +209,8 @@ test.describe('desktop mouse + keyboard', () => {
 
     // c) Window blur mid-stroke ends it too.
     const depth2 = (await diag(page)).history.undoDepth;
-    const c0 = await cellPoint(page, 14, 20);
-    const c1 = await cellPoint(page, 18, 20);
+    const c0 = await cellPoint(page, 14, 8);
+    const c1 = await cellPoint(page, 18, 8);
     await page.mouse.move(c0.x, c0.y);
     await page.mouse.down();
     await page.mouse.move(c1.x, c1.y, { steps: 6 });
@@ -323,8 +341,17 @@ test.describe('mobile touch', () => {
     await page.screenshot({ path: testInfo.outputPath('mobile-after-pan.png') });
 
     // A one-finger drag with the tool paints (and is one undo entry).
-    const d0 = await cellPoint(page, 9, 9);
-    const d1 = await cellPoint(page, 13, 9);
+    // The pan moved the view, so find a 5-cell run that is still on the canvas (not under the dock / top bar).
+    let run: [number, number] | null = null;
+    for (const [x, z] of [[9, 9], [8, 12], [10, 14], [6, 10], [12, 16], [4, 14]] as const) {
+      if ((await canvasId(page, x, z)) === 'game-canvas' && (await canvasId(page, x + 4, z)) === 'game-canvas') {
+        run = [x, z];
+        break;
+      }
+    }
+    expect(run, 'a 5-cell run on the canvas after the pan').not.toBeNull();
+    const d0 = await cellPoint(page, run![0], run![1]);
+    const d1 = await cellPoint(page, run![0] + 4, run![1]);
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: d0.x, y: d0.y, id: 3 }] });
     for (let step = 1; step <= 10; step += 1) {
       const t = step / 10;
