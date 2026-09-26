@@ -1,8 +1,8 @@
 /**
  * Undo/redo over TownChange lists. One entry = one stroke (press → drag → release).
  *
- * SCAFFOLD BASELINE — WP-02 owns this file. TODO(WP-02): cap depth (e.g. 200 entries),
- * unit tests (History.test.ts), clear on load/new town.
+ * WP-02 owns this file. Depth is capped at HISTORY_LIMIT entries (oldest dropped first);
+ * TownEditor clears it on load and on reset (new town). Tested in History.test.ts.
  */
 import type { TownChange } from './types';
 
@@ -18,16 +18,19 @@ export function invertChanges(changes: readonly TownChange[]): TownChange[] {
   return inverted;
 }
 
+/** Maximum number of undo entries kept (one entry = one stroke). */
+export const HISTORY_LIMIT = 200;
+
 export class History {
   private readonly undoStack: TownChange[][] = [];
   private readonly redoStack: TownChange[][] = [];
 
-  constructor(private readonly maxEntries = 200) {}
+  constructor(readonly maxEntries = HISTORY_LIMIT) {}
 
   push(changes: readonly TownChange[]): void {
     if (changes.length === 0) return;
     this.undoStack.push([...changes]);
-    if (this.undoStack.length > this.maxEntries) this.undoStack.shift();
+    while (this.undoStack.length > this.maxEntries) this.undoStack.shift();
     this.redoStack.length = 0;
   }
 

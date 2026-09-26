@@ -1,3 +1,6 @@
+// WP-09a NOTE: generic scaffold template (another game's diagnostics: score/complete/player).
+// Not runnable against Tiny Town as-is; excluded from tsc. WP-09b builds the real specs from it,
+// using tests/helpers.ts (applyState, prepareDeterministicState, cellToClient-based clicks).
 import { expect, test } from '@playwright/test';
 
 // Copy this file to tests/bot-playtest.spec.ts to enable automated playtests.
