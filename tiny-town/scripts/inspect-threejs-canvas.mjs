@@ -458,7 +458,8 @@ async function main() {
   let report;
   try {
     const context = await browser.newContext(args.mobile
-      ? { ...devices['iPhone 13'], userAgent: undefined }
+      // iPhone 13 touch/DPR, but the full 390×844 screen the PLAN §0 gate names (the preset's viewport is 390×664).
+      ? { ...devices['iPhone 13'], viewport: { width: 390, height: 844 }, userAgent: undefined }
       : { viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
     report = await inspectPage(await context.newPage(), args);
   } finally {
