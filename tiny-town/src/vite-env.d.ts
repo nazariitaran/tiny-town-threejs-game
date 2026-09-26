@@ -21,6 +21,8 @@ interface ThreeGameDiagnostics {
   audio: { muted: boolean; volume: number; unlocked: boolean; loaded: number; starts: number };
   /** Autosave state (SaveStore). pending = a debounced write is waiting. */
   save: { available: boolean; pending: boolean; lastError: string | null };
+  /** Placement FX pool (WP-08): active particles, fx draw calls, spawn/drop counters, wind state. */
+  fx: import('./fx/PlacementFx').FxDiagnostics;
   renderer: {
     calls: number;
     triangles: number;

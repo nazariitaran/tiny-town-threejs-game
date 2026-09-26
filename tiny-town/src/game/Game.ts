@@ -274,6 +274,7 @@ export class Game {
       quality: this.quality,
       audio: this.audio.state,
       save: { available: this.saves.available, pending: this.saves.pending, lastError: this.saves.lastError },
+      fx: this.fx.getDiagnostics(),
       renderer: {
         calls: info.render.calls,
         triangles: info.render.triangles,
