@@ -19,9 +19,9 @@ Worktrees live in `<repo-parent>/ThreeJsGames-wt/<wp>`, branched from `9a4e084`.
 | Wave 0 scaffold | ✅ done | main | — | — | walking skeleton, contracts, assets, docs |
 | M0 preflight | ✅ done 2026-09-26 | main | — | 5188 | verify green (18 tests); e2e 2/2; inspect m0 clean (see below) |
 | WP-02 Town logic | ✅ merged (13479ad) | `wp-02-town-logic` | `wp-02` | — | full rule table, History cap 200, serialize/parseSave, SaveStore (+settings), silent applyBatch; 172 unit tests; main e2e 10/10 |
-| WP-03 Rendering | 🔄 fix2 running (fix1 8638248 merged: warm pavement atlas, lawn palette, scales, fence styles, sandstone walkway) | `wp-03-rendering` | `wp-03` | 5203 | fix2: re-render icons (temporarily owns public/assets/icons/** + scripts/render-icons.mjs) |
+| WP-03 Rendering | ✅ done (fix1 8638248, fix2 7ef0d3d: 17 icons re-rendered in-game via scripts/render-icons.mjs, postbox 2.0) | — | removed | 5203 | evidence in artifacts/wp-03/ |
 | WP-04 World & look | ✅ done (b0f2947, fix1 4b61607: hedgerow frame, 3 decor calls, sun bloom, sandstone kerb) | — | removed | 5204 | evidence copied to artifacts/wp-04/wp04-fix1. Note: DecorRing imports DEFAULT_POSE + fov 35 |
-| WP-05 Interaction | 🔄 fix2 running (fix1 4f6d5b6 merged: hover-after-place, real tile ghost, brick red, framing.ts) | `wp-05-interaction` | `wp-05` | 5205 | fix2: default camera too far (dist 45) → ~33–36, mobile title closer |
+| WP-05 Interaction | ✅ done (fix1 4f6d5b6, fix2 bff21b8: DEFAULT_POSE dist 35.8 target 1.83; phone dist 58.7; portrait title fit) | — | removed | 5205 | evidence in artifacts/wp-05/ |
 | WP-06 UI | ✅ done (df3ed58, fix1 d3ac460: tooltip clearing, stats grouping, touch cues, hint top-centre, title layout) | — | removed | 5206 | evidence copied to artifacts/wp-06/wp06-fix1. Re-check title after WP-05 portrait pose |
 | WP-07 Audio | ✅ done (bf55f1d, fixes 8e6eae3, da4063d shims removed; worktree removed) | `wp-07-audio` | `wp-07` | 5207 | all SFX rebuilt, metal prop sound, stroke pitch rise; fix-up: mute test asserts aria-pressed. Local shims in AudioManager can now go |
 | WP-09a QA harness | ✅ merged (81d8a97) | `wp-09a-qa` | `wp-09a` | 5209 | smoke + build-flow specs, tests/helpers.ts; main e2e 10/10 after merge. Templates annotated, not deleted (left for 09b) |
@@ -56,7 +56,7 @@ Contract requests applied in commit after the Wave-1 merges: sfx `place-prop-met
 - WP-02 follow-up (unowned by the rule table): bus stop stays after its road is repainted away. Decide at M1.
 
 ## Next actions (current)
-1. Merge WP-03 fix2 (icons) and WP-05 fix2 (camera distance); then ask WP-09b to generate and commit the visual baselines (switch missing-baseline skip → fail).
+1. ✅ WP-03/05 fix2 merged. Baselines wait for WP-10 (cars change sample-town); then ask WP-09b to generate and commit the visual baselines (switch missing-baseline skip → fail).
 2. Merge WP-10 and apply its Game.ts contract request.
 3. Checkpoint M2 (PLAN §5), then WP-11 → M3.
 
