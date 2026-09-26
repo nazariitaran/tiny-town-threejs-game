@@ -1,13 +1,15 @@
 /**
  * Event-driven placement VFX and the wind clock.
  *
- *  - build:placed  → dust ring sized by what was built (path small, building large), leaves for
+ *  - build:placed  → soft dust ring sized by what was built (path small, building large), leaves for
  *                    trees/lawn, petals for wildflowers, and a sparkle ring when a building's
  *                    pop-in lands (fxRecipes.ts).
- *  - build:removed → a "poof" plus debris chips sized by layer/kind.
+ *  - build:removed → a low, soft "poof" plus a few small debris chips sized by layer/kind. The poof
+ *                    rings the footprint at ground level so the object's shrink-out stays visible.
  *  - Wind sway     → advances the shared foliage uniform (windSway.ts) from the animation delta.
  *
- * Budget: TWO InstancedMeshes (≤ 2 draw calls, 0 when idle — meshes hide when empty), no shadow
+ * Budget: THREE InstancedMeshes (≤ 3 draw calls, 0 when idle — meshes hide when empty): soft dust
+ * billboards (dustMaterial.ts), small faceted chips/leaves/petals, and gold sparkles. No shadow
  * casting, preallocated pools and scratch math objects: update() allocates nothing.
  * Randomness only from the injected seeded rng.
  *
@@ -22,12 +24,14 @@
  */
 import * as THREE from 'three';
 import type { GameBus } from '../game/events';
+import { DUST_ALPHA_ATTRIBUTE, createDustGeometry, createDustMaterial } from './dustMaterial';
 import { emitPlaced, emitRemoved, type FxPools } from './fxRecipes';
-import { Curve, ParticlePool } from './particlePool';
+import { ParticlePool } from './particlePool';
 import { setWindStrength, updateWindSway, windStrength, windTime } from './windSway';
 
 /** Pool sizes: a 30-tile drag at ~3 puffs/tile with 0.6 s lives peaks well under this. */
-const SOLID_CAPACITY = 384;
+const DUST_CAPACITY = 320;
+const SOLID_CAPACITY = 256;
 const GLINT_CAPACITY = 96;
 /** Seconds for the breeze to ease back in after reduced motion / stabilize. */
 const WIND_EASE_IN = 1.2;
@@ -51,9 +55,12 @@ export interface FxDiagnostics {
 export class PlacementFx {
   private readonly unsubscribers: Array<() => void> = [];
   private readonly pools: FxPools = {
+    dust: new ParticlePool(DUST_CAPACITY),
     solid: new ParticlePool(SOLID_CAPACITY),
     glint: new ParticlePool(GLINT_CAPACITY),
   };
+  private readonly dustMesh: THREE.InstancedMesh;
+  private readonly dustAlpha: THREE.InstancedBufferAttribute;
   private readonly solidMesh: THREE.InstancedMesh;
   private readonly glintMesh: THREE.InstancedMesh;
   private readonly reducedMotionQuery: MediaQueryList | null;
@@ -89,8 +96,10 @@ export class PlacementFx {
         ? window.matchMedia('(prefers-reduced-motion: reduce)')
         : null;
 
-    // Solid: dust puffs, chips, leaves and petals share one faceted low-poly mesh (flat-shaded
-    // Lambert reads as Kenney-style chunky dust under the warm key light).
+    // Dust: soft, feathered, camera-facing puffs that scale out and fade (no facets, no boulders).
+    this.dustMesh = this.createMesh('fx:dust', createDustGeometry(DUST_CAPACITY), createDustMaterial(), DUST_CAPACITY);
+    this.dustAlpha = this.dustMesh.geometry.getAttribute(DUST_ALPHA_ATTRIBUTE) as THREE.InstancedBufferAttribute;
+    // Solid: small chips, leaves and petals (faceted Lambert reads well at chip size).
     this.solidMesh = this.createMesh(
       'fx:solid',
       new THREE.IcosahedronGeometry(1, 0),
@@ -134,8 +143,10 @@ export class PlacementFx {
       // Smoothstep so the breeze fades in rather than snapping.
       setWindStrength(this.windLevel * this.windLevel * (3 - 2 * this.windLevel));
     }
+    this.pools.dust.step(delta);
     this.pools.solid.step(delta);
     this.pools.glint.step(delta);
+    this.writeDust();
     this.writeInstances(this.pools.solid, this.solidMesh, false);
     this.writeInstances(this.pools.glint, this.glintMesh, true);
     this.writeDiagnostics();
@@ -156,12 +167,13 @@ export class PlacementFx {
   dispose(): void {
     for (const off of this.unsubscribers) off();
     this.unsubscribers.length = 0;
-    for (const mesh of [this.solidMesh, this.glintMesh]) {
+    for (const mesh of [this.dustMesh, this.solidMesh, this.glintMesh]) {
       this.scene.remove(mesh);
       mesh.geometry.dispose();
       (mesh.material as THREE.Material).dispose();
       mesh.dispose();
     }
+    this.pools.dust.clear();
     this.pools.solid.clear();
     this.pools.glint.clear();
     setWindStrength(1);
@@ -173,8 +185,11 @@ export class PlacementFx {
 
   /** Clear particles, hide meshes and put foliage in its rest pose. */
   private freeze(): void {
+    this.pools.dust.clear();
     this.pools.solid.clear();
     this.pools.glint.clear();
+    this.dustMesh.visible = false;
+    this.dustMesh.count = 0;
     this.solidMesh.visible = false;
     this.solidMesh.count = 0;
     this.glintMesh.visible = false;
@@ -213,7 +228,7 @@ export class PlacementFx {
       if (upright) this.euler.set(0, pool.rotA[i], 0);
       else this.euler.set(pool.rotA[i], pool.rotB[i], pool.rotA[i] * 0.5);
       this.quaternion.setFromEuler(this.euler);
-      this.position.set(pool.px[i], pool.py[i] + (pool.curve[i] === Curve.Puff ? size * 0.6 : 0), pool.pz[i]);
+      this.position.set(pool.px[i], pool.py[i], pool.pz[i]);
       this.scale.set(size, size * pool.flat[i], size);
       this.matrix.compose(this.position, this.quaternion, this.scale);
       mesh.setMatrixAt(i, this.matrix);
@@ -224,12 +239,36 @@ export class PlacementFx {
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   }
 
+  /** Dust billboards: translation + uniform scale only (the shader faces them to the camera). */
+  private writeDust(): void {
+    const pool = this.pools.dust;
+    const mesh = this.dustMesh;
+    const count = pool.count;
+    mesh.count = count;
+    mesh.visible = count > 0;
+    if (count === 0) return;
+    const alpha = this.dustAlpha.array as Float32Array;
+    for (let i = 0; i < count; i += 1) {
+      const size = pool.sizeAt(i);
+      // Lift the centre so the soft disc sits on the ground instead of being cut by it.
+      this.position.set(pool.px[i], pool.py[i] + size * 0.55, pool.pz[i]);
+      this.matrix.makeScale(size, size, size).setPosition(this.position);
+      mesh.setMatrixAt(i, this.matrix);
+      this.colour.setRGB(pool.r[i], pool.g[i], pool.b[i]);
+      mesh.setColorAt(i, this.colour);
+      alpha[i] = pool.alphaAt(i);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    this.dustAlpha.needsUpdate = true;
+  }
+
   private writeDiagnostics(): void {
-    const { solid, glint } = this.pools;
-    this.diag.active = solid.count + glint.count;
-    this.diag.drawCalls = (this.solidMesh.visible ? 1 : 0) + (this.glintMesh.visible ? 1 : 0);
-    this.diag.spawned = solid.spawned + glint.spawned;
-    this.diag.dropped = solid.dropped + glint.dropped;
+    const { dust, solid, glint } = this.pools;
+    this.diag.active = dust.count + solid.count + glint.count;
+    this.diag.drawCalls = (this.dustMesh.visible ? 1 : 0) + (this.solidMesh.visible ? 1 : 0) + (this.glintMesh.visible ? 1 : 0);
+    this.diag.spawned = dust.spawned + solid.spawned + glint.spawned;
+    this.diag.dropped = dust.dropped + solid.dropped + glint.dropped;
     this.diag.reducedMotion = this.motionOff();
     this.diag.windTime = windTime();
     this.diag.windStrength = windStrength();

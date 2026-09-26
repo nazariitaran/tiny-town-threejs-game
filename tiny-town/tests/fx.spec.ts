@@ -107,7 +107,7 @@ test('FX journey video: road, house, tree, bulldoze — and FX draw calls ≤ 3'
   const withFx = await fx(page);
   const callsWithFx = (await diagnostics(page)).renderer.calls;
   expect(withFx.spawned, 'house spawned particles').toBeGreaterThan(before);
-  expect(withFx.drawCalls, 'house burst uses both FX meshes').toBe(2);
+  expect(withFx.drawCalls, 'house burst uses all three FX meshes (dust, chips, sparkles)').toBe(3);
   await testInfo.attach('house-burst', { body: await page.screenshot(), contentType: 'image/png' });
   // Reduced motion clears the FX and re-renders immediately; the call delta is the FX cost.
   await page.evaluate(() => window.__THREE_GAME_TEST_HOOKS__!.setReducedMotion(true));

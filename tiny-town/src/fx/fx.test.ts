@@ -17,8 +17,8 @@ const baseSpec = (overrides: Partial<ParticleSpec> = {}): ParticleSpec => ({
   spin: 0, flat: 1, curve: Curve.Puff, r: 1, g: 1, b: 1, ...overrides,
 });
 
-const pools = (): FxPools => ({ solid: new ParticlePool(512), glint: new ParticlePool(128) });
-const total = (p: FxPools) => p.solid.count + p.glint.count;
+const pools = (): FxPools => ({ dust: new ParticlePool(512), solid: new ParticlePool(512), glint: new ParticlePool(128) });
+const total = (p: FxPools) => p.dust.count + p.solid.count + p.glint.count;
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -75,8 +75,23 @@ describe('ParticlePool', () => {
     expect(pool.px[0]).toBe(x);
   });
 
-  it('size curves start small, peak, and end at 0', () => {
-    for (const curve of [Curve.Puff, Curve.Chip, Curve.Glint]) {
+  it('dust puffs scale OUT over their life while their alpha fades to 0', () => {
+    const pool = new ParticlePool(1);
+    pool.spawn(baseSpec({ curve: Curve.Puff, life: 1, size: 1 }), 0.3);
+    pool.step(0.05);
+    const early = pool.sizeAt(0);
+    let peakAlpha = 0;
+    for (let i = 0; i < 18; i += 1) {
+      pool.step(0.05);
+      peakAlpha = Math.max(peakAlpha, pool.alphaAt(0));
+    }
+    expect(pool.sizeAt(0)).toBeGreaterThan(early);
+    expect(peakAlpha).toBeGreaterThan(0.6);
+    expect(pool.alphaAt(0)).toBeLessThan(0.02);
+  });
+
+  it('chips and sparkles are opaque while alive and shrink to 0', () => {
+    for (const curve of [Curve.Chip, Curve.Glint]) {
       const pool = new ParticlePool(1);
       pool.spawn(baseSpec({ curve, life: 1, size: 1 }), 0.3);
       let peak = 0;
@@ -102,16 +117,17 @@ describe('fx recipes', () => {
   });
 
   it('sizes placement bursts by category: building > tree > path, and only buildings/props sparkle', () => {
-    const counts: Record<string, { solid: number; glint: number; maxSize: number }> = {};
+    const counts: Record<string, { dust: number; solid: number; glint: number; maxSize: number }> = {};
     for (const id of ['road', 'tree-a', 'townhouse-a', 'meadow', 'lamppost', 'fence-tall']) {
       const p = pools();
       emitPlaced(p, createSeededRandom(1), id, 0, 0, 0);
       let maxSize = 0;
-      for (let i = 0; i < p.solid.count; i += 1) maxSize = Math.max(maxSize, p.solid.size[i]);
-      counts[id] = { solid: p.solid.count, glint: p.glint.count, maxSize };
+      for (let i = 0; i < p.dust.count; i += 1) maxSize = Math.max(maxSize, p.dust.size[i]);
+      counts[id] = { dust: p.dust.count, solid: p.solid.count, glint: p.glint.count, maxSize };
     }
-    expect(counts['townhouse-a'].solid).toBeGreaterThan(counts['tree-a'].solid);
-    expect(counts['tree-a'].solid).toBeGreaterThan(counts.road.solid);
+    expect(counts['townhouse-a'].dust).toBeGreaterThan(counts['tree-a'].dust);
+    expect(counts['townhouse-a'].dust + counts['townhouse-a'].solid).toBeGreaterThan(counts.road.dust + counts.road.solid);
+    expect(counts['tree-a'].dust + counts['tree-a'].solid).toBeGreaterThan(counts.road.dust + counts.road.solid);
     expect(counts['townhouse-a'].maxSize).toBeGreaterThan(counts.road.maxSize);
     expect(counts['townhouse-a'].glint).toBeGreaterThanOrEqual(8);
     expect(counts.road.glint).toBe(0);
@@ -136,6 +152,29 @@ describe('fx recipes', () => {
     expect(count('ground', 'meadow')).toBeGreaterThan(0);
   });
 
+  it('removal poof rings the footprint at ground level, starts late, and chips stay small', () => {
+    const p = pools();
+    emitRemoved(p, createSeededRandom(4), 'object', 'townhouse-a', 2, 3, 0);
+    expect(p.dust.count).toBeGreaterThan(0);
+    for (let i = 0; i < p.dust.count; i += 1) {
+      expect(Math.hypot(p.dust.px[i] - 2, p.dust.pz[i] - 3)).toBeGreaterThanOrEqual(0.4); // never over the house
+      expect(p.dust.py[i]).toBeLessThanOrEqual(0.08);
+      expect(p.dust.size[i]).toBeLessThanOrEqual(0.17);
+      expect(p.dust.age[i]).toBeLessThan(0); // delayed: the shrink-out reads first
+    }
+    for (let i = 0; i < p.solid.count; i += 1) expect(p.solid.size[i]).toBeLessThanOrEqual(0.035);
+    expect(p.solid.count).toBeLessThanOrEqual(5);
+  });
+
+  it('soft dust stays small at spawn (≤ 0.17 world units, no boulders) and chips ≤ 0.055', () => {
+    for (const id of ['road', 'pavement', 'grass', 'meadow', 'tree-a', 'townhouse-c', 'garage', 'bus-stop', 'fence-tall', 'lamppost']) {
+      const p = pools();
+      emitPlaced(p, createSeededRandom(8), id, 0, 0, 0);
+      for (let i = 0; i < p.dust.count; i += 1) expect(p.dust.size[i]).toBeLessThanOrEqual(0.17);
+      for (let i = 0; i < p.solid.count; i += 1) expect(p.solid.size[i]).toBeLessThanOrEqual(0.055);
+    }
+  });
+
   it('thins bursts inside a drag stroke', () => {
     expect(strokeCount(6, 0)).toBe(6);
     expect(strokeCount(6, 2)).toBeLessThan(6);
@@ -144,18 +183,18 @@ describe('fx recipes', () => {
     const later = pools();
     emitPlaced(first, createSeededRandom(1), 'road', 0, 0, 0);
     emitPlaced(later, createSeededRandom(1), 'road', 0, 0, 12);
-    expect(later.solid.count).toBeLessThan(first.solid.count);
+    expect(later.dust.count).toBeLessThan(first.dust.count);
   });
 
   it('a 30-tile road stroke fits the pool without drops', () => {
-    const p: FxPools = { solid: new ParticlePool(384), glint: new ParticlePool(96) };
+    const p: FxPools = { dust: new ParticlePool(320), solid: new ParticlePool(256), glint: new ParticlePool(96) };
     const rng = createSeededRandom(9);
     for (let i = 0; i < 30; i += 1) {
       emitPlaced(p, rng, 'road', i, 0, i);
-      p.solid.step(1 / 60);
-      p.solid.step(1 / 60);
+      p.dust.step(1 / 60);
+      p.dust.step(1 / 60);
     }
-    expect(p.solid.dropped).toBe(0);
+    expect(p.dust.dropped).toBe(0);
   });
 
   it('is deterministic for a seed and never touches Math.random', () => {
@@ -168,10 +207,11 @@ describe('fx recipes', () => {
       emitPlaced(p, rng, 'townhouse-a', 1, 2, 0);
       emitRemoved(p, rng, 'object', 'tree-b', -1, 0, 0);
       for (let i = 0; i < 10; i += 1) {
+        p.dust.step(1 / 60);
         p.solid.step(1 / 60);
         p.glint.step(1 / 60);
       }
-      return [Array.from(p.solid.px.slice(0, p.solid.count)), Array.from(p.glint.py.slice(0, p.glint.count))];
+      return [Array.from(p.dust.px.slice(0, p.dust.count)), Array.from(p.solid.px.slice(0, p.solid.count)), Array.from(p.glint.py.slice(0, p.glint.count))];
     };
     expect(run()).toEqual(run());
     expect(spy).not.toHaveBeenCalled();
@@ -226,7 +266,7 @@ describe('windSway', () => {
 });
 
 describe('PlacementFx', () => {
-  it('turns build events into ≤ 2 visible FX meshes and stabilizes to none', () => {
+  it('turns build events into ≤ 3 visible FX meshes and stabilizes to none', () => {
     const scene = new THREE.Scene();
     const bus = createGameBus();
     const fx = new PlacementFx(scene, bus, createSeededRandom(5));
@@ -239,8 +279,8 @@ describe('PlacementFx', () => {
     bus.emit('build:removed', { layer: 'object', kind: 'tree-a', cell: { x: 4, z: 3 }, worldX: 1.5, worldZ: 0.5, strokeIndex: 0 });
     fx.update(1 / 60);
     expect(fx.getDiagnostics().active).toBeGreaterThan(20);
-    expect(fx.getDiagnostics().drawCalls).toBe(2);
-    expect(meshes()).toHaveLength(2);
+    expect(fx.getDiagnostics().drawCalls).toBe(3);
+    expect(meshes()).toHaveLength(3);
     for (const mesh of meshes()) expect((mesh as THREE.InstancedMesh).castShadow).toBe(false);
 
     // Particles expire on their own.
