@@ -3,6 +3,7 @@
  * in Node (re-exported from UiRoot.ts for existing imports).
  */
 import type { ToolCategory, ToolId } from '../catalog/tools';
+import type { TimeMode } from '../world/dayCycle';
 
 /**
  * Stable selectors for tests/bots. `tool-<id>` buttons also carry data-tool="<id>".
@@ -33,6 +34,12 @@ export const UI_TEST_IDS = {
   // --- added by WP-13 (menu music settings) ---
   music: 'chk-music',
   musicVolume: 'range-music',
+  // --- added by WP-16c (day/night controls) ---
+  /** Top-bar time button: cycles Auto → Day → Night (data-mode = the current mode). */
+  timeMode: 'time-mode',
+  /** Menu "Time of day" radio group and its three radios. */
+  timeModeGroup: 'ui-time-mode',
+  timeModeOption: (mode: TimeMode) => `radio-time-${mode}`,
   confirmPanel: 'ui-confirm',
   confirmClear: 'btn-confirm-clear',
   confirmCancel: 'btn-confirm-cancel',

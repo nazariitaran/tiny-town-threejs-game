@@ -15,6 +15,7 @@ import { TOOL_CATEGORIES, toolDef, toolsInCategory, type ToolCategory, type Tool
 import { assetUrl } from '../game/config';
 import type { GameBus, GamePhase } from '../game/events';
 import type { Rotation } from '../town/types';
+import { TIME_MODES, type DayPhase, type TimeMode } from '../world/dayCycle';
 import { GLYPHS } from './glyphs';
 import { UI_TEST_IDS } from './testIds';
 import { digitAction } from './uiKeys';
@@ -41,6 +42,13 @@ const INVALID_TOOLTIP_MS = 1500;
 const MUSIC_GLYPH =
   '<svg class="ui-glyph" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg>';
 
+/** Day/night modes (WP-16c): label + glyph for the top-bar button and the menu row. */
+const TIME_MODE_UI: Record<TimeMode, { label: string; glyph: string }> = {
+  auto: { label: 'Auto', glyph: GLYPHS.timeAuto },
+  day: { label: 'Day', glyph: GLYPHS.timeDay },
+  night: { label: 'Night', glyph: GLYPHS.timeNight },
+};
+
 const escapeHtml = (text: string): string =>
   text.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]!);
 
@@ -54,6 +62,9 @@ export class UiRoot {
   private activeTool: ToolId | null = null;
   private muted = false;
   private volume = 0.8;
+  /** Last `daytime:changed` fact (Game emits it at boot with the stored mode). */
+  private timeMode: TimeMode = 'auto';
+  private dayPhase: DayPhase = 'day';
   private modal: ModalView | null = null;
   /** View to show when the pending `intent:open-menu` lands (`?` opens help directly). */
   private pendingView: ModalView | null = null;
@@ -124,9 +135,16 @@ export class UiRoot {
       bus.on('intent:toggle-grid', ({ visible }) => {
         this.el<HTMLInputElement>(UI_TEST_IDS.grid).checked = visible;
       }),
+      // WP-16c: day/night mode (button + menu row) render from the fact, never from the intent.
+      bus.on('daytime:changed', ({ mode, phase }) => {
+        this.timeMode = mode;
+        this.dayPhase = phase;
+        this.renderTimeMode();
+      }),
     );
     this.renderTray();
     this.renderAudio();
+    this.renderTimeMode();
     this.renderRotation(0);
     this.showPhase('loading');
   }
@@ -180,6 +198,7 @@ export class UiRoot {
           <button id="${id.undo}" type="button" class="ui-icon-btn" disabled aria-label="Undo" title="Undo (Ctrl+Z)">${GLYPHS.undo}</button>
           <button id="${id.redo}" type="button" class="ui-icon-btn" disabled aria-label="Redo" title="Redo (Ctrl+Shift+Z)">${GLYPHS.redo}</button>
           <span class="ui-sep" aria-hidden="true"></span>
+          <button id="${id.timeMode}" type="button" class="ui-icon-btn ui-time-btn" aria-keyshortcuts="T"></button>
           <button id="${id.mute}" type="button" class="ui-icon-btn" aria-label="Mute sound" aria-pressed="false"></button>
           <button id="${id.menu}" type="button" class="ui-icon-btn" aria-label="Menu" title="Menu (Esc)">${GLYPHS.menu}</button>
         </div>
@@ -227,6 +246,15 @@ export class UiRoot {
             <label for="${id.musicVolume}"><span>Music volume</span></label>
             <input type="range" id="${id.musicVolume}" min="0" max="1" step="0.05" value="0.5" />
           </div>
+          <div class="ui-field ui-seg-field">
+            <span class="ui-seg-label" id="ui-time-mode-label">${GLYPHS.timeAuto}<span>Time of day</span></span>
+            <div class="ui-seg" id="${id.timeModeGroup}" role="radiogroup" aria-labelledby="ui-time-mode-label">
+              ${TIME_MODES.map(
+                (mode) =>
+                  `<label class="ui-seg-opt"><input type="radio" name="time-mode" id="${id.timeModeOption(mode)}" value="${mode}"${mode === 'auto' ? ' checked' : ''} /><span>${TIME_MODE_UI[mode].label}</span></label>`,
+              ).join('')}
+            </div>
+          </div>
           <label class="ui-field ui-check" for="${id.grid}">
             ${GLYPHS.grid}<span>Show grid</span>
             <input type="checkbox" id="${id.grid}" role="switch" checked />
@@ -260,6 +288,7 @@ export class UiRoot {
                 <dt>B</dt><dd>Bulldoze</dd>
                 <dt>Ctrl+Z · Ctrl+Shift+Z</dt><dd>Undo · redo</dd>
                 <dt>F · Home</dt><dd>Reset view</dd>
+                <dt>T</dt><dd>Time of day (auto · day · night)</dd>
                 <dt>Esc</dt><dd>Put the tool away · menu</dd>
                 <dt>?</dt><dd>This help</dd>
               </dl>
@@ -272,6 +301,7 @@ export class UiRoot {
                 <dt>Twist</dt><dd>Turn the camera</dd>
                 <dt>Pinch</dt><dd>Zoom</dd>
                 <dt>No tool + drag</dt><dd>Move the camera</dd>
+                <dt>Sun · moon</dt><dd>Time of day</dd>
               </dl>
             </div>
           </div>
@@ -313,6 +343,7 @@ export class UiRoot {
     else if (target.id === id.titleCredits || target.id === id.credits) this.openModal('credits');
     else if (target.id === id.undo) this.bus.emit('intent:undo');
     else if (target.id === id.redo) this.bus.emit('intent:redo');
+    else if (target.id === id.timeMode) this.bus.emit('intent:cycle-time-mode');
     else if (target.id === id.mute) this.bus.emit('intent:set-muted', { muted: !this.muted });
     else if (target.id === id.menu) this.bus.emit('intent:open-menu');
     else if (target.id === id.rotate) this.bus.emit('intent:rotate', { direction: 1 });
@@ -341,6 +372,9 @@ export class UiRoot {
     } else if (target.id === UI_TEST_IDS.grid && event.type === 'change') {
       this.sfx('ui-click');
       this.bus.emit('intent:toggle-grid', { visible: target.checked });
+    } else if (target.name === 'time-mode' && event.type === 'change' && target.checked) {
+      this.sfx('ui-click');
+      this.bus.emit('intent:set-time-mode', { mode: target.value as TimeMode });
     }
   };
 
@@ -362,7 +396,7 @@ export class UiRoot {
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     const target = event.target as HTMLElement | null;
-    const typing = target instanceof HTMLInputElement && target.type !== 'range' && target.type !== 'checkbox';
+    const typing = target instanceof HTMLInputElement && target.type !== 'range' && target.type !== 'checkbox' && target.type !== 'radio';
     if (typing || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return;
 
     if (event.code === 'Escape' && this.modal) {
@@ -563,6 +597,21 @@ export class UiRoot {
     mute.title = this.muted ? 'Sound off' : 'Sound on';
     const volume = this.el<HTMLInputElement>(UI_TEST_IDS.volume);
     if (document.activeElement !== volume) volume.value = String(this.volume);
+  }
+
+  /** Top-bar time button + menu radios from the last `daytime:changed` fact. */
+  private renderTimeMode(): void {
+    const { label, glyph } = TIME_MODE_UI[this.timeMode];
+    const next = TIME_MODE_UI[TIME_MODES[(TIME_MODES.indexOf(this.timeMode) + 1) % TIME_MODES.length]].label;
+    const button = this.button(UI_TEST_IDS.timeMode);
+    button.innerHTML = glyph;
+    button.dataset.mode = this.timeMode;
+    button.dataset.dayPhase = this.dayPhase;
+    // A 3-state cycle button: the name carries the current state, the description the action.
+    button.setAttribute('aria-label', `Time of day: ${label}`);
+    button.setAttribute('aria-description', `Switch to ${next}`);
+    button.title = `Time: ${label} (T)`;
+    for (const mode of TIME_MODES) this.el<HTMLInputElement>(UI_TEST_IDS.timeModeOption(mode)).checked = mode === this.timeMode;
   }
 
   private showHint(text: string): void {
