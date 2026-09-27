@@ -62,9 +62,9 @@ Contract requests applied in commit after the Wave-1 merges: sfx `place-prop-met
 v0.1 = the M3 build (main @ 3f9c6cf). Owner requests:
 | WP | Status | Branch | Worktree | Port | Notes |
 | --- | --- | --- | --- | --- | --- |
-| WP-12 Scale, proportions & grid density | 🔄 planning (read-only Plan agent) → then one implementer | `wp-12-scale` (after plan) | `wp-12` | 5212 | cross-cutting: config/catalog contracts, town, render, interaction, world, life, tests; the implementer gets broad ownership, and the integrator reviews the plan first |
-| WP-13 Background music + settings | 🔄 running | `wp-13-music` | `wp-13` | 5213 | stream after Start (4.7 MB, 585 s), music on/off + volume in the menu. Licence: ask owner |
-| WP-14 Remove top-left stats pill | 🔄 running | `wp-14-no-stats` | `wp-14` | 5214 | UI only. Visual baselines change → integrator regenerates after WP-12 |
+| WP-12 Scale, proportions & grid density | 🔄 implementing (plan: docs/plans/wp-12-scale.md) | `wp-12-scale` (after plan) | `wp-12` | 5212 | cross-cutting: config/catalog contracts, town, render, interaction, world, life, tests; the implementer gets broad ownership, and the integrator reviews the plan first |
+| WP-13 Background music + settings | ✅ merged (e76d1a8) | — | removed | 5213 | streamed after Start (initial download unchanged); music on/off + volume; −3 dB duck in menu; events in contract; owner-created track (ElevenLabs) |
+| WP-14 Remove top-left stats pill | ✅ merged (8d91b1b) | — | removed | 5214 | one-row top bar (60 px desktop / 64 px mobile); baselines regenerated (51d074d). TODO after WP-12: framing SAFE_INSETS narrow top 88→76 |
 Coordination: WP-13 and WP-14 both touch UiRoot/ui.css in separate regions (menu rows vs HUD). WP-12 avoids src/ui. The integrator regenerates baselines once after all three merge.
 
 ## M3
