@@ -19,12 +19,13 @@ import { attachJson, clickCell, diagnostics, dragCells, gotoTitle, selectTool, s
 
 const ARTIFACTS = resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/wp-08');
 
-const ROAD_FROM: [number, number] = [8, 12];
-const ROAD_TO: [number, number] = [15, 12];
-const HOUSE: [number, number] = [11, 11];
-const TREE: [number, number] = [13, 10];
+// WP-12 (48×48 half-unit cells): road blocks on rows 24–25, 3×3 cottages centred on row 22.
+const ROAD_FROM: [number, number] = [16, 24];
+const ROAD_TO: [number, number] = [31, 24];
+const HOUSE: [number, number] = [23, 22];
+const TREE: [number, number] = [26, 20];
 /** An empty cell to park the pointer on so the ghost/tooltip don't cover the effects. */
-const PARK: [number, number] = [18, 8];
+const PARK: [number, number] = [36, 16];
 
 async function fx(page: Page): Promise<FxDiagnostics> {
   const value = await page.evaluate(() => {
@@ -126,7 +127,7 @@ test('FX journey video: road, house, tree, bulldoze — and FX draw calls ≤ 3'
 
   // Place a second house with motion on so the video shows the full burst.
   before = (await fx(page)).spawned;
-  await clickCell(page, 13, 11);
+  await clickCell(page, 27, 22);
   await parkPointer(page);
   await expectBurst(page, before, 'second house');
   await record('second house');
@@ -186,9 +187,9 @@ test('reduced motion hides particles and freezes wind sway (stable captures)', a
 
   // Real input: a wildflower strip and a row of trees, so there is foliage to sway.
   await selectTool(page, 'meadow');
-  await dragCells(page, [10, 9], [13, 9]);
+  await dragCells(page, [20, 18], [26, 18]);
   await selectTool(page, 'tree-a');
-  for (const x of [10, 11, 12]) await clickCell(page, x, 8);
+  for (const x of [20, 22, 24]) await clickCell(page, x, 16);
   await page.keyboard.press('Escape'); // no tool ⇒ no ghost in the captures
   await parkPointer(page);
   await waitFxIdle(page);
@@ -203,7 +204,7 @@ test('reduced motion hides particles and freezes wind sway (stable captures)', a
   // A real placement right before enabling reduced motion: its burst must vanish.
   await selectTool(page, 'tree-a');
   const before = (await fx(page)).spawned;
-  await clickCell(page, 11, 10);
+  await clickCell(page, 22, 20);
   await page.keyboard.press('Escape');
   await parkPointer(page);
   await expect.poll(async () => (await fx(page)).spawned).toBeGreaterThan(before);
@@ -232,7 +233,7 @@ test('reduced motion hides particles and freezes wind sway (stable captures)', a
   await page.addStyleTag({ content: '#ui-root { visibility: visible !important; }' });
   await selectTool(page, 'tree-a');
   const spawnedBefore = later.spawned;
-  await clickCell(page, 12, 10);
+  await clickCell(page, 24, 20);
   await waitFrames(page, 5);
   const afterPlace = await fx(page);
 

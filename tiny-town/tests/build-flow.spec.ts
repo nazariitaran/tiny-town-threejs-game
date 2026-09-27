@@ -19,11 +19,12 @@ import {
   type Diagnostics,
 } from './helpers';
 
-// A road along row z=12 from x=8..15 (8 tiles), a cottage on the verge just north of it.
-const ROAD_FROM: [number, number] = [8, 12];
-const ROAD_TO: [number, number] = [15, 12];
+// WP-12 (48×48 half-unit cells, roads in 2×2 blocks): a road along row z=24 from x=16..31
+// (8 road blocks), a 3×3 cottage centred on (23, 22) on the verge just north of it (rows 21–23).
+const ROAD_FROM: [number, number] = [16, 24];
+const ROAD_TO: [number, number] = [31, 24];
 const ROAD_TILES = 8;
-const HOUSE: [number, number] = [11, 11];
+const HOUSE: [number, number] = [23, 22];
 const COTTAGE_RESIDENTS = 2; // objects.ts: townhouse-a residents
 
 test('road → house → undo → redo → bulldoze, through real input', async ({ page }, testInfo) => {
@@ -105,7 +106,7 @@ test('road → house → undo → redo → bulldoze, through real input', async 
   await record('bulldoze house');
 
   // 6. Bulldoze-drag half the road in one stroke.
-  await dragCells(page, [8, 12], [11, 12]);
+  await dragCells(page, [16, 24], [23, 24]);
   await expectDiagnostics(page, { town: { roadTiles: ROAD_TILES - 4 }, history: { undoDepth: 4 } }, 'bulldoze drag clears 4 road tiles');
   await record('bulldoze road');
 

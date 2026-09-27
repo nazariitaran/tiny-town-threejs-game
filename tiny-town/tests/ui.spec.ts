@@ -93,8 +93,8 @@ test('undo/redo disabled states follow history', async ({ page }) => {
 
   await page.locator(id(UI_TEST_IDS.category('paths'))).click();
   await page.locator(id(UI_TEST_IDS.tool('road'))).click();
-  const from = await cellPoint(page, 8, 11);
-  const to = await cellPoint(page, 13, 11);
+  const from = await cellPoint(page, 16, 22);
+  const to = await cellPoint(page, 26, 22);
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
   await page.mouse.move(to.x, to.y, { steps: 10 });
@@ -122,22 +122,22 @@ test('refusal tooltip shows on an invalid click and is gone after the next succe
   await page.locator(id(UI_TEST_IDS.category('buildings'))).click();
   await page.locator(id(UI_TEST_IDS.tool('townhouse-a'))).click();
 
-  await clickCell(page, 9, 9);
+  await clickCell(page, 18, 18);
   await expect.poll(async () => (await diag(page)).town.homes).toBe(1);
   const invalidBefore = (await diag(page)).invalidCount;
-  await clickCell(page, 9, 9); // occupied → refused
+  await clickCell(page, 18, 18); // occupied → refused
   await expect.poll(async () => (await diag(page)).invalidCount).toBe(invalidBefore + 1);
   await expect(tip).toBeVisible();
   await expect(tip).not.toHaveText('');
 
-  await clickCell(page, 14, 9); // valid → placed
+  await clickCell(page, 28, 18); // valid → placed
   await expect.poll(async () => (await diag(page)).town.homes).toBe(2);
   await expect(tip).toBeHidden();
 
   // A refusal followed by a tool switch also clears it. (build:invalid is throttled to one per
   // 400 ms per reason, so wait before refusing the same reason again.)
   await page.waitForTimeout(450);
-  await clickCell(page, 14, 9);
+  await clickCell(page, 28, 18);
   await expect(tip).toBeVisible();
   await page.locator(id(UI_TEST_IDS.tool('garage'))).click();
   await expect(tip).toBeHidden();
@@ -153,8 +153,8 @@ test('refusal tooltip never overlaps the dock, top bar or hint (refusal right ab
   const target = await page.evaluate(() => {
     const dockTop = document.querySelector('#ui-dock')!.getBoundingClientRect().top;
     let best: { x: number; z: number; px: number; py: number } | null = null;
-    for (let z = 0; z < 24; z += 1)
-      for (let x = 0; x < 24; x += 1) {
+    for (let z = 0; z < 48; z += 1)
+      for (let x = 0; x < 48; x += 1) {
         const p = window.__THREE_GAME_TEST_HOOKS__!.cellToClient(x, z);
         if (p.y > dockTop - 24 || document.elementFromPoint(p.x, p.y)?.id !== 'game-canvas') continue;
         if (!best || p.y > best.py) best = { x, z, px: p.x, py: p.y };
@@ -315,8 +315,8 @@ test('dock is ≤ 150 px tall on desktop and clear of the plot centre', async ({
   await start(page);
   await page.locator(id(UI_TEST_IDS.category('buildings'))).click();
   const dock = (await page.locator(id(UI_TEST_IDS.dock)).boundingBox())!;
-  const a = await cellPoint(page, 11, 11);
-  const b = await cellPoint(page, 12, 12);
+  const a = await cellPoint(page, 23, 23);
+  const b = await cellPoint(page, 24, 24);
   const centre = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
   const topbar = (await page.locator('.ui-topbar').boundingBox())!;
   console.log(`dock height ${dock.height}px, dock top ${dock.y}, plot centre ${JSON.stringify(centre)}, topbar bottom ${topbar.y + topbar.height}`);

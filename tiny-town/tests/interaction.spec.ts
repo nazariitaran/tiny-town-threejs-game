@@ -83,10 +83,10 @@ test.describe('desktop mouse + keyboard', () => {
     const errors = collectErrors(page);
     await startBuilding(page);
 
-    // 1. Road drag (2,12) → (12,12): 11 tiles, one undo entry.
+    // 1. Road drag (4,24) → (24,24): 11 road blocks (WP-12: 2×2 cells each), one undo entry.
     await selectTool(page, 'paths', 'road');
     const before = await diag(page);
-    await drag(page, await cellPoint(page, 2, 12), await cellPoint(page, 12, 12));
+    await drag(page, await cellPoint(page, 4, 24), await cellPoint(page, 24, 24));
     await expect.poll(async () => (await diag(page)).town.roadTiles).toBe(11);
     const afterRoad = await diag(page);
     expect(afterRoad.history.undoDepth).toBe(before.history.undoDepth + 1);
@@ -94,7 +94,7 @@ test.describe('desktop mouse + keyboard', () => {
 
     // 2. Townhouse on a valid cell, then on a road cell: rejected, invalidCount +1.
     await selectTool(page, 'buildings', 'townhouse-a');
-    const valid = await cellPoint(page, 6, 8);
+    const valid = await cellPoint(page, 12, 16);
     await page.mouse.move(valid.x, valid.y);
     await page.mouse.click(valid.x, valid.y);
     await expect.poll(async () => (await diag(page)).objects).toBe(1);
@@ -102,18 +102,18 @@ test.describe('desktop mouse + keyboard', () => {
     await diag(page);
     await diag(page);
     const afterPlace = await diag(page);
-    expect(afterPlace.hover).toEqual({ x: 6, z: 8, valid: true, reason: null });
+    expect(afterPlace.hover).toEqual({ x: 12, z: 16, valid: true, reason: null });
     await expect(page.locator('#ui-tooltip')).toBeHidden();
     console.log(`[place] hover after successful click = ${JSON.stringify(afterPlace.hover)}; tooltip hidden`);
     // Moving away and back does re-evaluate it: now it really is occupied.
-    const neighbour = await cellPoint(page, 7, 8);
+    const neighbour = await cellPoint(page, 14, 16);
     await page.mouse.move(neighbour.x, neighbour.y, { steps: 3 });
     await page.mouse.move(valid.x, valid.y, { steps: 3 });
-    await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 6, z: 8, valid: false });
+    await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 12, z: 16, valid: false });
     const beforeInvalid = await diag(page);
-    const onRoad = await cellPoint(page, 6, 12);
+    const onRoad = await cellPoint(page, 12, 24);
     await page.mouse.move(onRoad.x, onRoad.y);
-    await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 6, z: 12 });
+    await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 12, z: 24 });
     await page.mouse.click(onRoad.x, onRoad.y);
     await expect.poll(async () => (await diag(page)).invalidCount).toBe(beforeInvalid.invalidCount + 1);
     const afterInvalid = await diag(page);
@@ -135,18 +135,18 @@ test.describe('desktop mouse + keyboard', () => {
     // Scatter stroke (trees): the cells it just filled don't read as invalid under the pointer.
     await selectTool(page, 'nature', 'tree-a');
     const objectsBeforeTrees = (await diag(page)).objects;
-    await drag(page, await cellPoint(page, 3, 2), await cellPoint(page, 8, 2), 24);
+    await drag(page, await cellPoint(page, 6, 4), await cellPoint(page, 16, 4), 24);
     await expect.poll(async () => (await diag(page)).objects).toBeGreaterThan(objectsBeforeTrees + 2);
     await diag(page);
     const afterTrees = await diag(page);
-    expect(afterTrees.hover).toMatchObject({ x: 8, z: 2, valid: true, reason: null });
+    expect(afterTrees.hover).toMatchObject({ x: 16, z: 4, valid: true, reason: null });
     await expect(page.locator('#ui-tooltip')).toBeHidden();
     console.log(`[scatter] trees placed=${afterTrees.objects - objectsBeforeTrees}; hover at stroke end=${JSON.stringify(afterTrees.hover)}`);
 
-    // 4. Fence drag along 4 edges (north edges of cells x = 5..8, z = 5).
+    // 4. Fence drag along 4 edges (north edges of cells x = 10..13, z = 10).
     await selectTool(page, 'buildings', 'fence-tall');
-    const fenceFrom = await northEdgePoint(page, 5, 5);
-    const fenceTo = await northEdgePoint(page, 8, 5);
+    const fenceFrom = await northEdgePoint(page, 10, 10);
+    const fenceTo = await northEdgePoint(page, 13, 10);
     const beforeFence = await diag(page);
     await drag(page, fenceFrom, fenceTo);
     await expect.poll(async () => (await diag(page)).town.fences).toBe(4);
@@ -190,8 +190,8 @@ test.describe('desktop mouse + keyboard', () => {
     const depth0 = (await diag(page)).history.undoDepth;
 
     // a) Drag, leave the window, release out there.
-    const from = await cellPoint(page, 3, 16);
-    const to = await cellPoint(page, 8, 16);
+    const from = await cellPoint(page, 6, 32);
+    const to = await cellPoint(page, 16, 32);
     await page.mouse.move(from.x, from.y);
     await page.mouse.down();
     await page.mouse.move(to.x, to.y, { steps: 10 });
@@ -201,7 +201,7 @@ test.describe('desktop mouse + keyboard', () => {
     const roadsA = (await diag(page)).town.roadTiles;
 
     // The next click is a NEW undo entry, and moving the mouse afterwards paints nothing.
-    const click = await cellPoint(page, 3, 18);
+    const click = await cellPoint(page, 6, 36);
     await page.mouse.move(click.x, click.y, { steps: 3 });
     const roadsBeforeClick = (await diag(page)).town.roadTiles;
     expect(roadsBeforeClick).toBe(roadsA);
@@ -219,14 +219,14 @@ test.describe('desktop mouse + keyboard', () => {
       (window as unknown as { __swallow: typeof swallow }).__swallow = swallow;
       window.addEventListener('pointerup', swallow, { capture: true });
     });
-    const b0 = await cellPoint(page, 14, 3);
-    const b1 = await cellPoint(page, 18, 3);
+    const b0 = await cellPoint(page, 28, 6);
+    const b1 = await cellPoint(page, 36, 6);
     await drag(page, b0, b1, 8);
     await page.evaluate(() => {
       window.removeEventListener('pointerup', (window as unknown as { __swallow: EventListener }).__swallow, { capture: true });
     });
     const roadsB = (await diag(page)).town.roadTiles;
-    const b2 = await cellPoint(page, 18, 6);
+    const b2 = await cellPoint(page, 36, 12);
     await page.mouse.move(b2.x, b2.y, { steps: 6 });
     expect((await diag(page)).town.roadTiles).toBe(roadsB);
     await page.mouse.click(b2.x, b2.y);
@@ -235,8 +235,8 @@ test.describe('desktop mouse + keyboard', () => {
 
     // c) Window blur mid-stroke ends it too.
     const depth2 = (await diag(page)).history.undoDepth;
-    const c0 = await cellPoint(page, 14, 8);
-    const c1 = await cellPoint(page, 18, 8);
+    const c0 = await cellPoint(page, 28, 16);
+    const c1 = await cellPoint(page, 36, 16);
     await page.mouse.move(c0.x, c0.y);
     await page.mouse.down();
     await page.mouse.move(c1.x, c1.y, { steps: 6 });
@@ -261,8 +261,8 @@ test.describe('desktop mouse + keyboard', () => {
       await page.screenshot({ path: testInfo.outputPath(`${name}.png`) });
     };
     await selectTool(page, 'paths', 'road');
-    await drag(page, await cellPoint(page, 9, 12), await cellPoint(page, 14, 12));
-    let p = await cellPoint(page, 11, 10);
+    await drag(page, await cellPoint(page, 18, 24), await cellPoint(page, 28, 24));
+    let p = await cellPoint(page, 22, 20);
     await page.mouse.move(p.x, p.y, { steps: 3 });
     await shot('ghost-road-tile');
     await selectTool(page, 'paths', 'walkway');
@@ -273,11 +273,11 @@ test.describe('desktop mouse + keyboard', () => {
     await shot('ghost-meadow-tile');
 
     await selectTool(page, 'buildings', 'townhouse-b');
-    p = await cellPoint(page, 12, 10);
+    p = await cellPoint(page, 24, 20);
     await page.mouse.move(p.x, p.y, { steps: 3 });
-    await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 12, z: 10 });
+    await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 24, z: 20 });
     await shot('ghost-house-valid');
-    p = await cellPoint(page, 12, 12);
+    p = await cellPoint(page, 24, 24);
     await page.mouse.move(p.x, p.y, { steps: 3 });
     await shot('ghost-house-invalid');
     await page.mouse.click(p.x, p.y);
@@ -285,16 +285,16 @@ test.describe('desktop mouse + keyboard', () => {
     await page.screenshot({ path: testInfo.outputPath('ghost-house-shake.png') });
 
     await selectTool(page, 'buildings', 'fence-small');
-    await drag(page, await northEdgePoint(page, 10, 9), await northEdgePoint(page, 13, 9));
-    p = await northEdgePoint(page, 11, 8);
+    await drag(page, await northEdgePoint(page, 20, 18), await northEdgePoint(page, 23, 18));
+    p = await northEdgePoint(page, 22, 16);
     await page.mouse.move(p.x, p.y, { steps: 3 });
     await shot('ghost-fence');
 
     await page.keyboard.press('b');
-    p = await northEdgePoint(page, 11, 9);
+    p = await northEdgePoint(page, 21, 18);
     await page.mouse.move(p.x, p.y, { steps: 3 });
     await shot('bulldoze-fence');
-    p = await cellPoint(page, 12, 12);
+    p = await cellPoint(page, 24, 24);
     await page.mouse.move(p.x, p.y, { steps: 3 });
     await shot('bulldoze-road');
 
@@ -338,7 +338,7 @@ test.describe('mobile touch', () => {
     await selectTool(page, 'paths', 'road');
 
     const before = await diag(page);
-    const target = await cellPoint(page, 12, 11);
+    const target = await cellPoint(page, 24, 22);
     await page.touchscreen.tap(target.x, target.y);
     await expect.poll(async () => (await diag(page)).town.roadTiles).toBe(before.town.roadTiles + 1);
     const afterTap = await diag(page);
@@ -347,7 +347,7 @@ test.describe('mobile touch', () => {
 
     // Two-finger pan through CDP (Playwright's touchscreen API is single-touch only).
     const cdp = await page.context().newCDPSession(page);
-    const centre = await cellPoint(page, 12, 14);
+    const centre = await cellPoint(page, 24, 28);
     const points = (dx: number) => [
       { x: centre.x - 60 + dx, y: centre.y, id: 1 },
       { x: centre.x + 60 + dx, y: centre.y, id: 2 },
@@ -373,17 +373,17 @@ test.describe('mobile touch', () => {
     await page.screenshot({ path: testInfo.outputPath('mobile-after-pan.png') });
 
     // A one-finger drag with the tool paints (and is one undo entry).
-    // The pan moved the view, so find a 5-cell run that is still on the canvas (not under the dock / top bar).
+    // The pan moved the view, so find a 5-block run (9 cells) that is still on the canvas (not under the dock / top bar).
     let run: [number, number] | null = null;
-    for (const [x, z] of [[9, 9], [8, 12], [10, 14], [6, 10], [12, 16], [4, 14]] as const) {
-      if ((await canvasId(page, x, z)) === 'game-canvas' && (await canvasId(page, x + 4, z)) === 'game-canvas') {
+    for (const [x, z] of [[18, 18], [16, 24], [20, 28], [12, 20], [24, 32], [8, 28]] as const) {
+      if ((await canvasId(page, x, z)) === 'game-canvas' && (await canvasId(page, x + 8, z)) === 'game-canvas') {
         run = [x, z];
         break;
       }
     }
-    expect(run, 'a 5-cell run on the canvas after the pan').not.toBeNull();
+    expect(run, 'a 5-block run on the canvas after the pan').not.toBeNull();
     const d0 = await cellPoint(page, run![0], run![1]);
-    const d1 = await cellPoint(page, run![0] + 4, run![1]);
+    const d1 = await cellPoint(page, run![0] + 8, run![1]);
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: d0.x, y: d0.y, id: 3 }] });
     for (let step = 1; step <= 10; step += 1) {
       const t = step / 10;
@@ -418,17 +418,17 @@ test('valid ghost at default zoom: house, road tile, fence (screenshots)', async
   };
 
   await selectTool(page, 'buildings', 'townhouse-b');
-  const house = await cellPoint(page, 12, 10);
+  const house = await cellPoint(page, 24, 20);
   await hoverAndShoot(house, 'ghost-valid-house');
-  await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 12, z: 10, valid: true });
+  await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 24, z: 20, valid: true });
 
   await selectTool(page, 'paths', 'road');
-  const road = await cellPoint(page, 10, 12);
+  const road = await cellPoint(page, 20, 24);
   await hoverAndShoot(road, 'ghost-valid-road');
-  await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 10, z: 12, valid: true });
+  await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 20, z: 24, valid: true });
 
   await selectTool(page, 'buildings', 'fence-tall');
-  const fence = await northEdgePoint(page, 13, 12);
+  const fence = await northEdgePoint(page, 26, 24);
   await hoverAndShoot(fence, 'ghost-valid-fence');
   expect((await diag(page)).hover?.valid).toBe(true);
 
