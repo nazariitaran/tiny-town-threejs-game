@@ -18,13 +18,19 @@ All 3D models in `public/assets/models/` are licensed **CC0 1.0 Universal** (pub
 
 The composed models (`public/assets/models/composed/`) are rearranged or re-centred copies of the Kenney models above, built by `scripts/compose-models.mjs`, and remain CC0.
 
-The 17 tool icons in `public/assets/icons/` were rendered in this project from the CC0 Kenney models above with `scripts/render-icons.mjs` (CC0). The other icons in that folder (cars, bench, etc., currently unused) are Kenney's own CC0 preview renders.
+The 17 tool icons in `public/assets/icons/` (128 px) were rendered in this project from the CC0 Kenney models above, using `scripts/render-icons.mjs` + `src/render/IconStudio.ts` (in-game models and materials). They are CC0. The other 27 icons in that folder (64 px, for unused/extra models such as cars and bench) are Kenney's own CC0 preview renders.
 
 ## Music
 
 | Track | File | Credit |
 |---|---|---|
 | Foundation of Gold | `public/assets/music/foundation-of-gold.mp3` | Foundation of Gold — background music created by the project owner (generated with ElevenLabs, owner's account); all rights held by the project owner. |
+
+## Font
+
+| Font | Package | Licence |
+|---|---|---|
+| Nunito (variable) by Vernon Adams, Cyreal and Jacques Le Bailly | `@fontsource-variable/nunito` (bundled by Vite, no CDN) | SIL Open Font License 1.1 |
 
 ## Sound Effects
 

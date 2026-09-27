@@ -31,7 +31,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 5248,
-    "notes": "Tile exactly 1×1 at scale 1. Top surface y=0.02 (sidewalk strips on ±Z edges)."
+    "notes": "Tile exactly 1×1 world unit at scale 1 = one aligned 2 × 2-cell road block (WP-12). Top surface y=0.02 (sidewalk strips on ±Z edges)."
   },
   {
     "id": "road-corner",
@@ -303,7 +303,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 4436,
-    "notes": "Isolated road cell (asphalt square ringed by sidewalk)."
+    "notes": "Isolated road block (asphalt square ringed by sidewalk)."
   },
   {
     "id": "road-crossing",
@@ -405,7 +405,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 2800,
-    "notes": "Flat 1×1 sidewalk slab, 0.02 high = same height as road sidewalks. Top colour #a0a8c9 (road-edge sidewalk is lighter, #bdc6ee)."
+    "notes": "Flat 1×1 sidewalk slab (native), 0.02 high. At ×0.5 it covers one 0.5 cell; TownRenderer doubles its Y so the top stays at the road kerb height (0.02) and re-tints the atlas to warm stone. Native top colour #a0a8c9 (road-edge sidewalk #bdc6ee)."
   },
   {
     "id": "walkway-path-long",
@@ -439,7 +439,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 2940,
-    "notes": "Grey slab path with brick edging, 0.2×0.4 native. At ×1.25 it is 0.25×0.5 = one \"arm\" from cell centre to a cell edge; combine with walkway-path-short as the hub."
+    "notes": "Grey slab path with brick edging, 0.2×0.4 native (0.25×0.5 at ×1.25). In-game walkways are drawn procedurally by TownRenderer (hub + arms, 0.25 wide = half a cell); this piece is the kit alternative."
   },
   {
     "id": "walkway-path-short",
@@ -473,7 +473,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 2944,
-    "notes": "0.2×0.2 native; ×1.25 = 0.25² hub at the cell centre."
+    "notes": "0.2×0.2 native; ×1.25 = 0.25² hub, the WP-12 walkway width (half a 0.5 cell). The walkway ghost preview uses it."
   },
   {
     "id": "walkway-stones-long",
@@ -575,7 +575,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 8964,
-    "notes": "Grass tuft for scattering on grass cells (2–4 per cell, random yaw/offset). Ground itself: flat tile, kit greens #4ab480 / #3da679."
+    "notes": "Grass tuft scattered on grass/meadow cells: one hashed clump per 0.5 cell (WP-12). The ground itself is a flat lawn slab (colours in catalog/models.ts GROUND_MODELS)."
   },
   {
     "id": "meadow-flowers",
@@ -609,7 +609,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 25928,
-    "notes": "Low blue flower clump. Scatter with meadow-flowers-tall + grass-tuft, 3–6 per cell."
+    "notes": "Low blue flower clump. Meadow cells get one hashed clump per 0.5 cell (flowers, tall flowers or a tuft)."
   },
   {
     "id": "meadow-flowers-tall",
@@ -677,7 +677,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 42680,
-    "notes": "Round deciduous tree (\"Oak\"). ~0.70 tall at ×0.36."
+    "notes": "Round deciduous tree (\"Oak\"). 0.49 × 0.87 tall at ×0.45 (WP-12; was ×0.36). The decor ring keeps 0.36 via DecorRing.TEMPLATE_RESCALE."
   },
   {
     "id": "tree-b",
@@ -711,7 +711,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 22396,
-    "notes": "Pine (\"Pine\"). ~0.72 tall at ×0.36."
+    "notes": "Pine (\"Pine\"). 0.43 × 0.90 tall at ×0.45 (WP-12; was ×0.36)."
   },
   {
     "id": "tree-c",
@@ -745,7 +745,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 5812,
-    "notes": "Slim columnar tree (\"Birch\"/tall). 0.77 tall at ×1."
+    "notes": "Slim columnar tree (\"Birch\"/tall). 0.24 × 0.88 tall at ×1.15 (WP-12; was ×1)."
   },
   {
     "id": "tree-c-small",
@@ -779,7 +779,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 5812,
-    "notes": "Smaller variant of tree-c (0.57 tall)."
+    "notes": "Smaller variant of tree-c (0.65 tall at ×1.15)."
   },
   {
     "id": "townhouse-a",
@@ -813,7 +813,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 98604,
-    "notes": "\"Cottage\": 1.5-storey, twin gables. 0.975×0.63×0.77 at ×0.75. Roof colour can be swapped via Textures/variation-{a,b,c}.png."
+    "notes": "\"Cottage\": 1.5-storey, twin gables. 1.30×0.83×1.03 at ×1 on a 3×3-cell footprint (WP-12), offset z −0.15. Roof colour can be swapped via Textures/variation-{a,b,c}.png."
   },
   {
     "id": "townhouse-b",
@@ -847,7 +847,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 89152,
-    "notes": "\"Townhouse\": narrow 2-storey. 0.69×0.86×0.77 at ×0.75."
+    "notes": "\"Townhouse\": narrow 2-storey. 0.92×1.15×1.03 at ×1 on a 2×3-cell footprint (WP-12), offset z −0.15."
   },
   {
     "id": "townhouse-c",
@@ -881,7 +881,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 145512,
-    "notes": "\"Family home\": wide 2-storey with dormer. 0.975×0.85×0.77 at ×0.75."
+    "notes": "\"Family home\": wide 2-storey with dormer. 1.30×1.14×1.03 at ×1 on a 3×3-cell footprint (WP-12), offset z −0.15."
   },
   {
     "id": "townhouse-b-alt",
@@ -915,7 +915,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 88544,
-    "notes": "Optional variant: gabled narrow 2-storey."
+    "notes": "Variant of townhouse-b (variant 1): gabled narrow 2-storey, 2×3 cells."
   },
   {
     "id": "townhouse-c-alt",
@@ -949,7 +949,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 99592,
-    "notes": "Optional variant: 2-storey with integral garage."
+    "notes": "Variant of townhouse-c (variant 1): 2-storey with integral garage, 3×3 cells."
   },
   {
     "id": "garage",
@@ -983,7 +983,7 @@
       "(embedded bufferView 6)"
     ],
     "fileBytes": 92976,
-    "notes": "Kenney industrial building-j, re-centred. 0.77×0.65×0.98 at ×0.75."
+    "notes": "Kenney industrial building-j, re-centred. 0.49×0.41×0.62 at ×0.48 on a 1×2-cell footprint (WP-12)."
   },
   {
     "id": "garage-row",
@@ -1017,7 +1017,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 81192,
-    "notes": "Optional 2×1 lock-up garage block. 1.59×0.63×0.69 at ×0.75."
+    "notes": "Unused extra: 2×1 lock-up garage block (1.59×0.63×0.69 at ×0.75, v0.1 sourcing scale)."
   },
   {
     "id": "bus-stop",
@@ -1053,7 +1053,7 @@
       "(embedded bufferView 17)"
     ],
     "fileBytes": 73740,
-    "notes": "Canopy + bench + sign. 0.94×0.43×0.46."
+    "notes": "Canopy + bench + sign. 0.76×0.34×0.37 at ×0.8 on a 2×1-cell footprint (WP-12)."
   },
   {
     "id": "fence-tall",
@@ -1087,7 +1087,7 @@
       "(embedded bufferView 5)"
     ],
     "fileBytes": 31060,
-    "notes": "Terracotta privacy fence, 0.23 tall. Edge piece: 1 cell long along X, centred on the origin (the cell-edge midpoint), base y=0. Rotate 90° for edges running along Z."
+    "notes": "Privacy fence edge piece: 1 unit long along X native, centred on the origin (the cell-edge midpoint), base y=0; rotate 90° for edges along Z. At ×0.5 it spans one 0.5 cell edge; TownRenderer stretches Y ×1.8 and tints it cream (0.21 tall)."
   },
   {
     "id": "fence-small",
@@ -1121,7 +1121,7 @@
       "(embedded bufferView 5)"
     ],
     "fileBytes": 19032,
-    "notes": "Wooden rail garden fence, 0.14 tall. Edge piece: 1 cell long along X, centred on the origin (the cell-edge midpoint), base y=0. Rotate 90° for edges running along Z."
+    "notes": "Wooden rail garden fence edge piece: 1 unit long along X native, centred on the origin, base y=0; rotate 90° for edges along Z. At ×0.5 it spans one 0.5 cell edge; TownRenderer stretches Y ×1.4 (0.10 tall)."
   },
   {
     "id": "fence-small-gate",
@@ -1155,7 +1155,7 @@
       "(embedded bufferView 10)"
     ],
     "fileBytes": 57664,
-    "notes": "Optional gate variant of fence-small (same size). Edge piece: 1 cell long along X, centred on the origin (the cell-edge midpoint), base y=0. Rotate 90° for edges running along Z."
+    "notes": "Unused extra: gate variant of fence-small (native size; not in the catalog)."
   },
   {
     "id": "postbox",
@@ -1187,7 +1187,7 @@
     "materials": 4,
     "textures": [],
     "fileBytes": 19516,
-    "notes": "Red pillar box, 0.17 tall (≈2× real size relative to the houses, for readability). Flat materials, no texture."
+    "notes": "Red pillar box, 0.17 tall native; 0.15×0.24 at ×1.4 (WP-12; ≈ car height, ~1.2× real for readability). Flat materials, no texture."
   },
   {
     "id": "lamppost",
@@ -1221,7 +1221,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 9492,
-    "notes": "Modern street light, 0.61 tall at ×0.9. Emissive-looking head is part of the colormap — add a small PointLight/sprite for dusk."
+    "notes": "Modern street light, 0.675 tall at ×1 (WP-12), offset z 0.087 to put the pole mid-cell; TownRenderer draws it as darker iron. Emissive-looking head is part of the colormap (dusk glow not built)."
   },
   {
     "id": "lamppost-classic",
@@ -1255,7 +1255,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 14984,
-    "notes": "Optional old-town lantern post, 0.62 tall at ×0.4."
+    "notes": "Unused extra: old-town lantern post, 0.62 tall at ×0.4."
   },
   {
     "id": "car-sedan",
@@ -1289,7 +1289,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 172216,
-    "notes": "Ambient car. 0.21×0.18×0.36 at ×0.14; a road lane is ~0.37 wide."
+    "notes": "Ambient car (LifeSystem, CAR_SCALE 0.17): 0.255×0.22×0.44; a road lane is ~0.37 wide."
   },
   {
     "id": "car-hatchback",

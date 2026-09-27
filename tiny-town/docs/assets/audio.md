@@ -1,4 +1,6 @@
-# Audio (SFX) manifest
+# Audio manifest (SFX + music)
+
+> Status: current for v0.2. Runtime table: `src/audio/sfxTable.ts`, generated from `audio.json` and in sync as of 2026-09-27. Music: see the last section.
 
 All sounds come from Kenney.nl audio packs, which are **CC0** (public domain, so attribution is optional; we credit anyway in `CREDITS.md`). The machine-readable version is `docs/assets/audio.json`, and `npm run gen:sfx` turns it into `src/audio/sfxTable.ts`.
 
@@ -13,20 +15,20 @@ Loudness is **one-shot LUFS**: the highest EBU R128 momentary (400 ms) loudness,
 
 | Event | File(s) | Source (Kenney pack / file, layers) | Dur (ms) | Peak dBTP | LUFS (1-shot) | Notes |
 |---|---|---|---|---|---|---|
-| `ui-hover` | `ui-hover-1/2.mp3` | UI Audio / `rollover2`, `rollover5` | 53, 106 | −2.3, −6.6 | −32.1, −32.0 | Unchanged choice. Nothing emits it yet (WP-06 owns hover). |
+| `ui-hover` | `ui-hover-1/2.mp3` | UI Audio / `rollover2`, `rollover5` | 53, 106 | −2.3, −6.6 | −32.1, −32.0 | Unchanged choice. Emitted by `UiRoot` when a mouse pointer enters a dock button. |
 | `ui-click` | `ui-click.mp3` | Interface Sounds / `click_001` | 95 | −1.6 | −30.0 | Unchanged choice. Now hits its −30 target (the old build missed by 2 dB). |
-| `ui-open` / `ui-close` | `ui-open.mp3`, `ui-close.mp3` | Interface Sounds / `maximize_008`, `minimize_008` | 211, 210 | −13.9 | −29.0 | Unchanged. Nothing emits them yet (WP-06). |
+| `ui-open` / `ui-close` | `ui-open.mp3`, `ui-close.mp3` | Interface Sounds / `maximize_008`, `minimize_008` | 211, 210 | −13.9 | −29.0 | Unchanged. Emitted by `UiRoot`: `ui-open` on a category switch or when an overlay opens, `ui-close` when it closes. |
 | `place-path` | `place-path-1..3.mp3` | Impact Sounds / `impactGeneric_light_000/001/002` | 159, 115, 161 | −2.0 | −25.1, −25.0, −25.2 | Kept. The three variants now match within 0.2 LU (they were spread over 2.3 LU), and there's no sub-bass or end click. |
 | `place-nature` | `place-nature-1..3.mp3` | `footstep_grass_000/001/003` + `drop_003` @ −6 dB | 171, 168, 158 | −2.0 | −25.8, −24.6, −25.6 | Kept. The `drop_003` layer is cut at 188 ms and used to leave an audible tick about 185 ms in. It now fades out. The trailing silence padding is trimmed (447 → ~165 ms). |
 | `place-building` | `place-building-1..3.mp3` | `impactWood_heavy_000/002/004` + `impactWood_light_001/003/004` + `impactPlank_medium_000/002/003` @ −6 dB | 310 | −2.0 to −3.9 | −23.6, −23.0, −23.7 | **Reworked.** The heavy thunk alone had its spectral centroid at 70–110 Hz, which is almost inaudible on laptop/phone speakers (−41 to −46 LUFS above 250 Hz). A light wood knock and a quiet plank clatter now sit on top, which gives +10 to +14 dB above 250 Hz (−30 to −31.5). The file is high-passed at 80 Hz. |
 | `place-prop` | `place-prop-1/2.mp3` | Impact Sounds / `impactWood_light_000/002` | 260 | −2.0 | −25.1, −25.2 | Kept for **fences** (wood on wood suits them). |
-| `place-prop-metal` *(new)* | `place-prop-metal-1/2.mp3` | `impactMetal_light_001/004` + `impactWood_light_000/002` @ −6 dB, 0.22 s cap | 177, 162 | −4.9, −3.5 | −25.0 | **New:** a short metal clink with a small wooden body for the **lamppost and postbox**. The ring is trimmed so it doesn't hang. Needs the contract change (see below); `AudioManager` shims it meanwhile. |
+| `place-prop-metal` *(new)* | `place-prop-metal-1/2.mp3` | `impactMetal_light_001/004` + `impactWood_light_000/002` @ −6 dB, 0.22 s cap | 177, 162 | −4.9, −3.5 | −25.0 | **New:** a short metal clink with a small wooden body for the **lamppost and postbox**. The ring is trimmed so it doesn't hang. The contract change landed in `8b07141`, and the `AudioManager` shims were removed in `da4063d`. |
 | `rotate` | `rotate.mp3` | RPG Audio / `cloth2`, trimmed to 0.2 s | 191 | −6.2 | −28.0 | **Swapped.** The old `tick_004` source is truncated mid-transient: its peak is at 49 ms of 55, and it ends on a −0.17 sample, which is a click. It's replaced by a soft cloth swish, trimmed to start on the swish (−20 dB rel.) and kept quieter than placements. |
 | `remove` | `remove-1/2.mp3` | `footstep_snow_001/002` + `impactPlank_medium_001/002` @ −5 dB | 382, 370 | −4.6, −5.3 | −24.1, −24.0 | **Reworked.** The snow crunch is kept (cosy) with a wooden plank clatter under it for "demolition" weight. The level drops 5 LU (it was the loudest sound in the game, 4 LU above building placement). At runtime the pitch varies by layer: object 0.92×, edge 1×, ground 1.06×. |
 | `invalid` | `invalid.mp3` | Interface Sounds / `bong_001` | 119 | −4.8 | −26.0 | Kept, raised 1 LU. It's a 230 Hz bong, so it stays gentle on small speakers. |
-| `undo` / `redo` | `undo-redo.mp3` (shared) | Interface Sounds / `back_004` | 89 | −5.2 | −29.0 | Kept. One file serves both: `undo` plays at 0.89× and `redo` at 1.12× (`playbackRate` in `audio.json`; `AudioManager` shims it until `gen:sfx` emits it). |
+| `undo` / `redo` | `undo-redo.mp3` (shared) | Interface Sounds / `back_004` | 89 | −5.2 | −29.0 | Kept. One file serves both: `undo` plays at 0.89× and `redo` at 1.12× (`playbackRate` in `audio.json`, emitted into `sfxTable.ts` by `gen:sfx`). |
 
-Suggested per-event runtime gain (`suggestedVolume`): UI 0.35–0.6; SFX 0.6–1.0. Building went from 0.9 to **1.0** and remove from 0.85 to **0.75**, so a new building is the loudest thing you do. These reach the game only after `npm run gen:sfx`.
+Suggested per-event runtime gain (`suggestedVolume`): UI 0.35–0.6; SFX 0.6–1.0. Building went from 0.9 to **1.0** and remove from 0.85 to **0.75**, so a new building is the loudest thing you do. They are in `sfxTable.ts` (regenerate with `npm run gen:sfx` after editing `audio.json`).
 
 ### Every file, all events
 - Leading silence is trimmed, with a 2 ms fade-in over the pre-roll. There's an 8 ms fade-out at the end and on every mixed layer, so no file or layer ends on a non-zero sample. Every final file ends within ±0.0005 of zero; before this, `rotate` ended at −0.105, `place-path-2` at −0.025 and `place-building-2` at −0.016.
@@ -35,9 +37,11 @@ Suggested per-event runtime gain (`suggestedVolume`): UI 0.35–0.6; SFX 0.6–1
 
 ## Listening test (WP-07)
 
-**Caveat:** the WP-07 agent can't hear audio. The "listen test" was therefore done by capturing **the game's actual Web Audio output** during a real-input playtest, then judging it by waveform, spectrogram, level and playback-rate measurements. The files were also compared before and after. A human ear pass is still recommended; it takes about 20 s with `artifacts/wp-07/playtest-audio.wav`.
+**Caveat:** the WP-07 agent can't hear audio. The "listen test" was therefore done by capturing **the game's actual Web Audio output** during a real-input playtest, then judging it by waveform, spectrogram, level and playback-rate measurements. The files were also compared before and after. A human ear pass is still recommended.
 
-How the capture works: Playwright launches full Chromium and patches `AudioContext` so that everything connected to `destination` is also recorded by `MediaRecorder`, and every `AudioBufferSourceNode.start()` is logged with its `playbackRate`. It then plays through the game with the mouse and keyboard: category click, road click, road drag, trees, R rotate, two houses, a house on a road (invalid), a fence, a lamppost, a postbox, undo, redo, and bulldozing a house, a road tile and a tree. The outputs are in `artifacts/wp-07/`: `playtest-audio.wav/.webm`, `playtest-audio-spectrogram.png`, `playtest-levels.txt`, `playtest-starts.txt`, and the before/after waveform sheets `sfx-original-waveforms.png` / `sfx-final-waveforms.png`.
+**The WP-07 capture files are lost.** They were gitignored and were deleted with the wp-07 worktree (`git worktree remove --force`). The numbers below are what the WP-07 hand-off reported. To re-create the evidence, re-run a listen capture (the WP-13 script `artifacts/wp-13/listen-capture.mjs` uses the same method and exists in the main checkout only).
+
+How the capture works: Playwright launches full Chromium and patches `AudioContext` so that everything connected to `destination` is also recorded by `MediaRecorder`, and every `AudioBufferSourceNode.start()` is logged with its `playbackRate`. It then plays through the game with the mouse and keyboard: category click, road click, road drag, trees, R rotate, two houses, a house on a road (invalid), a fence, a lamppost, a postbox, undo, redo, and bulldozing a house, a road tile and a tree. The outputs were written to `artifacts/wp-07/` and no longer exist (see above).
 
 In-game peak 50 ms loudness (dBFS, full range / small-speaker proxy = 2× high-pass at 250 Hz), with the current `sfxTable` gains:
 
@@ -91,8 +95,7 @@ Change the `PLAN` list at the top of the script to swap sources, layers or targe
 ## Known gaps
 
 - **Not heard by a human yet.** See the caveat above.
-- `ui-hover`, `ui-open` and `ui-close` are never emitted by the current UI, so they were judged from the files only.
-- `place-prop-metal` and the undo/redo `playbackRate` need integrator changes (`sfx.ts`, `tools.ts`, `gen-sfx-table.mjs`, `npm run gen:sfx`). `AudioManager` shims both until then.
+- `ui-hover`, `ui-open` and `ui-close` were not emitted when WP-07 ran, so they were judged from the files only. The UI emits them now.
 - **MP3 encoder delay:** LAME adds roughly 25 ms of priming. Current Chrome, Firefox and Safari strip it through the LAME/Xing header, but end-to-end input-to-sound latency wasn't measured.
 - **Ambience** is out of scope. Music: see below (WP-13).
 
@@ -107,9 +110,9 @@ Machine-readable entry: `docs/assets/audio.music.json` (kept out of `audio.json`
 Credit: Foundation of Gold — background music created by the project owner (generated with ElevenLabs, owner's account); all rights held by the project owner.
 
 **Runtime** (`src/audio/MusicPlayer.ts`, owned by `AudioManager`):
-- **Streamed** through an `HTMLAudioElement` → `MediaElementAudioSourceNode`. It is never fetched and decoded into an `AudioBuffer` (585 s of PCM would be ~200 MB). The element gets its `src` only on the first Start/Continue (`AudioManager.unlock()`), so the track is **not part of the initial download**. The WP-13 e2e test asserts this: there is no music request on the title screen, and the first request comes about 60 ms after the Start click.
+- **Streamed** through an `HTMLAudioElement` → `MediaElementAudioSourceNode`. It is never fetched and decoded into an `AudioBuffer` (585 s of PCM would be ~200 MB). The element gets its `src` only on the first Start/Continue (`AudioManager.unlock()`), so the track is **not part of the initial download**. The WP-13 e2e test asserts this: there is no music request on the title screen, and the first request comes within about 100 ms of the Start click (60–80 ms measured).
 - Graph: element → source → `fade` gain → music bus (`musicVolume × 0.25 trim × duck`) → master (mute/volume) → destination. SFX use their own `ui`/`sfx` groups under the same master.
-- Fades in over 2.5 s on start, on resume and after each loop wrap (`loop = true`). It fades out over the last 1.2 s before the loop point, on top of the track's own ending fade.
+- Fades in over 2.5 s on start, on resume and after each loop wrap (`loop = true`). It starts fading out 1.2 s before the loop point, on top of the track's own ending fade, and fades out over 0.6 s when switched off, muted or hidden.
 - It ducks by −3 dB while the menu is open (`phase === 'menu'`, including Controls/Credits opened from it).
 - Master mute and a hidden page fade it out and **pause** the element. Unmuting or showing the page again resumes from the same position. Music off does the same and is persisted.
 - Settings (SaveStore `tiny-town:settings:v1`): `music` (default `true`) and `musicVolume` 0..1 (default `0.5`). Older settings without these fields load with the defaults.
@@ -123,4 +126,4 @@ Credit: Foundation of Gold — background music created by the project owner (ge
 | Music, whole track (offline, same gains, mono) | median −34.6, p95 −30.2, max −26.9 |
 | Placement SFX peaks (captured, music off) | building −14.3…−17.0, path −19.5…−20.8, nature −20.1…−21.6 |
 
-Placements stay about 13–20 dB above the typical music level, and at least 9 dB above its loud passages (p95). Music volume at 1.0 raises the music by 6 dB. Captures are in `artifacts/wp-13/` (`listen-on.wav`, `listen-off.wav`, `listen-levels.txt`), and a human ear pass is still recommended.
+Placements stay about 13–20 dB above the typical music level, and at least 9 dB above its loud passages (p95). Music volume at 1.0 raises the music by 6 dB. Captures are in `artifacts/wp-13/` (`listen-on.wav`, `listen-off.wav`, `listen-levels.txt`). `artifacts/` is gitignored, so they exist only in the main checkout. A human ear pass is still recommended.

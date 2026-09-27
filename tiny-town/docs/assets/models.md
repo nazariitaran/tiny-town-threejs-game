@@ -2,38 +2,47 @@
 
 Every placeable item is covered by **CC0** models, almost all from Kenney's current kits, which share one flat, colourful look: a 512 px gradient `colormap.png` per kit, the same greens, lavender-greys and terracotta. Nothing here is CC-BY.
 
-- Machine-readable manifest: [`models.json`](models.json). It has 44 entries with bounds, pivot, front, scale, footprint, triangle count and bytes.
+- Machine-readable manifest: [`models.json`](models.json), with 44 entries covering bounds, pivot, front, scale, footprint, triangle count and bytes.
+  - It is **hand-maintained**. `suggestedScale` and `footprintCells` were edited by hand for WP-12 to match `src/catalog/models.ts` and `objects.ts`. When the catalog changes, update the manifest by hand.
 - Re-measure and verify: `npm run inspect:models`, or add `--three` to also load every GLB through three.js `GLTFLoader`.
+  - The script prints a report and exits 1 on any problem. It does not update `models.json`.
+  - **Never pass `--json docs/assets/models.json`.** That writes the raw report, which has a different schema, over the curated manifest.
 - Rebuild the composed models: `node scripts/compose-models.mjs`. The sources live in `assets-src/` and are gitignored.
 - Screenshots: [town preview](models-town-preview.png), [gallery of all 44 at suggested scale](models-gallery.png), [road pieces top-down](models-road-pieces-topdown.png).
-- Payload: **2.08 MB** of GLB + PNG in `public/assets/models/`, plus 74 KB of icons. The cars are 0.73 MB of that and are optional.
+- Payload (measured 2026-09-27): **2.09 MB** of GLB + PNG in `public/assets/models/`, plus 156 KB of icons (44 PNGs). The four cars, used by the ambient life system (WP-10), are 0.73 MB of the model payload.
 
 ![town preview](models-town-preview.png)
 
 ## Coverage per build tool
 
-| Tool | Model id(s) in `models.json` | Source file | Scale | Footprint |
-| --- | --- | --- | --- | --- |
-| Road | `road-straight`, `road-corner` (curved), `road-corner-sidewalk`, `road-corner-square`, `road-tee`, `road-cross`, `road-end`, `road-end-round`, `road-single`; optional `road-crossing`, `road-driveway` | `roads/*.glb` (City Kit Roads) | 1 | 1×1 |
-| Pavement | `pavement-tile` | `roads/tile-low.glb` | 1 | 1×1 |
-| Walkway | `walkway-path-long` (arm), `walkway-path-short` (hub); stepping-stone variants `walkway-stones-*` | `suburban/path-*.glb` | 1.25 | 1×1 (see below) |
-| Grass | `grass-tuft` (scatter) + a flat ground tile | `platformer/grass.glb` | 0.35 | scatter |
-| Wildflower meadow | `meadow-flowers`, `meadow-flowers-tall` (+ `grass-tuft`) | `platformer/flowers*.glb` | 0.35 | scatter 3–6 per cell |
-| Tree ×3 | `tree-a` round "Oak", `tree-b` "Pine", `tree-c` slim "Birch"/tall (+ `tree-c-small`) | `platformer/tree.glb`, `platformer/tree-pine.glb`, `suburban/tree-large.glb` | 0.36 / 0.36 / 1 | 1×1 |
-| Townhouse ×3 | `townhouse-a` cottage (type-a), `townhouse-b` narrow townhouse (type-k), `townhouse-c` family home (type-e); optional `townhouse-b-alt` (type-r), `townhouse-c-alt` (type-c) | `suburban/building-type-*.glb` | 0.75 | 1×1 |
-| Garage | `garage`: single garage, industrial building-j re-centred; optional `garage-row`: 2×1 lock-up block | `composed/garage.glb`, `industrial/building-s.glb` | 0.75 | 1×1 / 2×1 |
-| Bus stop | `bus-stop`: canopy, bench and sign, **composed from Kenney parts** | `composed/bus-stop.glb` | 1 | 1×1 |
-| Tall fence | `fence-tall`: edge piece built from 2× suburban fence panels | `composed/fence-tall.glb` | 1 | cell edge |
-| Small fence | `fence-small`, optional `fence-small-gate`: Fantasy Town fence re-oriented to the edge convention | `composed/fence-small*.glb` | 1 | cell edge |
-| Postbox | `postbox`: **procedural red pillar box**, because no CC0 match exists in this style | `composed/postbox.glb` | 1 | 1×1 |
-| Lamppost | `lamppost` (City Kit Roads `light-curved`); optional `lamppost-classic` (Fantasy Town lantern) | `roads/light-curved.glb`, `fantasy-town/lantern.glb` | 0.9 / 0.4 | 1×1 |
-| Extras | `car-sedan`, `car-hatchback`, `car-van`, `car-taxi`, `bench`, `rocks`, `bush` | `cars/*`, `holiday/bench`, `platformer/rocks`, `platformer/plant` | 0.14 / 0.26 / 0.3 / 0.45 | — |
+Live scales and footprints are in the next section, "Grid and scale", and in `src/catalog/`. This table only maps tools to sources. Note that the manifest ids and the catalog ids differ for road pieces: the catalog's `road-corner` is `road-bend-square.glb`, `road-end` is `road-end-round.glb` and `road-single` is `road-square.glb` (see the integrator note below).
 
-Every entry has a 64×64 toolbar icon at `/assets/icons/<id>.png`. Most are Kenney's own preview renders; `bus-stop` and `postbox` were rendered here in the same angle and style. `garage` reuses the industrial `building-j` preview, `fence-tall` the suburban `fence` preview, and `fence-small`/`fence-small-gate` the Fantasy Town previews, because they are the same meshes.
+| Tool | Model id(s) in `models.json` | Source file |
+| --- | --- | --- |
+| Road | `road-straight`, `road-corner` (curved), `road-corner-sidewalk`, `road-corner-square`, `road-tee`, `road-cross`, `road-end`, `road-end-round`, `road-single`; unused `road-crossing`, `road-driveway` | `roads/*.glb` (City Kit Roads) |
+| Pavement | `pavement-tile` | `roads/tile-low.glb` |
+| Walkway | `walkway-path-long` (arm), `walkway-path-short` (hub); stepping-stone variants `walkway-stones-*`. In game, walkways are procedural slabs; the ghost uses the hub | `suburban/path-*.glb` |
+| Grass | `grass-tuft` (scatter) on a flat lawn slab | `platformer/grass.glb` |
+| Wildflower meadow | `meadow-flowers`, `meadow-flowers-tall` (+ `grass-tuft`) | `platformer/flowers*.glb` |
+| Tree ×3 | `tree-a` round "Oak", `tree-b` "Pine", `tree-c` slim "Birch"/tall (+ `tree-c-small`) | `platformer/tree.glb`, `platformer/tree-pine.glb`, `suburban/tree-large.glb` |
+| Townhouse ×3 | `townhouse-a` cottage (type-a), `townhouse-b` narrow townhouse (type-k), `townhouse-c` family home (type-e); variants `townhouse-b-alt` (type-r), `townhouse-c-alt` (type-c) | `suburban/building-type-*.glb` |
+| Garage | `garage`: single garage, industrial building-j re-centred; unused `garage-row` (2×1 lock-up block) | `composed/garage.glb`, `industrial/building-s.glb` |
+| Bus stop | `bus-stop`: canopy, bench and sign, **composed from Kenney parts** | `composed/bus-stop.glb` |
+| Tall fence | `fence-tall`: edge piece built from 2× suburban fence panels | `composed/fence-tall.glb` |
+| Small fence | `fence-small`, unused `fence-small-gate`: Fantasy Town fence re-oriented to the edge convention | `composed/fence-small*.glb` |
+| Postbox | `postbox`: **procedural red pillar box**, because no CC0 match exists in this style | `composed/postbox.glb` |
+| Lamppost | `lamppost` (City Kit Roads `light-curved`); unused `lamppost-classic` (Fantasy Town lantern) | `roads/light-curved.glb`, `fantasy-town/lantern.glb` |
+| Extras | `car-sedan`, `car-hatchback`, `car-van`, `car-taxi` (ambient cars, WP-10); unused `bench`; `rocks` and `bush` (plant) in the decor ring | `cars/*`, `holiday/bench`, `platformer/rocks`, `platformer/plant` |
+
+**Icons** (`public/assets/icons/<id>.png`, 44 files):
+- The **17 tool icons** are 128 × 128 and were rendered in this project from the in-game models and materials by `node scripts/render-icons.mjs`, which drives `src/render/IconStudio.ts` in a browser and needs a dev server. They are CC0. The script only rewrites the icons that `catalog/tools.ts` references. They were last re-rendered after WP-12 (`30fe85b`).
+- The other **27** are 64 × 64 Kenney preview renders for unused or extra models, also CC0.
 
 The suburban houses can change roof colour. `suburban/Textures/variation-{a,b,c}.png` have the same layout as `colormap.png`: roof swatch orange, pink or dark instead of green. To use one, load it with `TextureLoader`, set `flipY = false` and `colorSpace = SRGBColorSpace`, and assign it as `material.map` on a **cloned** material.
 
 ## Grid and scale
+
+This section is **current**, and matches `src/catalog/models.ts` and `objects.ts` on `main` (v0.2).
 
 **WP-12 (v0.2): `CELL_SIZE = 0.5` world units, a 48 × 48-cell plot, and one Kenney road tile (1 world unit, `ROAD_TILE_SIZE`) covers an aligned 2 × 2 road block.** Toy scale: 1 world unit ≈ 8 m, a cell ≈ 4 m. All road pieces are exactly 1 × 1 at scale 1, centred, with their top at y = 0.02. The scales below are the live values in `src/catalog/models.ts`; sizes are as drawn (including TownRenderer's `MODEL_STYLES` Y stretch), measured by `catalog.test.ts` › proportions (it logs this table):
 
@@ -56,7 +65,7 @@ The suburban houses can change roof colour. `suburban/Textures/variation-{a,b,c}
 | Cars (`LifeSystem.CAR_SCALE`) | road lane | 0.17 (0.14) | 0.22–0.26 × 0.19–0.26 × 0.43–0.49 | Fits one lane. |
 | Decor ring oak / pine | outside the plot | rendered at 0.36 (`DecorRing.TEMPLATE_RESCALE`) | unchanged | The ring stays exactly as in v0.1. |
 
-Side-by-side evidence (same camera, v0.1 vs WP-12): `artifacts/wp-12/proportions-{before,after}.png`.
+Side-by-side evidence (same camera, v0.1 vs WP-12): `artifacts/wp-12/proportions-{before,after}.png`. `artifacts/` is gitignored, so this exists only in the main checkout.
 
 ## Pivot and orientation conventions
 
@@ -68,12 +77,12 @@ Side-by-side evidence (same camera, v0.1 vs WP-12): `artifacts/wp-12/proportions
   
   The three raw files with off-centre pivots (industrial `building-j`, and Fantasy Town `fence`/`fence-gate`) are shipped only as re-centred composed versions.
 - **Front: every Kenney city, suburban, industrial and car model, the bench and all composed models face −Z.** This includes doors and planters, garage doors, the bus-stop open side, the postbox slot, car bonnets and the lamp arm. The game's contract is "rotation 0 ⇒ front faces +z", so use **`rotationOffset: 2`** (180°) for these in `catalog/models.ts`. Trees, flowers, rocks and the lantern are symmetric, so their offset does not matter.
-- **Edge pieces** (`fence-tall`, `fence-small`, `fence-small-gate`) are 1 unit long along X, centred on the origin, base y = 0, 0.075–0.08 thick. Place the origin at the midpoint of the cell edge:
+- **Edge pieces** (`fence-tall`, `fence-small`, `fence-small-gate`) are 1 native unit long along X, centred on the origin, base y = 0, 0.075–0.08 thick. At the catalog scale of 0.5 they span one cell edge. Place the origin at the midpoint of the cell edge (positions below are in cell units; `config.edgeToWorld` converts them):
   - N edge of cell (x, z): position (x, z − 0.5), rotation 0.
   - W edge of cell (x, z): position (x − 0.5, z), rotation 90°.
   
   Where two edges meet, the posts overlap cleanly, so no corner piece is needed. Fantasy Town `fence-curved` and Platformer `fence-corner` are available in `assets-src/` if a rounded corner is ever wanted.
-- **Walkway** (hub and arms): put `walkway-path-short` ×1.25 at the cell centre. For each connected neighbour, add one `walkway-path-long` ×1.25 arm, centred 0.25 from the cell centre towards that neighbour, rotated 0° for N/S and 90° for E/W. Swap in `walkway-stones-*` for a stepping-stone garden path. The native pieces run along Z.
+- **Walkway** (sourcing recipe from v0.1; the game now draws walkways procedurally in `TownRenderer`, 0.25 wide): put `walkway-path-short` ×1.25 at the cell centre. For each connected neighbour, add one `walkway-path-long` ×1.25 arm, centred 0.25 from the cell centre towards that neighbour, rotated 0° for N/S and 90° for E/W. Swap in `walkway-stones-*` for a stepping-stone garden path. The native pieces run along Z.
 
 ### Road auto-tiling (native connections at rotation 0)
 
@@ -121,7 +130,7 @@ Rotating by q quarter turns counter-clockwise from above (`rotation.y = q·π/2`
 
 ### Flat ground tiles: kit palette
 
-The contract draws pavement, walkway, grass and meadow as flat tiles. These colours are sampled from the kit textures, so the flat tiles match the models:
+These colours were sampled from the kit textures when the assets were sourced. They are the kit reference, **not the live colours**. The live ground colours are in `src/catalog/models.ts` `GROUND_MODELS` (walkway `#c9b99a`, grass `#6cb562`, meadow `#5fa959`). The roads/pavement atlas is re-tinted to warm stone by `TownRenderer` (`MODEL_STYLES` `warmAtlas`).
 
 | Use | Colour |
 | --- | --- |
@@ -131,7 +140,7 @@ The contract draws pavement, walkway, grass and meadow as flat tiles. These colo
 | Grass greens (platformer grass and trees) | `#4ab480`, `#3da679`, `#55bf85` |
 | Flower accents | `#6385d2` (blue), `#ff9832` (orange) |
 
-The catalog now uses the kit's `tile-low` model for pavement, and these sampled colours for walkway/grass/meadow flat tiles.
+Pavement uses the kit's `tile-low` model with the warm atlas. Walkway, grass and meadow are procedural flat slabs in the `GROUND_MODELS` colours.
 
 ## Gaps and procedural fallbacks
 
@@ -148,13 +157,12 @@ The catalog now uses the kit's `tile-low` model for pavement, and these sampled 
 
 ## Verification done
 
-1. **Static check:** `node scripts/inspect-models.mjs` checks all 44 GLBs in `public/assets/models`. Every GLB parses, every referenced image exists, and the bounds, triangles and bytes are recorded in `models.json`.
+1. **Static check:** `node scripts/inspect-models.mjs` checks all 44 GLBs in `public/assets/models`: every GLB parses and every referenced image exists. It prints bounds, triangles and bytes. Those numbers were copied into `models.json` when the assets were sourced; the script doesn't write the manifest. Re-checked 2026-09-27: 44 models, 0 problems.
 2. **three.js check:** `node scripts/inspect-models.mjs --three` loads all 44 with the real three.js r184 `GLTFLoader` in Node. It uses a `fetch`/`createImageBitmap` shim that reads files from disk and checks the PNG size. Result: 44/44 loaded, and every textured material got its 512×512 colormap. A negative test (texture removed) fails as expected.
-3. **Visual check:**
-   - **No browser screenshot could be taken.** This agent ran inside a nono sandbox where Chromium (Playwright) and Blender both crash at GPU/Metal initialisation, and the sandbox also denies Chrome's `~/Library/Application Support` profile path.
+3. **Visual check (historical, at sourcing time, before M0):**
+   - At that point **no browser screenshot could be taken**. Since M0 the game has rendered in real Chromium, and the `asset-gallery` state is covered by the committed visual baselines. The sourcing agent ran inside a nono sandbox where Chromium (Playwright) and Blender both crash at GPU/Metal initialisation, and the sandbox also denies Chrome's `~/Library/Application Support` profile path.
    - Instead, every model was loaded **through the vite dev server by three.js `GLTFLoader`**, which exercises the real URLs and relative texture paths. The resulting three.js scene graph was then drawn with a small CPU rasteriser: perspective-correct texture sampling from the loaded colormaps, and Lambert shading. It is a throwaway in the scratchpad, not in the repo.
    - Those renders are the three screenshots in this folder. They confirm textures resolve, which way each model faces, the road-piece connections, and relative scale.
-   - Re-check the scene in a real browser once one is available. The `asset-gallery` test state in `docs/PLAN.md` WP-03 covers this.
 
 ## Licence and attribution
 
