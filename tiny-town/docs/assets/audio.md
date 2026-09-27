@@ -94,4 +94,33 @@ Change the `PLAN` list at the top of the script to swap sources, layers or targe
 - `ui-hover`, `ui-open` and `ui-close` are never emitted by the current UI, so they were judged from the files only.
 - `place-prop-metal` and the undo/redo `playbackRate` need integrator changes (`sfx.ts`, `tools.ts`, `gen-sfx-table.mjs`, `npm run gen:sfx`). `AudioManager` shims both until then.
 - **MP3 encoder delay:** LAME adds roughly 25 ms of priming. Current Chrome, Firefox and Safari strip it through the LAME/Xing header, but end-to-end input-to-sound latency wasn't measured.
-- **Ambience and music** are out of scope.
+- **Ambience** is out of scope. Music: see below (WP-13).
+
+## Background music (WP-13)
+
+Machine-readable entry: `docs/assets/audio.music.json` (kept out of `audio.json` because `npm run gen:sfx` turns every entry of that array into an SFX event).
+
+| Track | File | Source file | Duration | Format | Loudness |
+|---|---|---|---|---|---|
+| Foundation of Gold | `public/assets/music/foundation-of-gold.mp3` (4.68 MB) | `FoundationOfGold_72k_44k.mp3`, supplied by the project owner, copied unchanged | 9:45 (585.05 s) | MP3, stereo, 44.1 kHz, 64 kbps CBR | −13.0 LUFS integrated, −0.7 dBTP, LRA 3 LU; built-in fade-out from ~578 s |
+
+Credit: Foundation of Gold — background music created by the project owner (generated with ElevenLabs, owner's account); all rights held by the project owner.
+
+**Runtime** (`src/audio/MusicPlayer.ts`, owned by `AudioManager`):
+- **Streamed** through an `HTMLAudioElement` → `MediaElementAudioSourceNode`. It is never fetched and decoded into an `AudioBuffer` (585 s of PCM would be ~200 MB). The element gets its `src` only on the first Start/Continue (`AudioManager.unlock()`), so the track is **not part of the initial download**. The WP-13 e2e test asserts this: there is no music request on the title screen, and the first request comes about 60 ms after the Start click.
+- Graph: element → source → `fade` gain → music bus (`musicVolume × 0.25 trim × duck`) → master (mute/volume) → destination. SFX use their own `ui`/`sfx` groups under the same master.
+- Fades in over 2.5 s on start, on resume and after each loop wrap (`loop = true`). It fades out over the last 1.2 s before the loop point, on top of the track's own ending fade.
+- It ducks by −3 dB while the menu is open (`phase === 'menu'`, including Controls/Credits opened from it).
+- Master mute and a hidden page fade it out and **pause** the element. Unmuting or showing the page again resumes from the same position. Music off does the same and is persisted.
+- Settings (SaveStore `tiny-town:settings:v1`): `music` (default `true`) and `musicVolume` 0..1 (default `0.5`). Older settings without these fields load with the defaults.
+- Diagnostics: `audio.music = { enabled, volume, playing, loaded, requested, ducked, time, loops }`.
+
+**Mix:** the trim was chosen so that music sits well under placement SFX at the default settings (master 0.8, music 0.5). Listen-proxy capture of the real Web Audio output (the WP-07 method: a tap on `destination`, a real-input playtest of three houses, three road tiles and two trees):
+
+| | 50 ms RMS (dBFS) |
+|---|---|
+| Music, track intro (captured in game) | median −40.6, max −37.4 |
+| Music, whole track (offline, same gains, mono) | median −34.6, p95 −30.2, max −26.9 |
+| Placement SFX peaks (captured, music off) | building −14.3…−17.0, path −19.5…−20.8, nature −20.1…−21.6 |
+
+Placements stay about 13–20 dB above the typical music level, and at least 9 dB above its loud passages (p95). Music volume at 1.0 raises the music by 6 dB. Captures are in `artifacts/wp-13/` (`listen-on.wav`, `listen-off.wav`, `listen-levels.txt`), and a human ear pass is still recommended.

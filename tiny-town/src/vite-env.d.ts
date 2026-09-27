@@ -18,7 +18,15 @@ interface ThreeGameDiagnostics {
   invalidCount: number;
   camera: import('./interaction/CameraController').CameraPose;
   quality: import('./game/config').QualityTier;
-  audio: { muted: boolean; volume: number; unlocked: boolean; loaded: number; starts: number };
+  audio: {
+    muted: boolean;
+    volume: number;
+    unlocked: boolean;
+    loaded: number;
+    starts: number;
+    /** Background music (WP-13): streamed, starts after Start. */
+    music: { enabled: boolean; volume: number; playing: boolean; loaded: boolean; requested: boolean; ducked: boolean; time: number; loops: number };
+  };
   /** Autosave state (SaveStore). pending = a debounced write is waiting. */
   save: { available: boolean; pending: boolean; lastError: string | null };
   /** Placement FX pool (WP-08): active particles, fx draw calls, spawn/drop counters, wind state. */

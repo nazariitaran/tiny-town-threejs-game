@@ -1,0 +1,26 @@
+[
+  {
+    "id": "foundation-of-gold",
+    "title": "Foundation of Gold",
+    "role": "background music (loop)",
+    "file": "/assets/music/foundation-of-gold.mp3",
+    "sourceFile": "FoundationOfGold_72k_44k.mp3 (supplied by the project owner, copied unchanged)",
+    "durationS": 585.05,
+    "format": "MP3, stereo, 44.1 kHz, 64 kbps CBR",
+    "bytes": 4680976,
+    "integratedLufs": -13.0,
+    "truePeakDb": -0.7,
+    "loudnessRangeLu": 3.0,
+    "endFade": "built-in fade-out from ~578 s, silent from ~583 s",
+    "runtime": {
+      "playback": "streamed: HTMLAudioElement -> MediaElementAudioSourceNode -> fade -> music bus -> master (never decoded to an AudioBuffer)",
+      "loadedAfter": "first Start/Continue (AudioManager.unlock)",
+      "defaultMusicVolume": 0.5,
+      "trim": 0.25,
+      "fadeInS": 2.5,
+      "loopFadeOutLeadS": 1.2,
+      "menuDuckDb": -3
+    },
+    "credit": "Foundation of Gold — background music created by the project owner (generated with ElevenLabs, owner's account); all rights held by the project owner."
+  }
+]
