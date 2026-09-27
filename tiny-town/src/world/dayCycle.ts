@@ -160,7 +160,7 @@ export function sampleDay(t: number, out: DaySample): DaySample {
 }
 
 /**
- * The game clock. Auto advances `t` by delta / DAY_LENGTH_S; Day and Night hold their target.
+ * The game clock. Auto advances `t` by delta / dayLengthS (default DAY_LENGTH_S); Day and Night hold their target.
  * Switching mode sweeps `t` forward to the new target over MODE_SWEEP_S (or snaps). A pin (tests,
  * title screen) overrides everything until released.
  */
@@ -168,6 +168,8 @@ export class DayClock {
   private currentMode: TimeMode;
   private time: number;
   private pinned: number | null = null;
+  /** Real seconds per Auto day. Debug only (Game sets it from `?debug&day=N` for evidence captures). */
+  dayLengthS = DAY_LENGTH_S;
 
   constructor(mode: TimeMode = 'auto') {
     this.currentMode = mode;
@@ -193,7 +195,7 @@ export class DayClock {
 
   /** Advance by real seconds (Game passes animDelta: 0 under reduced motion ⇒ frozen). */
   advance(delta: number): void {
-    if (this.currentMode === 'auto' && delta > 0) this.time = wrap01(this.time + delta / DAY_LENGTH_S);
+    if (this.currentMode === 'auto' && delta > 0) this.time = wrap01(this.time + delta / this.dayLengthS);
   }
 
   /** Change mode. `snap` jumps straight to the target (reduced motion); otherwise it sweeps. */

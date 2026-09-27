@@ -103,6 +103,7 @@ export class Game {
     this.life = new LifeSystem(this.scene, this.town, this.bus, fxRand, this.debug);
     this.nightLights = new NightLights(this.scene, this.library, this.town, this.bus, this.life, this.quality, this.debug);
     this.clock = new DayClock(this.saves.getSettings().timeMode);
+    this.installClockDebug();
     this.audio = new AudioManager(this.bus, fxRand, this.saves);
     this.ui = new UiRoot(uiHost, this.bus, () => this.saves.has());
 
@@ -232,6 +233,14 @@ export class Game {
 
   private render(): void {
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /** `?debug&day=N`: an N-second Auto day (evidence captures); lil-gui `Clock` folder. Debug only. */
+  private installClockDebug(): void {
+    if (!this.debug.enabled) return;
+    const day = Number(new URLSearchParams(window.location.search).get('day'));
+    if (Number.isFinite(day) && day > 0) this.clock.dayLengthS = day;
+    this.debug.folder('Clock')?.add(this.clock, 'dayLengthS', 10, 1200, 1).name('day length (s)');
   }
 
   /** Change the day/night mode: persisted; the clock sweeps to it (snaps under reduced motion). */
