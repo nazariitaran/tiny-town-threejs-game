@@ -24,6 +24,17 @@ export const GLYPHS = {
   play: svg('<path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/>'),
   plus: svg('<path d="M12 5v14"/><path d="M5 12h14"/>'),
   retry: svg('<path d="M4 12a8 8 0 1 0 2.34-5.66"/><path d="M4 4v5h5"/>'),
+  // Day/night modes (WP-16c): the top-bar time button and the menu's "Time of day" row.
+  /** Auto: a sun whose core is a crescent moon (the cycle runs by itself). */
+  timeAuto: svg(
+    '<path d="M12 7.5a3.2 3.2 0 0 0 4.5 4.5A4.5 4.5 0 1 1 12 7.5z"/><path d="M12 2.5v2"/><path d="M12 19.5v2"/><path d="m5.3 5.3 1.4 1.4"/><path d="m17.3 17.3 1.4 1.4"/><path d="M2.5 12h2"/><path d="M19.5 12h2"/><path d="m5.3 18.7 1.4-1.4"/><path d="m17.3 6.7 1.4-1.4"/>',
+  ),
+  /** Day: the sun. */
+  timeDay: svg(
+    '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2"/><path d="M12 19.5v2"/><path d="m5.3 5.3 1.4 1.4"/><path d="m17.3 17.3 1.4 1.4"/><path d="M2.5 12h2"/><path d="M19.5 12h2"/><path d="m5.3 18.7 1.4-1.4"/><path d="m17.3 6.7 1.4-1.4"/>',
+  ),
+  /** Night: a crescent moon. */
+  timeNight: svg('<path d="M12.5 3.5a6.5 6.5 0 0 0 8 8 8.6 8.6 0 1 1-8-8z"/>'),
   // Category tabs (catalog/tools.ts TOOL_CATEGORIES)
   streets: svg('<path d="M8 3 5 21"/><path d="m16 3 3 18"/><path d="M12 4v2.5"/><path d="M12 10.5v3"/><path d="M12 17.5V20"/>'),
   homes: svg('<path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/>'),
