@@ -19,9 +19,11 @@
  *    the add with the same id, and addObject() defensively frees any visual under that id.
  *  - Variants: PlacedObject.variant picks from ObjectDef.models; trees get a stable scale/yaw
  *    jitter from hash(id) (never the RNG, so it survives reloads).
- *  - Ground: road auto-tiles (roadTiles.ts; a lone tile = two squashed round caps); pavement = kit
+ *  - Ground: road auto-tiles per 2 × 2 road BLOCK (WP-12: one tile per block, owned by the block's
+ *    anchor cell and drawn at the block centre; the other 3 cells draw nothing; roadTiles.ts; a lone
+ *    tile = two squashed round caps); pavement = kit
  *    tile; grass/meadow = slightly raised lawn slab with a soft darker lip; meadow adds a
- *    deterministic flower/tuft scatter (hidden under objects); walkway = a 0.5-wide sandstone
+ *    deterministic flower/tuft scatter, one clump per cell (hidden under objects); walkway = a half-cell-wide sandstone
  *    paving hub + an arm towards every walkway/pavement neighbour (procedural slabs).
  *  - Look overrides (MODEL_STYLES, M1 review): the roads atlas's periwinkle kerb/paving texels are
  *    re-tinted to warm stone (one recoloured atlas copy shared by all road pieces); the tall fence is
@@ -30,10 +32,10 @@
 import * as THREE from 'three';
 import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS, type ModelId } from '../catalog/models';
 import { objectDef } from '../catalog/objects';
-import { CELL_SIZE, cellToWorld, edgeToWorld } from '../game/config';
+import { CELL_SIZE, cellToWorld, edgeToWorld, ROAD_TILE_SIZE, roadBlockCentreWorld } from '../game/config';
 import type { DebugTools } from '../debug/DebugTools';
 import type { GameBus } from '../game/events';
-import { cellKey, edgeKey, footprintCells, NEIGHBOURS, rotatedFootprint } from '../town/grid';
+import { cellKey, edgeKey, footprintCells, NEIGHBOURS, ROAD_BLOCK, roadBlockAnchor, rotatedFootprint } from '../town/grid';
 import type { Cell, GroundKind, PlacedEdge, PlacedObject, TownChange, TownStateReader } from '../town/types';
 import { InstancePool, type PoolSlot } from './InstancePool';
 import type { ModelLibrary } from './ModelLibrary';
@@ -49,8 +51,8 @@ const BURST_CHANGES = 64;
 const LAWN_HEIGHT = 0.016;
 /** Side (lip) shade of the lawn slab relative to its top. */
 const LAWN_LIP_SHADE = 0.86;
-/** Garden path (walkway): paving width (≥ half a cell so it reads as a path, not a fence). */
-const WALKWAY_WIDTH = 0.5;
+/** Garden path (walkway): paving width (half a cell so it reads as a path, not a fence). */
+const WALKWAY_WIDTH = 0.5 * CELL_SIZE;
 const WALKWAY_HEIGHT = 0.016;
 const WALKWAY_LIP_SHADE = 0.78;
 /**
@@ -333,6 +335,13 @@ export class TownRenderer {
         const neighbour = { x: cell.x + offset.x, z: cell.z + offset.z };
         if (this.town.inBounds(neighbour)) touchedCells.set(cellKey(neighbour), neighbour);
       }
+      // Road tiles belong to block anchors: re-tile this block and the 4 neighbouring blocks.
+      const anchor = roadBlockAnchor(cell);
+      touchedCells.set(cellKey(anchor), anchor);
+      for (const offset of NEIGHBOURS) {
+        const neighbour = { x: anchor.x + offset.x * ROAD_BLOCK, z: anchor.z + offset.z * ROAD_BLOCK };
+        if (this.town.inBounds(neighbour)) touchedCells.set(cellKey(neighbour), neighbour);
+      }
     };
     for (const change of changes) {
       if (change.layer === 'ground') {
@@ -364,7 +373,9 @@ export class TownRenderer {
     const key = cellKey(cell);
     const current = this.groundByCell.get(key);
     const kind = this.town.getGround(cell);
-    const spec = kind === 'field' ? null : this.describeGround(kind, cell);
+    // A road block draws one tile, owned by its anchor (min corner) cell; the other cells draw nothing.
+    const roadFiller = kind === 'road' && (cell.x % ROAD_BLOCK !== 0 || cell.z % ROAD_BLOCK !== 0);
+    const spec = kind === 'field' || roadFiller ? null : this.describeGround(kind, cell);
     if (current && spec && current.sig === spec.sig) return;
     const kindChanged = !current || !spec || current.sig.split(':')[0] !== spec.sig.split(':')[0];
 
@@ -380,7 +391,7 @@ export class TownRenderer {
       }
     }
     if (!spec) return;
-    const world = cellToWorld(cell);
+    const world = kind === 'road' ? roadBlockCentreWorld(cell) : cellToWorld(cell);
     const origin = new THREE.Matrix4().makeRotationY(spec.rotation * QUARTER).setPosition(world.x, 0, world.z);
     const visual = this.createVisual(spec.sig, origin, spec.pieces, animate && kindChanged);
     if (inherit) {
@@ -399,7 +410,7 @@ export class TownRenderer {
         // Isolated road: two round dead-end caps squashed to half a cell each, back to back, so a
         // lone tile matches the rounded ends of every other dead end (road-square looked like a slab).
         const end = this.modelSource(ROAD_PIECE_MODELS.end, false);
-        const north = new THREE.Matrix4().makeTranslation(0, 0, -0.25 * CELL_SIZE).multiply(new THREE.Matrix4().makeScale(1, 1, 0.5));
+        const north = new THREE.Matrix4().makeTranslation(0, 0, -0.25 * ROAD_TILE_SIZE).multiply(new THREE.Matrix4().makeScale(1, 1, 0.5));
         const south = new THREE.Matrix4().makeRotationY(Math.PI).multiply(north);
         return { sig: 'road:single:0', rotation: 0, pieces: [{ source: end, local: north }, { source: end, local: south }] };
       }
@@ -412,7 +423,9 @@ export class TownRenderer {
     if (kind === 'walkway') return this.describeWalkway(cell);
     const visual = GROUND_MODELS[kind];
     if (visual.type === 'model') {
-      return { sig: kind, rotation: 0, pieces: [{ source: this.modelSource(visual.model, false), local: new THREE.Matrix4() }] };
+      const style = MODEL_STYLES[visual.model]?.scale;
+      const local = style ? new THREE.Matrix4().makeScale(style[0], style[1], style[2]) : new THREE.Matrix4();
+      return { sig: kind, rotation: 0, pieces: [{ source: this.modelSource(visual.model, false), local }] };
     }
     const pieces: PieceSpec[] = [{ source: this.lawnSource(kind, visual.color), local: new THREE.Matrix4() }];
     if (kind !== 'meadow') return { sig: kind, rotation: 0, pieces };
@@ -446,21 +459,17 @@ export class TownRenderer {
     return { sig: `walkway:${arms}`, rotation: 0, pieces };
   }
 
+  /** WP-12: one hashed clump per (half-unit) cell, so the density per area matches v0.1's 4 per unit cell. */
   private meadowScatter(cell: Cell): PieceSpec[] {
-    const pieces: PieceSpec[] = [];
-    const quarter = CELL_SIZE / 4;
-    for (let k = 0; k < 4; k += 1) {
-      const pick = hash01(cell.x, cell.z, k * 7 + 1);
-      const model: ModelId = pick < 0.45 ? 'meadow-flowers' : pick < 0.72 ? 'meadow-flowers-tall' : 'grass-tuft';
-      const x = (k % 2 === 0 ? -quarter : quarter) + (hash01(cell.x, cell.z, k * 7 + 2) - 0.5) * 0.18;
-      const z = (k < 2 ? -quarter : quarter) + (hash01(cell.x, cell.z, k * 7 + 3) - 0.5) * 0.18;
-      const yaw = hash01(cell.x, cell.z, k * 7 + 4) * Math.PI * 2;
-      const scale = 0.8 + hash01(cell.x, cell.z, k * 7 + 5) * 0.4;
-      const local = new THREE.Matrix4().makeRotationY(yaw).scale(new THREE.Vector3(scale, scale, scale));
-      local.setPosition(x, LAWN_HEIGHT, z);
-      pieces.push({ source: this.modelSource(model, false), local });
-    }
-    return pieces;
+    const pick = hash01(cell.x, cell.z, 1);
+    const model: ModelId = pick < 0.45 ? 'meadow-flowers' : pick < 0.72 ? 'meadow-flowers-tall' : 'grass-tuft';
+    const x = (hash01(cell.x, cell.z, 2) - 0.5) * 0.36 * CELL_SIZE;
+    const z = (hash01(cell.x, cell.z, 3) - 0.5) * 0.36 * CELL_SIZE;
+    const yaw = hash01(cell.x, cell.z, 4) * Math.PI * 2;
+    const scale = 0.8 + hash01(cell.x, cell.z, 5) * 0.4;
+    const local = new THREE.Matrix4().makeRotationY(yaw).scale(new THREE.Vector3(scale, scale, scale));
+    local.setPosition(x, LAWN_HEIGHT, z);
+    return [{ source: this.modelSource(model, false), local }];
   }
 
   // ---------------------------------------------------------------------------------------------

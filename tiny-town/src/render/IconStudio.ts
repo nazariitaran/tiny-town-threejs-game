@@ -10,9 +10,9 @@
 import * as THREE from 'three';
 import { objectDef } from '../catalog/objects';
 import { TOOLS } from '../catalog/tools';
-import { PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
+import { CELL_SIZE, cellToWorld, footprintCentreWorld, PLOT_DEPTH, PLOT_WIDTH, ROAD_TILE_SIZE, roadBlockCentreWorld } from '../game/config';
 import type { GameBus } from '../game/events';
-import { cellKey, footprintCells } from '../town/grid';
+import { cellKey, footprintCells, ROAD_BLOCK } from '../town/grid';
 import type { Cell, Edge, EdgeKind, GroundKind, ObjectKind, PlacedEdge, PlacedObject, TownStateReader, TownStats } from '../town/types';
 import { LIGHTING } from '../world/Environment';
 import { ModelLibrary } from './ModelLibrary';
@@ -23,25 +23,39 @@ interface IconScene {
   ground?: Array<[number, number, GroundKind]>;
   object?: ObjectKind;
   edge?: EdgeKind;
-  /** Clip everything to this cell (roads/walkways continue out of frame instead of capping). */
+  /** Clip everything to the framed cell / road block (roads/walkways continue out of frame instead of capping). */
   clipToCentre?: boolean;
+  /** Frame the centre road block (2 × 2 cells) instead of the centre cell. */
+  roadBlock?: boolean;
   /** Frame with a shared box instead of the scene's own bounds (keeps fence heights comparable). */
   frame?: THREE.Box3;
 }
 
-const C = 12; // centre cell (x and z)
+const C = 24; // centre cell (x and z); even, so it is also a road-block anchor
 const line = (kind: GroundKind): Array<[number, number, GroundKind]> => [
   [C - 1, C, kind],
   [C, C, kind],
   [C + 1, C, kind],
 ];
+/** Three road blocks in a row (WP-12: a road tile covers a 2 × 2 block). */
+const roadLine = (): Array<[number, number, GroundKind]> => {
+  const cells: Array<[number, number, GroundKind]> = [];
+  for (let bx = C - ROAD_BLOCK; bx <= C + ROAD_BLOCK; bx += ROAD_BLOCK) {
+    for (let dz = 0; dz < ROAD_BLOCK; dz += 1) for (let dx = 0; dx < ROAD_BLOCK; dx += 1) cells.push([bx + dx, C + dz, 'road']);
+  }
+  return cells;
+};
 
 /** Fence icons share one frame, so the tall fence visibly towers over the low one. */
-const FENCE_FRAME = new THREE.Box3(new THREE.Vector3(-0.5, 0, -0.05), new THREE.Vector3(0.5, 0.36, 0.05));
+const FENCE_FRAME = new THREE.Box3(
+  new THREE.Vector3(-0.5 * CELL_SIZE, 0, -0.05 * CELL_SIZE),
+  new THREE.Vector3(0.5 * CELL_SIZE, 0.52 * CELL_SIZE, 0.05 * CELL_SIZE),
+);
 
 function sceneForTool(toolId: string): IconScene | null {
   switch (toolId) {
     case 'road':
+      return { ground: roadLine(), clipToCentre: true, roadBlock: true };
     case 'walkway':
       return { ground: line(toolId), clipToCentre: true };
     case 'pavement':
@@ -138,19 +152,25 @@ export async function renderToolIcons(size = 128, supersample = 2): Promise<Reco
     const town = new FakeTown(spec);
     const townRenderer = new TownRenderer(scene, library, town, NO_BUS);
     townRenderer.rebuildAll();
-    // Recentre on the framed cell.
-    const centre = new THREE.Vector3((C - PLOT_WIDTH / 2 + 0.5), 0, (C - PLOT_DEPTH / 2 + 0.5));
-    townRenderer.root.position.sub(centre);
-    if (spec.edge) townRenderer.root.position.z += 0.5; // the fence sits on the cell's north edge
+    // Recentre on the framed cell / road block / object footprint.
+    const anchor = { x: C, z: C };
+    const world = spec.roadBlock
+      ? roadBlockCentreWorld(anchor)
+      : spec.object
+      ? footprintCentreWorld(anchor, objectDef(spec.object).footprint, 0)
+      : cellToWorld(anchor);
+    townRenderer.root.position.set(-world.x, 0, -world.z);
+    if (spec.edge) townRenderer.root.position.z += CELL_SIZE / 2; // the fence sits on the cell's north edge
     scene.updateMatrixWorld(true);
 
-    const clip = new THREE.Box3(new THREE.Vector3(-0.5, -1, -0.5), new THREE.Vector3(0.5, 3, 0.5));
+    const half = (spec.roadBlock ? ROAD_TILE_SIZE : CELL_SIZE) / 2;
+    const clip = new THREE.Box3(new THREE.Vector3(-half, -1, -half), new THREE.Vector3(half, 3, half));
     renderer.clippingPlanes = spec.clipToCentre
       ? [
-          new THREE.Plane(new THREE.Vector3(1, 0, 0), 0.5),
-          new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0.5),
-          new THREE.Plane(new THREE.Vector3(0, 0, 1), 0.5),
-          new THREE.Plane(new THREE.Vector3(0, 0, -1), 0.5),
+          new THREE.Plane(new THREE.Vector3(1, 0, 0), half),
+          new THREE.Plane(new THREE.Vector3(-1, 0, 0), half),
+          new THREE.Plane(new THREE.Vector3(0, 0, 1), half),
+          new THREE.Plane(new THREE.Vector3(0, 0, -1), half),
         ]
       : [];
     let bounds = spec.frame ?? instancedBounds(townRenderer.root);
