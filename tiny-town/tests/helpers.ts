@@ -12,6 +12,9 @@
 import { expect, type Page, type TestInfo } from '@playwright/test';
 import type { ToolCategory, ToolId } from '../src/catalog/tools';
 import { toolDef } from '../src/catalog/tools';
+import { objectDef } from '../src/catalog/objects';
+import { footprintCells, rotatedFootprint } from '../src/town/grid';
+import type { Cell, ObjectKind, Rotation } from '../src/town/types';
 import { UI_TEST_IDS } from '../src/ui/UiRoot';
 
 export { UI_TEST_IDS };
@@ -85,6 +88,69 @@ export async function canvasPoint(page: Page, x: number, z: number): Promise<Poi
   expect(result.hitId, `cell (${x},${z}) at ${JSON.stringify(result.point)} must be on the canvas, not UI`).toBe('game-canvas');
   return result.point;
 }
+
+/**
+ * Client point of a fractional grid position (cell x spans [x, x + 1), so cell centres sit at
+ * x + 0.5), bilinearly interpolated between the four surrounding cell centres from `cellToClient`
+ * (the perspective error over one cell is far below a pixel), verified to land on the canvas.
+ */
+export async function gridPoint(page: Page, gx: number, gz: number): Promise<Point> {
+  const cx = Math.floor(gx - 0.5);
+  const cz = Math.floor(gz - 0.5);
+  const tx = gx - 0.5 - cx;
+  const tz = gz - 0.5 - cz;
+  const result = await page.evaluate(
+    ([x, z, fx, fz]) => {
+      const at = (a: number, b: number) => window.__THREE_GAME_TEST_HOOKS__!.cellToClient(a, b);
+      const [p00, p10, p01, p11] = [at(x, z), at(x + 1, z), at(x, z + 1), at(x + 1, z + 1)];
+      const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+      const point = {
+        x: lerp(lerp(p00.x, p10.x, fx), lerp(p01.x, p11.x, fx), fz),
+        y: lerp(lerp(p00.y, p10.y, fx), lerp(p01.y, p11.y, fx), fz),
+      };
+      const hit = document.elementFromPoint(point.x, point.y);
+      return { point, hitId: hit?.id ?? hit?.tagName ?? null };
+    },
+    [cx, cz, tx, tz] as const,
+  );
+  expect(result.hitId, `grid (${gx},${gz}) at ${JSON.stringify(result.point)} must be on the canvas, not UI`).toBe('game-canvas');
+  return result.point;
+}
+
+/**
+ * Where to point so an object tool lands on `anchor` (WP-17 footprints). ToolController centres the
+ * footprint on the pointer (grid.anchorForPointer): on an odd axis the pointer sits on the middle
+ * cell's centre; on an even axis the footprint centre is a cell CORNER, and a cell-centre pointer
+ * is exactly on the rounding boundary (it may land either side). So on even axes we aim a quarter
+ * cell short of that corner (inside cell anchor + size/2 − 1), which rounds to `anchor` with ±¼ cell
+ * of slack. `cell` is the hovered cell (diagnostics.hover), `grid` the fractional pointer.
+ */
+export function footprintPointer(kind: ObjectKind, anchor: Cell, rotation: Rotation = 0): { cell: Cell; grid: { x: number; z: number } } {
+  const [w, d] = rotatedFootprint(objectDef(kind).footprint, rotation);
+  const axis = (start: number, size: number) =>
+    size % 2 === 1 ? { cell: start + (size - 1) / 2, g: start + size / 2 } : { cell: start + size / 2 - 1, g: start + size / 2 - 0.25 };
+  const x = axis(anchor.x, w);
+  const z = axis(anchor.z, d);
+  return { cell: { x: x.cell, z: z.cell }, grid: { x: x.g, z: z.g } };
+}
+
+/** Client point that places `kind` (at `rotation`) with its min corner on `anchor`. */
+export async function footprintPoint(page: Page, kind: ObjectKind, anchor: Cell, rotation: Rotation = 0): Promise<Point> {
+  const { grid } = footprintPointer(kind, anchor, rotation);
+  return gridPoint(page, grid.x, grid.z);
+}
+
+/** Real click that places `kind` on `anchor` (the tool must already be selected and rotated to `rotation`). */
+export async function clickFootprint(page: Page, kind: ObjectKind, anchor: Cell, rotation: Rotation = 0): Promise<void> {
+  const p = await footprintPoint(page, kind, anchor, rotation);
+  await page.mouse.move(p.x, p.y);
+  await page.mouse.down();
+  await page.mouse.up();
+}
+
+/** Every cell `kind` covers when anchored at `anchor` (grid.footprintCells). */
+export const footprintOf = (kind: ObjectKind, anchor: Cell, rotation: Rotation = 0): Cell[] =>
+  footprintCells(anchor, objectDef(kind).footprint, rotation);
 
 export async function clickCell(page: Page, x: number, z: number): Promise<void> {
   const p = await canvasPoint(page, x, z);

@@ -15,15 +15,18 @@ import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 import { PNG } from 'pngjs';
 import type { FxDiagnostics } from '../src/fx/PlacementFx';
-import { attachJson, clickCell, diagnostics, dragCells, gotoTitle, selectTool, startBuilding, trackErrors, waitFrames } from './helpers';
+import { attachJson, clickCell, clickFootprint, diagnostics, dragCells, gotoTitle, selectTool, startBuilding, trackErrors, waitFrames } from './helpers';
 
 const ARTIFACTS = resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/wp-08');
 
-// WP-12 (48×48 half-unit cells): road blocks on rows 24–25, 3×3 cottages centred on row 22.
+// WP-12 (48×48 half-unit cells): road blocks on rows 24–25. WP-17: 4 × 4 cottages on rows 20–23
+// just north of the road, the first on x 22–25, the second on x 27–30, and a tree in the one-cell
+// gap between them (x 26). Cottages are clicked at their footprint centre (helpers.footprintPointer).
 const ROAD_FROM: [number, number] = [16, 24];
 const ROAD_TO: [number, number] = [31, 24];
-const HOUSE: [number, number] = [23, 22];
-const TREE: [number, number] = [26, 20];
+const HOUSE = { x: 22, z: 20 } as const;
+const SECOND_HOUSE = { x: 27, z: 20 } as const;
+const TREE: [number, number] = [26, 22];
 /** An empty cell to park the pointer on so the ghost/tooltip don't cover the effects. */
 const PARK: [number, number] = [36, 16];
 
@@ -101,13 +104,14 @@ test('FX journey video: road, house, tree, bulldoze — and FX draw calls ≤ 3'
   // 2. House: wide dust ring + chips + sparkle ring. Measure FX draw calls on this burst.
   await selectTool(page, 'cottage');
   before = (await fx(page)).spawned;
-  await clickCell(page, ...HOUSE);
+  await clickFootprint(page, 'cottage', HOUSE);
   await parkPointer(page);
   await page.evaluate(() => window.__THREE_GAME_TEST_HOOKS__!.setPausedForScreenshot(true));
   await waitFrames(page, 3);
   const withFx = await fx(page);
   const callsWithFx = (await diagnostics(page)).renderer.calls;
   expect(withFx.spawned, 'house spawned particles').toBeGreaterThan(before);
+  expect((await diagnostics(page)).objects, 'first house placed').toBe(1);
   expect(withFx.drawCalls, 'house burst uses all three FX meshes (dust, chips, sparkles)').toBe(3);
   await testInfo.attach('house-burst', { body: await page.screenshot(), contentType: 'image/png' });
   // Reduced motion clears the FX and re-renders immediately; the call delta is the FX cost.
@@ -127,9 +131,11 @@ test('FX journey video: road, house, tree, bulldoze — and FX draw calls ≤ 3'
 
   // Place a second house with motion on so the video shows the full burst.
   before = (await fx(page)).spawned;
-  await clickCell(page, 27, 22);
+  const objectsBeforeSecond = (await diagnostics(page)).objects;
+  await clickFootprint(page, 'cottage', SECOND_HOUSE);
   await parkPointer(page);
   await expectBurst(page, before, 'second house');
+  await expect.poll(async () => (await diagnostics(page)).objects, { message: 'second house placed' }).toBe(objectsBeforeSecond + 1);
   await record('second house');
   await page.waitForTimeout(900);
   await waitFxIdle(page);
@@ -148,7 +154,7 @@ test('FX journey video: road, house, tree, bulldoze — and FX draw calls ≤ 3'
   await selectTool(page, 'bulldoze');
   const objectsBefore = (await diagnostics(page)).objects;
   before = (await fx(page)).spawned;
-  await clickCell(page, ...HOUSE);
+  await clickFootprint(page, 'cottage', HOUSE);
   await parkPointer(page);
   const poof = await expectBurst(page, before, 'bulldoze');
   expect(poof.drawCalls).toBeGreaterThanOrEqual(1);

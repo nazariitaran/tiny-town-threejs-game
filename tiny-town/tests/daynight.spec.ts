@@ -16,7 +16,7 @@ import { applyState, byId, canvasPoint, diagnostics, gotoTitle, selectTool, star
 const NIGHT_LOOK = true;
 const NIGHT_LOOK_REASON = 'needs the real night look (WP-16a/16b), enabled in WP-16c phase 2';
 
-/** buildSampleTown places exactly 4 lampposts (src/town/sampleTown.ts, `for (const x of [8, 16, 27, 38])`). */
+/** buildSampleTown places exactly 4 lampposts (src/town/sampleTown.ts, `for (const x of [9, 14, 31, 37])`). */
 const SAMPLE_TOWN_LAMPPOSTS = 4;
 const OUT = 'artifacts/wp-16c';
 const LABEL: Record<TimeMode, string> = { auto: 'Auto', day: 'Day', night: 'Night' };
