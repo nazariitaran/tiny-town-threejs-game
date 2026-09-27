@@ -18,6 +18,10 @@
  *    at once (bulldozed / repainted road). Extra cars beyond the target are removed newest first.
  *  - Spacing: a car brakes for a car ahead of it in its lane or crossing in front of it;
  *    mutual waits resolve by id, and any wait longer than MAX_WAIT_S gives way.
+ *  - Density (WP-16): setDensity(f) scales the target, target = max(1, round(base × f)) while the
+ *    network has room for any car (LifeSystem passes f = 1 − 0.5·night). Extra cars leave newest
+ *    first, missing ones pop in through the usual top-up; an unchanged target is a no-op, so calling
+ *    it every frame costs nothing and never draws from the stream.
  *  - Randomness: a private mulberry32 stream reseeded from the injected rng on 'reset'/'load',
  *    so the spawn layout of a test state is deterministic and gameplay RNG isn't consumed.
  *
@@ -93,6 +97,9 @@ export class TrafficSim {
   private despawned = 0;
   private drivable = 0;
   private target = 0;
+  /** Target before density (the road network's capacity). */
+  private baseTarget = 0;
+  private densityFactor = 1;
   private waiting = 0;
   private readonly sample: PathSample = { x: 0, z: 0, hx: 0, hz: 1 };
   private readonly world = { x: 0, z: 0 };
@@ -125,6 +132,9 @@ export class TrafficSim {
     while (this.cars.length > 0) this.removeAt(this.cars.length - 1, false);
     this.rand = createSeededRandom(this.drawSeed());
     this.nextId = 1;
+    // A rebuilt town always spawns at full density; the owner re-applies the night right after
+    // (setDensity removes the newest). So a state's cars never depend on the previous state's time.
+    this.densityFactor = 1;
   }
 
   /** React to a town:changed fact. */
@@ -144,6 +154,25 @@ export class TrafficSim {
     // Too many for the network that is left: remove the newest.
     while (this.cars.length > this.target) this.removeAt(this.cars.length - 1, true);
     this.topUp(cause === 'load' || cause === 'reset');
+  }
+
+  /** 0..1 share of the network's car capacity to fill (1 by day). */
+  get density(): number {
+    return this.densityFactor;
+  }
+
+  /**
+   * Scale the car count (WP-16 night: f = 1 − 0.5·night). Extra cars leave newest first; missing
+   * ones spawn with a pop-in. No-op (no allocation, no randomness) while the target is unchanged.
+   */
+  setDensity(factor: number): void {
+    const f = Math.min(1, Math.max(0, Number.isFinite(factor) ? factor : 1));
+    this.densityFactor = f;
+    const target = densityTarget(this.baseTarget, f);
+    if (target === this.target) return;
+    this.target = target;
+    while (this.cars.length > this.target) this.removeAt(this.cars.length - 1, true);
+    this.topUp(false);
   }
 
   /** Advance the simulation. dt 0 (reduced motion) is a no-op. */
@@ -277,7 +306,8 @@ export class TrafficSim {
       }
     }
     this.drivable = drivable;
-    this.target = Math.min(MAX_CARS, Math.floor(drivable / CELLS_PER_CAR));
+    this.baseTarget = Math.min(MAX_CARS, Math.floor(drivable / CELLS_PER_CAR));
+    this.target = densityTarget(this.baseTarget, this.densityFactor);
   }
 
   private topUp(instant: boolean): void {
@@ -363,6 +393,12 @@ export class TrafficSim {
       if (j >= 0 && this.blockedBy[j] === i && cars[i].id < cars[j].id) this.blockedBy[i] = -1;
     }
   }
+}
+
+/** The car target for a network capacity `base` at density `f`: max(1, round(base × f)), 0 without room. */
+export function densityTarget(base: number, f: number): number {
+  if (base <= 0) return 0;
+  return Math.min(base, Math.max(1, Math.round(base * f)));
 }
 
 const pathOf = (car: Car): LanePath => (car.ring ? ringPath(car.inDir, car.outDir) : lanePath(car.inDir, car.outDir));

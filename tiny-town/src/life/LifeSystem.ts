@@ -20,6 +20,11 @@
  * Reduced motion (animDelta 0) freezes the cars; setPausedForScreenshot skips update entirely.
  *
  * Diagnostics are published by Game as __THREE_GAME_DIAGNOSTICS__.life (getDiagnostics()).
+ *
+ * Night (WP-16b): setNight(night) thins the traffic (TrafficSim.setDensity(1 − 0.5·night)) and drives
+ * the car material's head/tail-light glow (the `headlights` mask of render/nightGlow.ts as its
+ * emissiveMap; intensity exactly 0 by day). carPose() hands NightLights what it needs for the
+ * headlight beams (position, smoothed heading, pop-in scale, bonnet distance).
  */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -29,14 +34,19 @@ import { assetUrl, worldToCell } from '../game/config';
 import { ROAD_BLOCK } from '../town/grid';
 import type { GameBus } from '../game/events';
 import type { TownStateReader } from '../town/types';
+import { createGlowMask, DEFAULT_GLOW_TUNING, glowIntensity } from '../render/nightGlow';
 import { CAR_MODELS, MAX_CARS, TrafficSim, type Car } from './TrafficSim';
 
 /** Car Kit files in model-index order (TrafficSim picks 0..CAR_MODELS-1). */
 export const CAR_FILES = ['sedan', 'hatchback-sports', 'van', 'taxi'] as const;
 /** Kenney Car Kit → world units (WP-12: 0.255 wide × 0.43–0.48 long, fits one 0.37 lane). */
 export const CAR_SCALE = 0.17;
-/** Car Kit models face −Z natively; a half turn makes the bonnet face +Z (our "forward"). */
-const FRONT_ROTATION = Math.PI;
+/**
+ * Car Kit models already face +Z natively (yellow headlights and the raked windscreen at +Z, red
+ * tail lights at −Z; re-measured from UVs for WP-16), which is our "forward": no turn. Until WP-16b
+ * this was π and every car drove backwards.
+ */
+const FRONT_ROTATION = 0;
 /** Road / pavement tile top (docs/PLAN.md §1). */
 export const ROAD_TOP_Y = 0.02;
 const POP_IN_S = 0.32;
@@ -62,6 +72,22 @@ export interface LifeDiagnostics {
   carCells: Array<{ id: number; x: number; z: number; px: number; pz: number }>;
 }
 
+/** Where a drawn car is (NightLights' headlight beams). Written in place by carPose(). */
+export interface CarPose {
+  x: number;
+  y: number;
+  z: number;
+  /** Heading as a +Y rotation (the car's +Z is its bonnet). */
+  yaw: number;
+  /** Pop-in scale (1 when fully grown). */
+  scale: number;
+  /** Distance from the car's centre to its bonnet tip, world units (already × scale). */
+  front: number;
+}
+
+/** Share of the traffic that stays out at full night (plan §5: f = 1 − 0.5·night). */
+export const NIGHT_TRAFFIC_DROP = 0.5;
+
 interface CarVisual {
   slot: number;
   yaw: number;
@@ -71,6 +97,10 @@ export class LifeSystem {
   readonly sim: TrafficSim;
   private mesh: THREE.BatchedMesh | null = null;
   private material: THREE.Material | null = null;
+  private glowMask: THREE.Texture | null = null;
+  private night = 0;
+  /** Bonnet distance (+Z half-length) per car model, from the normalised geometry. */
+  private readonly frontZ: number[] = [];
   private readonly geometryIds: number[] = [];
   private readonly visuals = new Map<number, CarVisual>();
   private readonly freeSlots: number[] = [];
@@ -125,6 +155,7 @@ export class LifeSystem {
     for (const gltf of gltfs) {
       const { geometry, material: own } = normaliseCar(gltf.scene);
       geometries.push(geometry);
+      this.frontZ.push(geometry.boundingBox?.max.z ?? 0.24);
       if (!material) material = own;
       else if (own !== material) extraMaterials.add(own);
     }
@@ -140,6 +171,12 @@ export class LifeSystem {
       shared.map.needsUpdate = true;
     }
     shared.side = THREE.FrontSide;
+    // Head/tail lights (WP-16b): glow mask as emissiveMap; intensity follows setNight (0 by day).
+    this.glowMask = createGlowMask('headlights');
+    shared.emissiveMap = this.glowMask;
+    shared.emissive.setRGB(1, 1, 1);
+    shared.emissiveIntensity = glowIntensity('headlights', this.night, DEFAULT_GLOW_TUNING);
+    shared.needsUpdate = true;
     const vertexCount = geometries.reduce((n, g) => n + g.getAttribute('position').count, 0);
     const indexCount = geometries.reduce((n, g) => n + (g.index?.count ?? 0), 0);
     const mesh = new THREE.BatchedMesh(MAX_CARS, vertexCount, indexCount, shared);
@@ -172,10 +209,41 @@ export class LifeSystem {
   }
 
   /**
-   * Day/night (WP-16): 0 day .. 1 full night. Fewer cars at night and head/tail lights.
-   * STUB (contract commit): WP-16b implements this.
+   * Day/night (WP-16): 0 day .. 1 full night. Fewer cars at night (newest leave first, they come
+   * back with a pop-in at dawn) and head/tail lights. Called every frame; cheap when nothing changes.
    */
-  setNight(_night: number): void {}
+  setNight(night: number): void {
+    const n = Math.min(1, Math.max(0, Number.isFinite(night) ? night : 0));
+    this.night = n;
+    const before = this.sim.cars.length;
+    this.sim.setDensity(1 - NIGHT_TRAFFIC_DROP * n);
+    if (this.material) (this.material as THREE.MeshStandardMaterial).emissiveIntensity = glowIntensity('headlights', n, this.headlightTuning);
+    // Draw the new car set at once (test hooks render without an update while paused).
+    if (this.sim.cars.length !== before) this.sync(0);
+  }
+
+  /** Headlight glow tunable (lil-gui `Night lights`, set by NightLights). */
+  readonly headlightTuning = { ...DEFAULT_GLOW_TUNING };
+
+  /** Cars in the simulation (drawn or not). */
+  get carCount(): number {
+    return this.sim.cars.length;
+  }
+
+  /** Pose of car `index` for the headlight beams; false when it isn't drawn. No allocation. */
+  carPose(index: number, out: CarPose): boolean {
+    const car = this.sim.cars[index];
+    if (!car || !this.mesh || !this.tuning.visible) return false;
+    const visual = this.visuals.get(car.id);
+    const scale = car.instant ? 1 : easeOutBack(Math.min(1, car.age / POP_IN_S));
+    out.x = car.x;
+    out.y = ROAD_TOP_Y;
+    out.z = car.z;
+    out.yaw = visual ? visual.yaw : Math.atan2(car.hx, car.hz);
+    out.scale = Math.max(scale, 0);
+    out.front = (this.frontZ[car.model % CAR_MODELS] ?? 0.24) * out.scale;
+    return true;
+  }
 
   /** Finish pop-ins and snap headings (test states, reduced motion). */
   settle(): void {
@@ -204,6 +272,8 @@ export class LifeSystem {
       (this.material as THREE.MeshStandardMaterial).map?.dispose();
       this.material.dispose();
     }
+    this.glowMask?.dispose();
+    this.glowMask = null;
     this.mesh = null;
     this.material = null;
     this.visuals.clear();
