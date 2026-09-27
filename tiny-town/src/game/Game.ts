@@ -79,6 +79,8 @@ export class Game {
   private frame = 0;
   private pausedForScreenshot = false;
   private reducedMotion = false;
+  /** OS "reduce motion": the day cycle still runs, but mode switches snap instead of sweeping. */
+  private readonly prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
 
   constructor(private readonly canvas: HTMLCanvasElement, uiHost: HTMLElement) {
     const rand = () => this.rng();
@@ -245,7 +247,7 @@ export class Game {
 
   /** Change the day/night mode: persisted; the clock sweeps to it (snaps under reduced motion). */
   private setTimeMode(mode: TimeMode): void {
-    this.clock.setMode(mode, this.reducedMotion);
+    this.clock.setMode(mode, this.reducedMotion || this.prefersReducedMotion?.matches === true);
     this.saves.setSettings({ timeMode: mode });
     this.applyDaylight();
   }
@@ -318,6 +320,8 @@ export class Game {
       setReducedMotion: (enabled: boolean) => {
         this.reducedMotion = enabled;
         if (enabled) {
+          this.clock.finishSweep();
+          this.applyDaylight();
           this.fx.stabilize();
           this.townRenderer.settle();
           this.life.settle();

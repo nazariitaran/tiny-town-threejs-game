@@ -24,8 +24,8 @@ export interface ModelSpec {
   glow?: GlowKind;
 }
 
-/** What lights up at night (docs/plans/wp-16-day-night.md §3). */
-export type GlowKind = 'windows' | 'lamp' | 'traffic';
+/** What lights up at night (docs/plans/wp-16-day-night.md §3). 'church': its own 2-quadrant texture (WP-16b). */
+export type GlowKind = 'windows' | 'lamp' | 'traffic' | 'church';
 
 const M = (url: string, scale = 1, rotationOffset: Rotation = 0, extra: Partial<ModelSpec> = {}): ModelSpec => ({
   url,
@@ -93,7 +93,7 @@ export const MODELS = {
   // City Kit Commercial building-e: low, wide, green awning (1.64 × 0.89 × 1.01), 4 × 3 cells.
   supermarket: M('/assets/models/commercial/building-e.glb', 1, 2, { glow: 'windows' }),
   // Poly Pizza church (composed: 0.78 × 1.75 × 1.42), 2 × 3 cells. Tower and door face +Z natively.
-  church: M('/assets/models/composed/church.glb', 1, 0),
+  church: M('/assets/models/composed/church.glb', 1, 0, { glow: 'church' }),
   // Fantasy Town fountain modules + parasols (composed, native 4 × 2.9), 4 × 3 cells.
   'swimming-pool': M('/assets/models/composed/swimming-pool.glb', 0.5, 2),
   // Fantasy Town round fountain with its centre tier (native 2 × 2), 2 × 2 cells.

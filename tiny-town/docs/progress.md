@@ -16,6 +16,16 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
   - `npm run verify` is green: 18 files, 336 unit tests, build OK.
   - `npm run test:e2e`: 70 passed, 12 skipped, 4 failed in one full run (19 min). The failures were browser-launch/test timeouts, texture-load errors under load, and a music-time check. All 4 passed when re-run in isolation (twice).
 - **In flight: WP-16 day/night** on `v0.3-day-night`: the contract commit, then worktrees `wp-16a` / `wp-16b` / `wp-16c` (ports 5215 / 5216 / 5217).
+  - Contract: `7aefe67`, plus `af576a1` (`DayClock.dayLengthS`, `?debug&day=N`).
+  - Running since 2026-09-27, all branched at `af576a1`:
+
+    | WP | Branch | Worktree | Port |
+    | --- | --- | --- | --- |
+    | 16a | `wp-16a-daylight` | `../ThreeJsGames-wt/wp-16a` | 5215 |
+    | 16b | `wp-16b-night-lights` | `../ThreeJsGames-wt/wp-16b` | 5216 |
+    | 16c | `wp-16c-controls` | `../ThreeJsGames-wt/wp-16c` | 5217 |
+
+  - 16b does its final tuning after 16a merges. 16c works in two phases; phase 2 (baselines, night QA, 20 s capture) runs after 16a and 16b merge.
 - **Where current facts live:**
   - grid, rules, save, modules, diagnostics and budgets: `docs/design/03-architecture.md`;
   - asset scales and footprints: `docs/assets/models.md`;
