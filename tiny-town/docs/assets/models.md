@@ -119,10 +119,11 @@ Side-by-side evidence (same camera, v0.1 vs WP-12): `artifacts/wp-12/proportions
   - `plant` (unused): a slight −Z offset of 0.07 native.
   
   The three raw files with off-centre pivots (industrial `building-j`, and Fantasy Town `fence`/`fence-gate`) are shipped only as re-centred composed versions.
-- **Front: the Kenney city, suburban, industrial, commercial and car models face −Z**, and so do the composed bus stop, postbox, garage and pool. This includes doors and planters, garage doors, the bus-stop open side, the postbox slot, car bonnets, the lamp arm and the pool deck. The game's contract is "rotation 0 ⇒ front faces +z", so use **`rotationOffset: 2`** (180°) for these in `catalog/models.ts`. The exceptions (v0.3):
+- **Front: the Kenney city, suburban, industrial and commercial models face −Z**, and so do the composed bus stop, postbox, garage and pool. This includes doors and planters, garage doors, the bus-stop open side, the postbox slot, the lamp arm and the pool deck. The game's contract is "rotation 0 ⇒ front faces +z", so use **`rotationOffset: 2`** (180°) for these in `catalog/models.ts`. The exceptions (v0.3):
   - **traffic lights** (`traffic-light`, `traffic-light-hanging`): the lamps face **−X** natively, so `rotationOffset: 1`;
   - **corner shop** and **church**: the shop front and the church tower and door face **+Z** natively, so `rotationOffset: 0`;
   - **holiday bench**: the seat faces **+Z**, so `rotationOffset: 0` (the bus stop's bench is turned inside the composed model).
+  - **Car Kit cars** (not in the catalog; `LifeSystem`): the bonnet, raked windscreen and yellow headlights are at native **+Z** and the red tail lights at −Z. `LifeSystem.FRONT_ROTATION` is therefore 0. Until v0.3 (WP-16b) it was π and the cars drove backwards.
   
   Trees, the bush, flowers, rocks, the lantern, the fountain, the barbecue and the roundabout are symmetric, so their offset does not matter. The swing frame runs along X and is open on both sides (offset 0).
 - **Edge pieces** (`hedge`, `fence-tall`, `fence-low`, unused `fence-small-gate`) are 1 native unit long along X, base y = 0. The fences are centred on the origin and 0.075–0.08 thick; the hedge is 0.3 thick and sits off-centre (see Pivot). At the catalog scale of 0.5 they span one cell edge. Place the origin at the midpoint of the cell edge (positions below are in cell units; `config.edgeToWorld` converts them):

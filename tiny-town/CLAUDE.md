@@ -2,23 +2,28 @@
 
 A cosy browser city-builder sandbox (three.js + TypeScript + Vite). Start here. If you were given a work package (WP), read its section in `docs/PLAN.md` next.
 
-## Current state (v0.2 released, v0.3 in progress)
-- **v0.2 is merged on `main`**: v1 (checkpoint M3) plus WP-12, WP-13 and WP-14.
+## Current state (v0.2 released; v0.3 = WP-15 + WP-16, complete on `main`, not yet released)
+- **v0.2**: v1 (checkpoint M3) plus WP-12, WP-13 and WP-14.
   - WP-12: 48 × 48 grid of 0.5-unit cells, roads in 2 × 2 blocks, multi-cell houses, save v2 with migration.
   - WP-13: streamed background music.
   - WP-14: stats pill removed; the top bar is one row.
-- **v0.3 is in progress in the working tree** (uncommitted, not yet released): WP-15 "New building blocks & categories".
+- **v0.3, part 1: WP-15 "New building blocks & categories"**, merged on `main` (`ea54bb5`).
   - Five dock categories: Streets / Homes / Town / Nature / Garden (Shift+1–5); 33 placing tools plus Bulldoze.
   - New items, among them the roundabout (a block-aligned "road feature" object), traffic lights, more homes, town buildings and garden items.
   - Renamed ids (`oak`, `pine`, `birch`, `cottage`, `townhouse`, `family-home`, `fence-low`); tool icons are `public/assets/icons/tool-<id>.png`.
   - Save v3 with **no migrations**: older saves are rejected and the game starts a fresh town.
   - The first CC-BY assets (Poly Pizza church, swing and barbecue); see `docs/assets/CREDITS.md`.
+- **v0.3, part 2: WP-16 "Day/night cycle"**, merged on `main` (owner-approved; built on the integration branch `v0.3-day-night`).
+  - Auto / Day / Night: the time button, `T` and the menu row.
+  - Lit windows, lamp pools, traffic lights, headlights, church windows, fireflies, fewer cars at night.
+  - `night-town` test state and hook `setTimeOfDay`.
+  - Current facts: `docs/design/03-architecture.md` §Day/night. The plan (historical) is `docs/plans/wp-16-day-night.md`.
 - Status, decisions, open issues and the backlog are in `docs/progress.md`, the integrator's recovery point. Read it before planning anything.
 - Current facts (grid, rules, save format, modules, diagnostics, budgets) are in `docs/design/03-architecture.md`.
 - Some docs are historical snapshots, and each says so in a banner at the top:
   - `docs/checkpoints/*`;
   - the v0.1 sections of `docs/PLAN.md`;
-  - `docs/plans/wp-12-scale.md`, which is the approved plan and not the as-built record.
+  - `docs/plans/wp-12-scale.md` and `docs/plans/wp-16-day-night.md`, which are approved plans and not the as-built record.
 
 ## Read before coding
 1. `docs/progress.md` — current state, open issues, next actions.

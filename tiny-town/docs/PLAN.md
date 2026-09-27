@@ -121,6 +121,7 @@ Wave 0 (done) ── scaffold, assets, contracts, walking skeleton
    ├─ Wave 2 (parallel)
    │   WP-08 Feel & VFX (dust, sparkle, tree sway, hud juice)   needs WP-03 pools
    │   WP-10 Ambient life (stretch: cars on roads, dusk lamps)  needs WP-03, WP-04
+   │     (dusk lamps not built; superseded by WP-16 day/night, v0.3)
    │   WP-09b Visual baselines + bot playtest                   needs M1 look
    │   Fix-up tasks from the M1 review (assigned back to the owning WP)
    │
@@ -283,7 +284,7 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
 - **Depends on:** WP-03, WP-04. Needs a contract request for the integrator to instantiate it in `Game.ts`.
 - **Tasks:**
   - Up to 6 Kenney cars wander the connected road graph, choosing at intersections. Four are already shipped in `public/assets/models/cars/` (scale 0.14, facing −Z); more are in `assets-src/car-kit`, and any you add must be documented. They despawn when their road is removed and never drive through buildings.
-  - Optional "dusk" toggle: sky and light lerp, and lampposts gain an emissive glow with a small point-light budget (≤ 4 real lights; the rest emissive only).
+  - Optional "dusk" toggle: sky and light lerp, and lampposts gain an emissive glow with a small point-light budget (≤ 4 real lights; the rest emissive only). *Not built; superseded by WP-16 (full day/night cycle, no real point lights).*
 - **Acceptance:** a 10 s video of cars following a sample-town loop; bulldozing a road under a car removes it cleanly; draw calls +≤ 6.
 
 ### WP-11 — Release, performance & evidence (Wave 3)
@@ -348,6 +349,38 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
   - Stress town within budget on the inspector: ≤ 150 calls / 400k triangles desktop, ≤ 120 / 250k mobile. Measured on the dev server: 32 / 306.1k and 32 / 239.1k.
   - Cars circle a roundabout counter-clockwise and join only at its arms (unit tests in `life.test.ts`).
   - Every new asset recorded in `models.md` / `models.json` and `CREDITS.md`; CC-BY lines visible in the in-game Credits panel.
+
+### WP-16 — Day/night cycle (v0.3)
+- **Status: done** (2026-09-27). 16a, 16b and 16c merged into `v0.3-day-night`; the owner approved it and it is merged into `main`. As built: `docs/progress.md` "WP-16 as built".
+- **Contract:** `docs/plans/wp-16-day-night.md`. It holds the owner decisions, the measured asset facts, the design, the budgets and the acceptance checks. This section is only a summary.
+- **Owner decisions:**
+  - 10-minute day with 25% night, cosy "blue hour" darkness.
+  - Auto / Day / Night toggle, saved as a setting. The clock itself isn't saved; Auto starts in the morning.
+  - In scope: lit windows, glowing lamps with light pools, traffic-light lenses, car head/tail lights, fewer cars at night.
+  - Stretch: shop/church windows, fireflies, crickets.
+- **Approach:**
+  - A pure `DayClock` blends keyframes (afternoon = today's look, exactly); `Environment`/`Sky` apply them.
+  - Lights are **emissive masks on existing materials**: an 8 × 4 swatch mask as `emissiveMap`, plus a per-house stagger shader patch, so windows and lamps add 0 draw calls.
+  - Lamp pools, halos and headlight beams are instanced additive quads: +3 draw calls, only at night. No real `PointLight`s.
+- **Integrator first:** the contract commit on `v0.3-day-night`. It compiles and keeps today's look through stubs:
+  - `events.ts`: `intent:set-time-mode`, `intent:cycle-time-mode`, `daytime:changed`;
+  - `models.ts`: `ModelSpec.glow`;
+  - `dayCycle.ts`: the types, plus an afternoon-only stub;
+  - `vite-env.d.ts`: diagnostics `daytime` and hook `setTimeOfDay`;
+  - `Game.ts`: wiring and the `night-town` test state;
+  - the `timeMode` setting and the `T` key;
+  - stubs for `Environment.applyDaylight`, `NightLights` and `LifeSystem.setNight`.
+- **Then three parallel WPs.** Each runs in a worktree branched from `v0.3-day-night` and merges back into it in the order 16a → 16b → 16c:
+  - **WP-16a Daylight** (`wp-16a-daylight`, port 5215): `src/world/{dayCycle.ts,dayCycle.test.ts,Environment.ts,Sky.ts,GridOverlay.ts}`.
+  - **WP-16b Night lights** (`wp-16b-night-lights`, port 5216): `src/render/{nightGlow.ts,NightLights.ts,ModelLibrary.ts,TownRenderer.ts}` plus their tests, `src/life/**`. It also fixes the car front (the cars drive backwards).
+  - **WP-16c Controls & QA** (`wp-16c-controls`, port 5217): `src/ui/**`, `src/styles.css`, `tests/**`. New and regenerated baselines come last, after 16a and 16b merge.
+- **Acceptance (summary):**
+  - `npm run verify` and `npm run test:e2e` green.
+  - **The 3D look in the 6 existing baselines is unchanged.** Every existing test state is pinned to afternoon. Only the time button in the top bar may change `sample-town` / `asset-gallery`, proven by a masked diff.
+  - New `night-town` baselines for desktop and mobile.
+  - Night inspector contrast ≥ 25; stress town within budget at night.
+  - Real-input mode toggle that persists across reload.
+  - A 20 s day → night → day capture in `artifacts/wp-16/`.
 
 ## 5. Checkpoints (integrator runs these on merged main)
 

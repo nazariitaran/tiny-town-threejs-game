@@ -3,7 +3,7 @@
 Only the integrator (WP-01) edits this file. Workers report in their hand-off. This is the recovery point: after any interruption, re-read it together with `docs/HANDOVER.md`.
 
 ## Current state (2026-09-27)
-- **Version: v0.2**, merged on `main`; the v0.2 integration commit is `30fe85b`. **v0.3 (WP-15) is in progress in the working tree**, not yet committed or released.
+- **Version: v0.3 complete on `main`** (not yet released). v0.3 = WP-15 (new building blocks, `ea54bb5`) + WP-16 (day/night, integration branch `v0.3-day-night`, owner-approved and merged into `main` 2026-09-27). v0.2's integration commit is `30fe85b`.
 - **v0.1** is the M3 "v1" build at `3f9c6cf`. v0.2 adds three owner requests on top:
   - **WP-12**: 48 × 48 grid of 0.5-unit cells, roads as 2 × 2 blocks, multi-cell houses, save v2 with a v1 → v2 migration.
   - **WP-13**: streamed background music with settings.
@@ -12,9 +12,12 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
   - `npm run verify` is green: 19 test files, 294 unit tests, build OK.
   - `npm run test:e2e`: 82 tests, of which 70 pass and 12 are skipped by design (desktop-only or mobile-only).
   - The 6 visual baselines (darwin) were regenerated after WP-12 (`30fe85b`).
-- **In flight: v0.3, WP-15 "New building blocks & categories"**, implemented by the integrator in the `main` working tree (uncommitted, not yet released). See "WP-15 as built" below.
-  - Gates on the working tree (2026-09-27): `npm run typecheck` green; unit tests 18 files, 336 passing. `npm run test:e2e`, the visual baselines and the production build: to be measured.
-  - No worktrees or WP branches.
+- **WP-15 gates on `main` (`ea54bb5`, 2026-09-27 WP-16 preflight):**
+  - `npm run verify` is green: 18 files, 336 unit tests, build OK.
+  - `npm run test:e2e`: 70 passed, 12 skipped, 4 failed in one full run (19 min). The failures were browser-launch/test timeouts, texture-load errors under load, and a music-time check. All 4 passed when re-run in isolation (twice).
+- **WP-16 day/night is complete:** the owner approved it on 2026-09-27 and `v0.3-day-night` is merged into `main`. See "WP-16 as built" below.
+  - Gates on the branch after all merges (2026-09-27): `npm run verify` green (21 files, 387 unit tests, build OK); `npm run test:e2e` green: 114 tests, 100 passed, 14 skipped by design, 0 failed (6.1 min).
+  - Worktrees `wp-16a/b/c` removed after their evidence was copied to `artifacts/wp-16a/`, `wp-16b/`, `wp-16c/`.
 - **Where current facts live:**
   - grid, rules, save, modules, diagnostics and budgets: `docs/design/03-architecture.md`;
   - asset scales and footprints: `docs/assets/models.md`;
@@ -43,7 +46,8 @@ The SHA is the merge commit on `main`; the WP's own commit is in brackets. Every
 | WP-14 | Remove stats pill | ✅ | `d0aa182` (`8d91b1b`) | `StatsHud` deleted; one-row top bar (48 px row desktop / 52 px phones); hint 10 px under it |
 | WP-13 | Background music | ✅ | `1fab73f` (`e76d1a8`) | `src/audio/MusicPlayer.ts`; streamed after Start; music on/off + volume; −3 dB menu duck |
 | WP-12 | Scale & grid density | ✅ | `fbbef2a` (plan `2f6446d`, docs `cf4123b`) | see "WP-12 as built" below |
-| WP-15 | New building blocks & categories (v0.3) | 🔄 working tree | — (uncommitted) | see "WP-15 as built" below |
+| WP-15 | New building blocks & categories (v0.3) | ✅ | `ea54bb5` (`27add32`) | see "WP-15 as built" below |
+| WP-16 | Day/night cycle (v0.3) | ✅ merged to `main` (owner-approved) | contract `7aefe67`, `af576a1`; 16a `42f0590` (`a4965c9`); 16b `a849f35` (`d6f97e3`); 16c `1a0c360` (`eb2c2d8`) | see "WP-16 as built" below |
 
 **Integrator (WP-01) commits worth knowing:**
 
@@ -87,7 +91,29 @@ The plan was approved and implemented. The as-built facts are in `03-architectur
 **Timing**
 - WP-12 was merged after WP-13/14 (`9a8379f` merged main into the WP-12 branch).
 
-### WP-15 as built (v0.3, working tree)
+### WP-16 as built (v0.3, branch `v0.3-day-night`; vs `docs/plans/wp-16-day-night.md`)
+Current facts: `03-architecture.md` §Day/night, `02-interaction-and-ui.md` (time button, `T`, grid at night, brand badge ≤ 440 px), `models.md` (cars face +Z).
+- **Merges** (integration branch): contract `7aefe67` + `af576a1` → 16a `42f0590` → church glow `9348eaf` → reduced-motion snap `2224422` → 16b a849f35 → 16c 1a0c360.
+- **Deviations from the plan:**
+  - **16a night keyframe:** moon `#8aa2ff` ×0.95, hemisphere `#3c54b4`/`#1c2444` ×0.85, fog `#22325a`, env **0**; plus night fog near/far blending to 10/170. The plan's values read teal and too flat.
+  - **16a other keyframes:** midday key ×3.1; extra keyframes at pre-dawn, sunrise, sunset and blue hour.
+  - **Traffic lenses:** lit with `night` only (no day glow, to protect the baselines). All three lenses glow at once; there is no red → green → amber cycle.
+  - **Church windows (16b stretch):** a 2-quadrant mask with the door column excluded; they light with `night`, not the house stagger. **Fireflies** are in (+1 draw call, over open meadow). **Corner-shop windows** are skipped (no reliable glass cell). **Crickets** are deferred (no CC0 asset).
+  - **Cars drove backwards before v0.3:** `FRONT_ROTATION` π → 0 (16b, confirmed in the browser). The fix regenerated the sample-town / asset-gallery baselines, with changes only on the cars.
+  - **Top bar:** the brand turns into the icon badge at ≤ 440 px (was 380) to fit five 44 px actions.
+  - **Masked diff:** the 4 top-bar baselines were regenerated. Outside the bar, 0 px changed within 12 px padding, or with a threshold of 10. `title` is unchanged; `night-town` baselines are new.
+  - **Reduced motion:** mode switches also snap under OS `prefers-reduced-motion` (integrator), and turning reduced motion on finishes a running sweep.
+- **Measured (dev-server inspector, 2026-09-27):**
+  - `night-town`: 60 / 59 calls, 176.8k / 111.8k triangles, lamps 4, NightLights +4 / +3 calls (desktop / mobile).
+  - Stress town at night: 35 / 34 calls, 299.6k / 232.5k triangles, 40 lamps. By day it is unchanged at 32 / 32.
+  - Contrast: full-frame luminance 199 / 227; 3D-only p95−p5 24.7 / 25.4 at night against 66.8 / 73.8 by day. The plan's "≈ 48" reference came from a different measure.
+  - Textures by day +4 (glow masks): the stress town reports 14, the sample town 28, against a budget of 30.
+- **Evidence** (local, `artifacts/`):
+  - `wp-16a/`: t-sweep stills and the title at dusk/night;
+  - `wp-16b/`: car-front crops, the night close-ups and `final/`;
+  - `wp-16c/`: `masked-diff/`, `night-checks/` (ghost at night), and `day-cycle/` (a 20 s Auto-day video at `?debug&day=20`, `day-cycle-auto-20s.mp4`, a contact sheet and a timeline).
+
+### WP-15 as built (v0.3)
 Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02-interaction-and-ui.md`, `models.md` and `CREDITS.md`.
 
 **Catalog**
@@ -151,6 +177,12 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
 - 2026-09-27 (v0.3) — **Roundabouts are road-feature objects**, not a road-tile piece. Auto-tiling only picks straights, corners, tees, crossroads and ends, and a roundabout spans 3 × 3 blocks. So it is an object with `ObjectDef.roadFeature`: block-aligned anchor, placing paints its footprint to road, bulldozing turns it back to field, and its road can't be repainted while it stands. The renderer draws its model instead of the tiles; roads join it only at its four arms; cars use the arms and the centre (ring path), not the corners.
 - 2026-09-27 (v0.3) — **CC-BY models are allowed with credits**, and the first ones shipped: the Poly Pizza church, swing and barbecue (CC-BY 3.0). Each has an attribution line in `CREDITS.md`, `composed/License.txt` and the in-game Credits panel. Poly Pizza models are normalised to the Kenney look (game-unit scale, metalness 0, roughness 1).
 - 2026-09-27 (v0.3) — **Save v3 without migration.** The owner asked for no backward compatibility, so the v1 → v2 migration, its test and fixtures were deleted. A v1/v2 save is rejected and the game starts a fresh town. The `SAVE_MIGRATIONS` hook stays for later.
+- 2026-09-27 (v0.3 plan) — **Day/night cycle (WP-16)**, owner-approved. It ships in v0.3 with WP-15, per the owner's version naming (an earlier draft said v0.4):
+  - A 10-minute day with 25% night; cosy "blue hour" darkness, not black.
+  - Auto / Day / Night toggle, saved as a setting. The time of day is not saved; Auto starts in the morning.
+  - Lights are emissive masks on the Kenney swatch atlases (window glass is one swatch in all 12 suburban houses and the supermarket), plus instanced additive lamp pools. No real point lights.
+  - Every existing test state is pinned to afternoon, so the current baselines must not change.
+  - Details: `docs/plans/wp-16-day-night.md`.
 - 2026-09-27 (v0.3) — **Crossroad tile markings done**: the crossroad uses `road-crossroad-path` (zebra crossings), checked against the mobile triangle budget. Removed from the backlog.
 
 ## Open issues
@@ -183,7 +215,8 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
 - The `events.ts`, `UiRoot.ts` and `types.ts` comments listed here before were fixed in `0e760b5`.
 
 **v0.3 before release**
-- Run `npm run test:e2e`, regenerate the visual baselines (the dock, sample town and asset gallery all changed) and run `npm run verify`.
+- Re-measure `docs/release.md` §Budgets on the production preview (v0.2 and v0.3 have only dev-server numbers).
+- `package.json` `version` → 0.3.0 at release.
 - `models.md`'s screenshots are from sourcing time (44 models); the `asset-gallery` state is the current visual record.
 
 ## Backlog (post-v1 from the M3 review, WP-11, and v0.2)
@@ -195,14 +228,19 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
   - lazy `lil-gui` import (−30 kB);
   - reuse the diagnostics object instead of rebuilding it every frame;
   - `compileAsync` warm-up for the first-placement hitch.
-- Dusk mode (the WP-10 stretch goal).
+- ~~Dusk mode (the WP-10 stretch goal).~~ Superseded by the WP-16 day/night cycle (v0.3).
+- Day/night follow-ups:
+  - night crickets ambience (needs an owner-supplied or CC0 sound);
+  - traffic-light colour cycling;
+  - corner-shop windows (hand-made mask);
+  - lamplight on walls and cars (a uniform array of lamp positions);
+  - tune the sunset/sunrise frames (t ≈ 0.70 / 0.05);
+  - maybe a lighter night grid boost (0.3–0.4 instead of 0.6).
 - A human ear pass on SFX and music.
 - Linux baselines, if CI is added.
 - Real-device testing.
 - Optional: expand the plot. `PLOT_WIDTH/DEPTH` keep this cheap.
 
 ## Next actions
-WP-15 (v0.3) is in the working tree:
-1. Finish the gates listed under "v0.3 before release" in Open issues, then commit v0.3 and fill in the WP-15 row above.
-2. Before any release, re-measure `docs/release.md` §Budgets on the production preview. Use a fresh run id, and label the results with the date and version.
-3. For the next iteration after that, open a new WP section in `docs/PLAN.md`. Take ports from 5215 up and follow the `docs/HANDOVER.md` runbook.
+1. Before any release (v0.3), re-measure `docs/release.md` §Budgets on the production preview. Use a fresh run id, and label the results with the date and version.
+2. For the next iteration, open a new WP section in `docs/PLAN.md`. Take ports from 5218 up and follow the `docs/HANDOVER.md` runbook with an integration branch.

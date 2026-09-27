@@ -309,7 +309,10 @@ export class TownRenderer {
     for (const pool of this.pools.values()) pool.dispose();
     this.pools.clear();
     for (const geometry of this.ownedGeometries) geometry.dispose();
-    for (const material of this.ownedMaterials) material.dispose();
+    for (const material of this.ownedMaterials) {
+      this.library.glow.unregister(material);
+      material.dispose();
+    }
     for (const texture of this.ownedTextures) texture.dispose();
     this.groundByCell.clear();
     this.objectsById.clear();
@@ -632,6 +635,9 @@ export class TownRenderer {
             material.name = `${part.material.name}:style:${id}`;
             material.needsUpdate = true;
             this.ownedMaterials.push(material);
+            // WP-16: clone() keeps a glow clone's emissiveMap (the lamppost's lamp face; its UVs
+            // remain although the map is dropped), so the style clone joins the night intensity updates.
+            this.library.glow.register(material);
             return { geometry: part.geometry, material };
           })
         : template.parts;

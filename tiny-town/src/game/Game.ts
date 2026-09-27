@@ -17,18 +17,21 @@ import { CameraController } from '../interaction/CameraController';
 import { GridPicker } from '../interaction/GridPicker';
 import { ToolController } from '../interaction/ToolController';
 import { ModelLibrary } from '../render/ModelLibrary';
+import { NightLights } from '../render/NightLights';
 import { TownRenderer } from '../render/TownRenderer';
 import { TownEditor } from '../town/TownEditor';
 import { TownState } from '../town/TownState';
 import { buildAssetGallery, buildSampleTown, buildStressTown } from '../town/sampleTown';
 import { UiRoot } from '../ui/UiRoot';
 import { createSeededRandom } from '../utils/random';
+import { createDaySample, DayClock, sampleDay, T_AFTERNOON, T_NIGHT, TIME_MODES, type DayPhase, type TimeMode } from '../world/dayCycle';
 import { Environment } from '../world/Environment';
 import { MAX_DPR, PLOT_DEPTH, PLOT_WIDTH, type QualityTier } from './config';
 import { createGameBus, type GamePhase } from './events';
 
 /** Named states for __THREE_GAME_TEST_HOOKS__.setState (canvas inspector, visual tests, bots). */
-export const TEST_STATES = ['title', 'empty-build', 'sample-town', 'active-play', 'asset-gallery', 'stress-town'] as const;
+// Every state pins the clock to afternoon (the v0.2 look) except 'night-town' (sample town at T_NIGHT).
+export const TEST_STATES = ['title', 'empty-build', 'sample-town', 'active-play', 'asset-gallery', 'stress-town', 'night-town'] as const;
 type TestState = (typeof TEST_STATES)[number];
 
 export class Game {
@@ -62,6 +65,11 @@ export class Game {
   private readonly townRenderer: TownRenderer;
   private readonly fx: PlacementFx;
   private readonly life: LifeSystem;
+  private readonly nightLights: NightLights;
+  /** Day/night (WP-16): the clock, the sample it writes every frame, the last announced mode/phase. */
+  private readonly clock: DayClock;
+  private readonly daySample = createDaySample();
+  private announcedDay: { mode: TimeMode; phase: DayPhase } | null = null;
   private readonly audio: AudioManager;
   private readonly ui: UiRoot;
   private readonly debug: DebugTools;
@@ -71,6 +79,8 @@ export class Game {
   private frame = 0;
   private pausedForScreenshot = false;
   private reducedMotion = false;
+  /** OS "reduce motion": the day cycle still runs, but mode switches snap instead of sweeping. */
+  private readonly prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
 
   constructor(private readonly canvas: HTMLCanvasElement, uiHost: HTMLElement) {
     const rand = () => this.rng();
@@ -93,6 +103,9 @@ export class Game {
     this.fx = new PlacementFx(this.scene, this.bus, fxRand);
     // Ambient cars use the cosmetic stream so they never shift gameplay variants.
     this.life = new LifeSystem(this.scene, this.town, this.bus, fxRand, this.debug);
+    this.nightLights = new NightLights(this.scene, this.library, this.town, this.bus, this.life, this.quality, this.debug);
+    this.clock = new DayClock(this.saves.getSettings().timeMode);
+    this.installClockDebug();
     this.audio = new AudioManager(this.bus, fxRand, this.saves);
     this.ui = new UiRoot(uiHost, this.bus, () => this.saves.has());
 
@@ -108,6 +121,12 @@ export class Game {
       else this.editor.reset(); // 'new': cause 'reset' also clears the stored save
       this.setPhase('building');
       if (save?.camera) this.cameraController.setPose(save.camera);
+      this.clock.startDay(); // Auto starts in the morning; the time of day is never saved
+      this.applyDaylight();
+    });
+    this.bus.on('intent:set-time-mode', ({ mode }) => this.setTimeMode(mode));
+    this.bus.on('intent:cycle-time-mode', () => {
+      this.setTimeMode(TIME_MODES[(TIME_MODES.indexOf(this.clock.mode) + 1) % TIME_MODES.length]);
     });
     this.bus.on('intent:new-town', () => this.editor.reset());
     this.bus.on('intent:open-menu', () => {
@@ -127,6 +146,7 @@ export class Game {
     });
 
     if (!this.gridPreferred) this.bus.emit('intent:toggle-grid', { visible: false }); // sync the UI switch
+    this.announceDaytime(); // sync the UI time button with the stored mode
     resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr);
     this.installTestHooks();
     this.ready = this.load();
@@ -145,6 +165,7 @@ export class Game {
     this.cameraController.dispose();
     this.townRenderer.dispose();
     this.fx.dispose();
+    this.nightLights.dispose();
     this.life.dispose();
     this.audio.dispose();
     this.ui.dispose();
@@ -169,6 +190,8 @@ export class Game {
       ]);
       this.townRenderer.rebuildAll();
       this.environment.populate(this.library);
+      this.nightLights.populate();
+      this.applyDaylight();
       this.bus.emit('town:stats', this.town.stats());
       this.setPhase('title');
     } catch (error) {
@@ -201,6 +224,9 @@ export class Game {
       this.cameraController.update(delta);
       this.townRenderer.update(animDelta);
       this.life.update(animDelta);
+      // The clock runs only while building (frozen on the title, in the menu, under reduced motion).
+      if (this.phase === 'building') this.clock.advance(animDelta);
+      this.applyDaylight();
       this.environment.update(animDelta, animElapsed);
       this.fx.update(animDelta);
     }
@@ -209,6 +235,45 @@ export class Game {
 
   private render(): void {
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /** `?debug&day=N`: an N-second Auto day (evidence captures); lil-gui `Clock` folder. Debug only. */
+  private installClockDebug(): void {
+    if (!this.debug.enabled) return;
+    const day = Number(new URLSearchParams(window.location.search).get('day'));
+    if (Number.isFinite(day) && day > 0) this.clock.dayLengthS = day;
+    this.debug.folder('Clock')?.add(this.clock, 'dayLengthS', 10, 1200, 1).name('day length (s)');
+  }
+
+  /** Change the day/night mode: persisted; the clock sweeps to it (snaps under reduced motion). */
+  private setTimeMode(mode: TimeMode): void {
+    this.clock.setMode(mode, this.reducedMotion || this.prefersReducedMotion?.matches === true);
+    this.saves.setSettings({ timeMode: mode });
+    this.applyDaylight();
+  }
+
+  /**
+   * Sample the clock and drive every day/night consumer. The title screen (and loading) always
+   * shows the afternoon unless a test pinned the clock; the chosen mode takes effect on Start.
+   * Called every frame and at once from test hooks (they must work while paused for screenshots).
+   */
+  private applyDaylight(): void {
+    const live = this.clock.isPinned || this.phase === 'building' || this.phase === 'menu';
+    if (live) this.clock.sample(this.daySample);
+    else sampleDay(T_AFTERNOON, this.daySample);
+    this.environment.applyDaylight(this.daySample);
+    this.nightLights.update(this.daySample);
+    this.life.setNight(this.daySample.night);
+    this.announceDaytime();
+  }
+
+  /** daytime:changed when the mode or the phase changes (never per frame). */
+  private announceDaytime(): void {
+    const mode = this.clock.mode;
+    const phase = this.daySample.phase;
+    if (this.announcedDay?.mode === mode && this.announcedDay.phase === phase) return;
+    this.announcedDay = { mode, phase };
+    this.bus.emit('daytime:changed', { mode, phase });
   }
 
   private async applyTestState(name: TestState): Promise<void> {
@@ -223,8 +288,12 @@ export class Game {
     if (name === 'sample-town' || name === 'active-play') buildSampleTown(this.editor);
     if (name === 'asset-gallery') buildAssetGallery(this.editor);
     if (name === 'stress-town') buildStressTown(this.editor);
+    if (name === 'night-town') buildSampleTown(this.editor);
     this.setPhase(name === 'title' ? 'title' : 'building');
     this.cameraController.setMode(name === 'title' ? 'title' : 'build');
+    // Pinned until setTimeOfDay(null) or a reload: existing states keep today's afternoon look.
+    this.clock.pin(name === 'night-town' ? T_NIGHT : T_AFTERNOON);
+    this.applyDaylight();
     this.townRenderer.settle();
     this.life.settle();
   }
@@ -251,6 +320,8 @@ export class Game {
       setReducedMotion: (enabled: boolean) => {
         this.reducedMotion = enabled;
         if (enabled) {
+          this.clock.finishSweep();
+          this.applyDaylight();
           this.fx.stabilize();
           this.townRenderer.settle();
           this.life.settle();
@@ -262,6 +333,13 @@ export class Game {
       cellToClient: (x: number, z: number) => this.picker.cellToClient({ x, z }),
       setCameraPose: (pose) => {
         this.cameraController.setPose(pose);
+        this.render();
+        this.publishDiagnostics();
+      },
+      setTimeOfDay: (t: number | null) => {
+        if (t !== null && !Number.isFinite(t)) throw new Error(`setTimeOfDay: not a number: ${t}`);
+        this.clock.pin(t);
+        this.applyDaylight();
         this.render();
         this.publishDiagnostics();
       },
@@ -292,6 +370,15 @@ export class Game {
       save: { available: this.saves.available, pending: this.saves.pending, lastError: this.saves.lastError },
       fx: this.fx.getDiagnostics(),
       life: this.life.getDiagnostics(),
+      daytime: {
+        mode: this.clock.mode,
+        t: this.daySample.t,
+        phase: this.daySample.phase,
+        pinned: this.clock.isPinned,
+        night: this.daySample.night,
+        lightsOn: this.daySample.lightsOn,
+        ...this.nightLights.getDiagnostics(),
+      },
       renderer: {
         calls: info.render.calls,
         triangles: info.render.triangles,

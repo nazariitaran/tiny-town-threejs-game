@@ -11,6 +11,7 @@
 import type { SfxEvent } from '../audio/sfx';
 import type { ToolId } from '../catalog/tools';
 import type { Cell, Edge, Rotation, TownChange, TownStats } from '../town/types';
+import type { DayPhase, TimeMode } from '../world/dayCycle';
 
 export type GamePhase = 'loading' | 'title' | 'building' | 'menu' | 'error';
 
@@ -33,6 +34,10 @@ export type GameEvents = {
   /** UI → audio: music volume 0..1 (persisted). */
   'intent:set-music-volume': { volume: number };
   'intent:reset-camera': void;
+  /** UI / T key → game: day/night mode (WP-16; persisted as settings.timeMode). */
+  'intent:set-time-mode': { mode: TimeMode };
+  /** HUD time button / T key → game: next mode in TIME_MODES order (auto → day → night → auto). */
+  'intent:cycle-time-mode': void;
 
   // ---- facts (game → everyone) ----------------------------------------
   'phase:changed': { phase: GamePhase; previous: GamePhase };
@@ -62,6 +67,8 @@ export type GameEvents = {
   'audio:changed': { muted: boolean; volume: number };
   /** audio → UI: current music settings. */
   'music:changed': { enabled: boolean; volume: number };
+  /** Day/night (WP-16): emitted when the mode or the phase changes (and once at boot), never per frame. */
+  'daytime:changed': { mode: TimeMode; phase: DayPhase };
 
   /** UI chrome feedback for audio (hover/click on DOM buttons). */
   'ui:sfx': { event: SfxEvent };

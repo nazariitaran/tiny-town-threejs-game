@@ -8,7 +8,7 @@ import { applyState, attachJson, byId, diagnostics, gotoTitle, prepareDeterminis
 // Mirrors Game.TEST_STATES. Type-only reference (no runtime import of Game.ts into Node);
 // the two checks below make `tsc` fail if a state is added to or removed from Game.ts.
 type GameTestState = (typeof import('../src/game/Game'))['TEST_STATES'][number];
-const TEST_STATES = ['title', 'empty-build', 'sample-town', 'active-play', 'asset-gallery', 'stress-town'] as const satisfies readonly GameTestState[];
+const TEST_STATES = ['title', 'empty-build', 'sample-town', 'active-play', 'asset-gallery', 'stress-town', 'night-town'] as const satisfies readonly GameTestState[];
 type MissingStates = Exclude<GameTestState, (typeof TEST_STATES)[number]>;
 export const allTestStatesCovered: [MissingStates] extends [never] ? true : false = true;
 

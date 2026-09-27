@@ -366,6 +366,16 @@
   padding: 0 4px;
 }
 
+/* WP-16c: time-of-day button (Auto / Day / Night). The glyph shows the mode; a quiet tint
+   tells Day and Night apart at a glance (Auto keeps the ink colour like its neighbours). */
+.ui-time-btn[data-mode='day'] {
+  color: #b0701a;
+}
+
+.ui-time-btn[data-mode='night'] {
+  color: #45559c;
+}
+
 /* ------------------------------------------------------------------ dock */
 
 .ui-dock-wrap {
@@ -804,6 +814,75 @@
   cursor: pointer;
 }
 
+/* WP-16c: "Time of day" row: label left, a 3-way segmented control (native radios) right. */
+.ui-seg-field {
+  justify-content: space-between;
+  gap: 8px;
+  padding-right: 4px;
+}
+
+.ui-seg-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.ui-seg {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(60, 40, 20, 0.07);
+}
+
+.ui-seg-opt {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 52px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-weight: 800;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition:
+    background-color var(--fast) var(--ease),
+    color var(--fast) var(--ease),
+    box-shadow var(--fast) var(--ease);
+}
+
+/* The radio itself covers its segment (invisible): it is the click/tap target and keeps native
+   arrow-key behaviour and the radiogroup semantics. */
+.ui-seg-opt input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.ui-seg-opt:hover {
+  color: var(--ink);
+}
+
+.ui-seg-opt:has(input:checked) {
+  background: var(--card);
+  color: var(--green-dark);
+  box-shadow: 0 1px 0 var(--line-strong), 0 0 0 1px var(--line);
+}
+
+.ui-seg-opt:has(input:focus-visible) {
+  outline: 3px solid var(--blue);
+  outline-offset: 1px;
+}
+
 /* WP-13: "Music volume" sits under the Music switch, its label aligned with the row labels above. */
 .ui-field-sub {
   margin-top: -6px;
@@ -889,6 +968,13 @@
   .ui-icon-btn {
     width: 44px;
     height: 44px;
+  }
+
+  /* 44 px segments for fingers: the row grows to 50 px. */
+  .ui-seg-opt {
+    height: 44px;
+    min-width: 48px;
+    padding: 0 8px;
   }
 
   .ui-dock-wrap {
@@ -986,6 +1072,21 @@
   }
 }
 
+/* WP-16c: five 44 px actions (undo, redo, time, mute, menu) need ~245 px, so on phones up to
+   440 px wide the brand is the round icon-only badge (it was ≤ 380 px before the time button).
+   Keeps the top bar one row at 390 and 412 (Pixel 7) px. */
+@media (max-width: 440px) {
+  .ui-brand .ui-mark-text {
+    display: none;
+  }
+
+  .ui-brand {
+    width: var(--topbar-h);
+    justify-content: center;
+    padding: 0;
+  }
+}
+
 @media (max-width: 380px) {
   .ui-card {
     width: 64px;
@@ -995,17 +1096,6 @@
 
   .ui-card-label {
     display: none;
-  }
-
-  .ui-brand .ui-mark-text {
-    display: none;
-  }
-
-  /* Icon-only brand: a round badge matching the action pill's height. */
-  .ui-brand {
-    width: var(--topbar-h);
-    justify-content: center;
-    padding: 0;
   }
 
   /* Five tabs + two modes: smaller labels so "Bulldoze" fits its 44 px target. */

@@ -28,7 +28,7 @@ Clause → proof in code (acceptance for the vertical slice):
 - **1–5 min change:** a street appears (roads auto-connect), houses line it, fences and lampposts dress it, trees soften it, cars start driving on it.
 - **Better player does:** plans street grids, uses drag-painting, rotates buildings to face roads, layers pavement/fences/props for charm.
 - **Next decision communicated by:** ghost preview, valid/invalid tint, contextual hint line, road auto-tiling preview.
-- **Light "reward" hooks:** tiny ambient life that responds to what you built — cars drive on connected roads (WP-10, built), trees and meadows sway (WP-08, built), lamps glow at dusk (WP-10 stretch, not built).
+- **Light "reward" hooks:** tiny ambient life that responds to what you built — cars drive on connected roads (WP-10, built), trees and meadows sway (WP-08, built), lamps glow at dusk (WP-10 stretch, not built; now part of the WP-16 day/night cycle, v0.3).
 
 ## Target feeling
 Calm, tactile, cute. Every click lands with a soft "thock" and a springy pop. Nothing ever punishes the player.
@@ -55,7 +55,7 @@ Grid: 48 × 48 cells of 0.5 world units (v0.2, WP-12); roads paint in aligned 2 
 | Modes | Bulldoze; Esc / clicking the active item again = no tool (pan) | — | click-drag |
 
 ## Non-goals for v1
-Economy/money · traffic simulation · citizens walking · terrain height editing · multiplayer · cloud saves · day/night cycle (a single "golden afternoon" lighting; dusk toggle is a stretch goal) · custom asset import. (Background music was a v1 non-goal; v0.2 added one streamed, owner-supplied track — WP-13.)
+Economy/money · traffic simulation · citizens walking · terrain height editing · multiplayer · cloud saves · day/night cycle (a single "golden afternoon" lighting; dusk toggle is a stretch goal; a full cycle ships in v0.3 — WP-16, `docs/plans/wp-16-day-night.md`) · custom asset import. (Background music was a v1 non-goal; v0.2 added one streamed, owner-supplied track — WP-13.)
 
 ## Art direction (one paragraph)
 Bright, saturated low-poly diorama using Kenney CC0 kits (one consistent palette, flat-shaded with a shared colour atlas); since v0.3 a few Poly Pizza models (church, swing, barbecue, corner shop) fill gaps, normalised to the same flat materials. Warm afternoon key light with soft shadows, cool sky fill, a gradient sky dome with a sun halo, subtle fog for depth at the field edge. The buildable plot is a crisp grass field; beyond it the world fades into softer rolling green with scattered distant trees so the plot reads as a diorama, not a floating tile. UI is cream/white rounded panels with the models' own preview renders as icons — cosy, not a web dashboard.

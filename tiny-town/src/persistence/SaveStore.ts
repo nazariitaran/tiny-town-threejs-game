@@ -16,7 +16,7 @@
  *     if (save) editor.load(save); else editor.reset();    // load() never autosaves (cause 'load')
  *   });
  *   addEventListener('pagehide', () => saves.flush());     // don't lose the last second
- *   saves.getSettings() / saves.setSettings({ muted, volume, grid, music, musicVolume })
+ *   saves.getSettings() / saves.setSettings({ muted, volume, grid, music, musicVolume, timeMode })
  *   // Test states (setState): saves.autosaveEnabled = false, so demo towns never overwrite a player's save.
  *
  * Autosave: 1 s (debounceMs) after the LAST 'town:changed' whose cause is 'edit' | 'undo' | 'redo',
@@ -28,6 +28,7 @@ import { SAVE_STORAGE_KEY, SETTINGS_STORAGE_KEY } from '../game/config';
 import type { GameBus } from '../game/events';
 import { parseSave, type ParseOptions } from '../town/serialize';
 import type { SavedTown } from '../town/types';
+import { TIME_MODES, type TimeMode } from '../world/dayCycle';
 
 /** The subset of the Web Storage API SaveStore needs (window.localStorage satisfies it). */
 export interface StorageLike {
@@ -46,9 +47,13 @@ export interface GameSettings {
   music: boolean;
   /** Music volume 0..1, applied under the master volume (WP-13). */
   musicVolume: number;
+  /** Day/night mode (WP-16). The time of day itself is never saved. */
+  timeMode: TimeMode;
 }
 
-export const DEFAULT_SETTINGS: Readonly<GameSettings> = { muted: false, volume: 0.8, grid: true, music: true, musicVolume: 0.5 };
+export const DEFAULT_SETTINGS: Readonly<GameSettings> = { muted: false, volume: 0.8, grid: true, music: true, musicVolume: 0.5, timeMode: 'auto' };
+
+const isTimeMode = (value: unknown): value is TimeMode => (TIME_MODES as readonly unknown[]).includes(value);
 
 export const AUTOSAVE_DEBOUNCE_MS = 1000;
 
@@ -242,6 +247,7 @@ export class SaveStore {
     if (typeof r.grid === 'boolean') settings.grid = r.grid;
     if (typeof r.music === 'boolean') settings.music = r.music;
     if (typeof r.musicVolume === 'number' && Number.isFinite(r.musicVolume)) settings.musicVolume = Math.min(1, Math.max(0, r.musicVolume));
+    if (isTimeMode(r.timeMode)) settings.timeMode = r.timeMode;
     return settings;
   }
 
@@ -253,6 +259,7 @@ export class SaveStore {
     if (typeof patch.grid === 'boolean') next.grid = patch.grid;
     if (typeof patch.music === 'boolean') next.music = patch.music;
     if (typeof patch.musicVolume === 'number' && Number.isFinite(patch.musicVolume)) next.musicVolume = Math.min(1, Math.max(0, patch.musicVolume));
+    if (isTimeMode(patch.timeMode)) next.timeMode = patch.timeMode;
     this.setItem(this.settingsKey, JSON.stringify(next));
     return next;
   }

@@ -789,6 +789,10 @@ export class ToolController {
         if (this.toolId) this.selectTool(null);
         else this.bus.emit('intent:open-menu');
         break;
+      case 'KeyT':
+        // WP-16: cycle the day/night mode (Game reads the current mode; UI shows it).
+        if (!event.repeat) this.bus.emit('intent:cycle-time-mode');
+        break;
       case 'KeyF':
       case 'Home':
         if (!event.repeat) {

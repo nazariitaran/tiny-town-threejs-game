@@ -1,6 +1,6 @@
 # Tiny Town — Architecture & Contracts
 
-> **Status: current (v0.2 on `main`, plus the v0.3 catalog in the working tree, 2026-09-27; v0.3 is not yet released).** This is the source of truth for the grid, rules, save format, module map, diagnostics and budgets. If this file and the code disagree, the code wins; fix this file.
+> **Status: current for v0.3 on `main` (WP-15 catalog + WP-16 day/night), 2026-09-27; v0.3 is not yet released.** This is the source of truth for the grid, rules, save format, module map, diagnostics and budgets. If this file and the code disagree, the code wins; fix this file.
 
 ## Stack
 TypeScript (strict) · Vite 8 · three.js r184 (`three/addons/*` for MapControls, GLTFLoader) · Web Audio (SFX buffers; music streamed via `HTMLAudioElement`) · lil-gui (`?debug`) · Vitest (pure logic) · Playwright (browser, `channel: 'chromium'`, 1 worker). No physics engine: the game is grid-based and has no simulation that needs one.
@@ -36,9 +36,15 @@ src/
   render/InstancePool.ts, tween.ts   instance pools; pop-in easing        WP-03
   render/roadTiles.ts         road auto-tiling on the block grid, road-   WP-03
                               feature helpers (arms, centre) (pure)
+  render/nightGlow.ts         glow masks + GlowRegistry, window stagger    WP-16b
+                              shader patch (v0.3)
+  render/NightLights.ts, lampRegistry.ts, fireflies.ts               WP-16b
+                              lamp pools/halos, headlight beams, fireflies
   render/IconStudio.ts        OFFLINE icon renderer (not imported by the  WP-03
                               game; driven by scripts/render-icons.mjs)
   world/**                    sky, lights, terrain, grid overlay, decor   WP-04
+  world/dayCycle.ts     [C*]  pure day clock + keyframes (the Contract    integrator (contract) /
+                              section is fixed)                           WP-16a (bodies)
   interaction/**              camera, framing.ts (aspect-aware poses),    WP-05
                               picker, tool controller, ghost, keyboard
   ui/**, styles.css           all DOM UI; testIds.ts (UI_TEST_IDS),       WP-06
@@ -89,7 +95,7 @@ Rules of the road:
 7. **Two RNG streams**: gameplay (`Game.rng`: variants) and cosmetic (`Game.fxRng`: audio/fx jitter, ambient cars), so a sound never changes the next house variant.
 
 ## Frame update order (Game.update)
-`resizeRenderer` → `ToolController.update` → `CameraController.update` → `TownRenderer.update(animDelta)` → `LifeSystem.update(animDelta)` → `Environment.update(animDelta, animElapsed)` → `PlacementFx.update(animDelta)` → diagnostics → render. With `setReducedMotion(true)`, `animDelta`/`animElapsed` are 0. With `setPausedForScreenshot(true)`, nothing updates but rendering continues.
+`resizeRenderer` → `ToolController.update` → `CameraController.update` → `TownRenderer.update(animDelta)` → `LifeSystem.update(animDelta)` → `DayClock.advance(animDelta)` (building phase only) → `Game.applyDaylight()` (`Environment.applyDaylight`, `NightLights.update`, `LifeSystem.setNight`, `daytime:changed` on a mode/phase change) → `Environment.update(animDelta, animElapsed)` → `PlacementFx.update(animDelta)` → diagnostics → render. With `setReducedMotion(true)`, `animDelta`/`animElapsed` are 0. With `setPausedForScreenshot(true)`, nothing updates but rendering continues.
 
 ## Grid
 - Plot `48 × 48` cells (`PLOT_WIDTH/DEPTH`), `CELL_SIZE = 0.5` world units per cell (WP-12; v0.1 was 24 × 24 one-unit cells), centred on the origin, so the plot is still 24 × 24 world units. Toy scale: 1 world unit ≈ 8 m, a cell ≈ 4 m. Cell `{x, z}` centre = `cellToWorld`; a footprint's centre = `footprintCentreWorld`; `worldToGridPoint` gives fractional grid coordinates.
@@ -139,14 +145,40 @@ Settings (`muted`, `volume`, `grid`, `music`, `musicVolume`; defaults false / 0.
 - Ambient cars (`LifeSystem`) are one `BatchedMesh`: +1 main-pass and +1 shadow draw call.
 - FX (`PlacementFx`) use pooled particles in 3 meshes (soft dust, chips/leaves/petals, sparkles): at most 3 draw calls, and none when idle.
 
+## Day/night (v0.3, WP-16)
+Plan and rationale: `docs/plans/wp-16-day-night.md`. The as-built deviations are in `docs/progress.md` ("WP-16 as built").
+- **Clock** (`world/dayCycle.ts`, pure):
+  - `t ∈ [0,1)` of a day: dawn 0–0.10, day 0.10–0.65, dusk 0.65–0.75, night 0.75–1.
+  - An Auto day is `DAY_LENGTH_S` = 600 s; `?debug&day=N` overrides it (debug only).
+  - Modes: Auto (starts at 0.12 on Start), Day (0.55), Night (0.82).
+  - A mode switch sweeps `t` forward over 2.5 s. It snaps under reduced motion (the test hook or the OS setting).
+  - The clock runs only in the building phase. The title always shows 0.55 unless pinned.
+  - `sampleDay(0.55)` reproduces the v0.2 look bit-exactly: `LIGHTING` / `SKY_PALETTE` / `SUN_DIRECTION` are the afternoon keyframe.
+- **Settings:** `timeMode` ('auto' | 'day' | 'night', default auto) is saved with the settings. The time of day is never saved.
+- **World** (`Environment.applyDaylight`):
+  - One DirectionalLight is both sun and moon; it swaps direction where its intensity is 0.
+  - Hemisphere, fog colour and near/far, `environmentIntensity`, and sky uniforms (stars, moon, cloud shade, sun visibility) follow the sample.
+  - The shadow camera is refit only after the key moves > 0.2°.
+  - The grid gets stronger at night.
+- **Light sources** (`render/nightGlow.ts`): emissive masks on private material clones (`ModelSpec.glow`).
+  - Masks are 16 × 4 swatch-cell `DataTexture`s on the Kenney atlases (window glass (11,1), lamp (8,2), lenses (9,1)/(11,3)/(15,3), car head (3,3) / tail (5,3)). The church has a 2-quadrant mask of its own texture.
+  - Houses switch on one by one through a per-instance hash shader patch (`uLightsOn`/`uLightsOff`).
+  - Emissive intensity is exactly 0 when `night` = 0, so the day look, icons and baselines are unchanged.
+- **Ground light** (`render/NightLights.ts`): a lamp registry fed by `town:changed`, plus three instanced additive layers, all hidden when night < 0.05. No real PointLights.
+  - lamp pools: +1 draw call;
+  - lamp halos: +1, high tier only;
+  - headlight beams: +1, ≤ 6 cars;
+  - fireflies over open meadow cells: +1.
+- **Life:** `LifeSystem.setNight(n)` → `TrafficSim.setDensity(1 − 0.5·n)`, so there are fewer cars at night. Car Kit cars face native +Z (`FRONT_ROTATION` 0 since v0.3).
+
 ## Budgets (full 48×48-cell town, desktop 1280×720; mobile 390×844)
 The `stress-town` state is the gate. "Measured" gives the latest number and says where it came from. Neither v0.2 nor v0.3 has been re-measured on the production preview; `docs/release.md` has the v0.1 preview table.
 
 | Metric | Budget desktop | Budget mobile | Measured (desktop / mobile) |
 | --- | --- | --- | --- |
-| Draw calls | ≤ 150 | ≤ 120 | 32 / 32 (v0.3 working tree, dev-server inspector, 2026-09-27); v0.2: 30 / 30 (WP-12 inspector) |
-| Triangles | ≤ 400k | ≤ 250k | 306.1k / 239.1k (same v0.3 run; mobile headroom ~10.9k); v0.2: 311k / 243.5k |
-| Textures | ≤ 30 | ≤ 30 | 11 / 10 (same v0.3 run) |
+| Draw calls | ≤ 150 | ≤ 120 | Day 32 / 32; night (t 0.82) 35 / 34 (v0.3 WP-16b, dev-server inspector, 2026-09-27); v0.2: 30 / 30 (WP-12 inspector) |
+| Triangles | ≤ 400k | ≤ 250k | Day 306.1k / 239.1k (v0.3 run; mobile headroom ~10.9k); night 300.0k / 232.9k (fewer cars); v0.2: 311k / 243.5k |
+| Textures | ≤ 30 | ≤ 30 | 14 in the stress town since WP-16 (+4 glow masks, also by day; v0.3 WP-15 run: 11 / 10). The sample town reports 28 |
 | Shadow maps | 1 × 2048 | 1 × 1024 | as budgeted (`Environment.setQuality`: high 2048, low 1024) |
 | DPR cap | 2 | 1.5 | `MAX_DPR` in `config.ts` |
 | Frame time (M-series laptop, headless full Chromium) | ≤ 8 ms | — | 1.36 ms (v0.1 production preview, WP-11); not re-measured for v0.2 |
@@ -155,10 +187,11 @@ The `stress-town` state is the gate. "Measured" gives the latest number and says
 ## Test hooks and diagnostics
 `window.__THREE_GAME_TEST_HOOKS__` (installed in production too; policy in `docs/release.md`):
 - `seed`;
-- `setState(name)` for `title | empty-build | sample-town | active-play | asset-gallery | stress-town`. Every state reseeds, rebuilds deterministically and turns autosave off until reload. Unknown names throw.
+- `setState(name)` for `title | empty-build | sample-town | active-play | asset-gallery | stress-town | night-town` (`night-town` = the sample town at t = 0.82). Every state reseeds, rebuilds deterministically and turns autosave off until reload. Unknown names throw.
 - `setPausedForScreenshot`, `setReducedMotion`, `hideDebugUi`;
 - `cellToClient(x, z)`, which takes 48 × 48 cell coordinates so bots click real cells with real input;
 - `setCameraPose(pose)` (v0.3): moves the camera to `{targetX, targetZ, azimuth, polar, distance}` at once and renders, for screenshots of one spot (e.g. the asset gallery).
+- `setTimeOfDay(t | null)` (v0.3, WP-16): pins the time of day (0..1) and applies the look at once, even while paused for a screenshot; `null` releases the pin. Every test state pins afternoon (0.55) except `night-town` (0.82).
 
 The `sample-town` state uses every placing tool (33) with zero rejections: stats homes 8, residents 25, amenities 5, trees 5, roadTiles 40, props 15, fences 27. `asset-gallery` places all 25 object kinds at rotation 0, every edge kind, the ground swatches and the 16 road masks.
 
@@ -179,6 +212,7 @@ The `sample-town` state uses every placing tool (33) with zero rejections: stats
 | `save` | `{available, pending, lastError}` |
 | `fx` | `FxDiagnostics`: active, drawCalls, spawned, dropped, reducedMotion, windTime, windStrength |
 | `life` | `LifeDiagnostics`: loaded, cars, target, drivableCells, spawned, despawned, waiting, drawCalls, … |
+| `daytime` | v0.3: `{mode, t, phase, pinned, night, lightsOn, lamps, drawCalls}`. `drawCalls` = what NightLights adds (0 by day) |
 | `renderer` | three.js calls, triangles, geometries, textures; the canvas inspector reads this |
 | `canvas` | |
 
