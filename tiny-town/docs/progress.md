@@ -18,7 +18,7 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
 - **WP-16 day/night is complete:** the owner approved it on 2026-09-27 and `v0.3-day-night` is merged into `main`. See "WP-16 as built" below.
   - Gates on the branch after all merges (2026-09-27): `npm run verify` green (21 files, 387 unit tests, build OK); `npm run test:e2e` green: 114 tests, 100 passed, 14 skipped by design, 0 failed (6.1 min).
   - Worktrees `wp-16a/b/c` removed after their evidence was copied to `artifacts/wp-16a/`, `wp-16b/`, `wp-16c/`.
-- **In flight: WP-17** (bigger buildings, smaller swing, dark shops at night) on the integration branch `building-sizes`. Plan: `docs/plans/wp-17-building-sizes.md`. Worktrees `wp-17a` (5218) and `wp-17b` (5219), then `wp-17c` (5221).
+- **WP-17 is built** on the integration branch `building-sizes` and awaits the owner's review (bigger buildings, smaller swing, dark shops at night). See "WP-17 as built".
 - **Where current facts live:**
   - grid, rules, save, modules, diagnostics and budgets: `docs/design/03-architecture.md`;
   - asset scales and footprints: `docs/assets/models.md`;
@@ -91,6 +91,37 @@ The plan was approved and implemented. The as-built facts are in `03-architectur
 
 **Timing**
 - WP-12 was merged after WP-13/14 (`9a8379f` merged main into the WP-12 branch).
+
+### WP-17 as built (branch `building-sizes`; vs `docs/plans/wp-17-building-sizes.md`)
+- **Merges:** plan + contract `3a950d1` → 17b (shop lights) → 17a (scale & layouts) → 17c (QA).
+- **Footprints:**
+  - cottage / bungalow / family home / suburban: 4×4;
+  - townhouse: 3×4;
+  - big house and supermarket: 5×4;
+  - church: 3×4;
+  - corner shop: 3×3.
+- **Models:** `HOME_SCALE = 4/3` for homes, the supermarket and the church. The front-yard nudge is now −0.2 (big-house-n −0.05). The corner shop is ×1.4 (so it stays below the two-storey homes). The swing is ×0.87, about 13% smaller.
+- **Save v4, no migration:** v3 saves start a fresh town, as in v0.3.
+- **Night:** only homes glow. The supermarket glow was removed and the church mask kind deleted; the corner shop never glowed. One texture fewer at night.
+- **Layouts:**
+  - Sample town re-laid out: every tool used, zero rejections, same stats (fences 27 → 28).
+  - Asset gallery on rows 22–29.
+  - Stress town is a 12×12 repeat with 64 homes.
+- **Measured (inspector, dev server):**
+  - stress-town 31 / 31 calls, 273.7k / 206.7k triangles (mobile headroom ~43k, was ~11k); at night 34 / 33 calls;
+  - sample-town 56 calls, 183.3k / 118.3k triangles;
+  - night-town 60 / 59 calls;
+  - textures 27 / 26.
+- **Tests:**
+  - 398 unit tests, with new footprint, parity, edge, rotation, v4 and glow-set tests.
+  - e2e re-mapped. New helpers `clickFootprint` / `footprintOf` aim clicks off the cell-corner rounding boundary of even footprints. A new real-input test places all 9 grown kinds (ghost = placed lot, overlap refused).
+  - Baselines regenerated: sample-town, asset-gallery and night-town. `title` is unchanged.
+- **Proportions (17c's honest read):**
+  - A 4×4 home is about 4 car lengths wide.
+  - A lamppost reaches about the ground-floor eaves.
+  - Garden props (swing, bench, barbecue) look toy-small next to the houses.
+  - If the owner wants it smaller, the cheapest lever is the model scale (×1.2 instead of ×1.33) with the same footprints.
+- **Evidence:** `artifacts/wp-17a/`, `wp-17b/`, `wp-17c/` (`look/`, `placement/`, `baselines-before/`).
 
 ### WP-16 as built (v0.3, branch `v0.3-day-night`; vs `docs/plans/wp-16-day-night.md`)
 Current facts: `03-architecture.md` §Day/night, `02-interaction-and-ui.md` (time button, `T`, grid at night, brand badge ≤ 440 px), `models.md` (cars face +Z).

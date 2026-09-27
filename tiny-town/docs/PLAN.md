@@ -383,7 +383,7 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
   - A 20 s day → night → day capture in `artifacts/wp-16/`.
 
 ### WP-17 — Bigger buildings, smaller swing, dark shops at night
-- **Status: in progress** on the integration branch `building-sizes` (owner-requested 2026-09-27). It merges into `main` after the owner's approval. The version label is the owner's call.
+- **Status: built** on the integration branch `building-sizes` (17a, 17b and 17c merged 2026-09-27) and awaiting the owner's approval. As built: `docs/progress.md` "WP-17 as built". The version label is the owner's call.
 - **Contract:** `docs/plans/wp-17-building-sizes.md`. It holds the footprint table, the save v4 decision, ownership and acceptance.
 - **Summary:**
   - Homes and town buildings grow by one cell each way, with models scaled to fill the new lot.
