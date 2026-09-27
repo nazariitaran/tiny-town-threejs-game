@@ -1,88 +1,167 @@
 # Tiny Town — progress (integrator-maintained)
 
-Only the integrator (WP-01) edits this file. Workers report in their hand-off.
+Only the integrator (WP-01) edits this file. Workers report in their hand-off. This is the recovery point: after any interruption, re-read it together with `docs/HANDOVER.md`.
 
-## Current intent
-Deliver v1 per `docs/PLAN.md` §0. Sandbox city builder; desktop first, mobile usable.
+## Current state (2026-09-27)
+- **Version: v0.2**, merged on `main`; the v0.2 integration commit is `30fe85b`.
+- **v0.1** is the M3 "v1" build at `3f9c6cf`. v0.2 adds three owner requests on top:
+  - **WP-12**: 48 × 48 grid of 0.5-unit cells, roads as 2 × 2 blocks, multi-cell houses, save v2 with a v1 → v2 migration.
+  - **WP-13**: streamed background music with settings.
+  - **WP-14**: the stats pill is gone; the top bar is one row.
+- **Gates on `main` (2026-09-27):**
+  - `npm run verify` is green: 19 test files, 294 unit tests, build OK.
+  - `npm run test:e2e`: 82 tests, of which 70 pass and 12 are skipped by design (desktop-only or mobile-only).
+  - The 6 visual baselines (darwin) were regenerated after WP-12 (`30fe85b`).
+- **In flight:** no WPs, worktrees or WP branches.
+- **Where current facts live:**
+  - grid, rules, save, modules, diagnostics and budgets: `docs/design/03-architecture.md`;
+  - asset scales and footprints: `docs/assets/models.md`;
+  - release and measured budgets: `docs/release.md`.
+- **Local evidence:** `artifacts/` is gitignored. Evidence cited below exists only in the main checkout.
+
+## Work packages
+The SHA is the merge commit on `main`; the WP's own commit is in brackets. Every worktree has been removed and every WP branch merged and deleted.
+
+| WP | Title | Status | Merge (commit) | Notes |
+| --- | --- | --- | --- | --- |
+| Wave 0 | Scaffold | ✅ | `3c3abd1`, `9a4e084` | walking skeleton, contracts, assets, swarm docs, PORT env |
+| M0 | Preflight | ✅ | `bf77054` | first real-browser run: verify, e2e, inspector m0; no blockers |
+| WP-02 | Town logic & persistence | ✅ | `43f59e4` (`13479ad`) | rule table, History cap 200, serialize/parseSave, SaveStore, silent applyBatch |
+| WP-03 | Rendering | ✅ | `1c3e9d2`; fix1 `4db704c`; fix2 `bf206eb` (`7ef0d3d`) | instanced pools, pop-in, road tiles; fix2 re-rendered the tool icons in-game (`scripts/render-icons.mjs`) |
+| WP-04 | World & look | ✅ | `9d2ec05`; fix1 `e3ff916` | sky, light, diorama terrain, decor ring, shader grid, hedgerow frame |
+| WP-05 | Interaction | ✅ | `025d271`; fix-ups `161a498`, `4a633c9`, `c5a6ce9`, `0c00b69` | camera, tools, ghost, touch; aspect-aware framing (`framing.ts`); visible valid ghost |
+| WP-06 | UI | ✅ | `8541064`; fix1 `9f7e769`; fix2 `923ed19` | dock, top bar, overlays, mobile; fix2 made the hint centring transform-free so CSS minify could return |
+| WP-07 | Audio polish | ✅ | `4f96d99`; fix-ups `bd6eeba`, `f948df8` | SFX rebuilt, metal prop clink, stroke pitch rise; shims removed |
+| WP-08 | Feel & VFX | ✅ | `3702808`; fix1 `f10f881` | pooled dust/sparkle/poof, wind sway, ≤ 2 FX draw calls |
+| WP-09a | QA harness | ✅ | `b2d3124` | smoke + real-input build-flow specs, `tests/helpers.ts` |
+| WP-09b | Baselines + bot | ✅ | `52ef019`, `13c7810` | seeded bot playtest; 6 darwin baselines; a missing baseline fails |
+| WP-10 | Ambient life | ✅ | `5cc59ba`; wired `142cd95` | ≤ 6 cars (BatchedMesh, +1 main +1 shadow call); dusk toggle not built |
+| WP-11 | Release | ✅ | `2c7e2e9` | relative base, hidden sourcemaps, test-hook policy, measured budgets (`docs/release.md`) |
+| M1 / M2 / M3 | Checkpoints | ✅ | `66ff92c` / `cc915cb` / `3f9c6cf` | `docs/checkpoints/m1.md`, `m2.md`, `m3.md` (historical) |
+| WP-14 | Remove stats pill | ✅ | `d0aa182` (`8d91b1b`) | `StatsHud` deleted; one-row top bar (48 px row desktop / 52 px phones); hint 10 px under it |
+| WP-13 | Background music | ✅ | `1fab73f` (`e76d1a8`) | `src/audio/MusicPlayer.ts`; streamed after Start; music on/off + volume; −3 dB menu duck |
+| WP-12 | Scale & grid density | ✅ | `fbbef2a` (plan `2f6446d`, docs `cf4123b`) | see "WP-12 as built" below |
+
+**Integrator (WP-01) commits worth knowing:**
+
+| Commit | Change |
+| --- | --- |
+| `8b07141` | Wave-1 contract requests + SaveStore wiring |
+| `d52bc36` | Dropped the `tests/*.template.ts` exclude; the templates are gone |
+| `13ed451` | Diagnostics `hover` carries `valid`/`reason` |
+| `2c7b5f8` | Diagnostics `fx` |
+| `142cd95` | Diagnostics `life` |
+| `bc1ae5b` | Removed the `__THREE_GAME_FX_DIAGNOSTICS__` / `__THREE_GAME_LIFE_DIAGNOSTICS__` shim globals |
+| `8f6db9d` | Inspector `--mobile` = the full 390 × 844 viewport |
+| `f813b04` | CSS minification back on |
+| `51d074d` | Baselines after WP-14; owner-supplied asset rule |
+| `30fe85b` | Post-WP-12 integration: `SavedTown` rename in SaveStore (the deprecated `SavedTownV1` alias removed), phone top inset 76, tool icons re-rendered, baselines regenerated |
+
+### WP-12 as built (vs `docs/plans/wp-12-scale.md`)
+The plan was approved and implemented. The as-built facts are in `03-architecture.md` §Grid / §Placement rules / §Save format and in `models.md` §Grid and scale. Where the build differs from the plan:
+
+**Migration**
+- One fallback was added: a house that fits neither as its own kind nor as a 2×3 townhouse tries a townhouse **turned a quarter** either way (3 × 2 fits dense 1-deep v1 rows) before it is dropped.
+- A malformed v1 save only has its version bumped, so `parseSave` rejects it with the normal message.
+- Results: v0.1 sample town, 0 drops; v0.1 stress town, 36 of 56 homes kept (120 → 100 objects).
+
+**Stress town**
+- Trimmed to fit the mobile budget: birch and pine instead of oak, open-field lots and fewer props.
+- The decor ring's low-tier share went from 0.6 to 0.25 (`DecorRing.LOW_TIER_SHARE`).
+- Measured by the WP-12 inspector (dev server, 2026-09-27): 30 draw calls and 311k triangles on desktop; 30 calls and 243.5k triangles on mobile, against a 250k budget.
+
+**Framing**
+- The phone side inset went from −150 to −260 (`framing.ts`; the plan listed this as optional).
+- Measured cell pitch: 12.6 px desktop, 10.6 px mobile.
+- The integrator then set the narrow top inset to 76 for the one-row top bar.
+
+**Road tile position**
+- Each road tile is drawn once per block at the block **centre** (`roadBlockCentreWorld`). The plan said "min corner".
+
+**Icons**
+- `IconStudio` frames cells and road blocks using `CELL_SIZE`. The integrator re-rendered the tool icons after the merge.
+
+**Timing**
+- WP-12 was merged after WP-13/14 (`9a8379f` merged main into the WP-12 branch).
 
 ## Decisions log
-- 2026-09-26 — Sandbox (no fail state/economy), per the user's brief. The core loop is place → feedback → grow; undo makes mistakes free.
-- 2026-09-26 — Assets: Kenney CC0 kits (City Roads/Suburban/Industrial, Platformer, Fantasy Town, Holiday, Car) for one consistent style; Nature Kit rejected (metallic materials, clashing palette); bus stop, postbox, fences and garage composed from Kenney parts; SFX from Kenney CC0 audio packs, transcoded to MP3.
-- 2026-09-26 — Grid: 24×24 plot, 1 world unit per cell, three layers (ground / object / edge). Fences live on edges.
-- 2026-09-26 — No physics engine; instanced rendering; Vitest for pure logic, Playwright for browser.
+- 2026-09-26 — **Sandbox**: no fail state and no economy, per the user's brief. The core loop is place → feedback → grow, and undo makes mistakes free.
+- 2026-09-26 — **Assets: Kenney CC0 kits** (City Roads/Suburban/Industrial, Platformer, Fantasy Town, Holiday, Car) for one consistent style.
+  - The Nature Kit was rejected: metallic materials and a clashing palette.
+  - The bus stop, postbox, fences and garage were composed from Kenney parts.
+  - SFX come from Kenney CC0 audio packs, transcoded to MP3.
+- 2026-09-26 — **Grid (v0.1)**: 24 × 24 plot, 1 world unit per cell, three layers (ground / object / edge). Fences live on edges. Superseded by WP-12, below.
+- 2026-09-26 — **No physics engine**; instanced rendering. Vitest for pure logic, Playwright (full Chromium, 1 worker) for the browser.
+- 2026-09-26 — **Two RNG streams**: gameplay (`Game.rng`) and cosmetic (`Game.fxRng`: audio, fx, cars), so a sound never changes the next house variant.
+- 2026-09-26 (M1) — A bus stop may stay after its road is repainted away. It's a sandbox, and the rule table doesn't cover the case.
+- 2026-09-26 (WP-03 fix2) — The 17 tool icons are rendered in-project from the in-game models: `scripts/render-icons.mjs` + `src/render/IconStudio.ts`, 128 px, CC0.
+- 2026-09-26 (WP-09b) — Visual baselines are committed for **darwin only**, and a missing baseline **fails**.
+- 2026-09-26 (WP-10) — The dusk toggle was skipped (optional; it needed hooks in WP-03/04/06 files).
+- 2026-09-26 (WP-11) — Release settings:
+  - relative `base: './'`;
+  - `sourcemap: 'hidden'` (don't deploy `*.map`);
+  - test hooks **stay in production** but must have no side effects on install (policy in `docs/release.md`);
+  - diagnostics shim globals removed.
+- 2026-09-26 — **CSS minify**: WP-11 turned it off because lightningcss drops `translate:` next to `transform:`. WP-06 fix2 removed that combination from `.ui-hint`, and it was turned back **on** in `f813b04`. Rule: never combine `translate:` and `transform:` in one CSS rule.
+- 2026-09-26 (process) — Copy `artifacts/<wp>/` into the main checkout **before** `git worktree remove --force`. Removing the wp-07 worktree deleted its gitignored audio recording (`playtest-audio.wav`), which can't be recovered.
+- 2026-09-27 (v0.2) — **Grid 48 × 48 at `CELL_SIZE` 0.5**. The plot stays 24 × 24 world units, so camera, terrain, decor ring and budgets stay valid. Toy scale: 1 unit ≈ 8 m.
+- 2026-09-27 — **Roads are aligned 2 × 2 blocks.** One Kenney tile covers a block, and a block is all road or no road. Cars drive on the 24 × 24 block grid, and `stats.roadTiles` counts blocks.
+- 2026-09-27 — **Multi-cell footprints**: cottage and family home 3×3, townhouse 2×3, garage 1×2, bus stop 2×1, everything else 1×1. The footprint centres on the pointer (`anchorForPointer`), and R rotates it.
+- 2026-09-27 — **Save `SavedTownV2`** with `SAVE_MIGRATIONS[1]` (v1 → v2). The storage key `tiny-town:save:v1` stays; it's a slot name.
+- 2026-09-27 — **Music is streamed**: an `HTMLAudioElement` → `MediaElementAudioSourceNode`, with `src` set only on the first Start/Continue, so the track is not part of the initial download.
+  - Settings `music` / `musicVolume`.
+  - Events `intent:set-music`, `intent:set-music-volume`, `music:changed` are in `events.ts`; the temporary `musicEvents.ts` is gone.
+- 2026-09-27 — **Stats pill removed** as redundant. `TownState.stats()`, `town:stats` and diagnostics `town` remain for tests.
+- 2026-09-27 — **Owner-supplied assets are allowed.** The background music "Foundation of Gold" was created by the owner with ElevenLabs. Agents still never call generation services.
 
-## Status
-Worktrees live in `<repo-parent>/ThreeJsGames-wt/<wp>`, branched from `9a4e084`.
+## Open issues
+**Mobile budget**
+- Stress-town triangle headroom on mobile is only about 6.5k (243.5k of 250k). Any new content with a large triangle count needs a budget check.
 
-| WP | Status | Branch | Worktree | Port | Notes |
-| --- | --- | --- | --- | --- | --- |
-| Wave 0 scaffold | ✅ done | main | — | — | walking skeleton, contracts, assets, docs |
-| M0 preflight | ✅ done 2026-09-26 | main | — | 5188 | verify green (18 tests); e2e 2/2; inspect m0 clean (see below) |
-| WP-02 Town logic | ✅ merged (13479ad) | `wp-02-town-logic` | `wp-02` | — | full rule table, History cap 200, serialize/parseSave, SaveStore (+settings), silent applyBatch; 172 unit tests; main e2e 10/10 |
-| WP-03 Rendering | ✅ done (fix1 8638248, fix2 7ef0d3d: 17 icons re-rendered in-game via scripts/render-icons.mjs, postbox 2.0) | — | removed | 5203 | evidence in artifacts/wp-03/ |
-| WP-04 World & look | ✅ done (b0f2947, fix1 4b61607: hedgerow frame, 3 decor calls, sun bloom, sandstone kerb) | — | removed | 5204 | evidence copied to artifacts/wp-04/wp04-fix1. Note: DecorRing imports DEFAULT_POSE + fov 35 |
-| WP-05 Interaction | ✅ done (fix1 4f6d5b6, fix2 bff21b8: DEFAULT_POSE dist 35.8 target 1.83; phone dist 58.7; portrait title fit) | — | removed | 5205 | evidence in artifacts/wp-05/ |
-| WP-06 UI | ✅ done (df3ed58, fix1 d3ac460: tooltip clearing, stats grouping, touch cues, hint top-centre, title layout) | — | removed | 5206 | evidence copied to artifacts/wp-06/wp06-fix1. Re-check title after WP-05 portrait pose |
-| WP-07 Audio | ✅ done (bf55f1d, fixes 8e6eae3, da4063d shims removed; worktree removed) | `wp-07-audio` | `wp-07` | 5207 | all SFX rebuilt, metal prop sound, stroke pitch rise; fix-up: mute test asserts aria-pressed. Local shims in AudioManager can now go |
-| WP-09a QA harness | ✅ merged (81d8a97) | `wp-09a-qa` | `wp-09a` | 5209 | smoke + build-flow specs, tests/helpers.ts; main e2e 10/10 after merge. Templates annotated, not deleted (left for 09b) |
-| WP-08 Feel & VFX | ✅ done (5fd620c) | — | removed | 5208 | 2 draw calls max, 0 idle; instanced wind sway; reduced motion OK; fx diagnostics published. Shim `__THREE_GAME_FX_DIAGNOSTICS__` remains (harmless) |
-| WP-09b Baselines + bot | ✅ done (3b5ff02): 6 darwin baselines committed, deterministic capture, missing baseline fails | — | removed | 5210 | |
-| WP-10 Ambient life | ✅ done (9ae0d39) | — | removed | 5211 | ≤6 cars, BatchedMesh +1 main +1 shadow call, keep-right lanes, despawn on road removal; wired in Game.ts (142cd95). Dusk toggle skipped (optional) |
-| WP-11 Release | ✅ done (5be9faf): base './', hidden sourcemaps, cssMinify off (lightningcss bug), preview e2e 56/12/0, final evidence (avg 2.05) | — | removed | 5212 | evidence in artifacts/final, artifacts/wp-11 |
+**Touch precision**
+- At the default phone pose a cell is about 10.6 px, so small props need a pinch-zoom on touch.
 
-## M0 preflight evidence (run id m0, desktop, real GPU: ANGLE Metal / Apple M2 Max, softwareRendered false)
-| State | renderer.calls | triangles | textures | luminance.contrast |
-| --- | --- | --- | --- | --- |
-| title | 3 | 1,010 | 3 | 51.4 |
-| sample-town | 210 | 14,547 | 20 | 48.7 |
-| stress-town | 599 | 108,457 | 20 | 106.5 |
-| asset-gallery | 85 | 16,419 | 23 | 27.9 |
-No console/page errors. No blockers. Cosmetic observations routed to owners: some road pieces look mis-rotated in the gallery, thin/offset lamppost (WP-03); flat title sky with a hard seam, no terrain beyond the plot (WP-04). stress-town at 599 calls is the naive "before" for WP-03.
+**Measurements not redone for v0.2**
+- The budget table in `docs/release.md` was measured on the v0.1 production preview. v0.2 has only the WP-12 dev-server inspector numbers above.
+- Frame time and download size were not re-measured on the preview for v0.2. The one exception is dist size, measured 2026-09-27: 3.29 MB excluding maps and music.
 
-## Process note
-- 2026-09-26: removing the wp-07 worktree with --force deleted its gitignored audio evidence (playtest-audio.wav). From now on, copy artifacts/<wp> into the main checkout before removing a worktree.
+**Audio**
+- No human has listened to the SFX or the music.
+- The WP-07 recording is lost. The WP-13 listen captures exist locally in `artifacts/wp-13/`.
 
-## Open defects
-- (none blocking) See M0 observations above.
-- tests/helpers.ts imports `UI_TEST_IDS` from `src/ui/UiRoot.ts` in Node, so UiRoot must stay importable in Node. WP-06 was told to keep the ids in a side-effect-free module.
-- build-flow.spec assumes current rules (cottage on field next to road; drag = 1 undo entry). Re-check after the WP-02 merge.
-- Mobile journey uses the mouse, not touch; a touch variant goes to WP-05/09b.
+**Tests and platforms**
+- The visual baselines are darwin only; a Linux CI job would fail until it commits its own set.
+- Not tested on real iOS or Android devices.
 
-## M1 checkpoint (in progress)
-Contract requests applied in commit after the Wave-1 merges: sfx `place-prop-metal`, gen-sfx `playbackRate`, CREDITS audio rows, Game.ts SaveStore wiring (autosave, Continue, camera pose, pagehide flush, grid setting, settings → AudioManager, autosave off in setState), `TownRenderer.settle()` on setState/reduced motion, diagnostics `save`. Scorecard + friction: `docs/checkpoints/m1.md` (avg 1.85). Independent reviewer: avg 1.6 (see m1.md). Fix-ups dispatched to WP-03/04/05/06/07 on their existing branches (fix1), in parallel with Wave 2 (WP-08, WP-09b). Worktrees wp-02 and wp-09a removed, branches deleted.
+**Asset manifest**
+- `docs/assets/models.json` is hand-maintained. Don't write `inspect:models --json` over it (see `CLAUDE.md`).
 
-## Pending integrator work for M1 (collected contract requests) — DONE
-- WP-02 → Game.ts SaveStore wiring: `hasSave: () => saves.has()`; `saves.attachAutosave(bus, () => editor.serialize(camera.getPose()))`; Continue → `editor.load(saves.read())`; `saves.flush()` on pagehide; `saves.autosaveEnabled = false` inside `setState`. Optional: `save` diagnostics (`pending`, `lastError`) in vite-env.d.ts; drop unused `'edge-occupied'` from InvalidReason in types.ts.
-- WP-02 follow-up (unowned by the rule table): bus stop stays after its road is repainted away. Decide at M1.
+**Module constraint**
+- `tests/helpers.ts` imports `UI_TEST_IDS` via `src/ui/UiRoot.ts` in Node. `UiRoot.ts` must stay free of CSS and asset side effects; the ids live in `src/ui/testIds.ts`.
 
-## M2
-✅ Passed 2026-09-26. See `docs/checkpoints/m2.md`.
+**Stale code comments** (owners, when they next touch these files)
+- `events.ts`: the `build:*` comment says the world position is the cell centre. It is the footprint or road-block centre.
+- `UiRoot.ts:117`: says "shim events".
+- `types.ts`: ends with an orphan `@deprecated` comment.
+- `package.json`: `version` is still `0.1.0`.
 
-## v0.2 iteration (started 2026-09-27)
-v0.1 = the M3 build (main @ 3f9c6cf). Owner requests:
-| WP | Status | Branch | Worktree | Port | Notes |
-| --- | --- | --- | --- | --- | --- |
-| WP-12 Scale, proportions & grid density | ✅ merged (cf4123b) | — | removed | 5212 | 48×48 @ 0.5; roads 2×2 blocks; footprints per plan; save v2 + v1 migration (sample 0 drops, stress 36/56 homes); stress mobile 243k/250k tris; cell pitch 12.6 / 10.6 px. Integrator: SavedTown rename, narrow top inset 76, icons re-rendered, baselines regenerated |
-| WP-13 Background music + settings | ✅ merged (e76d1a8) | — | removed | 5213 | streamed after Start (initial download unchanged); music on/off + volume; −3 dB duck in menu; events in contract; owner-created track (ElevenLabs) |
-| WP-14 Remove top-left stats pill | ✅ merged (8d91b1b) | — | removed | 5214 | one-row top bar (60 px desktop / 64 px mobile); baselines regenerated (51d074d). narrow top inset → 76 applied |
-Coordination: WP-13 and WP-14 both touch UiRoot/ui.css in separate regions (menu rows vs HUD). WP-12 avoids src/ui. The integrator regenerates baselines once after all three merge.
+## Backlog (post-v1 from the M3 review, WP-11, and v0.2)
+- Houses auto-face an adjacent road.
+- Crossroad tile markings.
+- Tall portrait screens leave dead space between the plot and the dock, and the mobile title crops the plot. Re-check both after the WP-12 framing change.
+- Fade the hint while zoomed in.
+- Optional performance work (budgets are already met):
+  - `shadowMap.autoUpdate = false`, with cars not casting shadows (−17% GPU);
+  - lazy `lil-gui` import (−30 kB);
+  - reuse the diagnostics object instead of rebuilding it every frame;
+  - `compileAsync` warm-up for the first-placement hitch.
+- Dusk mode (the WP-10 stretch goal).
+- A human ear pass on SFX and music.
+- Linux baselines, if CI is added.
+- Real-device testing.
+- Optional: expand the plot. `PLOT_WIDTH/DEPTH` keep this cheap.
 
-## v0.2 status
-All three owner requests are merged; main is green (294 unit tests; e2e 70 passed, 12 skipped). Open: the mobile stress-town triangle headroom is only ~6.5k; small props on touch need pinch-zoom; `inspect:models` would overwrite the hand-edited models.json fields.
-
-## M3
-✅ v1 passed 2026-09-26. See `docs/checkpoints/m3.md`. All worktrees removed; all WP branches merged and deleted.
-
-## Next actions (current)
-0. WP-11 merged; shims removed (bc1ae5b). M3 in progress: independent reviewer DONE (avg 2.00; blockers = the 2 known mobile UI issues + no exact 390×844 capture; inspector fixed in 8f6db9d). Polish running for margin: WP-05 fix3 (valid ghost visibility, `wp-05-ghost-fix3`), WP-08 fix1 (softer dust, `wp-08-fx-fix1`); WP-06 fix2 (mobile tooltip overlap, count-up spacing, .ui-hint centring so cssMinify can return) running on `wp-06-ui-fix2`.
-   Post-v1 from M3 review: auto-orient buildings to road, crossroad tile markings, portrait dead band / mobile title crop, hint auto-fade while zoomed.
-   Deferred/optional (WP-11 requests, budgets already met): shadowMap.autoUpdate=false + cars castShadow off (−17% GPU); lil-gui dynamic import (−30 kB); reuse diagnostics object; compileAsync warm-up for first-placement hitch.
-
-1. ✅ fix2 + WP-10 merged/wired. WP-09b generating baselines now.
-2. M2 notes so far: FX puff chips read slightly rock-like (tune at M3 if reviewer agrees); FX journey video is zoomed out (tune-*.png are the useful evidence).
-3. Checkpoint M2 (PLAN §5), then WP-11 → M3.
-
-## Next actions (old)
-1. Wait for Wave-1 hand-offs; merge per HANDOVER §4 in order 02 → 03 → 04 → 05 → 06 → 07 (09a merged early: it was the only one ready, and its specs now gate later merges).
-2. Collect contract change requests; apply after the wave's merges.
-3. Checkpoint M1 (PLAN §5 + SaveStore wiring in Game.ts).
+## Next actions
+Nothing is in flight. When the owner asks for the next iteration:
+1. Open a new WP section in `docs/PLAN.md`. Take ports from 5215 up and follow the `docs/HANDOVER.md` runbook.
+2. Before any release, re-measure `docs/release.md` §Budgets on the production preview. Use a fresh run id, and label the results with the date and version.
