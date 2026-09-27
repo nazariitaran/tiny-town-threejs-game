@@ -6,7 +6,7 @@
  * Sits just above the ground tiles (y = 0.02) with polygon offset, depthWrite off, so it never
  * z-fights and never hides models (they depth-test over it).
  *
- * WP-04 (World & look).
+ * WP-04 (World & look). WP-16a: stronger at night (GRID_NIGHT).
  */
 import * as THREE from 'three';
 import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
@@ -18,6 +18,11 @@ export const GRID_MINOR_STRENGTH = 0.45;
 export const GRID_Y = 0.028;
 /** Peak line opacity (design cap: ≤ 20%). */
 export const GRID_MAX_OPACITY = 0.14;
+/**
+ * Day/night (WP-16a): at night the lines are multiplied by (1 + nightBoost · night) so the grid
+ * stays readable on the dark ground. The only case where the opacity may exceed GRID_MAX_OPACITY.
+ */
+export const GRID_NIGHT = { boost: 0.6 };
 
 const vertexShader = /* glsl */ `
 varying vec3 vWorld;
@@ -65,6 +70,9 @@ void main() {
 
 export class GridOverlay {
   readonly mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
+  /** Day opacity (debug slider, clamped to GRID_MAX_OPACITY); the uniform adds the night boost. */
+  private baseOpacity = GRID_MAX_OPACITY;
+  private night = 0;
 
   constructor() {
     const w = PLOT_WIDTH * CELL_SIZE;
@@ -98,11 +106,23 @@ export class GridOverlay {
   }
 
   get opacity(): number {
-    return this.mesh.material.uniforms.uOpacity.value as number;
+    return this.baseOpacity;
   }
 
   set opacity(value: number) {
-    this.mesh.material.uniforms.uOpacity.value = Math.min(GRID_MAX_OPACITY, Math.max(0, value));
+    this.baseOpacity = Math.min(GRID_MAX_OPACITY, Math.max(0, value));
+    this.updateOpacity();
+  }
+
+  /** 0 day .. 1 night: the lines get up to (1 + GRID_NIGHT.boost)× stronger. Exactly the day value at 0. */
+  setNight(night: number): void {
+    this.night = Math.min(1, Math.max(0, night));
+    this.updateOpacity();
+  }
+
+  private updateOpacity(): void {
+    const boost = this.night > 0 ? 1 + GRID_NIGHT.boost * this.night : 1;
+    this.mesh.material.uniforms.uOpacity.value = this.baseOpacity * boost;
   }
 
   setVisible(visible: boolean): void {
