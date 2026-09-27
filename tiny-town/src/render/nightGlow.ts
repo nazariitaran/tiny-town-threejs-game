@@ -29,8 +29,31 @@ import type { DaySample } from '../world/dayCycle';
 export const ATLAS_COLUMNS = 16;
 export const ATLAS_ROWS = 4;
 
-/** The catalog kinds plus the car material's own mask (LifeSystem). */
-export type GlowMaskKind = GlowKind | 'headlights';
+/**
+ * The catalog kinds plus the car material's own mask (LifeSystem) and the church (stretch: its own
+ * 256² texture, not a Kenney atlas; dormant until the catalog sets `glow: 'church'`, a contract change).
+ */
+export type GlowMaskKind = GlowKind | 'headlights' | 'church';
+
+/** Mask resolution per kind: the Kenney atlases are 16 × 4 cells; the church mask is 128 × 2. */
+export const MASK_GRID: Readonly<Record<GlowMaskKind, { columns: number; rows: number }>> = {
+  windows: { columns: ATLAS_COLUMNS, rows: ATLAS_ROWS },
+  lamp: { columns: ATLAS_COLUMNS, rows: ATLAS_ROWS },
+  traffic: { columns: ATLAS_COLUMNS, rows: ATLAS_ROWS },
+  headlights: { columns: ATLAS_COLUMNS, rows: ATLAS_ROWS },
+  church: { columns: 128, rows: 2 },
+};
+
+/** Church (Poly Pizza "1221 Church", own texture): windows + door share the dark-grey quadrant
+ * u 0.5–1, v 0–0.5. In a 128-column mask the door's UVs (u 0.7230–0.7256) all fall in column 92 and
+ * no window UV does (windows: columns 85–88 and 93–110, incl. the belfry), so the door stays dark. */
+export const CHURCH_DOOR_COLUMN = 92;
+const CHURCH_WINDOW_COLOR = 0xffd79a;
+const churchCells = (): GlowCell[] => {
+  const cells: GlowCell[] = [];
+  for (let col = 64; col < 128; col += 1) if (col !== CHURCH_DOOR_COLUMN) cells.push({ col, row: 0, color: CHURCH_WINDOW_COLOR });
+  return cells;
+};
 
 export interface GlowCell {
   /** 0–15, left to right. */
@@ -62,14 +85,16 @@ export const GLOW_CELLS: Readonly<Record<GlowMaskKind, readonly GlowCell[]>> = {
     { col: 3, row: 3, color: 0xfff6d8 },
     { col: 5, row: 3, color: 0xff3a2a },
   ],
+  church: churchCells(),
 };
 
-/** RGBA bytes of a kind's 16 × 4 mask; texel (col, row) at index (row · 16 + col) · 4. */
+/** RGBA bytes of a kind's mask (16 × 4 for the atlases); texel (col, row) at (row · columns + col) · 4. */
 export function glowMaskData(kind: GlowMaskKind): Uint8Array {
-  const data = new Uint8Array(ATLAS_COLUMNS * ATLAS_ROWS * 4);
+  const { columns, rows } = MASK_GRID[kind];
+  const data = new Uint8Array(columns * rows * 4);
   for (let i = 3; i < data.length; i += 4) data[i] = 255;
   for (const { col, row, color } of GLOW_CELLS[kind]) {
-    const i = (row * ATLAS_COLUMNS + col) * 4;
+    const i = (row * columns + col) * 4;
     data[i] = (color >> 16) & 0xff;
     data[i + 1] = (color >> 8) & 0xff;
     data[i + 2] = color & 0xff;
@@ -85,7 +110,8 @@ export function atlasCell(u: number, v: number): { col: number; row: number } | 
 
 /** A GPU mask for `kind` (caller owns / disposes it). */
 export function createGlowMask(kind: GlowMaskKind): THREE.DataTexture {
-  const texture = new THREE.DataTexture(glowMaskData(kind), ATLAS_COLUMNS, ATLAS_ROWS, THREE.RGBAFormat, THREE.UnsignedByteType);
+  const { columns, rows } = MASK_GRID[kind];
+  const texture = new THREE.DataTexture(glowMaskData(kind), columns, rows, THREE.RGBAFormat, THREE.UnsignedByteType);
   texture.name = `glow-mask:${kind}`;
   texture.flipY = false;
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -104,6 +130,7 @@ export interface GlowTuning {
   lamp: number;
   traffic: number;
   headlights: number;
+  church: number;
   /** Lamps switch on across this `night` range (the plan's "on when night > 0.3"). */
   lampOnFrom: number;
   lampOnTo: number;
@@ -114,6 +141,7 @@ export const DEFAULT_GLOW_TUNING: Readonly<GlowTuning> = {
   lamp: 2.4,
   traffic: 1.6,
   headlights: 2.2,
+  church: 1.3,
   lampOnFrom: 0.3,
   lampOnTo: 0.42,
 };
@@ -141,6 +169,8 @@ export function glowIntensity(kind: GlowMaskKind, night: number, tuning: Readonl
       return tuning.traffic * n;
     case 'headlights':
       return tuning.headlights * n;
+    case 'church':
+      return tuning.church * n;
   }
 }
 

@@ -11,7 +11,6 @@ import { measureCellCentroid } from './lampRegistry';
 import {
   applyWindowStagger,
   ATLAS_COLUMNS,
-  ATLAS_ROWS,
   atlasCell,
   createGlowMask,
   GLOW_CELLS,
@@ -19,23 +18,27 @@ import {
   glowMaskData,
   GlowRegistry,
   lampLevel,
+  MASK_GRID,
+  CHURCH_DOOR_COLUMN,
   patchWindowShader,
   WINDOW_GLOW_CACHE_KEY,
   type GlowMaskKind,
 } from './nightGlow';
 
-const texel = (data: Uint8Array, col: number, row: number) => Array.from(data.slice((row * ATLAS_COLUMNS + col) * 4, (row * ATLAS_COLUMNS + col) * 4 + 4));
+const texel = (data: Uint8Array, col: number, row: number, columns = ATLAS_COLUMNS) => Array.from(data.slice((row * columns + col) * 4, (row * columns + col) * 4 + 4));
 const cells = (kind: GlowMaskKind) => GLOW_CELLS[kind].map((c) => `${c.col},${c.row}`);
 
 describe('glow masks', () => {
-  it('are 16 × 4, one RGBA texel per atlas cell, black except the glow cells', () => {
+  it('are 16 × 4 (atlas kinds), one RGBA texel per cell, black except the glow cells', () => {
+    for (const kind of ['windows', 'lamp', 'traffic', 'headlights'] as const) expect(MASK_GRID[kind]).toEqual({ columns: 16, rows: 4 });
     for (const kind of Object.keys(GLOW_CELLS) as GlowMaskKind[]) {
+      const { columns, rows } = MASK_GRID[kind];
       const data = glowMaskData(kind);
-      expect(data.length).toBe(ATLAS_COLUMNS * ATLAS_ROWS * 4);
+      expect(data.length).toBe(columns * rows * 4);
       const lit = new Set(cells(kind));
-      for (let row = 0; row < ATLAS_ROWS; row += 1) {
-        for (let col = 0; col < ATLAS_COLUMNS; col += 1) {
-          const [r, g, b, a] = texel(data, col, row);
+      for (let row = 0; row < rows; row += 1) {
+        for (let col = 0; col < columns; col += 1) {
+          const [r, g, b, a] = texel(data, col, row, columns);
           expect(a).toBe(255);
           expect(r + g + b > 0, `${kind} (${col},${row})`).toBe(lit.has(`${col},${row}`));
         }
@@ -98,6 +101,7 @@ describe('glow masks against the real assets', () => {
     const urls = new Set<string>();
     for (const spec of Object.values(MODELS)) if ('glow' in spec && spec.glow) urls.add(spec.url);
     for (const car of ['sedan', 'hatchback-sports', 'van', 'taxi']) urls.add(`/assets/models/cars/${car}.glb`);
+    urls.add(MODELS.church.url);
     for (const url of urls) {
       const file = path.join(publicDir, url.replace(/^\//, ''));
       const data = fs.readFileSync(file);
@@ -146,6 +150,44 @@ describe('glow masks against the real assets', () => {
       expect(centroid(url, 3, 3)!.z, `${car} headlights`).toBeGreaterThan(0.5);
       expect(centroid(url, 5, 3)!.z, `${car} tail lights`).toBeLessThan(-0.5);
     }
+  });
+});
+
+describe('church windows mask (stretch, dormant until the catalog sets glow: church)', () => {
+  it('lights every window triangle and no door or other church triangle', async () => {
+    const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+    const file = path.resolve(__dirname, '../../public', MODELS.church.url.replace(/^\//, ''));
+    const data = fs.readFileSync(file);
+    const gltf = await new GLTFLoader().parseAsync(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength), `file://${path.dirname(file)}/`);
+    const mask = glowMaskData('church');
+    const { columns, rows } = MASK_GRID.church;
+    const lit = (u: number, v: number) => texel(mask, Math.floor(u * columns), Math.floor(v * rows), columns)[0] > 0;
+    let windows = 0;
+    let door = 0;
+    gltf.scene.updateMatrixWorld(true);
+    gltf.scene.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const g = mesh.geometry;
+      const uv = g.getAttribute('uv');
+      const pos = g.getAttribute('position');
+      const count = g.index ? g.index.count : pos.count;
+      for (let t = 0; t < count; t += 3) {
+        const ids = [0, 1, 2].map((k) => (g.index ? g.index.getX(t + k) : t + k));
+        const u = ids.reduce((sum, i) => sum + uv.getX(i), 0) / 3;
+        const v = ids.reduce((sum, i) => sum + uv.getY(i), 0) / 3;
+        const inQuadrant = u >= 0.5 && v < 0.5;
+        const isDoor = inQuadrant && ids.every((i) => Math.floor(uv.getX(i) * columns) === CHURCH_DOOR_COLUMN);
+        for (const i of ids) {
+          // Every vertex of a window samples a lit texel; door and non-quadrant vertices never do.
+          expect(lit(uv.getX(i), uv.getY(i)), `triangle ${t / 3} (quadrant ${inQuadrant}, door ${isDoor})`).toBe(inQuadrant && !isDoor);
+        }
+        if (isDoor) door += 1;
+        else if (inQuadrant) windows += 1;
+      }
+    });
+    expect(door).toBe(8);
+    expect(windows).toBe(82);
   });
 });
 

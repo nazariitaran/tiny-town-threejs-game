@@ -16,6 +16,7 @@ import { createSeededRandom } from '../utils/random';
 import { createDaySample, sampleDay, T_AFTERNOON } from '../world/dayCycle';
 import { LampRegistry, measureCellCentroid, objectPointToWorld } from './lampRegistry';
 import { ModelLibrary } from './ModelLibrary';
+import { MAX_FIREFLIES, pickFireflySpots } from './fireflies';
 import { NightLights, VISIBLE_FROM } from './NightLights';
 
 function setup() {
@@ -152,9 +153,15 @@ describe('NightLights (headless)', () => {
     for (const name of ['night:pool', 'night:halo', 'night:beam']) expect(w.mesh(name)!.visible, name).toBe(false);
     w.at(VISIBLE_FROM / 2);
     expect(w.lights.getDiagnostics().drawCalls).toBe(0);
-    w.at(1);
-    // No cars were loaded (LifeSystem.load not called headless) ⇒ no beams.
+    w.at(0.5);
+    // Lamps on, fireflies not yet (they need a fully dark town); no cars loaded headless ⇒ no beams.
     expect(w.lights.getDiagnostics().drawCalls).toBe(2);
+    expect(w.mesh('night:fireflies')!.visible).toBe(false);
+    w.at(1);
+    // Pools + halos + fireflies (the sample town has a meadow).
+    expect(w.lights.getDiagnostics().drawCalls).toBe(3);
+    expect(w.mesh('night:fireflies')!.visible).toBe(true);
+    expect(w.mesh('night:fireflies')!.count).toBe(MAX_FIREFLIES);
     expect(w.mesh('night:pool')!.visible).toBe(true);
     expect(w.mesh('night:pool')!.count).toBe(4);
     expect(w.mesh('night:halo')!.count).toBe(4);
@@ -212,9 +219,28 @@ describe('NightLights (headless)', () => {
     const sample = createDaySample();
     sample.night = 1;
     lights.update(sample);
-    expect(lights.getDiagnostics().drawCalls).toBe(1);
+    expect(lights.getDiagnostics().drawCalls).toBe(2); // pools + fireflies
+    expect(scene.getObjectByName('night:fireflies')).toBeDefined();
     lights.dispose();
     expect(scene.onBeforeRender).toBe(hook);
     expect(scene.getObjectByName('night-lights')).toBeUndefined();
+  });
+});
+
+describe('fireflies (stretch)', () => {
+  it('pick ≤ 24 stable spots over uncovered meadow cells, none without meadow', () => {
+    const { town, editor } = setup();
+    expect(pickFireflySpots(town)).toEqual([]);
+    buildSampleTown(editor);
+    const spots = pickFireflySpots(town);
+    expect(spots.length).toBe(MAX_FIREFLIES);
+    expect(pickFireflySpots(town)).toEqual(spots); // deterministic (hash, no RNG)
+    for (const spot of spots) {
+      const cell = { x: Math.floor(spot.x / CELL_SIZE + PLOT_WIDTH / 2), z: Math.floor(spot.z / CELL_SIZE + PLOT_DEPTH / 2) };
+      expect(town.getGround(cell)).toBe('meadow');
+      expect(town.getObjectAt(cell)).toBeUndefined();
+      expect(spot.y).toBeGreaterThan(0.1);
+    }
+    expect(pickFireflySpots(town, 5)).toEqual(spots.slice(0, 5));
   });
 });

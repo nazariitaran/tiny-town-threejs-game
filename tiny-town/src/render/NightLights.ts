@@ -8,7 +8,8 @@
  *  - Halos: ONE InstancedMesh of camera-facing additive sprites at the lamp heads (+1, high tier only).
  *  - Headlight beams: ONE InstancedMesh of short additive cones on the road ahead of each car
  *    (≤ MAX_CARS; +1), from LifeSystem.carPose().
- *  - All three are `visible = false` while night < VISIBLE_FROM, so daytime draw calls and pixels
+ *  - Fireflies (stretch, render/fireflies.ts): ≤ 24 sprites over meadow cells in full night (+1).
+ *  - All of them are `visible = false` while night < VISIBLE_FROM, so daytime draw calls and pixels
  *    are unchanged.
  *  - Lamp registry (render/lampRegistry.ts): from `town:changed` and the grid helpers, so it is
  *    scale-agnostic. The lamp head is measured once at populate() from the lamppost's lamp-cell UV
@@ -36,7 +37,9 @@ import type { TownStateReader } from '../town/types';
 import type { DaySample } from '../world/dayCycle';
 import { LampRegistry, measureCellCentroid, objectPointToWorld, type Vec3Like } from './lampRegistry';
 import type { ModelLibrary } from './ModelLibrary';
-import { GLOW_CELLS } from './nightGlow';
+import { windStrength, windTime } from '../fx/windSway';
+import { Fireflies, FIREFLIES_FROM } from './fireflies';
+import { GLOW_CELLS, smoothstep } from './nightGlow';
 import { MODEL_STYLES } from './TownRenderer';
 
 export interface NightLightsDiagnostics {
@@ -101,6 +104,8 @@ export class NightLights {
   private readonly geometries: THREE.BufferGeometry[] = [];
   private readonly head: Vec3Like = { ...FALLBACK_HEAD };
   private readonly previousBeforeRender: THREE.Object3D['onBeforeRender'];
+  private fireflies: Fireflies | null = null;
+  private fireflyLevel = 0;
   private populated = false;
   private builtVersion = -1;
   private warmPending = false;
@@ -125,7 +130,12 @@ export class NightLights {
     debug?: DebugTools,
   ) {
     this.group.name = 'night-lights';
-    this.unsubscribe.push(bus.on('town:changed', ({ changes, cause }) => this.registry.onTownChanged(changes, cause, this.town)));
+    this.unsubscribe.push(
+      bus.on('town:changed', ({ changes, cause }) => {
+        this.registry.onTownChanged(changes, cause, this.town);
+        this.fireflies?.invalidate();
+      }),
+    );
     this.registry.rebuild(town);
     // Chained: instance writes + warm-up right before every render (frame loop or test hook).
     this.previousBeforeRender = scene.onBeforeRender;
@@ -144,6 +154,8 @@ export class NightLights {
     this.buildLayer('pool');
     if (this.quality === 'high') this.buildLayer('halo');
     this.buildLayer('beam');
+    this.fireflies = new Fireflies();
+    this.group.add(this.fireflies.mesh);
     this.applyColors();
     this.scene.add(this.group);
     this.registry.rebuild(this.town);
@@ -158,8 +170,15 @@ export class NightLights {
     this.library.glow.update(sample);
     this.night = this.library.glow.levels.night;
     this.lampLevel = this.library.glow.levels.lamps;
-    for (const [kind, layer] of this.layers) {
-      layer.material.uniforms.uLevel.value = kind === 'beam' ? this.night : this.lampLevel;
+    // No iterators here (per frame): three direct lookups.
+    this.setLevel('pool', this.lampLevel);
+    this.setLevel('halo', this.lampLevel);
+    this.setLevel('beam', this.night);
+    if (this.fireflies) {
+      // The wind clock: frozen under reduced motion / while paused, rest pose after stabilize().
+      this.fireflyLevel = smoothstep(FIREFLIES_FROM, 1, this.night);
+      this.fireflies.setState(this.fireflyLevel, windTime(), windStrength());
+      if (this.fireflyLevel > 0 && this.populated) this.fireflies.refresh(this.town);
     }
     this.publish();
   }
@@ -178,12 +197,19 @@ export class NightLights {
       layer.material.dispose();
     }
     this.layers.clear();
+    this.fireflies?.dispose();
+    this.fireflies = null;
     for (const geometry of this.geometries) geometry.dispose();
     this.geometries.length = 0;
     this.populated = false;
   }
 
   // ---------------------------------------------------------------------------------------------
+
+  private setLevel(kind: LayerKind, level: number): void {
+    const layer = this.layers.get(kind);
+    if (layer) layer.material.uniforms.uLevel.value = level;
+  }
 
   private get shown(): boolean {
     return this.populated && this.night >= VISIBLE_FROM;
@@ -195,6 +221,7 @@ export class NightLights {
     if (this.shown) {
       if (this.lampLevel > 0 && this.registry.count > 0) calls += this.layers.has('halo') ? 2 : 1;
       if (this.drawnCars() > 0) calls += 1;
+      if (this.fireflyLevel > 0 && (this.fireflies?.count ?? 0) > 0) calls += 1;
     }
     this.diag.drawCalls = calls;
   }
@@ -217,6 +244,14 @@ export class NightLights {
         layer.mesh.count = 1;
         layer.mesh.visible = true;
       }
+      if (this.fireflies) {
+        const mesh = this.fireflies.mesh;
+        mesh.setMatrixAt(0, ZERO_MATRIX);
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.count = 1;
+        mesh.visible = true;
+        this.fireflies.invalidate();
+      }
       this.builtVersion = -1; // slot 0 was overwritten: rewrite the lamps next time
       return;
     }
@@ -229,6 +264,10 @@ export class NightLights {
     if (halos) halos.mesh.visible = lampsOn && halos.mesh.count > 0;
     const beams = this.layers.get('beam')!;
     beams.mesh.visible = shown && this.writeBeams(beams) > 0;
+    if (this.fireflies) {
+      const on = shown && this.fireflyLevel > 0;
+      this.fireflies.mesh.visible = on && this.fireflies.refresh(this.town) > 0;
+    }
   }
 
   private writeLamps(): void {
