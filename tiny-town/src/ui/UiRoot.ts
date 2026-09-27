@@ -4,7 +4,7 @@
  * and the error screen. Layout and states follow docs/design/02-interaction-and-ui.md §4–§7.
  *
  * Talks to the game ONLY via the bus: emits `intent:*` / `ui:sfx`, renders facts
- * (`phase:changed`, `tool:changed`, `town:stats`, `history:changed`, `audio:changed`, ...).
+ * (`phase:changed`, `tool:changed`, `history:changed`, `audio:changed`, ...).
  *
  * UI-owned state: the active dock category and the digit shortcuts (see uiKeys.ts).
  * Keep the element ids listed in UI_TEST_IDS stable — Playwright tests select by them.
@@ -14,9 +14,8 @@
 import { TOOL_CATEGORIES, toolDef, toolsInCategory, type ToolCategory, type ToolId } from '../catalog/tools';
 import { assetUrl } from '../game/config';
 import type { GameBus, GamePhase } from '../game/events';
-import type { Rotation, TownStats } from '../town/types';
+import type { Rotation } from '../town/types';
 import { GLYPHS } from './glyphs';
-import { StatsHud } from './StatsHud';
 import { UI_TEST_IDS } from './testIds';
 import { digitAction } from './uiKeys';
 
@@ -45,7 +44,6 @@ const escapeHtml = (text: string): string =>
 export class UiRoot {
   private readonly root: HTMLElement;
   private readonly unsubscribers: Array<() => void> = [];
-  private readonly stats = new StatsHud();
   private readonly coarse = window.matchMedia('(pointer: coarse)');
 
   private phase: GamePhase = 'loading';
@@ -66,7 +64,6 @@ export class UiRoot {
   private pointerTouch = false;
   private hoverKey: string | null = null;
   private quietHoverKey: string | null = null;
-  private statsSeen = false;
 
   constructor(
     host: HTMLElement,
@@ -75,7 +72,6 @@ export class UiRoot {
   ) {
     this.root = host;
     this.root.innerHTML = this.template();
-    this.root.querySelector('.ui-hud-left')!.append(this.stats.element);
 
     this.root.addEventListener('click', this.onClick);
     this.root.addEventListener('input', this.onInput);
@@ -106,7 +102,6 @@ export class UiRoot {
       }),
       bus.on('build:invalid', ({ reason }) => this.flashInvalid(reason)),
       bus.on('build:placed', () => this.clearTooltip(true)),
-      bus.on('town:stats', (stats) => this.renderStats(stats)),
       bus.on('history:changed', ({ canUndo, canRedo }) => {
         this.button(UI_TEST_IDS.undo).disabled = !canUndo;
         this.button(UI_TEST_IDS.redo).disabled = !canRedo;
@@ -136,7 +131,6 @@ export class UiRoot {
     window.removeEventListener('resize', this.updateTrayCue);
     window.clearTimeout(this.hintTimer);
     window.clearTimeout(this.tooltipTimer);
-    this.stats.dispose();
     for (const off of this.unsubscribers) off();
     this.root.innerHTML = '';
     delete this.root.dataset.phase;
@@ -171,9 +165,7 @@ export class UiRoot {
       </section>
 
       <header class="ui-topbar ui-hud" data-phase="building menu">
-        <div class="ui-hud-left">
-          <div class="ui-brand ui-pill"><span class="ui-mark">${mark}</span></div>
-        </div>
+        <div class="ui-brand ui-pill"><span class="ui-mark">${mark}</span></div>
         <div class="ui-actions ui-pill" role="group" aria-label="Game controls">
           <button id="${id.undo}" type="button" class="ui-icon-btn" disabled aria-label="Undo" title="Undo (Ctrl+Z)">${GLYPHS.undo}</button>
           <button id="${id.redo}" type="button" class="ui-icon-btn" disabled aria-label="Redo" title="Redo (Ctrl+Shift+Z)">${GLYPHS.redo}</button>
@@ -536,12 +528,6 @@ export class UiRoot {
   private renderRotation(rotation: Rotation): void {
     const rot = this.root.querySelector<HTMLElement>('.ui-rot');
     if (rot) rot.style.transform = `rotate(${rotation * 90}deg)`;
-  }
-
-  private renderStats(stats: TownStats): void {
-    // The first stats (before the player has seen the HUD) snap instead of counting up.
-    this.stats.set(stats, this.statsSeen && this.phase === 'building');
-    this.statsSeen = true;
   }
 
   private renderAudio(): void {

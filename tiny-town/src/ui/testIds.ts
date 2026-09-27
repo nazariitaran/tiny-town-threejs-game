@@ -40,7 +40,6 @@ export const UI_TEST_IDS = {
   retry: 'btn-retry',
   dock: 'ui-dock',
   tray: 'ui-tray',
-  stats: 'ui-stats',
   hint: 'ui-hint',
   tooltip: 'ui-tooltip',
 } as const;

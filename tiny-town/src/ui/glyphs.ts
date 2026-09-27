@@ -29,11 +29,8 @@ export const GLYPHS = {
   nature: svg('<path d="M12 21v-6"/><path d="M12 3c3.6 0 6 2.8 6 6.2 0 3.3-2.7 5.8-6 5.8s-6-2.5-6-5.8C6 5.8 8.4 3 12 3z"/>'),
   buildings: svg('<path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/>'),
   other: svg('<path d="M12 21V8"/><path d="M8.5 21h7"/><path d="M9 8h6l-1-4h-4z"/><path d="M12 8v0"/>'),
-  // Stats
+  // Brand mark
   homes: svg('<path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/>'),
-  residents: svg('<circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.7 3.5-6 7-6s6.2 2.3 7 6"/>'),
-  trees: svg('<path d="M12 21v-6"/><path d="M12 3c3.6 0 6 2.8 6 6.2 0 3.3-2.7 5.8-6 5.8s-6-2.5-6-5.8C6 5.8 8.4 3 12 3z"/>'),
-  roads: svg('<path d="M8 3 5 21"/><path d="m16 3 3 18"/><path d="M12 4v2.5"/><path d="M12 10.5v3"/><path d="M12 17.5V20"/>'),
 } as const;
 
 export type GlyphId = keyof typeof GLYPHS;
