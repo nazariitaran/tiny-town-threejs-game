@@ -34,6 +34,12 @@ const M = (url: string, scale = 1, rotationOffset: Rotation = 0, extra: Partial<
   ...extra,
 });
 
+/**
+ * WP-17: homes, the supermarket and the church grew one cell each way (e.g. 3 × 3 → 4 × 4), and their
+ * models by the same ×4/3 of the depth axis, so a building fills its bigger lot like it did before.
+ */
+const HOME_SCALE = 4 / 3;
+
 // Values from docs/assets/models.json (measured by scripts/inspect-models.mjs).
 // Kenney city/industrial models face −Z natively ⇒ rotationOffset 2.
 // Road pieces' native connections (straight W+E, corner W+S, tee W+E+S, end E) are turned
@@ -66,34 +72,38 @@ export const MODELS = {
   'bus-stop': M('/assets/models/composed/bus-stop.glb', 0.8, 2),
   // WP-12: ≈ car height (0.15 × 0.24), ~1.2× real so it still reads as a pillar box.
   postbox: M('/assets/models/composed/postbox.glb', 1.4, 2),
-  // ---- Homes: City Kit Suburban at the kit's native scale, nudged back (−z at rotation 0) so a front
-  // yard reads between the door and the street. 3 × 3 cells unless noted.
-  cottage: M('/assets/models/suburban/building-type-a.glb', 1, 2, { offset: [0, 0, -0.15], glow: 'windows' }),
-  // 2 × 3 cells.
-  townhouse: M('/assets/models/suburban/building-type-k.glb', 1, 2, { offset: [0, 0, -0.15], glow: 'windows' }),
-  'townhouse-alt': M('/assets/models/suburban/building-type-r.glb', 1, 2, { offset: [0, 0, -0.15], glow: 'windows' }),
-  // Single-storey with a garage: type-i (1.29 × 0.74 × 1.03), L-shaped type-m (1.43 deep: no nudge).
-  bungalow: M('/assets/models/suburban/building-type-i.glb', 1, 2, { offset: [0, 0, -0.15], glow: 'windows' }),
-  'bungalow-l': M('/assets/models/suburban/building-type-m.glb', 1, 2, { glow: 'windows' }),
-  'family-home': M('/assets/models/suburban/building-type-e.glb', 1, 2, { offset: [0, 0, -0.15], glow: 'windows' }),
-  // Two storeys with an attached garage (1.27–1.43 wide, 1.03–1.09 deep).
-  'garage-house-c': M('/assets/models/suburban/building-type-c.glb', 1, 2, { offset: [0, 0, -0.15], glow: 'windows' }),
-  'garage-house-o': M('/assets/models/suburban/building-type-o.glb', 1, 2, { offset: [0, 0, -0.15], glow: 'windows' }),
-  'garage-house-s': M('/assets/models/suburban/building-type-s.glb', 1, 2, { offset: [0, 0, -0.15], glow: 'windows' }),
-  'garage-house-u': M('/assets/models/suburban/building-type-u.glb', 1, 2, { offset: [0, 0, -0.15], glow: 'windows' }),
-  // 4 × 3 cells: type-d (1.76 × 1.24 × 1.03), type-n (1.78 × 1.14 × 1.38: small nudge).
-  'big-house-d': M('/assets/models/suburban/building-type-d.glb', 1, 2, { offset: [0, 0, -0.15], glow: 'windows' }),
-  'big-house-n': M('/assets/models/suburban/building-type-n.glb', 1, 2, { offset: [0, 0, -0.04], glow: 'windows' }),
+  // ---- Homes: City Kit Suburban at HOME_SCALE (WP-17: every home grew one cell each way, so ×4/3 of
+  // the kit's native size), nudged back (−z at rotation 0) so a front yard reads between the door and
+  // the street; the nudge grew with the model (0.15 → 0.2), so the yard keeps its share of the lot.
+  // 4 × 4 cells unless noted.
+  cottage: M('/assets/models/suburban/building-type-a.glb', HOME_SCALE, 2, { offset: [0, 0, -0.2], glow: 'windows' }),
+  // 3 × 4 cells.
+  townhouse: M('/assets/models/suburban/building-type-k.glb', HOME_SCALE, 2, { offset: [0, 0, -0.2], glow: 'windows' }),
+  'townhouse-alt': M('/assets/models/suburban/building-type-r.glb', HOME_SCALE, 2, { offset: [0, 0, -0.2], glow: 'windows' }),
+  // Single-storey with a garage: type-i (1.71 × 0.98 × 1.37), L-shaped type-m (1.90 deep: no nudge).
+  bungalow: M('/assets/models/suburban/building-type-i.glb', HOME_SCALE, 2, { offset: [0, 0, -0.2], glow: 'windows' }),
+  'bungalow-l': M('/assets/models/suburban/building-type-m.glb', HOME_SCALE, 2, { glow: 'windows' }),
+  'family-home': M('/assets/models/suburban/building-type-e.glb', HOME_SCALE, 2, { offset: [0, 0, -0.2], glow: 'windows' }),
+  // Two storeys with an attached garage (1.69–1.90 wide, 1.37–1.45 deep).
+  'garage-house-c': M('/assets/models/suburban/building-type-c.glb', HOME_SCALE, 2, { offset: [0, 0, -0.2], glow: 'windows' }),
+  'garage-house-o': M('/assets/models/suburban/building-type-o.glb', HOME_SCALE, 2, { offset: [0, 0, -0.2], glow: 'windows' }),
+  'garage-house-s': M('/assets/models/suburban/building-type-s.glb', HOME_SCALE, 2, { offset: [0, 0, -0.2], glow: 'windows' }),
+  'garage-house-u': M('/assets/models/suburban/building-type-u.glb', HOME_SCALE, 2, { offset: [0, 0, -0.2], glow: 'windows' }),
+  // 5 × 4 cells: type-d (2.34 × 1.65 × 1.37), type-n (2.38 × 1.52 × 1.84: small nudge).
+  'big-house-d': M('/assets/models/suburban/building-type-d.glb', HOME_SCALE, 2, { offset: [0, 0, -0.2], glow: 'windows' }),
+  'big-house-n': M('/assets/models/suburban/building-type-n.glb', HOME_SCALE, 2, { offset: [0, 0, -0.05], glow: 'windows' }),
   // WP-12: single garage on 1×2 cells (0.49 × 0.41 × 0.62), lower than the eaves.
   garage: M('/assets/models/composed/garage.glb', 0.48, 2),
   // ---- Town
-  // KayKit corner shop (composed: normalised to 0.92 × 0.76 × 0.92), 2 × 2 cells. The shop front
-  // (door, striped awning) faces +Z natively, unlike the Kenney kits.
-  'corner-shop': M('/assets/models/composed/corner-shop.glb', 1, 0),
-  // City Kit Commercial building-e: low, wide, green awning (1.64 × 0.89 × 1.01), 4 × 3 cells.
-  supermarket: M('/assets/models/commercial/building-e.glb', 1, 2),
-  // Poly Pizza church (composed: 0.78 × 1.75 × 1.42), 2 × 3 cells. Tower and door face +Z natively.
-  church: M('/assets/models/composed/church.glb', 1, 0),
+  // KayKit corner shop (composed: normalised to 0.92 × 0.76 × 0.92), 3 × 3 cells at 1.4 (WP-17):
+  // 1.29 × 1.06 × 1.29. The shop front (door, striped awning) faces +Z natively, unlike the Kenney kits.
+  'corner-shop': M('/assets/models/composed/corner-shop.glb', 1.4, 0),
+  // City Kit Commercial building-e: low, wide, green awning, 5 × 4 cells at HOME_SCALE (WP-17):
+  // 2.19 × 1.19 × 1.34.
+  supermarket: M('/assets/models/commercial/building-e.glb', HOME_SCALE, 2),
+  // Poly Pizza church (composed: 0.78 × 1.75 × 1.42), 3 × 4 cells at HOME_SCALE (WP-17):
+  // 1.04 × 2.33 × 1.89, still the tallest building. Tower and door face +Z natively.
+  church: M('/assets/models/composed/church.glb', HOME_SCALE, 0),
   // Fantasy Town fountain modules + parasols (composed, native 4 × 2.9), 4 × 3 cells.
   'swimming-pool': M('/assets/models/composed/swimming-pool.glb', 0.5, 2),
   // Fantasy Town round fountain with its centre tier (native 2 × 2), 2 × 2 cells.
@@ -111,8 +121,8 @@ export const MODELS = {
   planter: M('/assets/models/suburban/planter.glb', 1, 2),
   // Holiday-kit park bench, seat faces +Z natively: 0.34 × 0.22 × 0.19.
   bench: M('/assets/models/holiday/bench.glb', 0.3, 0),
-  // Poly Pizza swing set (composed: 0.56 × 0.42 × 0.32), 2 × 1 cells.
-  swing: M('/assets/models/composed/swing.glb', 1, 0),
+  // Poly Pizza swing set (composed: 0.56 × 0.42 × 0.32), 2 × 1 cells; WP-17: 0.87 (0.48 × 0.37 × 0.28).
+  swing: M('/assets/models/composed/swing.glb', 0.87, 0),
   // Poly Pizza kettle barbecue (composed: 0.15 × 0.20).
   barbecue: M('/assets/models/composed/barbecue.glb', 1, 0),
   // Edge pieces are 1 native unit along X (one cell at scale 0.5); MODEL_STYLES restores fence height.

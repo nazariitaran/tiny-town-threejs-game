@@ -700,10 +700,10 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z (door + planters)",
-    "suggestedScale": 1,
+    "suggestedScale": 1.3333,
     "footprintCells": [
-      3,
-      3
+      4,
+      4
     ],
     "triangles": 1174,
     "materials": 1,
@@ -711,7 +711,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 98604,
-    "notes": "\"Cottage\": 1.5-storey, twin gables. 1.30×0.83×1.03 at ×1 on a 3×3-cell footprint (WP-12), offset z −0.15. Roof colour can be swapped via Textures/variation-{a,b,c}.png."
+    "notes": "\"Cottage\": 1.5-storey, twin gables. 1.73×1.11×1.37 at ×4/3 on a 4×4-cell footprint (WP-17; was ×1 on 3×3), offset z −0.2. Roof colour can be swapped via Textures/variation-{a,b,c}.png."
   },
   {
     "id": "townhouse",
@@ -734,10 +734,10 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z (door + planters)",
-    "suggestedScale": 1,
+    "suggestedScale": 1.3333,
     "footprintCells": [
-      2,
-      3
+      3,
+      4
     ],
     "triangles": 1024,
     "materials": 1,
@@ -745,7 +745,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 89152,
-    "notes": "\"Townhouse\": narrow 2-storey. 0.92×1.15×1.03 at ×1 on a 2×3-cell footprint (WP-12), offset z −0.15."
+    "notes": "\"Townhouse\": narrow 2-storey. 1.23×1.53×1.36 at ×4/3 on a 3×4-cell footprint (WP-17; was ×1 on 2×3), offset z −0.2."
   },
   {
     "id": "family-home",
@@ -768,10 +768,10 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z (door, awning, planters)",
-    "suggestedScale": 1,
+    "suggestedScale": 1.3333,
     "footprintCells": [
-      3,
-      3
+      4,
+      4
     ],
     "triangles": 1731,
     "materials": 1,
@@ -779,7 +779,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 145512,
-    "notes": "\"Family home\": wide 2-storey with dormer. 1.30×1.14×1.03 at ×1 on a 3×3-cell footprint (WP-12), offset z −0.15. v0.3: the only family-home variant (type-c moved to Suburban)."
+    "notes": "\"Family home\": wide 2-storey with dormer. 1.73×1.52×1.37 at ×4/3 on a 4×4-cell footprint (WP-17; was ×1 on 3×3), offset z −0.2. v0.3: the only family-home variant (type-c moved to Suburban)."
   },
   {
     "id": "townhouse-alt",
@@ -802,10 +802,10 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z (door)",
-    "suggestedScale": 1,
+    "suggestedScale": 1.3333,
     "footprintCells": [
-      2,
-      3
+      3,
+      4
     ],
     "triangles": 1030,
     "materials": 1,
@@ -813,7 +813,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 88544,
-    "notes": "Variant of townhouse (variant 1): gabled narrow 2-storey, 2×3 cells."
+    "notes": "Variant of townhouse (variant 1): gabled narrow 2-storey, 1.37×1.52×1.36 at ×4/3 on 3×4 cells (WP-17), offset z −0.2."
   },
   {
     "id": "garage-house-c",
@@ -836,10 +836,10 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z (door + garage door)",
-    "suggestedScale": 1,
+    "suggestedScale": 1.3333,
     "footprintCells": [
-      3,
-      3
+      4,
+      4
     ],
     "triangles": 1196,
     "materials": 1,
@@ -847,7 +847,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 99592,
-    "notes": "Suburban variant 0 (v0.3; was the townhouse-c-alt family-home variant): 2-storey with an integral garage, 3×3 cells, offset z −0.15."
+    "notes": "Suburban variant 0 (v0.3; was the townhouse-c-alt family-home variant): 2-storey with an integral garage, 1.71×1.38×1.37 at ×4/3 on 4×4 cells (WP-17), offset z −0.2."
   },
   {
     "id": "garage",
@@ -938,10 +938,10 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z (door + garage door)",
-    "suggestedScale": 1,
+    "suggestedScale": 1.3333,
     "footprintCells": [
-      3,
-      3
+      4,
+      4
     ],
     "triangles": 800,
     "materials": 1,
@@ -949,7 +949,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 69772,
-    "notes": "Bungalow variant 0: single storey with a garage, 1.29 × 0.74 × 1.03, offset z −0.15."
+    "notes": "Bungalow variant 0: single storey with a garage, 1.71 × 0.98 × 1.37 at ×4/3 on 4 × 4 cells (WP-17), offset z −0.2."
   },
   {
     "id": "bungalow-l",
@@ -972,10 +972,10 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z (door)",
-    "suggestedScale": 1,
+    "suggestedScale": 1.3333,
     "footprintCells": [
-      3,
-      3
+      4,
+      4
     ],
     "triangles": 1112,
     "materials": 1,
@@ -983,7 +983,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 96996,
-    "notes": "Bungalow variant 1: L-shaped single storey, 1.43 × 0.74 × 1.43 (fills the 3 × 3 footprint, so no nudge)."
+    "notes": "Bungalow variant 1: L-shaped single storey, 1.90 × 0.98 × 1.90 at ×4/3 (fills the 4 × 4 footprint, so no nudge; WP-17)."
   },
   {
     "id": "garage-house-o",
@@ -1006,10 +1006,10 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z (door + garage door)",
-    "suggestedScale": 1,
+    "suggestedScale": 1.3333,
     "footprintCells": [
-      3,
-      3
+      4,
+      4
     ],
     "triangles": 1326,
     "materials": 1,
@@ -1017,7 +1017,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 114424,
-    "notes": "Suburban variant 1: two storeys with an attached garage, offset z −0.15."
+    "notes": "Suburban variant 1: two storeys with an attached garage, ×4/3 on 4×4 cells (WP-17), offset z −0.2."
   },
   {
     "id": "garage-house-s",
@@ -1040,10 +1040,10 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z (door + garage door)",
-    "suggestedScale": 1,
+    "suggestedScale": 1.3333,
     "footprintCells": [
-      3,
-      3
+      4,
+      4
     ],
     "triangles": 1212,
     "materials": 1,
@@ -1051,7 +1051,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 103172,
-    "notes": "Suburban variant 2, offset z −0.15."
+    "notes": "Suburban variant 2, ×4/3 on 4×4 cells (WP-17), offset z −0.2."
   },
   {
     "id": "garage-house-u",
@@ -1074,10 +1074,10 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z (door + garage door)",
-    "suggestedScale": 1,
+    "suggestedScale": 1.3333,
     "footprintCells": [
-      3,
-      3
+      4,
+      4
     ],
     "triangles": 1332,
     "materials": 1,
@@ -1085,7 +1085,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 117912,
-    "notes": "Suburban variant 3, offset z −0.15."
+    "notes": "Suburban variant 3, ×4/3 on 4×4 cells (WP-17), offset z −0.2."
   },
   {
     "id": "big-house-d",
@@ -1108,10 +1108,10 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z (door + garage door)",
-    "suggestedScale": 1,
+    "suggestedScale": 1.3333,
     "footprintCells": [
-      4,
-      3
+      5,
+      4
     ],
     "triangles": 1757,
     "materials": 1,
@@ -1119,7 +1119,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 147368,
-    "notes": "Big house variant 0: 1.76 × 1.24 × 1.03 on 4 × 3 cells, offset z −0.15."
+    "notes": "Big house variant 0: 2.34 × 1.65 × 1.37 at ×4/3 on 5 × 4 cells (WP-17; was ×1 on 4 × 3), offset z −0.2."
   },
   {
     "id": "big-house-n",
@@ -1142,10 +1142,10 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z (door)",
-    "suggestedScale": 1,
+    "suggestedScale": 1.3333,
     "footprintCells": [
-      4,
-      3
+      5,
+      4
     ],
     "triangles": 1612,
     "materials": 1,
@@ -1153,7 +1153,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 139464,
-    "notes": "Big house variant 1: 1.78 × 1.14 × 1.38 on 4 × 3 cells, offset z −0.04 (deeper, so only a small nudge)."
+    "notes": "Big house variant 1: 2.38 × 1.52 × 1.84 at ×4/3 on 5 × 4 cells (WP-17), offset z −0.05 (deeper, so only a small nudge)."
   },
   {
     "id": "corner-shop",
@@ -1176,10 +1176,10 @@
     },
     "pivot": "centre-bottom",
     "front": "+Z (door and striped awning face +Z natively)",
-    "suggestedScale": 1,
+    "suggestedScale": 1.4,
     "footprintCells": [
-      2,
-      2
+      3,
+      3
     ],
     "triangles": 828,
     "materials": 1,
@@ -1187,7 +1187,7 @@
       "(embedded bufferView 0)"
     ],
     "fileBytes": 71316,
-    "notes": "Normalised to game units (0.92 × 0.76 × 0.92), metalness 0 / roughness 1. rotationOffset 0."
+    "notes": "Normalised to game units (0.92 × 0.76 × 0.92), metalness 0 / roughness 1. rotationOffset 0. WP-17: ×1.4 on 3 × 3 cells (1.29 × 1.06 × 1.29)."
   },
   {
     "id": "supermarket",
@@ -1210,10 +1210,10 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z (entrance, green awning)",
-    "suggestedScale": 1,
+    "suggestedScale": 1.3333,
     "footprintCells": [
-      4,
-      3
+      5,
+      4
     ],
     "triangles": 1509,
     "materials": 1,
@@ -1221,7 +1221,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 128208,
-    "notes": "Low, wide shop: 1.64 × 0.89 × 1.01 on 4 × 3 cells."
+    "notes": "Low, wide shop: 2.19 × 1.19 × 1.34 at ×4/3 on 5 × 4 cells (WP-17; was 1.64 × 0.89 × 1.01 at ×1 on 4 × 3)."
   },
   {
     "id": "church",
@@ -1244,10 +1244,10 @@
     },
     "pivot": "centre-bottom",
     "front": "+Z (tower and door face +Z natively)",
-    "suggestedScale": 1,
+    "suggestedScale": 1.3333,
     "footprintCells": [
-      2,
-      3
+      3,
+      4
     ],
     "triangles": 1470,
     "materials": 1,
@@ -1255,7 +1255,7 @@
       "(embedded bufferView 3)"
     ],
     "fileBytes": 30236,
-    "notes": "Attribution required: \"Church\" by Poly by Google, via Poly Pizza, CC-BY 3.0. Normalised to 0.78 × 1.75 × 1.42, metalness 0 / roughness 1. rotationOffset 0."
+    "notes": "Attribution required: \"Church\" by Poly by Google, via Poly Pizza, CC-BY 3.0. Normalised to 0.78 × 1.75 × 1.42, metalness 0 / roughness 1. rotationOffset 0. WP-17: ×4/3 on 3 × 4 cells (1.04 × 2.33 × 1.89)."
   },
   {
     "id": "swimming-pool",
@@ -1925,7 +1925,7 @@
     },
     "pivot": "centre-bottom",
     "front": "n/a — frame runs along X (open both sides)",
-    "suggestedScale": 1,
+    "suggestedScale": 0.87,
     "footprintCells": [
       2,
       1
@@ -1936,7 +1936,7 @@
       "(embedded bufferView 3)"
     ],
     "fileBytes": 12616,
-    "notes": "Attribution required: \"Swing set\" by Poly by Google, via Poly Pizza, CC-BY 3.0. Normalised to 0.56 × 0.42 × 0.32 and turned 90° so the frame runs along X; metalness 0 / roughness 1."
+    "notes": "Attribution required: \"Swing set\" by Poly by Google, via Poly Pizza, CC-BY 3.0. Normalised to 0.56 × 0.42 × 0.32 and turned 90° so the frame runs along X; metalness 0 / roughness 1. WP-17: ×0.87 (0.48 × 0.37 × 0.28), same 2 × 1 cells."
   },
   {
     "id": "barbecue",

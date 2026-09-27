@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CELL_SIZE, cellToWorld, footprintCentreWorld, roadBlockCentreWorld, ROAD_TILE_SIZE } from '../game/config';
+import { OBJECTS } from '../catalog/objects';
 import {
   anchorForPointer,
   cellsOnLine,
@@ -88,6 +89,24 @@ describe('grid helpers', () => {
     expect(anchorForPointer(10.99, 10.01, [3, 3], 0, 48, 48)).toEqual({ x: 9, z: 9 });
     // 2×3 at rotation 1 is 3 wide × 2 deep.
     expect(anchorForPointer(10.5, 10.9, [2, 3], 1, 48, 48)).toEqual({ x: 9, z: 10 });
+  });
+
+  it('centres the WP-17 footprints: even sizes on a cell corner, odd sizes on the hovered cell', () => {
+    // 4 × 4 home: the nearest corner (10.2 → corner 10, 10.8 → corner 11).
+    expect(OBJECTS.cottage.footprint).toEqual([4, 4]);
+    expect(anchorForPointer(10.2, 10.8, OBJECTS.cottage.footprint, 0, 48, 48)).toEqual({ x: 8, z: 9 });
+    // 3 × 4 townhouse: x centred on cell 10, z on corner 10; at rotation 1 (4 × 3) the other way round.
+    expect(anchorForPointer(10.5, 10.2, OBJECTS.townhouse.footprint, 0, 48, 48)).toEqual({ x: 9, z: 8 });
+    expect(anchorForPointer(10.2, 10.5, OBJECTS.townhouse.footprint, 1, 48, 48)).toEqual({ x: 8, z: 9 });
+    // 5 × 4 big house / supermarket: x centred on cell 10 (anchor 8), z on corner 11 (anchor 9).
+    expect(anchorForPointer(10.5, 10.6, OBJECTS['big-house'].footprint, 0, 48, 48)).toEqual({ x: 8, z: 9 });
+    expect(anchorForPointer(10.6, 10.5, OBJECTS.supermarket.footprint, 1, 48, 48)).toEqual({ x: 9, z: 8 });
+    // 3 × 3 corner shop centres on the hovered cell.
+    expect(anchorForPointer(10.9, 10.1, OBJECTS['corner-shop'].footprint, 0, 48, 48)).toEqual({ x: 9, z: 9 });
+    // Clamped at the far corner at both rotations.
+    expect(anchorForPointer(47.9, 47.9, OBJECTS['big-house'].footprint, 0, 48, 48)).toEqual({ x: 43, z: 44 });
+    expect(anchorForPointer(47.9, 47.9, OBJECTS['big-house'].footprint, 1, 48, 48)).toEqual({ x: 44, z: 43 });
+    expect(anchorForPointer(-3, -3, OBJECTS.church.footprint, 1, 48, 48)).toEqual({ x: 0, z: 0 });
   });
 
   it('snaps road-feature anchors to the road-block grid (snap = ROAD_BLOCK)', () => {

@@ -177,10 +177,12 @@ describe('TownEditor road paint removes the in-between fence', () => {
   it('multi-cell objects report their footprint centre in build:placed / build:removed', () => {
     const { editor, events } = setup();
     editor.apply({ type: 'place-object', kind: 'townhouse', cell: { x: 10, z: 10 }, rotation: 1 }, 'townhouse');
-    editor.apply({ type: 'bulldoze', cell: { x: 12, z: 11 }, edge: null }, 'bulldoze');
-    const centre = footprintCentreWorld({ x: 10, z: 10 }, [2, 3], 1);
+    // WP-17: a 3 × 4 townhouse at rotation 1 covers 4 × 3 cells (x 10..13, z 10..12); bulldoze its far corner.
+    editor.apply({ type: 'bulldoze', cell: { x: 13, z: 12 }, edge: null }, 'bulldoze');
+    const centre = footprintCentreWorld({ x: 10, z: 10 }, [3, 4], 1);
+    expect(centre.x).toBeCloseTo(footprintCentreWorld({ x: 10, z: 10 }, [1, 1], 0).x + 1.5 * 0.5, 6);
     expect(events.of('build:placed')[0]).toMatchObject({ cell: { x: 10, z: 10 }, worldX: centre.x, worldZ: centre.z });
-    expect(events.of('build:removed')[0]).toMatchObject({ layer: 'object', kind: 'townhouse', cell: { x: 12, z: 11 }, worldX: centre.x, worldZ: centre.z });
+    expect(events.of('build:removed')[0]).toMatchObject({ layer: 'object', kind: 'townhouse', cell: { x: 13, z: 12 }, worldX: centre.x, worldZ: centre.z });
   });
 });
 
@@ -363,7 +365,7 @@ describe('stats after the sample town', () => {
     // roundabout's 3 × 3 blocks (x 20..25, z 22..27) that were not road yet: 2 north + 2 south = 40.
     // Props: street (2 traffic lights, 4 lampposts, postbox, bus stop = 8) + garden (2 benches,
     // barbecue, swing, planter = 5) + plants (2 bushes) = 15. The garage is an outbuilding, not a prop.
-    // Fences (edge layer): 14 low (x 6..19) + 5 hedge (z 15..19) + 8 tall (z 28..35) = 27.
-    expect(editor.state.stats()).toEqual({ homes: 8, residents: 25, amenities: 5, trees: 5, roadTiles: 40, props: 15, fences: 27 });
+    // Fences (edge layer): 14 low (x 6..19) + 6 hedge (z 13..18) + 8 tall (z 27..34) = 28.
+    expect(editor.state.stats()).toEqual({ homes: 8, residents: 25, amenities: 5, trees: 5, roadTiles: 40, props: 15, fences: 28 });
   });
 });

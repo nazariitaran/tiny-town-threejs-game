@@ -1,5 +1,5 @@
 /**
- * Save format: TownState ⇄ SavedTown (= SavedTownV2, town/types.ts), validation and migration.
+ * Save format: TownState ⇄ SavedTown (= SavedTownV4, town/types.ts), validation and migration.
  * PURE (no three.js, no DOM). WP-02 owns this file; tested in serialize.test.ts.
  *
  *   serializeTown(state, camera?)  → SavedTown   (deterministic: objects by id, edges by key)
@@ -23,7 +23,7 @@ import { OBJECTS } from '../catalog/objects';
 import { cellKey, edgeCells, edgeInBounds, edgeKey, footprintCells, ROAD_BLOCK } from './grid';
 import type { EdgeKind, GroundKind, ObjectKind, PlacedEdge, PlacedObject, Rotation, SavedTown, TownStateReader } from './types';
 
-export const CURRENT_SAVE_VERSION = 3;
+export const CURRENT_SAVE_VERSION = 4;
 
 export type RawSave = Record<string, unknown>;
 
@@ -44,6 +44,8 @@ const MAX_SAVE_DIMENSION = 512;
  * Migrations receive already-JSON-parsed, still-unvalidated objects; parseSave validates after.
  * v0.3 (save v3) re-organised the catalog and dropped the v1 → v2 → v3 path on purpose: an older
  * save is rejected ("No migration from save version 2") and the game starts a fresh town.
+ * WP-17 (save v4) grew the home, shop and church footprints; a v3 town would overlap, so there is no
+ * v3 → v4 migration either ("No migration from save version 3").
  */
 export const SAVE_MIGRATIONS: Readonly<Record<number, (raw: RawSave) => RawSave>> = {};
 
@@ -67,7 +69,7 @@ export function serializeTown(state: SerializableTown, camera?: CameraPose): Sav
     .map((e): PlacedEdge => ({ kind: e.kind, edge: { x: e.edge.x, z: e.edge.z, side: e.edge.side } }))
     .sort(compareEdges);
   const save: SavedTown = {
-    version: 3,
+    version: 4,
     width: state.width,
     depth: state.depth,
     ground,
@@ -236,7 +238,7 @@ function parseSaveUnsafe(input: unknown, options: ParseOptions): SavedTown | Err
   for (const o of objects) nextObjectId = Math.max(nextObjectId, o.id + 1);
 
   const save: SavedTown = {
-    version: 3,
+    version: 4,
     width: plotW,
     depth: plotD,
     ground: encodeGround(plotGround),
