@@ -161,7 +161,7 @@ Plan and rationale: `docs/plans/wp-16-day-night.md`. The as-built deviations are
   - The shadow camera is refit only after the key moves > 0.2°.
   - The grid gets stronger at night.
 - **Light sources** (`render/nightGlow.ts`): emissive masks on private material clones (`ModelSpec.glow`).
-  - Masks are 16 × 4 swatch-cell `DataTexture`s on the Kenney atlases (window glass (11,1), lamp (8,2), lenses (9,1)/(11,3)/(15,3), car head (3,3) / tail (5,3)). The church has a 2-quadrant mask of its own texture.
+  - Masks are 16 × 4 swatch-cell `DataTexture`s on the Kenney atlases (window glass (11,1), lamp (8,2), lenses (9,1)/(11,3)/(15,3), car head (3,3) / tail (5,3)). Only homes glow: the supermarket, corner shop and church stay dark at night (WP-17, owner request).
   - Houses switch on one by one through a per-instance hash shader patch (`uLightsOn`/`uLightsOff`).
   - Emissive intensity is exactly 0 when `night` = 0, so the day look, icons and baselines are unchanged.
 - **Ground light** (`render/NightLights.ts`): a lamp registry fed by `town:changed`, plus three instanced additive layers, all hidden when night < 0.05. No real PointLights.

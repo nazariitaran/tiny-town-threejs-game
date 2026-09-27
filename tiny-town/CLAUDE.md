@@ -15,7 +15,7 @@ A cosy browser city-builder sandbox (three.js + TypeScript + Vite). Start here. 
   - The first CC-BY assets (Poly Pizza church, swing and barbecue); see `docs/assets/CREDITS.md`.
 - **v0.3, part 2: WP-16 "Day/night cycle"**, merged on `main` (owner-approved; built on the integration branch `v0.3-day-night`).
   - Auto / Day / Night: the time button, `T` and the menu row.
-  - Lit windows, lamp pools, traffic lights, headlights, church windows, fireflies, fewer cars at night.
+  - Lit house windows, lamp pools, traffic lights, headlights, fireflies, fewer cars at night. Shops and the church stay dark (WP-17).
   - `night-town` test state and hook `setTimeOfDay`.
   - Current facts: `docs/design/03-architecture.md` §Day/night. The plan (historical) is `docs/plans/wp-16-day-night.md`.
 - Status, decisions, open issues and the backlog are in `docs/progress.md`, the integrator's recovery point. Read it before planning anything.
