@@ -1,6 +1,6 @@
 # Tiny Town — Swarm Handover
 
-How to take the scaffold to v1 with a swarm of agents. It contains:
+How to run a swarm of agents on Tiny Town. This reusable runbook was used for v0.1 (Waves 1–3, M1–M3) and v0.2 (WP-12/13/14). The current state is in `docs/progress.md`. It contains:
 
 - **§1 Orchestrator prompt:** paste it into ONE Claude Code session. That session becomes the integrator (WP-01) and runs every wave.
 - **§2 Worker prompt template:** the orchestrator uses it to brief each worker. You can also paste it into separate sessions yourself.
@@ -14,14 +14,16 @@ Source of truth for *what* to build: `docs/PLAN.md`. Source of truth for *how* t
 
 ## 0. Before you start (human, one-time)
 
-1. **Commit this file and the port change.** `git add -A && git commit -m "Swarm handover + PORT env"` from `ThreeJsGames/`. Worktrees branch from the latest commit, so anything uncommitted is invisible to workers.
-2. **Run the orchestrator where Chromium can launch.** Start that Claude Code session outside the nono sandbox, or with a profile that allows Chromium's profile directories. Subagents inherit the parent's sandbox, and 6 of the 7 Wave-1 packages need a browser for their acceptance checks.
+1. **Start from a clean, committed `main`** (`git status` clean in `ThreeJsGames/`). Worktrees branch from the latest commit, so anything uncommitted is invisible to workers. New WP sections must be committed to `docs/PLAN.md` before you fan out.
+2. **Run the orchestrator where Chromium can launch.** Start that Claude Code session outside the nono sandbox, or with a profile that allows Chromium's profile directories. Subagents inherit the parent's sandbox, and almost every WP needs a browser for its acceptance checks.
 3. **Start the session from the repo root:** `cd <repo-parent>/ThreeJsGames && claude`.
-4. **Paste §1.** Expect Wave 1 to take a few hours of agent time. The orchestrator reports back at each checkpoint.
+4. **Paste §1.** For a new iteration, first edit the wave list in the prompt and §3 to the new WPs. Expect a wave to take a few hours of agent time. The orchestrator reports back at each checkpoint.
 
 ---
 
 ## 1. Orchestrator prompt (paste everything in the box)
+
+> The prompt was written for the v0.1 waves; the wave/WP names in PHASE 1–5 are that iteration's. For a later iteration, keep the procedure and STANDING RULES and swap in the new WPs and their §3 rows. Its facts were updated on 2026-09-27.
 
 ````text
 You are the INTEGRATOR (WP-01) and orchestrator for "Tiny Town", a three.js sandbox city
@@ -42,10 +44,13 @@ REPO FACTS
 - node_modules/ and tiny-town/assets-src/ (raw asset packs, 179 MB) are gitignored and
   exist only in the main checkout. Worktrees must `npm install` and must read assets-src
   by absolute path from the main checkout.
-- Dev server, Playwright and the canvas inspector honour the PORT env var (default 5188).
+- Dev server, Playwright, the canvas inspector and scripts/render-icons.mjs honour the PORT env var
+  (default 5188; vite preview = PORT-1000). Ports 5203–5214 were used by v0.1/v0.2 WPs; start new ones at 5215.
+- artifacts/ is gitignored: a worker's evidence lives only in its worktree. Copy it into the main
+  checkout BEFORE `git worktree remove --force` (WP-07's audio recording was lost that way).
 
 PHASE 0 — PREFLIGHT (you, on main, before spawning anyone)
-1. cd tiny-town && npm run verify   (must pass: tsc, 18+ unit tests, build).
+1. cd tiny-town && npm run verify   (must pass: tsc, unit tests (294 at v0.2), build).
 2. Browser smoke: `npm run test:e2e` and
    `npm run dev` + `npm run inspect:canvas -- --state asset-gallery --run-id m0 --out artifacts/m0`.
    Look at artifacts/m0/*.png yourself. If Chromium cannot launch, STOP and tell the human
@@ -118,7 +123,8 @@ STANDING RULES
 - Budget: at most 7 concurrent workers. Don't spawn reviewers for every WP; spawn one
   independent reviewer at M1 and at M3 (give it raw screenshots + diagnostics + the
   scorecard file, ask for concrete defects, not approval).
-- Clean up: `git worktree remove` + delete merged branches after each checkpoint.
+- Clean up after each checkpoint: first copy <worktree>/tiny-town/artifacts/<wp>/ into the main
+  checkout's tiny-town/artifacts/<wp>/, then `git worktree remove` + delete merged branches.
 ````
 
 ---
@@ -167,7 +173,8 @@ RULES
 DONE MEANS
 - Every acceptance check in your PLAN section was RUN, with its actual output captured
   (command output, screenshot paths under tiny-town/artifacts/<wp-id-lower>/, diagnostics
-  numbers). If a check could not run (e.g. Chromium can't launch), say exactly why —
+  numbers). artifacts/ is gitignored: leave the files in your worktree; the integrator copies
+  them to the main checkout before removing it. If a check could not run (e.g. Chromium can't launch), say exactly why —
   never silently skip or fake it.
 - `npm run verify` passes in your worktree.
 - Commit your work on your branch (several commits are fine), message prefix "<WP-ID>: ".
@@ -188,6 +195,8 @@ FINAL MESSAGE (your hand-off to the integrator) — use exactly these headings:
 
 ## 3. Per-WP briefs
 
+> Rows for Waves 1–3 are **historical (v0.1)**. The v0.2 rows are at the bottom. All of these WPs are merged and their worktrees removed. Reuse the pattern: branch `wp-NN-<slug>`, worktree `../ThreeJsGames-wt/wp-NN`, and a unique PORT (next free: 5215).
+
 | Wave | WP | Title | Branch | Worktree | PORT |
 | --- | --- | --- | --- | --- | --- |
 | 1 | WP-02 | Town logic & persistence | `wp-02-town-logic` | `../ThreeJsGames-wt/wp-02` | — (no browser) |
@@ -201,11 +210,16 @@ FINAL MESSAGE (your hand-off to the integrator) — use exactly these headings:
 | 2 | WP-09b | Visual baselines + bot playtest | `wp-09b-qa` | `../ThreeJsGames-wt/wp-09b` | 5210 |
 | 2 | WP-10 | Ambient life (stretch) | `wp-10-life` | `../ThreeJsGames-wt/wp-10` | 5211 |
 | 3 | WP-11 | Release, performance & evidence | `wp-11-release` | `../ThreeJsGames-wt/wp-11` | 5212 |
+| v0.2 | WP-12 | Scale, proportions & grid density | `wp-12-scale` | `../ThreeJsGames-wt/wp-12` | 5212 (reused after WP-11) |
+| v0.2 | WP-13 | Background music + settings | (not recorded) | `../ThreeJsGames-wt/wp-13` | 5213 |
+| v0.2 | WP-14 | Remove the stats pill | `wp-14-no-stats` | `../ThreeJsGames-wt/wp-14` | 5214 |
+
+Fix-up rounds reused the WP's branch or a suffixed one (e.g. `wp-05-ghost-fix3`, `wp-06-ui-fix2`, `wp-08-fx-fix1`).
 
 Paths are relative to the repo root; give workers the absolute path:
 `<repo-parent>/ThreeJsGames-wt/<wp>`.
 
-**Extra brief lines** (paste verbatim into `<EXTRA BRIEF>`):
+**Extra brief lines** (v0.1; paste verbatim into `<EXTRA BRIEF>`, or write new ones in the same style):
 
 - **WP-02:**
   > You are the only Wave-1 WP with no browser work. Be exhaustive with unit tests: one per rule-table row, valid and invalid. Keep the primary change LAST in every change list, because TownEditor derives build events from it. `buildSampleTown` must stay at zero rejections; the existing `sampleTown.test.ts` guards this.
@@ -241,7 +255,7 @@ Paths are relative to the repo root; give workers the absolute path:
 4. Run `npm run verify && npm run test:e2e`. If it's red: fix it if it's trivial and in your files, otherwise `git revert -m 1 HEAD` and send the failure output to the worker.
 5. Apply the contract change requests (after all of this wave's merges, not in between). Re-run verify and commit.
 6. Update `docs/progress.md`: status, decisions, open defects, next actions.
-7. `git worktree remove ../ThreeJsGames-wt/<wp>` and `git branch -d <branch>`, once no fix-ups are pending.
+7. Once no fix-ups are pending: **copy `../ThreeJsGames-wt/<wp>/tiny-town/artifacts/<wp>/` into the main checkout's `tiny-town/artifacts/`** (it's gitignored, so `git worktree remove --force` deletes it; WP-07's audio evidence was lost this way), then `git worktree remove ../ThreeJsGames-wt/<wp>` and `git branch -d <branch>`.
 
 **Checkpoint evidence** (fresh run id per checkpoint; never reuse old reports):
 ```bash
@@ -261,8 +275,8 @@ In each report, check `gpu.softwareRendered` is false before quoting any FPS, an
 The orchestrator should stop and ask only for:
 - **Chromium can't launch** in its environment, so browser checks are impossible.
 - **Checkpoint M1 report.** This is a mandatory check-in with screenshots and scorecard. Continue unless the human redirects.
-- **A design decision the plan doesn't settle** that changes what the player sees or does: new tools, economy or goals, changing the 24×24 plot, dropping a requested tool.
-- **Licences:** any asset that isn't CC0, or anything that would need an external service or account.
+- **A design decision the plan doesn't settle** that changes what the player sees or does: new tools, economy or goals, changing the plot or grid (currently 48 × 48 cells of 0.5 units on a 24 × 24-unit plot), dropping a requested tool.
+- **Licences:** any asset that isn't CC0 (or CC-BY with credits, or owner-supplied), or anything that would need an external service or account.
 - **Destructive git operations** beyond reverting its own merge (force-push, history rewrite, deleting unmerged branches).
 - **Final M3 report.**
 

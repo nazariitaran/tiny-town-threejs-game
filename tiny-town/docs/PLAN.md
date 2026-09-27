@@ -1,12 +1,29 @@
 # Tiny Town — Implementation Plan (hand-off)
 
-This plan takes the scaffold in this folder to a finished v1 of **Tiny Town**, a cosy sandbox city builder that runs in the browser. It is written for implementation agents working **in parallel**. Each work package (WP) has its own files, contracts, dependencies and **verifiable acceptance checks**.
+This plan took the scaffold to a finished v1 of **Tiny Town**, a cosy sandbox city builder that runs in the browser, and then to v0.2. It is written for implementation agents working **in parallel**. Each work package (WP) has its own files, contracts, dependencies and **verifiable acceptance checks**.
 
-Read `CLAUDE.md` first (commands and hard rules), then the three design docs in `docs/design/`. To run the swarm (orchestrator prompt, worker template, branches, ports, merge runbook), see `docs/HANDOVER.md`.
+Read `CLAUDE.md` first (commands and hard rules), then `docs/progress.md` (current state), then the three design docs in `docs/design/`. To run the swarm (orchestrator prompt, worker template, branches, ports, merge runbook), see `docs/HANDOVER.md`.
+
+> **How to read this file (updated 2026-09-27, v0.2 on `main`).** Every WP here is **done and merged**; `docs/progress.md` has SHAs and status.
+>
+> | Section | Status |
+> | --- | --- |
+> | §0 Definition of done | current: met at M3 and kept in v0.2 |
+> | §1 Scaffold state | **HISTORICAL** (the v0.1 starting point) |
+> | §2 How to run in parallel | current |
+> | §3 Dependency graph | historical v0.1 waves, plus the v0.2 iteration |
+> | §4 WP sections | **Owns** lists are current: use them for file ownership. **Tasks / Acceptance** are the contracts as they were delivered (historical); grid coordinates in v0.1 checks are on the old 24 × 24 grid |
+> | §5 Checkpoints | historical; all passed |
+> | §6 Scorecard mapping | current |
+> | §7 Risks | current |
+>
+> Current facts (grid, rules, save, modules, diagnostics, budgets) live in `docs/design/03-architecture.md`, not here.
 
 ---
 
 ## 0. Definition of done (v1)
+
+> Current. Met at M3 (`3f9c6cf`) and still true in v0.2. v0.2 changed the grid to 48 × 48 half-unit cells with multi-cell buildings (WP-12), added streamed background music with settings (WP-13), and removed the stats pill (WP-14).
 
 A player opens the page, sees a sunny empty field under a sky, clicks **Start building**, and can:
 
@@ -22,7 +39,13 @@ It must also meet these quality gates:
 - Desktop 1280×720 and mobile 390×844 screenshots with no UI overlap or clipping.
 - Visual scorecard average ≥ 2.0, with no category below 2 in Art direction, World and UI (see §6). This is a "polished small game" bar, not a AAA showcase.
 
-## 1. What the scaffold already gives you (walking skeleton)
+## 1. What the scaffold already gave you (walking skeleton)
+
+> **HISTORICAL (v0.1 scaffold, before M0). Don't use this section as current fact.**
+> - Everything marked 🟡 or ⬜ was replaced by its WP.
+> - The "NOT verified / first integrator action" block was resolved at M0 (`bf77054`): the game renders in real Chromium.
+> - The repo has full history; there is no "nothing committed" state.
+> - The asset facts below are sourcing-era values; the 24 × 24 grid, 1-cell sizes, scales and 64 px icons are superseded. For current values see `docs/assets/models.md` §Grid and scale, `03-architecture.md` and `docs/release.md`.
 
 | Area | State | Files |
 | --- | --- | --- |
@@ -72,12 +95,14 @@ Expect small calibration fixes (model `rotationOffset`s, lamppost centring, expo
 - **Isolation:** each worker runs in its own git worktree/branch (`wp-02-town-logic`, …) and only edits the files listed under *Owns*. File ownership is disjoint by design, so merges should be conflict-free apart from `package.json`/`package-lock.json`. On conflict, the integrator re-runs `npm install`.
 - **Contracts are frozen during a wave.** If a worker needs a contract change (a new event, catalog field or hook), they write it under *Contract change requests* in their hand-off. They may add a **local, clearly marked** shim inside their own files meanwhile. The integrator applies the change at the checkpoint.
 - **Hand-off** = the checklist in `CLAUDE.md`: what was built, the acceptance checks with their output, the files changed, and any contract requests.
-- **Dev server port:** 5188 is `strictPort`. Concurrent workers should use `npx vite --port 52xx` and pass `--url` to the inspector.
-- Recommended concurrency: up to **6 workers** in Wave 1. They are independent, but more agents means more integration load.
-
-> Prerequisite (one-time, by the user or integrator): `git init` has been run but nothing is committed. Make the initial commit of the scaffold before creating worktrees: `git add -A && git commit -m "Tiny Town scaffold"`.
+- **Ports:** the dev server (5188, `strictPort`), Playwright, the canvas inspector and `render-icons` all read the `PORT` env var. Each worker gets its own port (`PORT=52xx npm run dev` / `test:e2e` / `inspect:canvas`). `vite preview` uses `PORT − 1000`. Port assignments so far are in `docs/HANDOVER.md` §3; the next free port is 5215.
+- Recommended concurrency: up to **6 workers**. They are independent, but more agents means more integration load.
+- **Worktree evidence:** `artifacts/` is gitignored. Copy `artifacts/<wp>/` into the main checkout **before** `git worktree remove --force`; WP-07's audio evidence was lost that way.
+- **Delegated contracts:** for a cross-cutting change the integrator may delegate named contract files to one WP, as it did for WP-12. The WP section must list them.
 
 ## 3. Dependency graph
+
+> Historical v0.1 waves, all done. v0.2 ran WP-12, WP-13 and WP-14 in parallel (WP-13 and WP-14 merged first), and the integrator regenerated the baselines once all three were in.
 
 ```
 Wave 0 (done) ── scaffold, assets, contracts, walking skeleton
@@ -110,22 +135,29 @@ Wave 0 (done) ── scaffold, assets, contracts, walking skeleton
 
 Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it builds against), **Depends on**, **Skills** to load, **Tasks**, and **Acceptance checks**. A WP is done only when every check has been run and its output reported. Every WP also runs `npm run verify`, which must pass.
 
+> **Status: every WP below is done and merged** (SHAs in `docs/progress.md`). The **Owns** lists were updated on 2026-09-27 to match the files that exist now. A future change to those files goes to the listed owner or to a new WP.
+> - **Tasks** and **Acceptance** are the original contracts, kept for the record.
+> - Cell coordinates in v0.1 checks (e.g. "road from (2,12) to (12,12)") refer to the old 24 × 24 grid; WP-12 re-mapped the specs to (2x, 2z).
+> - Removed since: the stats HUD (`StatsHud`, WP-14) and `tests/*.template.ts` (deleted by WP-09b).
+
 ### WP-01 — Integrator (continuous)
-- **Owns:** contract files (`src/game/events.ts`, `src/game/config.ts`, `src/catalog/**`, `src/town/types.ts`, `src/town/grid.ts`, `src/audio/sfx.ts`, `src/audio/sfxTable.ts` (regenerate with `npm run gen:sfx`), `src/vite-env.d.ts` (diagnostics and hook types)), `src/game/Game.ts`, `src/main.ts`, `index.html`, `docs/**`, `CLAUDE.md`.
-- **Tasks:** make the initial commit and create worktrees; brief workers with their WP section; merge hand-offs; apply contract change requests; run the checkpoint verifications (§5); keep `docs/progress.md` up to date (the only shared status file; workers don't edit it).
+- **Owns:** the contract files, `src/game/Game.ts`, `src/main.ts`, `src/core/Loop.ts`, `index.html`, `package.json`/`package-lock.json`, `vitest.config.ts`, `tsconfig.json`, `scripts/inspect-threejs-canvas.mjs`, `scripts/gen-sfx-table.mjs`, `docs/**` and `CLAUDE.md`.
+  - Contract files: `src/game/events.ts`, `src/game/config.ts`, `src/catalog/**`, `src/town/types.ts`, `src/town/grid.ts`, `src/audio/sfx.ts`, `src/vite-env.d.ts` (diagnostics and hook types), plus the generated `src/audio/sfxTable.ts` (regenerate with `npm run gen:sfx`).
+  - **Delegation:** for WP-12 the integrator delegated `config.ts`, `types.ts`, `grid.ts`, `objects.ts`, `models.ts` (and comment/hint-only edits to `tools.ts` and `vite-env.d.ts`) to WP-12, and took them back after the merge.
+- **Tasks:** create worktrees; brief workers with their WP section; merge hand-offs; apply contract change requests; run the checkpoint verifications (§5); keep `docs/progress.md` up to date (the only shared status file; workers don't edit it).
 - **Acceptance:** every checkpoint's checks pass on the merged main branch, and `docs/progress.md` is up to date.
 
 ### WP-02 — Town logic & persistence
-- **Owns:** `src/town/TownState.ts`, `rules.ts`, `History.ts`, `TownEditor.ts`, `serialize.ts` (new), `sampleTown.ts`, `src/persistence/**` (new), all `src/town/*.test.ts`.
+- **Owns:** `src/town/TownState.ts`, `rules.ts`, `History.ts`, `TownEditor.ts`, `serialize.ts` (save format + v1→v2 migration), `sampleTown.ts`, `src/town/fixtures/**` (v0.1 saves), `src/persistence/**`, all `src/town/*.test.ts` (including `migration.test.ts`).
 - **Reads:** `town/types.ts`, `town/grid.ts`, `catalog/objects.ts`, `game/events.ts`.
 - **Depends on:** nothing. **Skills:** `threejs-gameplay-systems` (read "Design first" and "Build").
 - **Tasks:**
   1. Implement the full placement rule table in `03-architecture.md §Placement rules`, with a player-facing message for every rejection. `no-change` must stay silent.
   2. Road painting removes fences on edges shared with adjacent road cells, in the same change list so it undoes together. Keep the **primary change last** in every change list: `TownEditor` derives `build:placed`/`build:removed` (layer, kind, world position) from the last change.
   3. `History`: cap at 200 entries; clear on load/reset. `TownEditor.apply` inside a stroke must not emit `history:changed` per cell.
-  4. `serialize.ts`: `serializeTown(state, cameraPose?) → SavedTownV1`, `parseSave(unknown) → SavedTownV1 | Error` (validate every field, clamp to plot size, drop unknown kinds), with a migration hook keyed on `version`.
+  4. `serialize.ts`: `serializeTown(state, cameraPose?) → SavedTownV1` (now `SavedTown` = `SavedTownV2`), `parseSave(unknown) → SavedTownV1 | Error` (validate every field, clamp to plot size, drop unknown kinds), with a migration hook keyed on `version`.
   5. `TownEditor.load(save)`: replace state, emit `town:changed` with cause `'load'` and a full change list, clear history. Add `applyBatch(actions, {silent})` so sample towns and loads don't fire per-item `build:placed` (no sound/FX spam).
-  6. `persistence/SaveStore.ts`: `has()`, `read()`, `write(save)`, `clear()`, debounced autosave (1 s after `town:changed`, cause ≠ `'load'`). Handle quota and JSON errors without throwing. Expose settings get/set for mute/volume/grid (key `SETTINGS_STORAGE_KEY`).
+  6. `persistence/SaveStore.ts`: `has()`, `read()`, `write(save)`, `clear()`, debounced autosave (1 s after `town:changed`, cause ≠ `'load'`). Handle quota and JSON errors without throwing. Expose settings get/set for mute/volume/grid (key `SETTINGS_STORAGE_KEY`; WP-13 later added `music`/`musicVolume`).
   7. `sampleTown.ts`: keep `buildSampleTown` using every tool at least once, with zero rejections (return the list; tests assert it's empty).
 - **Acceptance checks:**
   - `npm run test:unit` has ≥ 1 test per rule-table row (valid and invalid case), plus: undo of a 50-cell drag stroke restores a deep-equal state snapshot; redo re-applies it; the sample town round-trips `serialize → JSON → parseSave → load` to an identical snapshot; corrupted/foreign JSON is rejected without throwing; road paint removes the in-between fence and undo restores it.
@@ -135,7 +167,7 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
 - **Out of scope:** any three.js/DOM code.
 
 ### WP-03 — Rendering: models, instancing, road tiles, pop-in
-- **Owns:** `src/render/**` (except `roadTiles.ts` logic changes must keep its tests green), `scripts/inspect-models.mjs`, and numeric tuning of `catalog/models.ts` (`scale`, `rotationOffset`, `offset`; tell the integrator in the hand-off).
+- **Owns:** `src/render/**` (`ModelLibrary`, `TownRenderer`, `InstancePool`, `tween`, `roadTiles` (logic changes must keep its tests green), and the offline `IconStudio.ts`), `scripts/inspect-models.mjs`, `scripts/render-icons.mjs`, `scripts/compose-models.mjs`, `public/assets/models/**`, `public/assets/icons/**`, and numeric tuning of `catalog/models.ts` (`scale`, `rotationOffset`, `offset`; tell the integrator in the hand-off). `docs/assets/models.json` is hand-maintained: never write `inspect:models --json` over it.
 - **Reads:** `catalog/*`, `game/config.ts`, `town/types.ts`, `docs/assets/models.md`.
 - **Depends on:** nothing (use the `asset-gallery`, `sample-town` and `stress-town` states). **Skills:** `threejs-aaa-graphics-builder` (`references/asset-import.md`, `technical-art.md`), `threejs-debug-profiler`.
 - **Tasks:**
@@ -171,7 +203,7 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
   - Scorecard self-assessment for Art direction, World, and Lighting with one line of evidence each (target ≥ 2).
 
 ### WP-05 — Interaction: camera, tools, ghost, touch
-- **Owns:** `src/interaction/**`.
+- **Owns:** `src/interaction/**` (`CameraController`, `framing.ts` (aspect-aware build/title poses and HUD insets), `GridPicker`, `ToolController`, `GhostPreview`, `keyboard.ts`, `strokeMath.ts`), `tests/interaction.spec.ts`.
 - **Reads:** `catalog/tools.ts`, `town/types.ts`, `town/grid.ts`, `game/config.ts`, `game/events.ts`, `render/ModelLibrary.ts` (`createObject` API only).
 - **Depends on:** nothing (the baseline editor works). **Skills:** `threejs-gameplay-systems` (`references/game-feel.md`), `threejs-game-ui-designer` (touch section of `references/ui-patterns.md`).
 - **Tasks:**
@@ -193,16 +225,16 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
   - Pointer released outside the window leaves no stuck stroke (the next click starts a new undo entry).
 
 ### WP-06 — UI
-- **Owns:** `src/ui/**`, `src/styles.css`, `public/assets/ui/**` (SVG glyphs, new), UI font dependency.
+- **Owns:** `src/ui/**` (`UiRoot.ts`, `testIds.ts` (`UI_TEST_IDS`, side-effect free), `uiKeys.ts`, `glyphs.ts`, `ui.css`), `src/styles.css`, `public/assets/ui/**`, the UI font dependency, `tests/ui.spec.ts`. (`StatsHud.ts` was deleted in v0.2 by WP-14.)
 - **Reads:** `game/events.ts`, `catalog/tools.ts`, `town/types.ts` (`TownStats`), `docs/design/02-interaction-and-ui.md` (§4–§7).
 - **Depends on:** nothing. **Skills:** `threejs-game-ui-designer` (read `references/ui-patterns.md` fully).
 - **Tasks:**
   1. Build the layout and every state in design doc §4–§5: loading, title (Start/Continue/New town), building (dock with category tabs and item tray, mode buttons, top bar with stats/undo/redo/sound/menu, hint line, cursor tooltip for `hover:changed.reason` and `build:invalid`), menu, confirm dialog, controls help, and error.
   2. Visual language from §6: bundled rounded font (`@fontsource-variable/nunito`), SVG glyphs for UI icons, Kenney preview PNGs for items, cream panels, and hover/pressed/focus-visible/disabled states. Respect `prefers-reduced-motion`.
   3. Mobile layout (≤ 760 px or coarse pointer): full-width dock, horizontally scrolling tray with scroll-snap, ≥ 44 px targets, safe areas.
-  4. Number keys: 1–4 switch category and 1–9 select tools in the active category (UI owns category state; emit `intent:select-tool`). Coordinate nothing with WP-05, which doesn't handle digits.
+  4. Number keys: 1–4 switch category and 1–9 select tools in the active category (UI owns category state; emit `intent:select-tool`). Coordinate nothing with WP-05, which doesn't handle digits. *(As built: `Shift+1–4` switch category and `1–9` pick a tool in the active category, pressing the active tool's digit again deselects it; see `src/ui/uiKeys.ts`.)*
   5. Emit `ui:sfx` (`ui-hover` on pointerenter for dock items, `ui-click` on press, `ui-open`/`ui-close` for the tray and menu).
-  6. HUD juice: stats count up; a number punch when a stat changes.
+  6. HUD juice: stats count up; a number punch when a stat changes. *(Delivered in v0.1; the stats pill was removed in v0.2 by WP-14.)*
   7. Handle the menu via `intent:open-menu`/`intent:close-menu`. `Game` switches phase `building` ⇄ `menu`, and Esc with no tool emits open-menu from WP-05.
   8. Keep `UI_TEST_IDS` stable (add new ids and list them in the hand-off).
 - **Acceptance checks:**
@@ -216,7 +248,7 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
   - The dock is ≤ 150 px tall on desktop and never covers the plot centre at the default camera.
 
 ### WP-07 — Audio polish
-- **Owns:** `src/audio/AudioManager.ts`, `public/assets/audio/**`, `docs/assets/audio.*`, `tests/audio.spec.ts`. If you change `audio.json`, list it as a contract change so the integrator runs `npm run gen:sfx`.
+- **Owns:** `src/audio/AudioManager.ts`, `src/audio/MusicPlayer.ts` (added by WP-13), `public/assets/audio/**`, `public/assets/music/**`, `docs/assets/audio.*`, `tests/audio.spec.ts`. If you change `audio.json`, list it as a contract change so the integrator runs `npm run gen:sfx`.
 - **Reads:** `audio/sfx.ts`, `game/events.ts`, `persistence` settings API (WP-02; use a local shim until merged).
 - **Depends on:** nothing. **Skills:** `threejs-gameplay-systems/references/audio-integration.md`.
 - **Tasks:**
@@ -235,19 +267,19 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
 - **Acceptance checks:** `tests/fx.spec.ts` records a short Playwright video (`recordVideo`) of placing a road stroke, a house and a tree, then bulldozing, attached and described; FX draw calls ≤ 3 (diagnostics before/after); `setReducedMotion(true)` freezes sway and hides particles (screenshot diff stable across two captures).
 
 ### WP-09 — QA harness (09a in Wave 1, 09b in Wave 2)
-- **Owns:** `tests/**` except `interaction.spec.ts` (WP-05), `ui.spec.ts` (WP-06), `audio.spec.ts` (WP-07), `fx.spec.ts` (WP-08) and `life.spec.ts` (WP-10); also `playwright.config.ts`. Projects: `desktop-chrome` and `mobile-chrome`, both full Chromium.
+- **Owns:** `tests/**` (`helpers.ts`, `smoke`, `build-flow`, `visual`, `visual-regression` + its `-snapshots/`, `bot-playtest`) except `interaction.spec.ts` (WP-05), `ui.spec.ts` (WP-06), `audio.spec.ts` (WP-07), `fx.spec.ts` (WP-08) and `life.spec.ts` (WP-10); also `playwright.config.ts`. The integrator regenerates baselines after approved look changes. Projects: `desktop-chrome` and `mobile-chrome`, both full Chromium.
 - **Skills:** `threejs-qa-release` (all three references).
 - **09a tasks (skeleton, Wave 1):**
   - `tests/smoke.spec.ts`: the page loads with zero console/page errors; phase reaches `title`; clicking `#btn-start` gives `building`; every `setState` name is acknowledged; unknown states throw.
   - `tests/build-flow.spec.ts`: a real-input journey (select road → drag → place house → undo → redo → bulldoze) asserting diagnostics town stats at each step.
-  - `tests/visual.spec.ts` already does load → Start → select Road → real mouse drag → assert road tiles. Keep it as the smoke journey, and adapt or delete `tests/*.template.ts` (excluded from tsc).
+  - `tests/visual.spec.ts` already does load → Start → select Road → real mouse drag → assert road tiles. Keep it as the smoke journey, and adapt or delete the `tests/*.template.ts` files (done: WP-09b deleted them in `09adbfa`).
 - **09b tasks (Wave 2):**
   - `tests/visual-regression.spec.ts`: baselines for `title`, `sample-town` and `asset-gallery` on desktop and mobile (seeded, paused, reduced motion).
   - `tests/bot-playtest.spec.ts`: a builder bot that for 200 steps picks a random tool (seeded), clicks/drags random cells via `cellToClient`, and occasionally undoes. Assert no errors, frames advance, placements ≥ 50, diagnostics `render.objects === objects` at the end, and no stuck stroke. Report the metrics JSON.
 - **Acceptance checks:** `npm run test:e2e` green on both projects, with the run output and metrics JSON attached.
 
 ### WP-10 — Ambient life (stretch, Wave 2)
-- **Owns:** `src/life/**` (new), `tests/life.spec.ts`.
+- **Owns:** `src/life/**` (`TrafficSim`, `lanePaths`, `LifeSystem`, `life.test.ts`), `tests/life.spec.ts`. Delivered: cars (the dusk toggle was not built).
 - **Depends on:** WP-03, WP-04. Needs a contract request for the integrator to instantiate it in `Game.ts`.
 - **Tasks:**
   - Up to 6 Kenney cars wander the connected road graph, choosing at intersections. Four are already shipped in `public/assets/models/cars/` (scale 0.14, facing −Z); more are in `assets-src/car-kit`, and any you add must be documented. They despawn when their road is removed and never drive through buildings.
@@ -255,7 +287,7 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
 - **Acceptance:** a 10 s video of cars following a sample-town loop; bulldozing a road under a car removes it cleanly; draw calls +≤ 6.
 
 ### WP-11 — Release, performance & evidence (Wave 3)
-- **Owns:** `vite.config.ts`, `artifacts/**` (including `artifacts/evidence.json`), `docs/release.md` (new).
+- **Owns:** `vite.config.ts`, `artifacts/**` (gitignored, local-only; including `artifacts/evidence.json`), `docs/release.md`.
 - **Skills:** `threejs-qa-release` (release pass), `threejs-debug-profiler` (profiling order), director `references/evidence-manifest.md`.
 - **Tasks:**
   - Production build and `npm run preview` tested (not only dev).
@@ -272,11 +304,33 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
 ---
 
 ### WP-12 — Scale, proportions & grid density (v0.2)
+- **Status:** merged (`fbbef2a`). As-built facts are in `03-architecture.md` and `models.md`; the deviations from the plan are in `docs/progress.md` ("WP-12 as built").
 - **Contract:** `docs/plans/wp-12-scale.md` (integrator-approved). Grid 48 × 48 cells of 0.5 world units (plot size unchanged), roads in aligned 2 × 2 blocks, multi-cell houses (3×3 / 2×3), garage 1×2, bus stop 2×1, proportion scales in `catalog/models.ts`, `SavedTownV2` + v1 migration.
-- **Owns (delegated for this change):** the plan's "Files" list including the contract files it marks [C]; `docs/design/03-architecture.md` §Grid / §Placement rules / §Save format; the scale table in `docs/assets/models.md`/`.json`; e2e specs for cell coordinates only.
+- **Owns (delegated for this change, returned to the integrator after merge):** the plan's "Files" list, including the contract files it marks [C]; `docs/design/03-architecture.md` §Grid / §Placement rules / §Save format; the scale table in `docs/assets/models.md`/`.json`; e2e specs for cell coordinates only.
 - **Acceptance:** unit tests (multi-cell rules, road blocks, `anchorForPointer`, migration fixtures, demo towns, proportions); inspector captures of asset-gallery / sample-town / stress-town on desktop and mobile within budget (stress ≤ 150 calls / 400k tris desktop, ≤ 120 / 250k mobile) with 0 console errors; cell pitch ≥ 12 px desktop / ≥ 9 px mobile; desktop frame time ≤ 8 ms; real-input e2e green except the intended visual-baseline diffs; before/after proportions side-by-side in `artifacts/wp-12/`.
 
+### WP-13 — Background music + settings (v0.2)
+- **Status:** merged (`1fab73f`; work `e76d1a8`).
+- **Owned:** `src/audio/MusicPlayer.ts` (new), `AudioManager.ts`, `public/assets/music/**`, `docs/assets/audio.md`, `audio.music.json`, `CREDITS.md` rows, SaveStore settings fields, the menu music rows in `UiRoot`, and music cases in `tests/audio.spec.ts` / `ui.spec.ts`.
+- **Contract changes applied by the integrator in the merge commit:** `intent:set-music`, `intent:set-music-volume` and `music:changed` in `events.ts` (replacing the temporary `src/audio/musicEvents.ts`, since deleted); diagnostics `audio.music` in `vite-env.d.ts`.
+- **Result:**
+  - One owner-supplied track (ElevenLabs), streamed via `HTMLAudioElement` after Start, so it is not in the initial download.
+  - Music on/off and volume settings, persisted.
+  - −3 dB duck in the menu; paused while muted or hidden.
+
+### WP-14 — Remove the top-left stats pill (v0.2)
+- **Status:** merged (`d0aa182`; work `8d91b1b`).
+- **Owned:** `src/ui/**`, `src/styles.css`, `tests/ui.spec.ts`, `tests/visual-regression.spec.ts`.
+- **Result:**
+  - `StatsHud.ts`, its CSS, glyphs and test id are deleted.
+  - One-row top bar: a 48 px row on desktop, 52 px on phones.
+  - The hint and the refusal tooltip are re-anchored under the top bar.
+  - `town:stats` and diagnostics `town` stay.
+- **Integrator follow-up:** regenerated the baselines (`51d074d`, then again after WP-12 in `30fe85b`); phone top inset set to 76 in `framing.ts`.
+
 ## 5. Checkpoints (integrator runs these on merged main)
+
+> Historical: M1, M2 and M3 all passed on 2026-09-26 (`docs/checkpoints/m1.md`–`m3.md`). Reuse the procedure for future checkpoints.
 
 **M1 — vertical slice (after Wave 1).** Merge order: WP-02 → WP-03 → WP-04 → WP-05 → WP-06 → WP-07 → WP-09a. Resolve lockfile conflicts by re-running `npm install`. Then:
 1. Wire `SaveStore` into `Game.ts`: autosave, Continue on the title screen (`UiRoot`'s `hasSave` callback) and the camera pose. Apply the contract requests. (Debug folders, `ModelLibrary` for ghosts, menu phase, quality tier and DPR, grid visibility by phase, title camera, reseeding and all diagnostics fields are already wired.)
@@ -296,12 +350,14 @@ Hero = the town's buildings as placed (silhouette, facing, pop-in). Obstacles = 
 ## 7. Risks & open questions
 | Risk | Mitigation / owner |
 | --- | --- |
-| Kenney kits have mismatched native scales (Roads vs Suburban vs Nature) | Per-model `scale` in `catalog/models.ts`, verified in `asset-gallery` (WP-03) |
+| Kenney kits have mismatched native scales (Roads vs Suburban vs Nature) | Per-model `scale` in `catalog/models.ts`, verified in `asset-gallery` (WP-03) and by the `catalog.test.ts` proportions block (WP-12) |
 | Road tiles include their own kerbs, so pavement next to road may double up | WP-03 decides visually. Option: use the kit's `road-*` pieces without sidewalk, keep pavement as its own tile |
 | Too many draw calls with naive rendering | Instancing is WP-03's first task; the `stress-town` state is the gate |
 | Sandboxed agent sessions (e.g. nono) can't launch Chromium, so browser checks silently can't run | Run browser-verifying WPs (03, 04, 05, 06, 09, 11) in sessions whose sandbox profile allows Chromium, or outside the sandbox. An agent that can't run a check must say so, not skip it |
 | Postbox is a primitive stand-in | Acceptable for v1; WP-04 or a later art pass can author a better one procedurally |
 | MP3 encoder padding (~25 ms) on very old browsers | Accept; documented in `audio.md` |
-| Fence-on-edge UX on touch (hard to target edges) | WP-05: edge snapping radius larger on coarse pointers |
+| Fence-on-edge UX on touch (hard to target edges) | Done (WP-05): the bulldoze edge pick is 0.4 cell on coarse pointers vs 0.3 |
+| v0.2 half-unit cells are small on phones (~10.6 px at the default pose) | Documented: pinch-zoom for small props; framing side inset −260 (WP-12) |
+| Mobile stress-town triangle headroom is only ~6.5k (243.5k / 250k) | Check triangles on mobile for any new content (`inspect:canvas --state stress-town --mobile`) |
 | Agents editing `Game.ts` concurrently | Forbidden; contract requests only |
 | Open: should the plot grow (expand land) later? | Out of scope for v1; `PLOT_WIDTH/DEPTH` constants keep it cheap to add |
