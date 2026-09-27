@@ -11,8 +11,8 @@ import { CELL_SIZE, ROAD_TILE_SIZE } from '../game/config';
 import { CAR_FILES, CAR_SCALE } from '../life/LifeSystem';
 import { MODEL_STYLES } from '../render/TownRenderer';
 import { EDGE_MODELS, GROUND_MODELS, MODELS, ROAD_PIECE_MODELS, type ModelId } from './models';
-import { OBJECTS } from './objects';
-import { TOOLS } from './tools';
+import { OBJECT_KINDS, OBJECTS } from './objects';
+import { TOOL_CATEGORIES, TOOLS, toolsInCategory, type ToolLayer } from './tools';
 
 const PUBLIC = path.resolve(__dirname, '../../public');
 const publicPath = (url: string) => path.join(PUBLIC, url.replace(/^\//, ''));
@@ -75,11 +75,55 @@ describe('catalog', () => {
     expect(sizes.size).toBe(Object.keys(MODELS).length);
   });
 
-  it('every tool icon exists (except UI glyphs owned by WP-06)', () => {
-    for (const tool of TOOLS) {
-      if (tool.icon.startsWith('/assets/ui/')) continue;
-      expect(fs.existsSync(publicPath(tool.icon)), `${tool.id}: ${tool.icon}`).toBe(true);
+  it('every tool icon file exists', () => {
+    for (const tool of TOOLS) expect(fs.existsSync(publicPath(tool.icon)), `${tool.id}: ${tool.icon}`).toBe(true);
+  });
+
+  it('placing tools use their own tool-<id>.png icon, and the icons folder holds nothing else', () => {
+    const placing = TOOLS.filter((tool) => tool.category !== 'mode');
+    for (const tool of placing) expect(tool.icon, tool.id).toBe(`/assets/icons/tool-${tool.id}.png`);
+    const files = fs.readdirSync(path.join(PUBLIC, 'assets/icons')).filter((f) => !f.startsWith('.')).sort();
+    expect(files).toEqual(placing.map((tool) => `tool-${tool.id}.png`).sort());
+  });
+
+  it('every category has at most 9 tools (digit shortcuts 1–9)', () => {
+    for (const { id } of TOOL_CATEGORIES) {
+      expect(toolsInCategory(id).length, id).toBeGreaterThan(0);
+      expect(toolsInCategory(id).length, id).toBeLessThanOrEqual(9);
     }
+  });
+
+  it('every tool except bulldoze belongs to a dock category', () => {
+    const categories = new Set<string>(TOOL_CATEGORIES.map((c) => c.id));
+    for (const tool of TOOLS) {
+      if (tool.id === 'bulldoze') expect(tool.category).toBe('mode');
+      else expect(categories.has(tool.category), `${tool.id}: ${tool.category}`).toBe(true);
+    }
+  });
+
+  it('within a category tools run ground → edge → object', () => {
+    const rank: Record<ToolLayer, number> = { ground: 0, edge: 1, object: 2, bulldoze: 3 };
+    for (const { id } of TOOL_CATEGORIES) {
+      const ranks = toolsInCategory(id).map((tool) => rank[tool.layer]);
+      expect(ranks, id).toEqual([...ranks].sort((a, b) => a - b));
+    }
+  });
+
+  it('every ObjectKind has exactly one object tool, and every object tool an ObjectDef', () => {
+    for (const kind of OBJECT_KINDS) {
+      expect(TOOLS.filter((tool) => tool.id === kind && tool.layer === 'object'), kind).toHaveLength(1);
+    }
+    for (const tool of TOOLS.filter((t) => t.layer === 'object')) expect(OBJECT_KINDS, tool.id).toContain(tool.id);
+  });
+
+  it('every edge kind has a model and an edge tool', () => {
+    for (const kind of Object.keys(EDGE_MODELS)) {
+      expect(TOOLS.filter((tool) => tool.id === kind && tool.layer === 'edge'), kind).toHaveLength(1);
+    }
+  });
+
+  it('tool ids are unique', () => {
+    expect(new Set(TOOLS.map((tool) => tool.id)).size).toBe(TOOLS.length);
   });
 
   it('every object/edge/ground/road reference points at a registered model', () => {
@@ -102,16 +146,23 @@ describe('catalog', () => {
     expect(pavement.y).toBeCloseTo(0.02, 3);
   });
 
-  it('fences are one cell long along X and thin along Z', () => {
+  it('edge models are one cell long along X and thin along Z', () => {
     for (const id of Object.values(EDGE_MODELS)) {
-      const size = drawn(id);
-      expect(size.x, `${id} length`).toBeCloseTo(CELL_SIZE, 1);
-      expect(size.z, `${id} thickness`).toBeLessThan(0.3 * CELL_SIZE);
+      expect(sizes.get(id)!.x, `${id} native length`).toBeCloseTo(CELL_SIZE, 2);
+      expect(drawn(id).z, `${id} thickness`).toBeLessThan(0.35 * CELL_SIZE);
     }
+  });
+
+  it('fences are drawn exactly one cell long; the hedge overlaps its neighbours by at most 15 %', () => {
+    expect(drawn('fence-low').x).toBeCloseTo(CELL_SIZE, 2);
+    expect(drawn('fence-tall').x).toBeCloseTo(CELL_SIZE, 2);
+    expect(drawn('hedge').x).toBeGreaterThanOrEqual(CELL_SIZE);
+    expect(drawn('hedge').x).toBeLessThanOrEqual(1.15 * CELL_SIZE);
   });
 
   it('objects fit inside their footprint (× CELL_SIZE), including their authored offset', () => {
     for (const def of Object.values(OBJECTS)) {
+      if (def.roadFeature) continue; // flat road pieces: checked below
       for (const id of def.models) {
         const size = drawn(id);
         const [ox, , oz] = MODELS[id].offset ?? [0, 0, 0];
@@ -119,6 +170,22 @@ describe('catalog', () => {
         expect(size.x / 2 + Math.abs(ox), `${id} width`).toBeLessThanOrEqual((def.footprint[0] * CELL_SIZE) / 2 + 0.03);
         expect(size.z / 2 + Math.abs(oz), `${id} depth`).toBeLessThanOrEqual((def.footprint[1] * CELL_SIZE) / 2 + 0.03);
         expect(size.y, `${id} height`).toBeGreaterThan(0.1);
+      }
+    }
+  });
+
+  it('road features fill their whole footprint (whole road blocks) at road-tile height', () => {
+    const roadHeight = sizes.get('road-straight')!.y;
+    const features = Object.values(OBJECTS).filter((def) => def.roadFeature);
+    expect(features.map((def) => def.kind)).toEqual(['roundabout']);
+    for (const def of features) {
+      expect(def.footprint[0] % 2, `${def.kind} blocks`).toBe(0);
+      expect(def.footprint[1] % 2, `${def.kind} blocks`).toBe(0);
+      for (const id of def.models) {
+        const size = drawn(id);
+        expect(size.x, `${id} width`).toBeCloseTo(def.footprint[0] * CELL_SIZE, 1);
+        expect(size.z, `${id} depth`).toBeCloseTo(def.footprint[1] * CELL_SIZE, 1);
+        expect(size.y, `${id} height`).toBeCloseTo(roadHeight, 2);
       }
     }
   });
@@ -147,7 +214,7 @@ describe('proportions', () => {
   });
 
   it('a house is clearly bigger than a car and a lane', () => {
-    const cottage = drawn('townhouse-a');
+    const cottage = drawn('cottage');
     const carLength = Math.max(...cars().map((c) => c.z));
     expect(cottage.x / carLength).toBeGreaterThan(2.5);
     expect(cottage.x / LANE).toBeGreaterThan(3);
@@ -155,10 +222,17 @@ describe('proportions', () => {
     for (const car of cars()) expect(car.x).toBeLessThan(LANE);
   });
 
+  it('every home is more than two car lengths along its longer side', () => {
+    const carLength = Math.max(...cars().map((c) => c.z));
+    for (const def of Object.values(OBJECTS).filter((d) => d.group === 'home')) {
+      for (const id of def.models) expect(Math.max(drawn(id).x, drawn(id).z) / carLength, id).toBeGreaterThan(2);
+    }
+  });
+
   it('trees are about cottage height and below the townhouse ridges', () => {
-    const cottage = h('townhouse-a');
-    const townhouseRidge = Math.min(h('townhouse-b'), h('townhouse-b-alt'));
-    for (const tree of ['tree-a', 'tree-b', 'tree-c'] as const) {
+    const cottage = h('cottage');
+    const townhouseRidge = Math.min(h('townhouse'), h('townhouse-alt'));
+    for (const tree of ['oak', 'pine', 'birch'] as const) {
       expect(h(tree) / cottage, `${tree} vs cottage`).toBeGreaterThan(0.85);
       expect(h(tree) / cottage, `${tree} vs cottage`).toBeLessThan(1.25);
       expect(h(tree), `${tree} vs townhouse`).toBeLessThan(townhouseRidge);
@@ -169,8 +243,42 @@ describe('proportions', () => {
     const lamp = h('lamppost');
     expect(lamp).toBeGreaterThan(h('garage'));
     expect(lamp).toBeGreaterThan(h('bus-stop'));
-    expect(lamp).toBeLessThan(h('townhouse-a'));
+    expect(lamp).toBeLessThan(h('cottage'));
     expect(lamp).toBeGreaterThan(0.6);
+  });
+
+  it('traffic lights are taller than a car and below the lamppost', () => {
+    const carHeight = Math.max(...cars().map((c) => c.y));
+    for (const id of ['traffic-light', 'traffic-light-hanging'] as const) {
+      expect(h(id), id).toBeGreaterThan(carHeight);
+      expect(h(id), id).toBeLessThan(h('lamppost'));
+    }
+  });
+
+  it('a bush is a low shrub (under half an oak) and the small birch is shorter than the big one', () => {
+    expect(h('bush') / h('oak')).toBeLessThan(0.5);
+    expect(h('birch-small')).toBeLessThan(h('birch'));
+  });
+
+  it('the bungalows are single-storey (lower than the two-storey family home)', () => {
+    expect(h('bungalow')).toBeLessThan(h('family-home'));
+    expect(h('bungalow-l')).toBeLessThan(h('family-home'));
+  });
+
+  it('the church tower is the tallest building', () => {
+    for (const def of Object.values(OBJECTS)) {
+      if (def.kind === 'church' || def.roadFeature) continue;
+      for (const id of def.models) expect(h(id), id).toBeLessThan(h('church'));
+    }
+  });
+
+  it('garden furniture stays below the lamppost and the cottage eaves', () => {
+    for (const def of Object.values(OBJECTS).filter((d) => d.group === 'garden')) {
+      for (const id of def.models) {
+        expect(h(id), id).toBeLessThan(h('lamppost'));
+        expect(h(id), id).toBeLessThan(0.6 * h('cottage'));
+      }
+    }
   });
 
   it('the postbox is about car height (≈ 1.2× real: 1.5 m ≈ 0.19)', () => {
@@ -183,7 +291,7 @@ describe('proportions', () => {
     const metres = (units: number) => units * 8;
     expect(metres(h('fence-tall'))).toBeGreaterThan(1.4);
     expect(metres(h('fence-tall'))).toBeLessThan(1.9);
-    expect(metres(h('fence-small'))).toBeGreaterThan(0.6);
-    expect(metres(h('fence-small'))).toBeLessThan(1.0);
+    expect(metres(h('fence-low'))).toBeGreaterThan(0.6);
+    expect(metres(h('fence-low'))).toBeLessThan(1.0);
   });
 });

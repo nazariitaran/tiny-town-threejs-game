@@ -3,14 +3,12 @@
  * models are single-part colour-atlas meshes), so ≤ 4 draw calls.
  *
  * Layout (deterministic, fixed seed):
- *  1. Hedgerow frame just outside the kerb: runs of low round shrubs (the `tree-a` canopy, sunk so
+ *  1. Hedgerow frame just outside the kerb: runs of low round shrubs (the `oak` canopy, sunk so
  *     its trunk is buried, and squashed) with gaps, hedgerow trees behind it, tree clumps on the
  *     corners and rock pairs at the ends of runs. Reads as an authored field boundary at the default
  *     build camera instead of scattered specks.
  *  2. Open meadow (the title camera orbits through it at r ≈ 33).
  *  3. Forest belt of groves, thinned where it would project behind the top bar at DEFAULT_POSE.
- *
- * `decor-bush` (the platformer grass-leaf plant) is no longer used: from above it read as birds.
  *
  * WP-04 (World & look).
  */
@@ -22,7 +20,7 @@ import type { ModelLibrary } from '../render/ModelLibrary';
 import { createSeededRandom } from '../utils/random';
 import { KERB_WIDTH, PLOT_HALF_X, PLOT_HALF_Z, distanceToPlot, fbm, terrainHeight } from './terrainShape';
 
-type DecorId = Extract<ModelId, 'tree-a' | 'tree-b' | 'decor-rocks'>;
+type DecorId = Extract<ModelId, 'oak' | 'pine' | 'decor-rocks'>;
 
 export interface DecorInstance {
   model: DecorId;
@@ -42,11 +40,11 @@ export interface DecorInstance {
 
 const DECOR_SEED = 0x7a11e;
 /**
- * Instance caps per model (tree-a 408, tree-b 204, rocks 100 tris per instance): ≈ 75k triangles.
+ * Instance caps per model (oak 408, pine 204, rocks 100 tris per instance): ≈ 75k triangles.
  */
 const DECOR_BUDGET: Readonly<Record<DecorId, number>> = {
-  'tree-a': 150,
-  'tree-b': 120,
+  'oak': 150,
+  'pine': 120,
   'decor-rocks': 36,
 };
 /** Hedgerow centre line, measured from the plot edge (outside the kerb). */
@@ -104,19 +102,19 @@ function makeTopBandTest(): (x: number, y0: number, y1: number, z: number) => bo
 }
 
 /**
- * WP-12: the plot trees grew (tree-a/-b catalog scale 0.36 → 0.45) but the ring was planned for the
+ * WP-12: the plot trees grew (oak/pine catalog scale 0.36 → 0.45) but the ring was planned for the
  * v0.1 templates. Planned scales stay in v0.1 units; this factor is applied when the instances are
  * composed, so the ring renders exactly as before (same plan, same sizes).
  */
 const RING_SCALE_BASE = 0.36;
 export const TEMPLATE_RESCALE: Readonly<Record<DecorId, number>> = {
-  'tree-a': RING_SCALE_BASE / MODELS['tree-a'].scale,
-  'tree-b': RING_SCALE_BASE / MODELS['tree-b'].scale,
+  'oak': RING_SCALE_BASE / MODELS['oak'].scale,
+  'pine': RING_SCALE_BASE / MODELS['pine'].scale,
   'decor-rocks': 1,
 };
 
 /** Approximate normalised model height (world units at scale 1, v0.1 templates) for the top-band test. */
-const MODEL_HEIGHT: Readonly<Record<DecorId, number>> = { 'tree-a': 0.72, 'tree-b': 0.72, 'decor-rocks': 0.2 };
+const MODEL_HEIGHT: Readonly<Record<DecorId, number>> = { 'oak': 0.72, 'pine': 0.72, 'decor-rocks': 0.2 };
 
 /** Deterministic placement (three.js maths only, no GPU objects). Sorted nearest first. */
 export function planDecor(): DecorInstance[] {
@@ -175,11 +173,11 @@ export function planDecor(): DecorInstance[] {
       const present = run > 0.4;
       if (present) {
         const [x, z] = side.map(u, HEDGE_OFFSET + wobble);
-        place('tree-a', x, z, 1.95 + rng() * 0.55, 'hedge', { squash: 0.58, sink: 0.45, spacing: false });
+        place('oak', x, z, 1.95 + rng() * 0.55, 'hedge', { squash: 0.58, sink: 0.45, spacing: false });
         // A hedgerow tree every so often, just behind the hedge.
         if (rng() < 0.13) {
           const [tx, tz] = side.map(u + (rng() - 0.5) * 0.6, HEDGE_OFFSET + 1.3 + rng() * 0.8);
-          place(rng() < 0.55 ? 'tree-a' : 'tree-b', tx, tz, 1.6 + rng() * 0.6, 'hedge-tree');
+          place(rng() < 0.55 ? 'oak' : 'pine', tx, tz, 1.6 + rng() * 0.6, 'hedge-tree');
         }
       }
       if (present !== inRun) {
@@ -208,10 +206,10 @@ export function planDecor(): DecorInstance[] {
     for (let k = 0; k < 4; k += 1) {
       const a = rng() * Math.PI * 2;
       const r = k === 0 ? 0 : 0.9 + rng() * 0.9;
-      place(k % 2 === 0 ? 'tree-b' : 'tree-a', cx + Math.cos(a) * r, cz + Math.sin(a) * r, 1.5 + rng() * 0.5, 'corner');
+      place(k % 2 === 0 ? 'pine' : 'oak', cx + Math.cos(a) * r, cz + Math.sin(a) * r, 1.5 + rng() * 0.5, 'corner');
     }
-    place('tree-a', cx - sx * 1.3, cz - sz * 0.2, 2.4, 'hedge', { squash: 0.62, sink: 0.42, spacing: false });
-    place('tree-a', cx - sx * 0.2, cz - sz * 1.3, 2.4, 'hedge', { squash: 0.62, sink: 0.42, spacing: false });
+    place('oak', cx - sx * 1.3, cz - sz * 0.2, 2.4, 'hedge', { squash: 0.62, sink: 0.42, spacing: false });
+    place('oak', cx - sx * 0.2, cz - sz * 1.3, 2.4, 'hedge', { squash: 0.62, sink: 0.42, spacing: false });
   }
 
   // 3. Forest belt: noise groves of round trees and pines, larger with distance for silhouette.
@@ -223,7 +221,7 @@ export function planDecor(): DecorInstance[] {
     const grove = fbm(x * 0.03 + 1.7, z * 0.03 - 6.2, 3, 7);
     if (grove < 0.5) continue;
     const far = (r - BELT_INNER) / (BELT_OUTER - BELT_INNER);
-    const model: DecorId = grove > 0.56 ? (rng() < 0.6 ? 'tree-b' : 'tree-a') : rng() < 0.75 ? 'tree-a' : 'tree-b';
+    const model: DecorId = grove > 0.56 ? (rng() < 0.6 ? 'pine' : 'oak') : rng() < 0.75 ? 'oak' : 'pine';
     place(model, x, z, (1.9 + rng() * 0.9) * (1 + far * 0.7), 'belt');
   }
 
@@ -231,7 +229,7 @@ export function planDecor(): DecorInstance[] {
   return out;
 }
 
-const DECOR_MODELS: readonly DecorId[] = ['tree-a', 'tree-b', 'decor-rocks'];
+const DECOR_MODELS: readonly DecorId[] = ['oak', 'pine', 'decor-rocks'];
 
 export class DecorRing {
   readonly group = new THREE.Group();

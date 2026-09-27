@@ -15,7 +15,7 @@
  *
  * WP-08 (Feel & VFX).
  */
-import { OBJECTS } from '../catalog/objects';
+import { OBJECTS, type ObjectGroup } from '../catalog/objects';
 import { CELL_SIZE } from '../game/config';
 import type { ObjectKind } from '../town/types';
 import { Curve, type ParticlePool, type ParticleSpec } from './particlePool';
@@ -76,17 +76,28 @@ interface Burst {
   palette: readonly Rgb[];
 }
 
+/** Effect class per object group (catalog/objects.ts). */
+const GROUP_FX: Readonly<Record<ObjectGroup, FxClass>> = {
+  road: 'road',
+  street: 'prop',
+  home: 'building',
+  outbuilding: 'building',
+  amenity: 'building',
+  tree: 'tree',
+  plant: 'tree',
+  garden: 'prop',
+};
+
 /** Map a tool id (placed) or removed kind to its effect class. */
 export function classify(id: string): FxClass {
   if (id === 'road') return 'road';
   if (id === 'pavement' || id === 'walkway') return 'path';
   if (id === 'grass') return 'lawn';
   if (id === 'meadow') return 'meadow';
-  if (id.startsWith('tree')) return 'tree';
-  if (id.startsWith('townhouse') || id === 'garage') return 'building';
+  if (id === 'hedge' || id.startsWith('fence')) return 'fence';
   if (id === 'bus-stop') return 'small-building';
-  if (id.startsWith('fence')) return 'fence';
-  return 'prop';
+  const def = Object.prototype.hasOwnProperty.call(OBJECTS, id) ? OBJECTS[id as ObjectKind] : undefined;
+  return def ? GROUP_FX[def.group] : 'prop';
 }
 
 /**

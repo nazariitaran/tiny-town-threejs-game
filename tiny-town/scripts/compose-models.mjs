@@ -10,6 +10,13 @@
 //  * primitive recipes: simple flat-shaded low-poly shapes written directly
 //    (used for the postbox, which no CC0 kit in this style provides).
 //
+//  * normalised recipes: one Poly Pizza model (assets-src/polypizza/, CC0 or
+//    CC-BY 3.0, see docs/assets/CREDITS.md) rescaled to game units, optionally
+//    turned (rotY; the church and corner shop keep their native +Z front, the
+//    catalog's rotationOffset handles it) and given flat Kenney-style materials
+//    (metalness 0, roughness 1),
+//    so it doesn't render dark next to the kits.
+//
 // Conventions for everything written here (same as the Kenney city kits):
 // Y-up, metres-agnostic "city units" where a road tile is 1 x 1, pivot at the
 // centre of the footprint with the base on y = 0, front facing -Z.
@@ -22,6 +29,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = path.join(root, 'assets-src');
 const OUT = path.join(root, 'public/assets/models/composed');
 const kit = (pack, file) => path.join(SRC, pack, 'Models/GLB format', file);
+const poly = (file) => path.join(SRC, 'polypizza', file);
 
 // ---------------------------------------------------------------- GLB I/O
 function readGlb(file) {
@@ -149,6 +157,20 @@ function merge(parts, generator) {
   return { json: JSON.parse(JSON.stringify(out)), bin: Buffer.concat(chunks) };
 }
 
+/**
+ * Flat Kenney-style materials: metalness 0, roughness 1, no metal/roughness map. Many Poly Pizza
+ * exports ship metallicFactor 0.4, which renders almost black without an environment map.
+ */
+function flatMaterials(glb) {
+  for (const m of glb.json.materials || []) {
+    const pbr = (m.pbrMetallicRoughness ||= {});
+    pbr.metallicFactor = 0;
+    pbr.roughnessFactor = 1;
+    delete pbr.metallicRoughnessTexture;
+  }
+  return glb;
+}
+
 // ---------------------------------------------------------------- primitives
 // Minimal flat-shaded mesh builder -> glTF (no textures, one material per part).
 function primitiveGlb(shapes, generator) {
@@ -263,6 +285,28 @@ const recipes = {
       { name: 'plate', material: 'plate', color: gold, tris: box(-0.014, 0.014, 0.07, 0.092, -0.0465, -0.042) },
     ], GEN);
   },
+  // ---- v0.3 catalog additions -------------------------------------------------
+  // Pool: Kenney Fantasy Town square fountain basin (stone rim + water; the modular edge/corner
+  // pieces leave floor gaps between their water) stretched to a 4 x 2 basin at the back and squashed
+  // to pool height, with two commercial-kit parasol tables on the deck in front.
+  // Native 4 x 3 units; the catalog scales it by 0.5 onto 4 x 3 cells. Deck side = -Z (front).
+  'swimming-pool': () => merge([
+    { file: kit('fantasy-town-kit', 'fountain-square.glb'), name: 'basin', translation: [0, 0, 0.5], scale: [2, 0.4, 1] },
+    { file: kit('city-kit-commercial', 'detail-parasol-a.glb'), name: 'parasol-a', translation: [-1.1, 0, -1.05], scale: 1.6 },
+    { file: kit('city-kit-commercial', 'detail-parasol-b.glb'), name: 'parasol-b', translation: [1.1, 0, -1.05], scale: 1.6 },
+  ], GEN),
+  // Fountain: Fantasy Town round fountain with its centre tier, as shipped (2 x 2 units).
+  fountain: () => merge([{ file: kit('fantasy-town-kit', 'fountain-round-detail.glb'), name: 'fountain' }], GEN),
+  // Poly Pizza models, normalised (see the header). Scale factors map the source units onto game
+  // world units directly (the catalog uses scale 1); rotY turns the front to -Z.
+  // "Church" by Poly by Google (CC-BY 3.0): 1.75 tall, 0.78 x 1.42 base.
+  church: () => flatMaterials(merge([{ file: poly('church-steeple-salmon.glb'), name: 'church', scale: 0.01265, rotY: 0 }], GEN)),
+  // "Building" by Kay Lousberg (CC0): KayKit corner shop, 0.92 x 0.76 x 0.92.
+  'corner-shop': () => flatMaterials(merge([{ file: poly('corner-shop-awning.glb'), name: 'shop', scale: 0.46, rotY: 0 }], GEN)),
+  // "Grill" by Zsky (CC-BY 3.0): kettle barbecue, 0.20 tall.
+  barbecue: () => flatMaterials(merge([{ file: poly('bbq-kettle-red.glb'), name: 'grill', scale: 0.157 }], GEN)),
+  // "Swing set" by Poly by Google (CC-BY 3.0): 0.42 tall, frame turned to run along X (0.56 long).
+  swing: () => flatMaterials(merge([{ file: poly('swing-set-wood.glb'), name: 'swing', scale: 0.00367, rotY: 90 }], GEN)),
 };
 
 const only = process.argv.slice(2);

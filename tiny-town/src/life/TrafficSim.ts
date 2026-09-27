@@ -8,6 +8,9 @@
  *    enters a cell: uniformly among the road neighbours except straight back; U-turn only at a
  *    dead end. It only ever occupies road cells, and buildings can't stand on roads, so cars
  *    never drive through buildings.
+ *  - Road features (roundabouts): only the centre block and the 4 arm blocks are drivable. Cars join
+ *    or leave through the arms (roadTiles.isFeatureArm) and cross the centre on a ring path round
+ *    the island (lanePaths.ringPath) instead of the usual straight/turn manoeuvres.
  *  - The car count follows the road network: target = min(MAX_CARS, drivable cells / CELLS_PER_CAR),
  *    where a drivable cell is a road cell with at least one road neighbour. Spawns are topped up
  *    synchronously on every town change, so a state is fully determined by the town + seed.
@@ -22,9 +25,11 @@
  */
 import type { TownChange, TownStateReader } from '../town/types';
 import { createSeededRandom } from '../utils/random';
-import { DIR_X, DIR_Z, lanePath, opposite, samplePath, type Dir, type LanePath, type PathSample } from './lanePaths';
+import { DIR_X, DIR_Z, lanePath, opposite, ringPath, samplePath, type Dir, type LanePath, type PathSample } from './lanePaths';
 import { roadBlockCentreWorld } from '../game/config';
+import { objectDef } from '../catalog/objects';
 import { ROAD_BLOCK } from '../town/grid';
+import { isFeatureArm, isFeatureCentre, roadFeatureAt } from '../render/roadTiles';
 
 export const MAX_CARS = 6;
 export const CELLS_PER_CAR = 6;
@@ -66,6 +71,8 @@ export interface Car {
   age: number;
   /** Spawned by a load/reset (no pop-in). */
   instant: boolean;
+  /** The current block is a roundabout centre: the car follows ringPath, not lanePath. */
+  ring: boolean;
 }
 
 export interface TrafficStats {
@@ -90,6 +97,7 @@ export class TrafficSim {
   private readonly sample: PathSample = { x: 0, z: 0, hx: 0, hz: 1 };
   private readonly world = { x: 0, z: 0 };
   private readonly probe = { x: 0, z: 0 };
+  private readonly probeNext = { x: 0, z: 0 };
   private readonly blockedBy: number[] = [];
   /** Optional hook for the renderer (instance slots); called after a car is removed. */
   onRemove: ((car: Car) => void) | null = null;
@@ -122,12 +130,15 @@ export class TrafficSim {
   /** React to a town:changed fact. */
   onTownChanged(changes: readonly TownChange[], cause: 'edit' | 'undo' | 'redo' | 'load' | 'reset'): void {
     if (cause === 'reset' || cause === 'load') this.reset();
-    const touchesRoads = cause === 'reset' || cause === 'load' || changes.some((c) => c.layer === 'ground' && (c.before === 'road' || c.after === 'road'));
+    const touchesRoads =
+      cause === 'reset' ||
+      cause === 'load' ||
+      changes.some((c) => (c.layer === 'ground' ? c.before === 'road' || c.after === 'road' : c.layer === 'object' && objectDef(c.object.kind).roadFeature));
     if (!touchesRoads) return;
     // Despawn cars whose road is gone (under them or in front of them).
     for (let i = this.cars.length - 1; i >= 0; i -= 1) {
       const car = this.cars[i];
-      if (!this.isRoad(car.cx, car.cz) || !this.isRoad(car.cx + DIR_X[car.outDir], car.cz + DIR_Z[car.outDir])) this.removeAt(i, true);
+      if (!this.isRoad(car.cx, car.cz) || !this.linked(car.cx, car.cz, car.outDir)) this.removeAt(i, true);
     }
     this.refreshTarget();
     // Too many for the network that is left: remove the newest.
@@ -143,7 +154,7 @@ export class TrafficSim {
     for (let i = this.cars.length - 1; i >= 0; i -= 1) {
       const car = this.cars[i];
       car.age += dt;
-      const path = lanePath(car.inDir, car.outDir);
+      const path = pathOf(car);
       const blocked = this.blockedBy[i] >= 0;
       if (car.pushThrough > 0) car.pushThrough -= dt;
       if (blocked) {
@@ -170,11 +181,38 @@ export class TrafficSim {
     return Math.floor(this.seedSource() * 0x100000000) >>> 0;
   }
 
-  /** Is block (x, z) road? (Blocks are all road or none, so the anchor cell decides.) */
+  /** Is block (x, z) drivable road? (Blocks are all road or none, so the anchor cell decides.) */
   private isRoad(x: number, z: number): boolean {
     this.probe.x = x * ROAD_BLOCK;
     this.probe.z = z * ROAD_BLOCK;
-    return this.town.inBounds(this.probe) && this.town.getGround(this.probe) === 'road';
+    if (!this.town.inBounds(this.probe) || this.town.getGround(this.probe) !== 'road') return false;
+    // Inside a road feature only the centre and the arms carry traffic (the corners are kerb/verge).
+    const feature = roadFeatureAt(this.town, this.probe);
+    return !feature || isFeatureCentre(feature, this.probe) || isFeatureArm(feature, this.probe, 0) !== isFeatureArm(feature, this.probe, 1);
+  }
+
+  /** Is block (x, z) the centre of a road feature (a roundabout's island tile)? */
+  private isRingBlock(x: number, z: number): boolean {
+    this.probe.x = x * ROAD_BLOCK;
+    this.probe.z = z * ROAD_BLOCK;
+    const feature = this.town.inBounds(this.probe) ? roadFeatureAt(this.town, this.probe) : undefined;
+    return feature !== undefined && isFeatureCentre(feature, this.probe);
+  }
+
+  /** Can a car drive from road block (x, z) to its road neighbour in direction `dir`? */
+  private linked(x: number, z: number, dir: Dir): boolean {
+    if (!this.isRoad(x + DIR_X[dir], z + DIR_Z[dir])) return false;
+    this.probe.x = x * ROAD_BLOCK;
+    this.probe.z = z * ROAD_BLOCK;
+    const from = roadFeatureAt(this.town, this.probe);
+    this.probeNext.x = (x + DIR_X[dir]) * ROAD_BLOCK;
+    this.probeNext.z = (z + DIR_Z[dir]) * ROAD_BLOCK;
+    const to = roadFeatureAt(this.town, this.probeNext);
+    if (from === to) return true; // plain road, or two blocks of the same roundabout ring
+    // Crossing a feature's boundary: only through its arms (Dir and NEIGHBOURS share N, E, S, W order).
+    if (to && !isFeatureArm(to, this.probeNext, dir)) return false;
+    if (from && !isFeatureArm(from, this.probe, dir)) return false;
+    return true;
   }
 
   private get blocksWide(): number {
@@ -187,7 +225,7 @@ export class TrafficSim {
 
   private roadExits(x: number, z: number, out: Dir[]): Dir[] {
     out.length = 0;
-    for (let d = 0; d < 4; d += 1) if (this.isRoad(x + DIR_X[d], z + DIR_Z[d])) out.push(d as Dir);
+    for (let d = 0; d < 4; d += 1) if (this.linked(x, z, d as Dir)) out.push(d as Dir);
     return out;
   }
 
@@ -205,7 +243,7 @@ export class TrafficSim {
   private advance(index: number, car: Car, path: LanePath): boolean {
     const nx = car.cx + DIR_X[car.outDir];
     const nz = car.cz + DIR_Z[car.outDir];
-    if (!this.isRoad(nx, nz)) {
+    if (!this.linked(car.cx, car.cz, car.outDir)) {
       this.removeAt(index, true);
       return false;
     }
@@ -214,13 +252,14 @@ export class TrafficSim {
     car.cz = nz;
     car.inDir = car.outDir;
     car.outDir = this.chooseExit(nx, nz, car.inDir);
-    const next = lanePath(car.inDir, car.outDir);
+    car.ring = this.isRingBlock(nx, nz);
+    const next = pathOf(car);
     if (car.s > next.length) car.s = next.length; // huge dt: never skip a whole cell
     return true;
   }
 
   private place(car: Car): void {
-    samplePath(lanePath(car.inDir, car.outDir), car.s, this.sample);
+    samplePath(pathOf(car), car.s, this.sample);
     this.probe.x = car.cx * ROAD_BLOCK;
     this.probe.z = car.cz * ROAD_BLOCK;
     roadBlockCentreWorld(this.probe, this.world);
@@ -265,7 +304,7 @@ export class TrafficSim {
         cz: pick.z,
         inDir: dir,
         outDir: dir,
-        s: lanePath(dir, dir).length / 2, // start at the cell centre, facing a road neighbour
+        s: 0, // set below: the middle of the path, facing a road neighbour
         speed: 0,
         hx: 0,
         hz: 1,
@@ -273,7 +312,9 @@ export class TrafficSim {
         pushThrough: 0,
         age: 0,
         instant,
+        ring: this.isRingBlock(pick.x, pick.z),
       };
+      car.s = pathOf(car).length / 2;
       this.place(car);
       this.cars.push(car);
       this.spawned += 1;
@@ -323,6 +364,8 @@ export class TrafficSim {
     }
   }
 }
+
+const pathOf = (car: Car): LanePath => (car.ring ? ringPath(car.inDir, car.outDir) : lanePath(car.inDir, car.outDir));
 
 function speedFor(path: LanePath): number {
   return path.kind === 'straight' ? CRUISE_SPEED : path.kind === 'uturn' ? UTURN_SPEED : TURN_SPEED;

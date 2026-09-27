@@ -62,7 +62,7 @@ test('loads, starts, and builds a road through real input', async ({ page }, tes
   await page.locator('#btn-start').click();
   await page.waitForFunction(() => window.__THREE_GAME_DIAGNOSTICS__?.phase === 'building');
 
-  await page.locator('#cat-paths').click();
+  await page.locator('#cat-streets').click();
   await page.locator('#tool-road').click();
   await expect.poll(() => page.evaluate(() => window.__THREE_GAME_DIAGNOSTICS__?.tool)).toBe('road');
 

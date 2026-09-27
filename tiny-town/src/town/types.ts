@@ -12,23 +12,51 @@
  *  - Multi-cell objects are anchored at their MIN corner cell; footprint w×d swaps for odd rotations.
  *  - Roads come in aligned 2 × 2 blocks (grid.ROAD_BLOCK, min corner at even x, z): every cell of a
  *    block is road, or none is (rules.ts keeps it; parseSave demotes partial blocks to field).
+ *  - Road features (ObjectDef.roadFeature, e.g. the roundabout) are the only objects that stand on
+ *    road: they are block-aligned, paint their footprint to road when placed and back to field when
+ *    bulldozed, and the renderer draws them instead of the road tiles underneath.
  */
 
 export type GroundKind = 'field' | 'grass' | 'meadow' | 'road' | 'pavement' | 'walkway';
 
+/**
+ * Placeable objects, grouped as in the dock (catalog/tools.ts TOOL_CATEGORIES).
+ * Ids name what the thing IS (not a model file); visuals live in catalog/models.ts.
+ */
 export type ObjectKind =
-  | 'tree-a'
-  | 'tree-b'
-  | 'tree-c'
-  | 'townhouse-a'
-  | 'townhouse-b'
-  | 'townhouse-c'
-  | 'garage'
+  // Streets
+  | 'roundabout'
+  | 'traffic-light'
+  | 'lamppost'
   | 'bus-stop'
   | 'postbox'
-  | 'lamppost';
+  // Homes
+  | 'cottage'
+  | 'townhouse'
+  | 'bungalow'
+  | 'family-home'
+  | 'garage-house'
+  | 'big-house'
+  | 'garage'
+  // Town
+  | 'corner-shop'
+  | 'supermarket'
+  | 'church'
+  | 'swimming-pool'
+  | 'fountain'
+  // Nature
+  | 'oak'
+  | 'pine'
+  | 'birch'
+  | 'bush'
+  // Garden
+  | 'planter'
+  | 'bench'
+  | 'swing'
+  | 'barbecue';
 
-export type EdgeKind = 'fence-tall' | 'fence-small';
+/** Things that run along cell edges (Garden). */
+export type EdgeKind = 'hedge' | 'fence-low' | 'fence-tall';
 
 export type Rotation = 0 | 1 | 2 | 3;
 
@@ -91,9 +119,13 @@ export type PlanResult =
 export interface TownStats {
   homes: number;
   residents: number;
+  /** Shops and civic buildings (Town category). */
+  amenities: number;
   trees: number;
+  /** Road blocks (a roundabout counts its 3 × 3 blocks). */
   roadTiles: number;
   props: number;
+  /** Everything on the edge layer: fences and hedges. */
   fences: number;
 }
 
@@ -113,12 +145,13 @@ export interface TownStateReader {
 }
 
 /**
- * Versioned save format. Bump `version` and add a migration in serialize.ts when it changes.
+ * Versioned save format. Bump `version` (and add a migration in serialize.ts if old saves must load).
+ * V3 (v0.3): the catalog re-organised (object/edge kinds renamed, roundabouts). Older saves are
+ * rejected, so the game starts a fresh town; v0.3 dropped the v1/v2 migrations on purpose.
  * V2 (WP-12): 48 × 48 half-unit cells, roads in aligned 2 × 2 blocks, multi-cell houses.
- * V1 (v0.1: 24 × 24 one-unit cells) is migrated by serialize.SAVE_MIGRATIONS[1].
  */
-export interface SavedTownV2 {
-  version: 2;
+export interface SavedTownV3 {
+  version: 3;
   width: number;
   depth: number;
   /** Row-major (z * width + x) ground codes, run-length encoded: [[kind, count], ...]. */
@@ -130,4 +163,4 @@ export interface SavedTownV2 {
 }
 
 /** The current save format. */
-export type SavedTown = SavedTownV2;
+export type SavedTown = SavedTownV3;

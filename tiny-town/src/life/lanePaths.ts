@@ -12,6 +12,9 @@
  *  - left turn  (out == in + 3): a wide quarter arc that crosses the oncoming lane.
  *  - U-turn     (out == in + 2): only at dead ends; drive to the middle, loop round, drive back.
  *
+ *  - ring (roundabout centre tile): join the circle round the island, drive round it
+ *    counter-clockwise (right-hand traffic) and leave on the exit's right-hand lane; see ringPath.
+ *
  * Paths are pre-sampled polylines in tile-local coordinates (tile centre = origin,
  * world units), so sampling is allocation-free.
  */
@@ -54,6 +57,8 @@ export interface PathSample {
 
 const ARC_STEPS = 16;
 const HALF = ROAD_TILE_SIZE / 2;
+/** Radius of the lane round a roundabout island (Kenney road-roundabout: island kerb ≈ 0.3, outer kerb ≈ 0.73). */
+export const RING_RADIUS = 0.5 * ROAD_TILE_SIZE;
 
 function buildPath(inDir: Dir, outDir: Dir): LanePath {
   const kind = manoeuvreKind(inDir, outDir);
@@ -98,6 +103,10 @@ function buildPath(inDir: Dir, outDir: Dir): LanePath {
     }
     pts.push(endX, endZ);
   }
+  return finishPath(kind, pts);
+}
+
+function finishPath(kind: ManoeuvreKind, pts: readonly number[]): LanePath {
   const points = new Float32Array(pts);
   const count = points.length / 2;
   const cum = new Float32Array(count);
@@ -107,11 +116,66 @@ function buildPath(inDir: Dir, outDir: Dir): LanePath {
   return { kind, points, cum, length: cum[count - 1] };
 }
 
+/** Chaikin corner cutting, keeping both end points (rounds the kinks where lanes join the ring). */
+function smooth(pts: readonly number[], passes: number): number[] {
+  let cur = [...pts];
+  for (let p = 0; p < passes; p += 1) {
+    const next = [cur[0], cur[1]];
+    for (let i = 0; i + 3 < cur.length; i += 2) {
+      const [x0, z0, x1, z1] = [cur[i], cur[i + 1], cur[i + 2], cur[i + 3]];
+      next.push(0.75 * x0 + 0.25 * x1, 0.75 * z0 + 0.25 * z1, 0.25 * x0 + 0.75 * x1, 0.25 * z0 + 0.75 * z1);
+    }
+    next.push(cur[cur.length - 2], cur[cur.length - 1]);
+    cur = next;
+  }
+  return cur;
+}
+
+/**
+ * Roundabout centre tile: from the entry lane onto the ring (radius RING_RADIUS), counter-clockwise
+ * seen from above with north up (right-hand traffic), off onto the exit lane. Straight on is half a
+ * lap, a U-turn nearly a full one. Kind 'right' so cars take it at turning speed.
+ */
+function buildRingPath(inDir: Dir, outDir: Dir): LanePath {
+  const dix = DIR_X[inDir];
+  const diz = DIR_Z[inDir];
+  const dox = DIR_X[outDir];
+  const doz = DIR_Z[outDir];
+  const startX = -dix * HALF - diz * LANE_OFFSET;
+  const startZ = -diz * HALF + dix * LANE_OFFSET;
+  const endX = dox * HALF - doz * LANE_OFFSET;
+  const endZ = doz * HALF + dox * LANE_OFFSET;
+  // Where each lane line meets the ring (the lane is LANE_OFFSET off a line through the centre).
+  const along = Math.sqrt(RING_RADIUS * RING_RADIUS - LANE_OFFSET * LANE_OFFSET);
+  const inX = -dix * along - diz * LANE_OFFSET;
+  const inZ = -diz * along + dix * LANE_OFFSET;
+  const outX = dox * along - doz * LANE_OFFSET;
+  const outZ = doz * along + dox * LANE_OFFSET;
+  // Screen angle (north up): φ = atan2(−z, x); counter-clockwise = increasing φ.
+  const a0 = Math.atan2(-inZ, inX);
+  let sweep = Math.atan2(-outZ, outX) - a0;
+  while (sweep <= 0) sweep += Math.PI * 2;
+  const steps = Math.max(4, Math.ceil((sweep / (Math.PI / 2)) * ARC_STEPS));
+  const pts: number[] = [startX, startZ];
+  for (let i = 0; i <= steps; i += 1) {
+    const a = a0 + (sweep * i) / steps;
+    pts.push(Math.cos(a) * RING_RADIUS, -Math.sin(a) * RING_RADIUS);
+  }
+  pts.push(endX, endZ);
+  return finishPath('right', smooth(pts, 2));
+}
+
 /** All 16 manoeuvres, indexed [inDir * 4 + outDir]. */
 const PATHS: readonly LanePath[] = Array.from({ length: 16 }, (_, i) => buildPath((i >> 2) as Dir, (i & 3) as Dir));
+const RING_PATHS: readonly LanePath[] = Array.from({ length: 16 }, (_, i) => buildRingPath((i >> 2) as Dir, (i & 3) as Dir));
 
 export function lanePath(inDir: Dir, outDir: Dir): LanePath {
   return PATHS[inDir * 4 + outDir];
+}
+
+/** The manoeuvre across a roundabout's centre tile (see buildRingPath). */
+export function ringPath(inDir: Dir, outDir: Dir): LanePath {
+  return RING_PATHS[inDir * 4 + outDir];
 }
 
 /** Cell-local position + heading at arc length `s` (clamped to the path). Writes into `out`. */

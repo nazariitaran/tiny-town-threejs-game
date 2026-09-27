@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { TownState } from '../town/TownState';
 import type { GroundKind, TownChange } from '../town/types';
 import { createSeededRandom } from '../utils/random';
-import { DIR_X, DIR_Z, LANE_OFFSET, lanePath, manoeuvreKind, samplePath, type Dir } from './lanePaths';
+import { DIR_X, DIR_Z, LANE_OFFSET, lanePath, manoeuvreKind, RING_RADIUS, ringPath, samplePath, type Dir } from './lanePaths';
+import { createGameBus } from '../game/events';
+import { buildSampleTown } from '../town/sampleTown';
+import { TownEditor } from '../town/TownEditor';
 import { MAX_CARS, TrafficSim } from './TrafficSim';
 import { PLOT_DEPTH, PLOT_WIDTH, roadBlockCentreWorld, worldToCell } from '../game/config';
 
@@ -211,5 +214,57 @@ describe('TrafficSim', () => {
     expect(sim.cars.length).toBe(0);
     sim.onTownChanged([], 'reset');
     expect(sim.stats.cars).toBe(0);
+  });
+});
+
+describe('traffic: roundabouts', () => {
+  /** The sample town has a roundabout on blocks 10–12 × 11–13 where both streets meet. */
+  function roundaboutTown() {
+    const editor = new TownEditor(new TownState(PLOT_WIDTH, PLOT_DEPTH), createGameBus(), createSeededRandom(1));
+    buildSampleTown(editor);
+    return editor.state;
+  }
+
+  it('ring paths start and end on the lanes, circle the island counter-clockwise and never cut it', () => {
+    for (let inDir = 0; inDir < 4; inDir += 1) {
+      for (let outDir = 0; outDir < 4; outDir += 1) {
+        const path = ringPath(inDir as Dir, outDir as Dir);
+        const start = samplePath(path, 0, { x: 0, z: 0, hx: 0, hz: 0 });
+        const end = samplePath(path, path.length, { x: 0, z: 0, hx: 0, hz: 0 });
+        // Entry on the incoming edge's right lane, exit on the outgoing edge's right lane.
+        expect(start.x).toBeCloseTo(-DIR_X[inDir] * 0.5 - DIR_Z[inDir] * LANE_OFFSET, 5);
+        expect(start.z).toBeCloseTo(-DIR_Z[inDir] * 0.5 + DIR_X[inDir] * LANE_OFFSET, 5);
+        expect(end.x).toBeCloseTo(DIR_X[outDir] * 0.5 - DIR_Z[outDir] * LANE_OFFSET, 5);
+        expect(end.z).toBeCloseTo(DIR_Z[outDir] * 0.5 + DIR_X[outDir] * LANE_OFFSET, 5);
+        const sample = { x: 0, z: 0, hx: 0, hz: 0 };
+        for (let s = 0; s <= path.length; s += 0.02) {
+          samplePath(path, s, sample);
+          expect(Math.hypot(sample.x, sample.z)).toBeGreaterThan(RING_RADIUS * 0.8);
+          // Counter-clockwise with north up: the heading turns left of the radius (cross product > 0).
+          if (Math.hypot(sample.x, sample.z) < RING_RADIUS * 1.05) expect(sample.x * -sample.hz - -sample.z * sample.hx).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+
+  it('cars drive through the roundabout on its centre and arms only, never its corners', () => {
+    const town = roundaboutTown();
+    const sim = new TrafficSim(town, createSeededRandom(2));
+    sim.onTownChanged([], 'load');
+    expect(sim.cars.length).toBeGreaterThan(0);
+    const visited = new Set<string>();
+    for (let i = 0; i < 6000; i += 1) {
+      sim.step(1 / 30);
+      for (const car of sim.cars) {
+        const rx = car.cx - 10;
+        const rz = car.cz - 11;
+        if (rx < 0 || rx > 2 || rz < 0 || rz > 2) continue;
+        visited.add(`${rx},${rz}`);
+        expect(rx === 1 || rz === 1, `car ${car.id} on corner block ${rx},${rz}`).toBe(true);
+        expect(car.ring).toBe(rx === 1 && rz === 1);
+      }
+    }
+    expect(visited.has('1,1')).toBe(true);
+    expect([...visited].filter((k) => k !== '1,1').length).toBeGreaterThanOrEqual(3);
   });
 });

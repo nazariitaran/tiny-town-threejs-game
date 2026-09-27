@@ -50,7 +50,7 @@ export class UiRoot {
   private readonly coarse = window.matchMedia('(pointer: coarse)');
 
   private phase: GamePhase = 'loading';
-  private category: ToolCategory = 'paths';
+  private category: ToolCategory = 'streets';
   private activeTool: ToolId | null = null;
   private muted = false;
   private volume = 0.8;
@@ -255,7 +255,7 @@ export class UiRoot {
                 <dt>Middle-drag · Q / E</dt><dd>Turn the camera</dd>
                 <dt>Wheel · + / −</dt><dd>Zoom</dd>
                 <dt>1–9</dt><dd>Pick an item in the open tray</dd>
-                <dt>Shift + 1–4</dt><dd>Switch category</dd>
+                <dt>Shift + 1–5</dt><dd>Switch category</dd>
                 <dt>R · Shift+R</dt><dd>Rotate</dd>
                 <dt>B</dt><dd>Bulldoze</dd>
                 <dt>Ctrl+Z · Ctrl+Shift+Z</dt><dd>Undo · redo</dd>
@@ -280,7 +280,8 @@ export class UiRoot {
 
         <section class="ui-panel" id="${id.creditsPanel}" data-view="credits" role="dialog" aria-modal="true" aria-labelledby="ui-credits-h">
           <h2 id="ui-credits-h">Credits</h2>
-          <p>3D models, item icons and sounds by <strong>Kenney</strong> (kenney.nl), CC0.</p>
+          <p>Most 3D models, item icons and all sounds by <strong>Kenney</strong> (kenney.nl), CC0.</p>
+          <p class="ui-credits-small">Also via Poly Pizza (poly.pizza): “Church” and “Swing set” by Poly by Google, CC-BY 3.0; “Grill” by Zsky, CC-BY 3.0; corner shop “Building” by Kay Lousberg, CC0. Scaled and recoloured for Tiny Town.</p>
           <p>Music: <strong>Foundation of Gold</strong>, created for Tiny Town by its author.</p>
           <p>Font: <strong>Nunito</strong> by Vernon Adams, Cyreal and Jacques Le Bailly, SIL Open Font License.</p>
           <p>Made with three.js.</p>

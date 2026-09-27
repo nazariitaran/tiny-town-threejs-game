@@ -12,14 +12,14 @@ const g = (x: number, before: 'field' | 'grass' = 'field', after: 'field' | 'gra
 describe('invertChanges', () => {
   it('inverts every layer and reverses the order', () => {
     const changes: TownChange[] = [
-      { layer: 'edge', op: 'remove', placed: { kind: 'fence-small', edge: { x: 1, z: 1, side: 'n' } } },
+      { layer: 'edge', op: 'remove', placed: { kind: 'fence-low', edge: { x: 1, z: 1, side: 'n' } } },
       { layer: 'object', op: 'add', object: { id: 7, kind: 'postbox', anchor: { x: 1, z: 1 }, rotation: 2, variant: 0 } },
       { layer: 'ground', cell: { x: 1, z: 1 }, before: 'field', after: 'road' },
     ];
     expect(invertChanges(changes)).toEqual([
       { layer: 'ground', cell: { x: 1, z: 1 }, before: 'road', after: 'field' },
       { layer: 'object', op: 'remove', object: { id: 7, kind: 'postbox', anchor: { x: 1, z: 1 }, rotation: 2, variant: 0 } },
-      { layer: 'edge', op: 'add', placed: { kind: 'fence-small', edge: { x: 1, z: 1, side: 'n' } } },
+      { layer: 'edge', op: 'add', placed: { kind: 'fence-low', edge: { x: 1, z: 1, side: 'n' } } },
     ]);
   });
 

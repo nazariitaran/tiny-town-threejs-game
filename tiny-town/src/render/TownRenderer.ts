@@ -27,7 +27,7 @@
  *    paving hub + an arm towards every walkway/pavement neighbour (procedural slabs).
  *  - Look overrides (MODEL_STYLES, M1 review): the roads atlas's periwinkle kerb/paving texels are
  *    re-tinted to warm stone (one recoloured atlas copy shared by all road pieces); the tall fence is
- *    cream and 1.55× taller, the low fence dark wood; the lamppost is dark iron and stouter.
+ *    cream and 1.8× taller, the low fence dark wood; the lamppost is dark iron and stouter.
  */
 import * as THREE from 'three';
 import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS, type ModelId } from '../catalog/models';
@@ -39,7 +39,7 @@ import { cellKey, edgeKey, footprintCells, NEIGHBOURS, ROAD_BLOCK, roadBlockAnch
 import type { Cell, GroundKind, PlacedEdge, PlacedObject, TownChange, TownStateReader } from '../town/types';
 import { InstancePool, type PoolSlot } from './InstancePool';
 import type { ModelLibrary } from './ModelLibrary';
-import { roadMask, roadTileFor } from './roadTiles';
+import { roadMask, roadTileFor, underRoadFeature } from './roadTiles';
 import { easeOutBack, easeOutBackPeak, easeShrink, hash01 } from './tween';
 
 const QUARTER = Math.PI / 2;
@@ -79,11 +79,18 @@ export const MODEL_STYLES: Readonly<Partial<Record<ModelId, ModelStyle>>> = {
   'road-single': { warmAtlas: true },
   // WP-12: fences are 0.5 long (scale 0.5); Y restores a readable height: ≈ 1.65 m / 0.8 m at toy scale.
   'fence-tall': { color: '#f2eadb', scale: [1, 1.8, 1] },
-  'fence-small': { color: '#9a6a42', scale: [1, 1.4, 1] },
+  'fence-low': { color: '#9a6a42', scale: [1, 1.4, 1] },
+  // v0.3: the hedge is 0.5 long; a little longer so neighbouring runs close up at corners.
+  hedge: { scale: [1.12, 1, 1] },
+  // v0.3: the oak canopy squashed into a low round shrub (the model's offset sinks the trunk).
+  bush: { scale: [1, 0.58, 1] },
+  // The roundabout is a road tile: same warm stone kerbs as the other road pieces.
+  roundabout: { warmAtlas: true },
   // Thin grey hook → darker, slightly stouter iron lamp that reads against the field.
   lamppost: { color: '#46505e', scale: [1.5, 1, 1.15] },
 };
-const TREE_KINDS = new Set(['tree-a', 'tree-b', 'tree-c']);
+/** Edge-layer models (their pools go on the edge layer). */
+const EDGE_MODEL_IDS: ReadonlySet<string> = new Set(Object.values(EDGE_MODELS));
 
 /** Something that can be instanced: a model's merged parts or a procedural tile. */
 interface PieceSource {
@@ -350,10 +357,13 @@ export class TownRenderer {
       } else if (change.layer === 'object') {
         if (change.op === 'add') this.addObject(change.object, animate);
         else this.removeObject(change.object.id, animate);
-        // Meadow scatter hides under objects: refresh the covered cells.
+        // Meadow scatter hides under objects: refresh the covered cells. A road feature also hides
+        // the road tiles under it and changes how the neighbouring road blocks join up.
         const def = objectDef(change.object.kind);
         for (const cell of footprintCells(change.object.anchor, def.footprint, change.object.rotation)) {
-          if (this.town.inBounds(cell)) touchedCells.set(cellKey(cell), cell);
+          if (!this.town.inBounds(cell)) continue;
+          touchedCells.set(cellKey(cell), cell);
+          if (def.roadFeature) touch(cell);
         }
       } else if (change.op === 'add') this.addEdge(change.placed, animate);
       else this.removeEdge(change.placed, animate);
@@ -373,8 +383,9 @@ export class TownRenderer {
     const key = cellKey(cell);
     const current = this.groundByCell.get(key);
     const kind = this.town.getGround(cell);
-    // A road block draws one tile, owned by its anchor (min corner) cell; the other cells draw nothing.
-    const roadFiller = kind === 'road' && (cell.x % ROAD_BLOCK !== 0 || cell.z % ROAD_BLOCK !== 0);
+    // A road block draws one tile, owned by its anchor (min corner) cell; the other cells draw nothing,
+    // and nor does a block under a road feature (the roundabout model draws the road there).
+    const roadFiller = kind === 'road' && (cell.x % ROAD_BLOCK !== 0 || cell.z % ROAD_BLOCK !== 0 || underRoadFeature(this.town, cell));
     const spec = kind === 'field' || roadFiller ? null : this.describeGround(kind, cell);
     if (current && spec && current.sig === spec.sig) return;
     const kindChanged = !current || !spec || current.sig.split(':')[0] !== spec.sig.split(':')[0];
@@ -484,7 +495,7 @@ export class TownRenderer {
     const [w, d] = rotatedFootprint(def.footprint, placed.rotation);
     const first = cellToWorld(cells[0]);
     const origin = new THREE.Matrix4().makeRotationY(placed.rotation * QUARTER);
-    if (TREE_KINDS.has(placed.kind)) {
+    if (def.group === 'tree' || def.group === 'plant') {
       // Stable per-tree jitter (survives reloads): any yaw, ±12% size.
       const yaw = hash01(placed.id, 11) * Math.PI * 2;
       const scale = 0.88 + hash01(placed.id, 12) * 0.24;
@@ -598,7 +609,7 @@ export class TownRenderer {
     const key = `${source.key}#${part}`;
     let pool = this.pools.get(key);
     if (!pool) {
-      const layer = source.castShadow ? (source.key.startsWith('fence') ? this.edgeLayer : this.objectLayer) : this.groundLayer;
+      const layer = source.castShadow ? (EDGE_MODEL_IDS.has(source.key) ? this.edgeLayer : this.objectLayer) : this.groundLayer;
       pool = new InstancePool(key, geometry, material, layer, source.castShadow, source.triangles[part] ?? 0);
       this.pools.set(key, pool);
     }

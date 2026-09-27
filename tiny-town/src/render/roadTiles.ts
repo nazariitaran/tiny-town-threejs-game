@@ -9,9 +9,14 @@
  * has been applied, i.e. "front" = +z = south):
  *   straight: N+S · corner: E+S · tee: E+S+W · cross: all · end: S · single: none
  * Rotation r = r quarter turns counter-clockwise from above, which maps E→N, N→W, W→S, S→E.
+ *
+ * Road features (the roundabout, catalog ObjectDef.roadFeature) stand on road blocks and draw them
+ * instead of the tiles. A neighbouring road block joins a feature only at the middle block of the
+ * feature's facing side (its "arm"), so a road running past a roundabout doesn't tee into its kerb.
  */
-import { NEIGHBOURS, ROAD_BLOCK, roadBlockAnchor } from '../town/grid';
-import type { Cell, Rotation, TownStateReader } from '../town/types';
+import { objectDef } from '../catalog/objects';
+import { NEIGHBOURS, ROAD_BLOCK, roadBlockAnchor, rotatedFootprint } from '../town/grid';
+import type { Cell, PlacedObject, Rotation, TownStateReader } from '../town/types';
 
 export type RoadPiece = 'straight' | 'corner' | 'tee' | 'cross' | 'end' | 'single';
 
@@ -52,6 +57,35 @@ const TABLE: ReadonlyArray<{ piece: RoadPiece; rotation: Rotation }> = Array.fro
 const scratchAnchor: Cell = { x: 0, z: 0 };
 const scratchNeighbour: Cell = { x: 0, z: 0 };
 
+/** The road feature (e.g. roundabout) standing on `cell`, if any. */
+export function roadFeatureAt(state: TownStateReader, cell: Cell): PlacedObject | undefined {
+  const object = state.getObjectAt(cell);
+  return object && objectDef(object.kind).roadFeature ? object : undefined;
+}
+
+export const underRoadFeature = (state: TownStateReader, cell: Cell): boolean => roadFeatureAt(state, cell) !== undefined;
+
+/**
+ * Is the feature block containing `cell` the arm a road reaches when it arrives travelling in
+ * direction `side` (NEIGHBOURS index of the step from the road block into the feature)? Arms are
+ * the middle blocks of each side (odd block counts; a 3 × 3-block roundabout has its arms at 1).
+ */
+export function isFeatureArm(feature: PlacedObject, cell: Cell, side: number): boolean {
+  const [w, d] = rotatedFootprint(objectDef(feature.kind).footprint, feature.rotation);
+  const bx = Math.floor((cell.x - feature.anchor.x) / ROAD_BLOCK);
+  const bz = Math.floor((cell.z - feature.anchor.z) / ROAD_BLOCK);
+  const northSouth = side === 0 || side === 2;
+  return northSouth ? bx * 2 + 1 === w / ROAD_BLOCK : bz * 2 + 1 === d / ROAD_BLOCK;
+}
+
+/** Is `cell` in the centre block of the feature (the roundabout's island: no traffic)? */
+export function isFeatureCentre(feature: PlacedObject, cell: Cell): boolean {
+  const [w, d] = rotatedFootprint(objectDef(feature.kind).footprint, feature.rotation);
+  const bx = Math.floor((cell.x - feature.anchor.x) / ROAD_BLOCK);
+  const bz = Math.floor((cell.z - feature.anchor.z) / ROAD_BLOCK);
+  return bx * 2 + 1 === w / ROAD_BLOCK && bz * 2 + 1 === d / ROAD_BLOCK;
+}
+
 /** Connection mask of the road block containing `cell` (N=1, E=2, S=4, W=8 neighbouring blocks). */
 export function roadMask(state: TownStateReader, cell: Cell): number {
   const anchor = roadBlockAnchor(cell, scratchAnchor);
@@ -59,7 +93,10 @@ export function roadMask(state: TownStateReader, cell: Cell): number {
   for (let i = 0; i < 4; i += 1) {
     scratchNeighbour.x = anchor.x + NEIGHBOURS[i].x * ROAD_BLOCK;
     scratchNeighbour.z = anchor.z + NEIGHBOURS[i].z * ROAD_BLOCK;
-    if (state.getGround(scratchNeighbour) === 'road') mask |= 1 << i;
+    if (state.getGround(scratchNeighbour) !== 'road') continue;
+    const feature = roadFeatureAt(state, scratchNeighbour);
+    if (feature && !isFeatureArm(feature, scratchNeighbour, i)) continue;
+    mask |= 1 << i;
   }
   return mask;
 }

@@ -118,7 +118,8 @@ export function roadBlockCells(cell: Cell): Cell[] {
 /**
  * Min-corner anchor that centres a (rotated) footprint on a pointer at fractional grid coordinates
  * (gx, gz) (cell x covers [x, x + 1)), clamped so the whole footprint stays inside W × D.
- * Odd sizes centre on the hovered cell; even sizes snap to the nearest cell corner.
+ * Odd sizes centre on the hovered cell; even sizes snap to the nearest cell corner. `snap` > 1
+ * keeps the anchor on multiples of it (road features use ROAD_BLOCK).
  */
 export function anchorForPointer(
   gx: number,
@@ -128,10 +129,13 @@ export function anchorForPointer(
   width: number,
   depth: number,
   out: Cell = { x: 0, z: 0 },
+  snap = 1,
 ): Cell {
   const [w, d] = rotatedFootprint(footprint, rotation);
-  out.x = Math.min(Math.max(Math.floor(gx - w / 2 + 0.5), 0), Math.max(0, width - w));
-  out.z = Math.min(Math.max(Math.floor(gz - d / 2 + 0.5), 0), Math.max(0, depth - d));
+  const place = (g: number, size: number, limit: number) =>
+    Math.min(Math.max(Math.floor((g - size / 2) / snap + 0.5) * snap, 0), Math.max(0, Math.floor((limit - size) / snap) * snap));
+  out.x = place(gx, w, width);
+  out.z = place(gz, d, depth);
   return out;
 }
 

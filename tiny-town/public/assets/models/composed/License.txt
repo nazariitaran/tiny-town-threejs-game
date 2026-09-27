@@ -11,8 +11,24 @@ bus-stop.glb, fence-tall.glb, fence-small.glb, fence-small-gate.glb, garage.glb
     - City Kit (Suburban) 2.0    fence                  https://kenney.nl/assets/city-kit-suburban
     - Fantasy Town Kit           fence, fence-gate      https://kenney.nl/assets/fantasy-town-kit
     - City Kit (Industrial)      building-j             https://kenney.nl/assets/city-kit-industrial
+
+swimming-pool.glb, fountain.glb
+  Assembled from Kenney CC0 models (textures embedded):
+    - Fantasy Town Kit           fountain-square, fountain-round-detail  https://kenney.nl/assets/fantasy-town-kit
+    - City Kit (Commercial) 2.1  detail-parasol-a, detail-parasol-b      https://kenney.nl/assets/city-kit-commercial
   Original models by Kenney (www.kenney.nl), licensed CC0 1.0:
   http://creativecommons.org/publicdomain/zero/1.0/
 
 postbox.glb
   Original primitive model made for this project; dedicated to the public domain (CC0 1.0).
+
+church.glb, swing.glb, barbecue.glb  (CC-BY 3.0, attribution required)
+  Rescaled, re-oriented and given flat materials (metalness 0, roughness 1) from Poly Pizza models:
+    - church.glb    "Church" by Poly by Google, via Poly Pizza, CC-BY 3.0     https://poly.pizza/m/0Oe72PEPCK6
+    - swing.glb     "Swing set" by Poly by Google, via Poly Pizza, CC-BY 3.0  https://poly.pizza/m/e-IJdcqZH4p
+    - barbecue.glb  "Grill" by Zsky, via Poly Pizza, CC-BY 3.0                https://poly.pizza/m/SIlnlrbQR7
+  Licence: https://creativecommons.org/licenses/by/3.0/
+
+corner-shop.glb  (CC0 1.0)
+  Rescaled, with flat materials, from "Building" by Kay Lousberg (KayKit), via Poly Pizza, CC0:
+  https://poly.pizza/m/EL3ePInr1N

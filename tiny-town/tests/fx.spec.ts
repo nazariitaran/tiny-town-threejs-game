@@ -99,7 +99,7 @@ test('FX journey video: road, house, tree, bulldoze — and FX draw calls ≤ 3'
   await waitFxIdle(page);
 
   // 2. House: wide dust ring + chips + sparkle ring. Measure FX draw calls on this burst.
-  await selectTool(page, 'townhouse-a');
+  await selectTool(page, 'cottage');
   before = (await fx(page)).spawned;
   await clickCell(page, ...HOUSE);
   await parkPointer(page);
@@ -135,7 +135,7 @@ test('FX journey video: road, house, tree, bulldoze — and FX draw calls ≤ 3'
   await waitFxIdle(page);
 
   // 3. Tree: leaf burst.
-  await selectTool(page, 'tree-a');
+  await selectTool(page, 'oak');
   before = (await fx(page)).spawned;
   await clickCell(page, ...TREE);
   await parkPointer(page);
@@ -188,7 +188,7 @@ test('reduced motion hides particles and freezes wind sway (stable captures)', a
   // Real input: a wildflower strip and a row of trees, so there is foliage to sway.
   await selectTool(page, 'meadow');
   await dragCells(page, [20, 18], [26, 18]);
-  await selectTool(page, 'tree-a');
+  await selectTool(page, 'oak');
   for (const x of [20, 22, 24]) await clickCell(page, x, 16);
   await page.keyboard.press('Escape'); // no tool ⇒ no ghost in the captures
   await parkPointer(page);
@@ -202,7 +202,7 @@ test('reduced motion hides particles and freezes wind sway (stable captures)', a
   const movingDiff = diffPixels(moving1, moving2);
 
   // A real placement right before enabling reduced motion: its burst must vanish.
-  await selectTool(page, 'tree-a');
+  await selectTool(page, 'oak');
   const before = (await fx(page)).spawned;
   await clickCell(page, 22, 20);
   await page.keyboard.press('Escape');
@@ -231,7 +231,7 @@ test('reduced motion hides particles and freezes wind sway (stable captures)', a
 
   // A placement while reduced motion is on spawns nothing.
   await page.addStyleTag({ content: '#ui-root { visibility: visible !important; }' });
-  await selectTool(page, 'tree-a');
+  await selectTool(page, 'oak');
   const spawnedBefore = later.spawned;
   await clickCell(page, 24, 20);
   await waitFrames(page, 5);

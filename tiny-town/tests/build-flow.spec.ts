@@ -25,7 +25,7 @@ const ROAD_FROM: [number, number] = [16, 24];
 const ROAD_TO: [number, number] = [31, 24];
 const ROAD_TILES = 8;
 const HOUSE: [number, number] = [23, 22];
-const COTTAGE_RESIDENTS = 2; // objects.ts: townhouse-a residents
+const COTTAGE_RESIDENTS = 2; // objects.ts: cottage residents
 
 test('road → house → undo → redo → bulldoze, through real input', async ({ page }, testInfo) => {
   const errors = trackErrors(page);
@@ -53,7 +53,7 @@ test('road → house → undo → redo → bulldoze, through real input', async 
   await record('road');
 
   // 2. Place a cottage next to the road with a single click.
-  await selectTool(page, 'townhouse-a');
+  await selectTool(page, 'cottage');
   await clickCell(page, ...HOUSE);
   await expectDiagnostics(
     page,
@@ -121,5 +121,47 @@ test('road → house → undo → redo → bulldoze, through real input', async 
 
   await attachJson(testInfo, `${testInfo.project.name}-build-flow`, trail);
   await testInfo.attach(`${testInfo.project.name}-build-flow-end`, { body: await page.screenshot(), contentType: 'image/png' });
+  errors.expectNone();
+});
+
+// A roundabout is a road feature: a 6 × 6-cell (3 × 3 road blocks) object that paints its whole
+// footprint to road when placed and turns it back to field when bulldozed.
+const ROUNDABOUT_CELL: [number, number] = [24, 24];
+const ROUNDABOUT_BLOCKS = 9;
+
+test('roundabout: Streets tab → place on the field → bulldoze, through real input', async ({ page }, testInfo) => {
+  const errors = trackErrors(page);
+  await gotoTitle(page);
+  await startBuilding(page);
+  const before = await expectDiagnostics(page, { objects: 0, town: { roadTiles: 0 }, history: { undoDepth: 0 } }, 'empty start');
+
+  // Pick it from the Streets tab (real clicks on the tab and the tool card).
+  await byId(page, UI_TEST_IDS.category('streets')).click();
+  await expect(byId(page, UI_TEST_IDS.category('streets'))).toHaveAttribute('aria-pressed', 'true');
+  await byId(page, UI_TEST_IDS.tool('roundabout')).click();
+  await expect.poll(async () => (await diagnostics(page)).tool).toBe('roundabout');
+
+  await clickCell(page, ...ROUNDABOUT_CELL);
+  const placed = await expectDiagnostics(
+    page,
+    {
+      objects: before.objects + 1,
+      render: { objects: before.render.objects + 1 },
+      town: { roadTiles: before.town.roadTiles + ROUNDABOUT_BLOCKS, homes: 0 },
+      history: { undoDepth: 1, canRedo: false },
+    },
+    'roundabout paints 9 road blocks and adds one object',
+  );
+  expect(placed.invalidCount, 'no refusal').toBe(before.invalidCount);
+  await testInfo.attach(`${testInfo.project.name}-roundabout`, { body: await page.screenshot(), contentType: 'image/png' });
+
+  // Bulldoze one click on it: the object goes and its road goes with it.
+  await selectTool(page, 'bulldoze');
+  await clickCell(page, ...ROUNDABOUT_CELL);
+  await expectDiagnostics(
+    page,
+    { objects: before.objects, render: { objects: before.render.objects }, town: { roadTiles: before.town.roadTiles }, history: { undoDepth: 2 } },
+    'bulldozing the roundabout removes the object and its 9 road blocks',
+  );
   errors.expectNone();
 });

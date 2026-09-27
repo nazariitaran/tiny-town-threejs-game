@@ -5,7 +5,6 @@ import { buildSampleTown } from '../town/sampleTown';
 import { serializeTown } from '../town/serialize';
 import { TownEditor } from '../town/TownEditor';
 import { TownState } from '../town/TownState';
-import v1Sample from '../town/fixtures/v1-sample.json';
 import { createSeededRandom } from '../utils/random';
 import { AUTOSAVE_DEBOUNCE_MS, DEFAULT_SETTINGS, SaveStore, type StorageLike, type TimerApi } from './SaveStore';
 
@@ -103,16 +102,30 @@ describe('SaveStore basic API', () => {
     expect(store.has()).toBe(false);
   });
 
-  it('a v0.1 (v1, 24 × 24) save under the same key reads back migrated to v2 (48 × 48) and loads', () => {
+  it('an older (v1/v2) save under the same key is rejected, so the game starts a fresh town', () => {
+    const v1 = { version: 1, width: 24, depth: 24, ground: [['field', 576]], objects: [{ id: 1, kind: 'tree-a', anchor: { x: 2, z: 2 }, rotation: 0, variant: 0 }], edges: [], nextObjectId: 2 };
+    const v2 = { ...v1, version: 2, width: PLOT_WIDTH, depth: PLOT_DEPTH, ground: [['field', PLOT_WIDTH * PLOT_DEPTH]] };
+    for (const [version, old] of [[1, v1], [2, v2]] as const) {
+      const storage = new MemoryStorage();
+      storage.data.set(SAVE_STORAGE_KEY, JSON.stringify(old));
+      const { store } = setup(storage);
+      expect(store.read()).toBeNull();
+      expect(store.has()).toBe(false);
+      expect(store.lastError).toBe(`No migration from save version ${version}`);
+    }
+  });
+
+  it('a v3 save of the sample town written by an earlier session reads back unchanged and loads', () => {
+    const source = setup();
+    buildSampleTown(source.editor);
     const storage = new MemoryStorage();
-    storage.data.set(SAVE_STORAGE_KEY, JSON.stringify(v1Sample));
+    storage.data.set(SAVE_STORAGE_KEY, JSON.stringify(serializeTown(source.editor.state)));
     const { store, editor } = setup(storage);
-    expect(store.has()).toBe(true);
     const save = store.read()!;
-    expect([save.version, save.width, save.depth]).toEqual([2, PLOT_WIDTH, PLOT_DEPTH]);
-    expect(save.objects).toHaveLength(v1Sample.objects.length);
+    expect([save.version, save.width, save.depth]).toEqual([3, PLOT_WIDTH, PLOT_DEPTH]);
+    expect(save).toEqual(serializeTown(source.editor.state));
     editor.load(save);
-    expect(editor.state.stats()).toMatchObject({ homes: 5, trees: 5, roadTiles: 36 });
+    expect(editor.state.stats()).toEqual(source.editor.state.stats());
   });
 
   it('corrupted or foreign JSON in storage reads as "no save" without throwing', () => {
@@ -299,7 +312,7 @@ describe('SaveStore autosave', () => {
     const { bus, store, editor, timers } = setup();
     store.attachAutosave(bus, () => editor.serialize());
     buildSampleTown(editor);
-    editor.apply({ type: 'place-object', kind: 'tree-c', cell: { x: 0, z: 23 }, rotation: 1 }, 'tree-c');
+    editor.apply({ type: 'place-object', kind: 'birch', cell: { x: 0, z: 23 }, rotation: 1 }, 'birch');
     timers.advance(AUTOSAVE_DEBOUNCE_MS);
 
     const other = new TownEditor(new TownState(PLOT_WIDTH, PLOT_DEPTH), createGameBus(), createSeededRandom(77));

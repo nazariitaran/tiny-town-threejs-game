@@ -37,7 +37,7 @@ function createRng(seed: number): () => number {
   };
 }
 
-type Content = Pick<Diagnostics['town'], 'homes' | 'residents' | 'trees' | 'roadTiles' | 'props' | 'fences'> & {
+type Content = Pick<Diagnostics['town'], 'homes' | 'residents' | 'amenities' | 'trees' | 'roadTiles' | 'props' | 'fences'> & {
   objects: number;
   groundTiles: number;
   edges: number;

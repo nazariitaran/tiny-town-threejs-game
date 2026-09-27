@@ -108,35 +108,48 @@ describe('ParticlePool', () => {
 describe('fx recipes', () => {
   it('classifies every tool into an effect class', () => {
     const classes = Object.fromEntries(TOOLS.filter((t) => t.id !== 'bulldoze').map((t) => [t.id, classify(t.id)]));
-    expect(classes).toMatchObject({
+    expect(classes).toEqual({
       road: 'road', pavement: 'path', walkway: 'path', grass: 'lawn', meadow: 'meadow',
-      'tree-a': 'tree', 'tree-b': 'tree', 'tree-c': 'tree',
-      'townhouse-a': 'building', 'townhouse-b': 'building', 'townhouse-c': 'building', garage: 'building',
-      'bus-stop': 'small-building', 'fence-tall': 'fence', 'fence-small': 'fence', postbox: 'prop', lamppost: 'prop',
+      // group road → road; street / garden → prop; home / outbuilding / amenity → building; tree / plant → tree.
+      roundabout: 'road',
+      'traffic-light': 'prop', lamppost: 'prop', postbox: 'prop', 'bus-stop': 'small-building',
+      cottage: 'building', townhouse: 'building', bungalow: 'building', 'family-home': 'building',
+      'garage-house': 'building', 'big-house': 'building', garage: 'building',
+      'corner-shop': 'building', supermarket: 'building', church: 'building', 'swimming-pool': 'building', fountain: 'building',
+      oak: 'tree', pine: 'tree', birch: 'tree', bush: 'tree',
+      hedge: 'fence', 'fence-low': 'fence', 'fence-tall': 'fence',
+      planter: 'prop', bench: 'prop', swing: 'prop', barbecue: 'prop',
     });
+  });
+
+  it('classifies removed kinds the same way, and unknown ids as props', () => {
+    expect(classify('roundabout')).toBe('road');
+    expect(classify('hedge')).toBe('fence');
+    expect(classify('toString')).toBe('prop');
+    expect(classify('castle')).toBe('prop');
   });
 
   it('sizes placement bursts by category: building > tree > path, and only buildings/props sparkle', () => {
     const counts: Record<string, { dust: number; solid: number; glint: number; maxSize: number }> = {};
-    for (const id of ['road', 'tree-a', 'townhouse-a', 'meadow', 'lamppost', 'fence-tall']) {
+    for (const id of ['road', 'oak', 'cottage', 'meadow', 'lamppost', 'fence-tall']) {
       const p = pools();
       emitPlaced(p, createSeededRandom(1), id, 0, 0, 0);
       let maxSize = 0;
       for (let i = 0; i < p.dust.count; i += 1) maxSize = Math.max(maxSize, p.dust.size[i]);
       counts[id] = { dust: p.dust.count, solid: p.solid.count, glint: p.glint.count, maxSize };
     }
-    expect(counts['townhouse-a'].dust).toBeGreaterThan(counts['tree-a'].dust);
-    expect(counts['townhouse-a'].dust + counts['townhouse-a'].solid).toBeGreaterThan(counts.road.dust + counts.road.solid);
-    expect(counts['tree-a'].dust + counts['tree-a'].solid).toBeGreaterThan(counts.road.dust + counts.road.solid);
-    expect(counts['townhouse-a'].maxSize).toBeGreaterThan(counts.road.maxSize);
-    expect(counts['townhouse-a'].glint).toBeGreaterThanOrEqual(8);
+    expect(counts['cottage'].dust).toBeGreaterThan(counts['oak'].dust);
+    expect(counts['cottage'].dust + counts['cottage'].solid).toBeGreaterThan(counts.road.dust + counts.road.solid);
+    expect(counts['oak'].dust + counts['oak'].solid).toBeGreaterThan(counts.road.dust + counts.road.solid);
+    expect(counts['cottage'].maxSize).toBeGreaterThan(counts.road.maxSize);
+    expect(counts['cottage'].glint).toBeGreaterThanOrEqual(8);
     expect(counts.road.glint).toBe(0);
-    expect(counts['tree-a'].glint).toBe(0);
+    expect(counts['oak'].glint).toBe(0);
   });
 
   it('building sparkles wait for the pop-in', () => {
     const p = pools();
-    emitPlaced(p, createSeededRandom(3), 'townhouse-b', 0, 0, 0);
+    emitPlaced(p, createSeededRandom(3), 'townhouse', 0, 0, 0);
     for (let i = 0; i < p.glint.count; i += 1) expect(p.glint.age[i]).toBeLessThanOrEqual(-0.15);
   });
 
@@ -146,15 +159,15 @@ describe('fx recipes', () => {
       emitRemoved(p, createSeededRandom(2), layer, kind, 0, 0, 0);
       return total(p);
     };
-    expect(count('object', 'townhouse-c')).toBeGreaterThan(count('object', 'postbox'));
+    expect(count('object', 'family-home')).toBeGreaterThan(count('object', 'postbox'));
     expect(count('object', 'postbox')).toBeGreaterThan(count('ground', 'road'));
-    expect(count('edge', 'fence-small')).toBeGreaterThan(0);
+    expect(count('edge', 'fence-low')).toBeGreaterThan(0);
     expect(count('ground', 'meadow')).toBeGreaterThan(0);
   });
 
   it('removal poof rings the footprint at ground level, starts late, and chips stay small', () => {
     const p = pools();
-    emitRemoved(p, createSeededRandom(4), 'object', 'townhouse-a', 2, 3, 0);
+    emitRemoved(p, createSeededRandom(4), 'object', 'cottage', 2, 3, 0);
     expect(p.dust.count).toBeGreaterThan(0);
     for (let i = 0; i < p.dust.count; i += 1) {
       expect(Math.hypot(p.dust.px[i] - 2, p.dust.pz[i] - 3)).toBeGreaterThanOrEqual(0.4); // never over the house
@@ -167,7 +180,7 @@ describe('fx recipes', () => {
   });
 
   it('soft dust stays small at spawn (≤ 0.17 world units, no boulders) and chips ≤ 0.055', () => {
-    for (const id of ['road', 'pavement', 'grass', 'meadow', 'tree-a', 'townhouse-c', 'garage', 'bus-stop', 'fence-tall', 'lamppost']) {
+    for (const id of ['road', 'pavement', 'grass', 'meadow', 'oak', 'family-home', 'garage', 'bus-stop', 'fence-tall', 'lamppost']) {
       const p = pools();
       emitPlaced(p, createSeededRandom(8), id, 0, 0, 0);
       for (let i = 0; i < p.dust.count; i += 1) expect(p.dust.size[i]).toBeLessThanOrEqual(0.17);
@@ -204,8 +217,8 @@ describe('fx recipes', () => {
     const run = () => {
       const p = pools();
       const rng = createSeededRandom(77);
-      emitPlaced(p, rng, 'townhouse-a', 1, 2, 0);
-      emitRemoved(p, rng, 'object', 'tree-b', -1, 0, 0);
+      emitPlaced(p, rng, 'cottage', 1, 2, 0);
+      emitRemoved(p, rng, 'object', 'pine', -1, 0, 0);
       for (let i = 0; i < 10; i += 1) {
         p.dust.step(1 / 60);
         p.solid.step(1 / 60);
@@ -275,8 +288,8 @@ describe('PlacementFx', () => {
     expect(meshes()).toHaveLength(0);
     expect(fx.getDiagnostics().drawCalls).toBe(0);
 
-    bus.emit('build:placed', { toolId: 'townhouse-a', layer: 'object', cell: { x: 3, z: 3 }, worldX: 0.5, worldZ: 0.5, strokeIndex: 0 });
-    bus.emit('build:removed', { layer: 'object', kind: 'tree-a', cell: { x: 4, z: 3 }, worldX: 1.5, worldZ: 0.5, strokeIndex: 0 });
+    bus.emit('build:placed', { toolId: 'cottage', layer: 'object', cell: { x: 3, z: 3 }, worldX: 0.5, worldZ: 0.5, strokeIndex: 0 });
+    bus.emit('build:removed', { layer: 'object', kind: 'oak', cell: { x: 4, z: 3 }, worldX: 1.5, worldZ: 0.5, strokeIndex: 0 });
     fx.update(1 / 60);
     expect(fx.getDiagnostics().active).toBeGreaterThan(20);
     expect(fx.getDiagnostics().drawCalls).toBe(3);
@@ -308,8 +321,8 @@ describe('PlacementFx', () => {
 
 describe('removal poof radius follows the footprint (WP-12)', () => {
   it('hugs a 3×3 house, a 1×2 garage and falls back to the minimum for unknown kinds', () => {
-    expect(footprintPoofRadius('townhouse-a', 0.3)).toBeCloseTo(0.7, 5);
-    expect(footprintPoofRadius('townhouse-b', 0.3)).toBeCloseTo(0.7, 5);
+    expect(footprintPoofRadius('cottage', 0.3)).toBeCloseTo(0.7, 5);
+    expect(footprintPoofRadius('townhouse', 0.3)).toBeCloseTo(0.7, 5);
     expect(footprintPoofRadius('garage', 0.3)).toBeCloseTo(0.45, 5);
     expect(footprintPoofRadius('postbox', 0.3)).toBe(0.3);
     expect(footprintPoofRadius('toString', 0.28)).toBe(0.28);

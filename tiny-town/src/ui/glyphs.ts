@@ -24,13 +24,12 @@ export const GLYPHS = {
   play: svg('<path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/>'),
   plus: svg('<path d="M12 5v14"/><path d="M5 12h14"/>'),
   retry: svg('<path d="M4 12a8 8 0 1 0 2.34-5.66"/><path d="M4 4v5h5"/>'),
-  // Category tabs
-  paths: svg('<path d="M8 3 5 21"/><path d="m16 3 3 18"/><path d="M12 4v2.5"/><path d="M12 10.5v3"/><path d="M12 17.5V20"/>'),
-  nature: svg('<path d="M12 21v-6"/><path d="M12 3c3.6 0 6 2.8 6 6.2 0 3.3-2.7 5.8-6 5.8s-6-2.5-6-5.8C6 5.8 8.4 3 12 3z"/>'),
-  buildings: svg('<path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/>'),
-  other: svg('<path d="M12 21V8"/><path d="M8.5 21h7"/><path d="M9 8h6l-1-4h-4z"/><path d="M12 8v0"/>'),
-  // Brand mark
+  // Category tabs (catalog/tools.ts TOOL_CATEGORIES)
+  streets: svg('<path d="M8 3 5 21"/><path d="m16 3 3 18"/><path d="M12 4v2.5"/><path d="M12 10.5v3"/><path d="M12 17.5V20"/>'),
   homes: svg('<path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/>'),
+  town: svg('<path d="M4.5 10v10h15V10"/><path d="M3 10 5 4.5h14l2 5.5z"/><path d="M10 20v-5h4v5"/>'),
+  nature: svg('<path d="M12 21v-6"/><path d="M12 3c3.6 0 6 2.8 6 6.2 0 3.3-2.7 5.8-6 5.8s-6-2.5-6-5.8C6 5.8 8.4 3 12 3z"/>'),
+  garden: svg('<path d="M5 21V7.5L6.5 5 8 7.5V21"/><path d="M10.5 21V7.5L12 5l1.5 2.5V21"/><path d="M16 21V7.5L17.5 5 19 7.5V21"/><path d="M3 11h18"/><path d="M3 16.5h18"/>'),
 } as const;
 
 export type GlyphId = keyof typeof GLYPHS;

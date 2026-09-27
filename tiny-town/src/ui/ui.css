@@ -757,6 +757,10 @@
   color: var(--ink-soft);
 }
 
+.ui-panel p.ui-credits-small {
+  font-size: 0.82rem;
+}
+
 .ui-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -942,7 +946,7 @@
   }
 
   .ui-tabs {
-    flex: 4 1 0;
+    flex: 5 1 0;
   }
 
   .ui-modes {
@@ -1002,5 +1006,11 @@
     width: var(--topbar-h);
     justify-content: center;
     padding: 0;
+  }
+
+  /* Five tabs + two modes: smaller labels so "Bulldoze" fits its 44 px target. */
+  .ui-tab,
+  .ui-mode {
+    font-size: 0.66rem;
   }
 }

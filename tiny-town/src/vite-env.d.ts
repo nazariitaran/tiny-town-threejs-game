@@ -64,6 +64,8 @@ interface ThreeGameTestHooks {
    * Cells are the 48 × 48 half-unit grid (WP-12); a road block is 2 × 2 cells, houses 3×3 / 2×3.
    */
   cellToClient(x: number, z: number): { x: number; y: number };
+  /** Move the camera to a pose at once (screenshots of one spot, e.g. the asset gallery). */
+  setCameraPose(pose: { targetX: number; targetZ: number; azimuth: number; polar: number; distance: number }): void;
 }
 
 interface Window {
