@@ -68,7 +68,9 @@ Rules of the road:
 `ToolController.update` → `CameraController.update` → `TownRenderer.update(animDelta)` → `LifeSystem.update(animDelta)` → `Environment.update(animDelta, animElapsed)` → `PlacementFx.update(animDelta)` → diagnostics → render. With `setReducedMotion(true)`, `animDelta`/`animElapsed` are 0. With `setPausedForScreenshot(true)`, nothing updates but rendering continues.
 
 ## Grid
-- Plot `24 × 24` cells (`PLOT_WIDTH/DEPTH`), `CELL_SIZE` world units per cell, centred on the origin. Cell `{x, z}` centre = `cellToWorld`.
+- Plot `48 × 48` cells (`PLOT_WIDTH/DEPTH`), `CELL_SIZE = 0.5` world units per cell (WP-12; v0.1 was 24 × 24 one-unit cells), centred on the origin, so the plot is still 24 × 24 world units. Toy scale: 1 world unit ≈ 8 m, a cell ≈ 4 m. Cell `{x, z}` centre = `cellToWorld`; a footprint's centre = `footprintCentreWorld`; `worldToGridPoint` gives fractional grid coordinates.
+- **Road blocks:** roads come in aligned `ROAD_BLOCK × ROAD_BLOCK` (2 × 2) cell blocks whose min corner is at even `x, z` (`grid.roadBlockAnchor` / `roadBlockCells`). A block is either all road or has no road. One Kenney road tile (`ROAD_TILE_SIZE` = 1 world unit) covers a block; auto-tiling (`roadTiles.roadMask`) reads the 4 neighbouring blocks (±2 cells) and the tile is drawn once per block at its centre (`roadBlockCentreWorld`). Ambient cars drive on the 24 × 24 block grid. `stats.roadTiles` counts road blocks.
+- **Footprints:** cottage and family home 3×3, townhouse 2×3, garage 1×2, bus stop 2×1, trees / postbox / lamppost 1×1 (`catalog/objects.ts`). The tool centres a footprint on the pointer with `grid.anchorForPointer` (odd sizes on the hovered cell, even sizes on the nearest corner, clamped into the plot).
 - Layers per cell: **ground** (exactly one `GroundKind`, default `field`), **object** (0–1 object covering the cell; multi-cell footprints anchored at min corner), and **edges** (fences on cell borders, canonical `n`/`w` sides).
 - Rotation: quarter turns CCW from above; rotation 0 ⇒ model front faces +z (towards the default camera). Each model's native facing is corrected once via `rotationOffset` in `catalog/models.ts`.
 
@@ -77,17 +79,20 @@ Rules of the road:
 | Action | Valid when | Otherwise (`reason` → message shown to player) |
 | --- | --- | --- |
 | paint-ground | cell in bounds and kind differs | `out-of-bounds` "Outside your plot" · `no-change` (silent, never shown) |
+| paint-ground road / over road (WP-12) | road on any cell converts its whole 2 × 2 block; another kind on a road cell converts the whole block to that kind; the clicked cell's change is last (primary) | road: `occupied` "Move the {label} first" if ANY block cell holds an object |
 | paint-ground under an object | new kind ∈ that object's `allowedGround` | `occupied` "Move the {label} first" |
-| paint-ground road | — also removes fences on edges shared with adjacent road cells (same change list) | — |
+| paint-ground road | — also removes fences on the block's 4 inside edges, and on its outside edges where the neighbour is road (same change list, before the ground changes) | — |
 | place-object | every footprint cell in bounds, unoccupied, ground ∈ `allowedGround` | `out-of-bounds` · `occupied` "Something is already here" · `blocked-by-road` "{label} can't go on a road" / `needs-ground` "{label} needs {ground}" |
 | place-object bus-stop | ≥ 1 footprint cell 4-adjacent to a road cell | `needs-ground` "Bus stops need to be next to a road" |
 | place-edge | edge in bounds (border edges allowed) and not between two road cells; same kind already there ⇒ `no-change`; other fence kind ⇒ replace (remove + add) | `out-of-bounds` · `blocked-by-road` "Fences can't cross roads" |
-| bulldoze | object at cell ⇒ remove object; else an edge passed by the picker (pointer within 0.3 cell of it) with a fence ⇒ remove fence; else non-field ground ⇒ back to field | `nothing-here` (silent on drag, shown on click) |
+| bulldoze | object covering the cell (any footprint cell) ⇒ remove object; else an edge passed by the picker (pointer within 0.3 cell of it, 0.4 on touch) with a fence ⇒ remove fence; else a road cell ⇒ its whole block back to field; else non-field ground ⇒ back to field | `nothing-here` (silent on drag, shown on click) |
 
 Variant choice (e.g. tree shape, house colour) uses the seeded RNG at placement time and is stored in `PlacedObject.variant`, so undo/redo/save reproduce it exactly.
 
 ## Save format
-`SavedTownV1` in `town/types.ts`: versioned, RLE ground, objects, edges, next id, optional camera pose. `serialize.ts` validates unknown input (never trusts localStorage), migrates older versions, and round-trips (tested). Autosave: debounced 1 s after `town:changed`, key `tiny-town:save:v1`. Settings (mute/volume/grid) under `tiny-town:settings:v1`.
+`SavedTownV2` (= `SavedTown`) in `town/types.ts`: versioned, 48 × 48, RLE ground, objects, edges, next id, optional camera pose. `serialize.ts` validates unknown input (never trusts localStorage), migrates older versions, demotes partial road blocks to field, and round-trips (tested). Autosave: debounced 1 s after `town:changed`, key `tiny-town:save:v1` (a slot name; it did not change with the format). (`SavedTownV1` survives only as a deprecated alias of `SavedTown` for `SaveStore.ts`.)
+
+**v1 → v2 migration (`SAVE_MIGRATIONS[1]`, WP-12):** each v1 cell (x, z) becomes cells 2x..2x+1 × 2z..2z+1. Ground is copied to all 4 (every v1 road cell is a valid block); each edge becomes 2 half-edges; camera (world units), ids, variants and `nextObjectId` are kept. Objects that fit the 2 × 2 area (trees, props, garage, bus stop) sit flush to its front side (rotation 0 = +z, 1 = +x, 2 = −z, 3 = −x). Houses are placed last in id order, flush to the same front: as their own kind (3-wide ones try both sideways overhangs), then as a 2×3 townhouse, then as a townhouse turned a quarter either way (fits dense 1-deep v1 rows), else dropped. Fixtures: `src/town/fixtures/v1-{sample,stress}.json` (v0.1 sample: 0 drops; v0.1 stress: 36 of 56 homes kept). Settings (mute/volume/grid) under `tiny-town:settings:v1`.
 
 ## Rendering strategy
 - `ModelLibrary` loads each GLB once and normalises it (scale, facing, base on y=0, footprint-centred).
@@ -95,7 +100,7 @@ Variant choice (e.g. tree shape, house colour) uses the seeded RNG at placement 
 - Shared materials: Kenney kits use one colour-atlas texture per kit, so the whole town should need a handful of materials. Don't clone materials per instance.
 - Ghost preview uses `ModelLibrary.createObject()` with a separate translucent tinted material (not shared with the town).
 
-## Budgets (full 24×24 town, desktop 1280×720; mobile 390×844)
+## Budgets (full 48×48-cell town, desktop 1280×720; mobile 390×844)
 | Metric | Desktop | Mobile |
 | --- | --- | --- |
 | Draw calls | ≤ 150 | ≤ 120 |

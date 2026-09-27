@@ -5,7 +5,7 @@
  * WP-02 owns this file (extend, don't rewrite the API). Only TownEditor calls the
  * mutating methods (applyChanges / clear / restoreNextObjectId / allocateObjectId).
  */
-import { cellKey, edgeKey, footprintCells } from './grid';
+import { cellKey, edgeKey, footprintCells, ROAD_BLOCK } from './grid';
 import { objectDef } from '../catalog/objects';
 import type {
   Cell,
@@ -128,7 +128,10 @@ export class TownState implements TownStateReader {
 
   stats(): TownStats {
     const stats: TownStats = { homes: 0, residents: 0, trees: 0, roadTiles: 0, props: 0, fences: this.edgesByKey.size };
-    for (const kind of this.ground) if (kind === 'road') stats.roadTiles += 1;
+    // One road tile per aligned 2 × 2 road block (WP-12): count the blocks' min-corner cells.
+    for (let z = 0; z < this.depth; z += ROAD_BLOCK) {
+      for (let x = 0; x < this.width; x += ROAD_BLOCK) if (this.ground[z * this.width + x] === 'road') stats.roadTiles += 1;
+    }
     for (const object of this.objectsById.values()) {
       const def = objectDef(object.kind);
       if (def.residents > 0) {

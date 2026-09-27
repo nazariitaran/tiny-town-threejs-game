@@ -5,6 +5,7 @@ import { buildSampleTown } from '../town/sampleTown';
 import { serializeTown } from '../town/serialize';
 import { TownEditor } from '../town/TownEditor';
 import { TownState } from '../town/TownState';
+import v1Sample from '../town/fixtures/v1-sample.json';
 import { createSeededRandom } from '../utils/random';
 import { AUTOSAVE_DEBOUNCE_MS, DEFAULT_SETTINGS, SaveStore, type StorageLike, type TimerApi } from './SaveStore';
 
@@ -100,6 +101,18 @@ describe('SaveStore basic API', () => {
 
     store.clear();
     expect(store.has()).toBe(false);
+  });
+
+  it('a v0.1 (v1, 24 × 24) save under the same key reads back migrated to v2 (48 × 48) and loads', () => {
+    const storage = new MemoryStorage();
+    storage.data.set(SAVE_STORAGE_KEY, JSON.stringify(v1Sample));
+    const { store, editor } = setup(storage);
+    expect(store.has()).toBe(true);
+    const save = store.read()!;
+    expect([save.version, save.width, save.depth]).toEqual([2, PLOT_WIDTH, PLOT_DEPTH]);
+    expect(save.objects).toHaveLength(v1Sample.objects.length);
+    editor.load(save);
+    expect(editor.state.stats()).toMatchObject({ homes: 5, trees: 5, roadTiles: 36 });
   });
 
   it('corrupted or foreign JSON in storage reads as "no save" without throwing', () => {

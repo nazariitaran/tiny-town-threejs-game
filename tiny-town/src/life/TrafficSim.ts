@@ -1,7 +1,9 @@
 /**
  * WP-10 (Ambient life) — pure traffic simulation. NO three.js, NO DOM (unit-tested in Node).
  *
- * Up to MAX_CARS cars wander the connected road graph (ground kind 'road'):
+ * Up to MAX_CARS cars wander the connected road graph (ground kind 'road'). WP-12: the sim runs on
+ * the ROAD BLOCK grid (24 × 24 blocks of 2 × 2 cells, one road tile each): below, "cell" means a
+ * block, Car.cx/cz are block coordinates and isRoad() reads the block's anchor cell.
  *  - A car crosses one road cell per manoeuvre (see lanePaths.ts) and picks its next exit when it
  *    enters a cell: uniformly among the road neighbours except straight back; U-turn only at a
  *    dead end. It only ever occupies road cells, and buildings can't stand on roads, so cars
@@ -21,7 +23,8 @@
 import type { TownChange, TownStateReader } from '../town/types';
 import { createSeededRandom } from '../utils/random';
 import { DIR_X, DIR_Z, lanePath, opposite, samplePath, type Dir, type LanePath, type PathSample } from './lanePaths';
-import { cellToWorld } from '../game/config';
+import { roadBlockCentreWorld } from '../game/config';
+import { ROAD_BLOCK } from '../town/grid';
 
 export const MAX_CARS = 6;
 export const CELLS_PER_CAR = 6;
@@ -34,7 +37,7 @@ const UTURN_SPEED = 0.4;
 const ACCEL = 1.6;
 const BRAKE = 4.5;
 /** Look-ahead distance (world units, car centre to car centre) for braking. */
-const FOLLOW_DISTANCE = 0.46;
+const FOLLOW_DISTANCE = 0.56;
 /** Lateral half-width of a lane band: cars further sideways than this are in the other lane. */
 const LANE_BAND = 0.2;
 const MAX_WAIT_S = 1.6;
@@ -86,6 +89,7 @@ export class TrafficSim {
   private waiting = 0;
   private readonly sample: PathSample = { x: 0, z: 0, hx: 0, hz: 1 };
   private readonly world = { x: 0, z: 0 };
+  private readonly probe = { x: 0, z: 0 };
   private readonly blockedBy: number[] = [];
   /** Optional hook for the renderer (instance slots); called after a car is removed. */
   onRemove: ((car: Car) => void) | null = null;
@@ -166,9 +170,19 @@ export class TrafficSim {
     return Math.floor(this.seedSource() * 0x100000000) >>> 0;
   }
 
+  /** Is block (x, z) road? (Blocks are all road or none, so the anchor cell decides.) */
   private isRoad(x: number, z: number): boolean {
-    const cell = { x, z };
-    return this.town.inBounds(cell) && this.town.getGround(cell) === 'road';
+    this.probe.x = x * ROAD_BLOCK;
+    this.probe.z = z * ROAD_BLOCK;
+    return this.town.inBounds(this.probe) && this.town.getGround(this.probe) === 'road';
+  }
+
+  private get blocksWide(): number {
+    return Math.floor(this.town.width / ROAD_BLOCK);
+  }
+
+  private get blocksDeep(): number {
+    return Math.floor(this.town.depth / ROAD_BLOCK);
   }
 
   private roadExits(x: number, z: number, out: Dir[]): Dir[] {
@@ -207,7 +221,9 @@ export class TrafficSim {
 
   private place(car: Car): void {
     samplePath(lanePath(car.inDir, car.outDir), car.s, this.sample);
-    cellToWorld({ x: car.cx, z: car.cz }, this.world);
+    this.probe.x = car.cx * ROAD_BLOCK;
+    this.probe.z = car.cz * ROAD_BLOCK;
+    roadBlockCentreWorld(this.probe, this.world);
     car.x = this.world.x + this.sample.x;
     car.z = this.world.z + this.sample.z;
     car.hx = this.sample.hx;
@@ -216,8 +232,8 @@ export class TrafficSim {
 
   private refreshTarget(): void {
     let drivable = 0;
-    for (let z = 0; z < this.town.depth; z += 1) {
-      for (let x = 0; x < this.town.width; x += 1) {
+    for (let z = 0; z < this.blocksDeep; z += 1) {
+      for (let x = 0; x < this.blocksWide; x += 1) {
         if (this.isRoad(x, z) && this.roadExits(x, z, this.exits).length > 0) drivable += 1;
       }
     }
@@ -229,8 +245,8 @@ export class TrafficSim {
     if (this.cars.length >= this.target) return;
     // Candidate cells in row-major order (deterministic), skipping cells a car already uses.
     const candidates: Array<{ x: number; z: number; exits: Dir[] }> = [];
-    for (let z = 0; z < this.town.depth; z += 1) {
-      for (let x = 0; x < this.town.width; x += 1) {
+    for (let z = 0; z < this.blocksDeep; z += 1) {
+      for (let x = 0; x < this.blocksWide; x += 1) {
         if (!this.isRoad(x, z) || this.nearCar(x, z)) continue;
         const exits = this.roadExits(x, z, []);
         if (exits.length > 0) candidates.push({ x, z, exits });

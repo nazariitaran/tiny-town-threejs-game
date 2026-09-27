@@ -9,8 +9,11 @@
  *    e.g. road paint = [fence removals…, ground change]; fence replace = [remove old, add new].
  *  - Object ids and RNG draws are only consumed on success, after every check passed.
  *  - `no-change` is silent: its message is '' and callers must never show it.
+ *  - Road blocks (WP-12): roads come in aligned 2 × 2 blocks and a block is all road or has no road.
+ *    Painting road on any cell converts its whole block; painting another kind on a road cell, or
+ *    bulldozing it, converts the whole block. The CLICKED cell's ground change is last (primary).
  */
-import { edgeCells, edgeInBounds, edgeOfCellSide, footprintCells, NEIGHBOURS } from './grid';
+import { edgeCells, edgeInBounds, edgeKey, edgeOfCellSide, footprintCells, NEIGHBOURS, roadBlockCells } from './grid';
 import { objectDef, type ObjectDef } from '../catalog/objects';
 import type { BuildAction, Cell, GroundKind, InvalidReason, PlanResult, TownChange, TownStateReader } from './types';
 
@@ -76,24 +79,61 @@ function planPaintGround(state: TownStateReader, action: Extract<BuildAction, { 
   if (!state.inBounds(cell)) return fail('out-of-bounds', RULE_MESSAGES.outOfBounds);
   const before = state.getGround(cell);
   if (before === action.kind) return fail('no-change', RULE_MESSAGES.noChange);
+  if (action.kind === 'road') return planPaintRoadBlock(state, cell);
+  // Repainting a road cell turns its whole block (objects never stand on road, so no occupancy check).
+  if (before === 'road') return { ok: true, changes: blockGroundChanges(state, cell, action.kind) };
   const object = state.getObjectAt(cell);
   if (object) {
     const def = objectDef(object.kind);
     if (!def.allowedGround.includes(action.kind)) return fail('occupied', `Move the ${def.label} first`);
   }
+  return { ok: true, changes: [{ layer: 'ground', cell: { x: cell.x, z: cell.z }, before, after: action.kind }] };
+}
+
+/**
+ * Road on any cell converts its whole 2 × 2 block. Fails `occupied` if any block cell holds an
+ * object. Removes fences on the block's inside edges, and on its outside edges towards road.
+ */
+function planPaintRoadBlock(state: TownStateReader, cell: Cell): PlanResult {
+  const block = roadBlockCells(cell).filter((c) => state.inBounds(c));
+  for (const c of block) {
+    const object = state.getObjectAt(c);
+    if (object) return fail('occupied', `Move the ${objectDef(object.kind).label} first`);
+  }
+  const inBlock = (c: Cell) => block.some((b) => b.x === c.x && b.z === c.z);
   const changes: TownChange[] = [];
-  if (action.kind === 'road') {
-    // A new road cell joins every adjacent road cell: fences on those shared edges must go.
+  const removed = new Set<string>();
+  for (const c of block) {
     for (let side = 0; side < 4; side += 1) {
       const offset = NEIGHBOURS[side];
-      if (!isRoad(state, { x: cell.x + offset.x, z: cell.z + offset.z })) continue;
-      const placed = state.getEdge(edgeOfCellSide(cell, side as 0 | 1 | 2 | 3));
-      if (placed) changes.push({ layer: 'edge', op: 'remove', placed: { kind: placed.kind, edge: { ...placed.edge } } });
+      const neighbour = { x: c.x + offset.x, z: c.z + offset.z };
+      if (!inBlock(neighbour) && !isRoad(state, neighbour)) continue;
+      const placed = state.getEdge(edgeOfCellSide(c, side as 0 | 1 | 2 | 3));
+      if (!placed) continue;
+      const key = edgeKey(placed.edge);
+      if (removed.has(key)) continue;
+      removed.add(key);
+      changes.push({ layer: 'edge', op: 'remove', placed: { kind: placed.kind, edge: { ...placed.edge } } });
     }
   }
-  // Primary change last.
-  changes.push({ layer: 'ground', cell: { x: cell.x, z: cell.z }, before, after: action.kind });
+  changes.push(...blockGroundChanges(state, cell, 'road'));
   return { ok: true, changes };
+}
+
+/** Ground changes turning the block around `cell` into `after`, the clicked cell's change last. */
+function blockGroundChanges(state: TownStateReader, cell: Cell, after: GroundKind): TownChange[] {
+  const changes: TownChange[] = [];
+  let primary: TownChange | null = null;
+  for (const c of roadBlockCells(cell)) {
+    if (!state.inBounds(c)) continue;
+    const before = state.getGround(c);
+    if (before === after) continue;
+    const change: TownChange = { layer: 'ground', cell: c, before, after };
+    if (c.x === cell.x && c.z === cell.z) primary = change;
+    else changes.push(change);
+  }
+  if (primary) changes.push(primary);
+  return changes;
 }
 
 function planPlaceObject(state: TownStateReader, action: Extract<BuildAction, { type: 'place-object' }>, ctx: PlanContext): PlanResult {
@@ -156,6 +196,7 @@ function planBulldoze(state: TownStateReader, action: Extract<BuildAction, { typ
   if (placed) return { ok: true, changes: [{ layer: 'edge', op: 'remove', placed: { kind: placed.kind, edge: { ...placed.edge } } }] };
   if (state.inBounds(action.cell)) {
     const before = state.getGround(action.cell);
+    if (before === 'road') return { ok: true, changes: blockGroundChanges(state, action.cell, 'field') };
     if (before !== 'field') return { ok: true, changes: [{ layer: 'ground', cell: { x: action.cell.x, z: action.cell.z }, before, after: 'field' }] };
   }
   // Silent on drag, shown on click — the caller (ToolController) decides.

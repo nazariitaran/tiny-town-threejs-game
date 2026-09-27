@@ -25,15 +25,16 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { DebugTools } from '../debug/DebugTools';
-import { assetUrl } from '../game/config';
+import { assetUrl, worldToCell } from '../game/config';
+import { ROAD_BLOCK } from '../town/grid';
 import type { GameBus } from '../game/events';
 import type { TownStateReader } from '../town/types';
 import { CAR_MODELS, MAX_CARS, TrafficSim, type Car } from './TrafficSim';
 
 /** Car Kit files in model-index order (TrafficSim picks 0..CAR_MODELS-1). */
 export const CAR_FILES = ['sedan', 'hatchback-sports', 'van', 'taxi'] as const;
-/** Kenney Car Kit → world units (docs/assets/models.md: 0.21 × 0.18 × 0.36, fits one lane). */
-export const CAR_SCALE = 0.14;
+/** Kenney Car Kit → world units (WP-12: 0.255 wide × 0.43–0.48 long, fits one 0.37 lane). */
+export const CAR_SCALE = 0.17;
 /** Car Kit models face −Z natively; a half turn makes the bonnet face +Z (our "forward"). */
 const FRONT_ROTATION = Math.PI;
 /** Road / pavement tile top (docs/PLAN.md §1). */
@@ -57,7 +58,7 @@ export interface LifeDiagnostics {
   drawCalls: number;
   /** Extra shadow-map draw calls (not included in renderer.calls). */
   shadowDrawCalls: number;
-  /** Every car: road cell (tests bulldoze under a car with real input) + world position (px, pz). */
+  /** Every car: fine road cell under it (tests bulldoze under a car with real input) + world position (px, pz). */
   carCells: Array<{ id: number; x: number; z: number; px: number; pz: number }>;
 }
 
@@ -78,6 +79,7 @@ export class LifeSystem {
   private readonly tuning = { visible: true };
   private disposed = false;
   private readonly matrix = new THREE.Matrix4();
+  private readonly carCell = { x: 0, z: 0 };
   private readonly position = new THREE.Vector3();
   private readonly quaternion = new THREE.Quaternion();
   private readonly scale = new THREE.Vector3();
@@ -261,8 +263,10 @@ export class LifeSystem {
     this.sim.cars.forEach((car, i) => {
       const entry = cells[i] ?? (cells[i] = { id: 0, x: 0, z: 0, px: 0, pz: 0 });
       entry.id = car.id;
-      entry.x = car.cx;
-      entry.z = car.cz;
+      // The fine (0.5) cell under the car, inside its 2 × 2 road block (car.cx/cz are block coords).
+      worldToCell(car.x, car.z, this.carCell);
+      entry.x = Math.min(Math.max(this.carCell.x, car.cx * ROAD_BLOCK), car.cx * ROAD_BLOCK + ROAD_BLOCK - 1);
+      entry.z = Math.min(Math.max(this.carCell.z, car.cz * ROAD_BLOCK), car.cz * ROAD_BLOCK + ROAD_BLOCK - 1);
       entry.px = Math.round(car.x * 1000) / 1000;
       entry.pz = Math.round(car.z * 1000) / 1000;
     });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cellToWorld, edgeToWorld, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
+import { edgeToWorld, footprintCentreWorld, PLOT_DEPTH, PLOT_WIDTH, roadBlockCentreWorld } from '../game/config';
 import { createGameBus, type GameBus, type GameEvents } from '../game/events';
 import { createSeededRandom } from '../utils/random';
 import { buildSampleTown } from './sampleTown';
@@ -32,14 +32,14 @@ const snapshot = (editor: TownEditor) => serializeTown(editor.state);
 const road = (x: number, z: number): BuildAction => ({ type: 'paint-ground', kind: 'road', cell: { x, z } });
 
 /**
- * A 50-cell snake-shaped road drag over the free south rows of the sample town:
- * z=21 west→east (24), z=22 east→west (24), then 2 cells of z=23. Returns cells applied.
+ * A 50-block snake-shaped road drag over the free south rows of the sample town (one cell per
+ * 2 × 2 road block): z=42 west→east (24), z=44 east→west (24), then 2 blocks of z=46.
  */
 function fiftyCellStroke(editor: TownEditor): number {
   const cells: Cell[] = [];
-  for (let x = 0; x < PLOT_WIDTH; x += 1) cells.push({ x, z: 21 });
-  for (let x = PLOT_WIDTH - 1; x >= 0; x -= 1) cells.push({ x, z: 22 });
-  cells.push({ x: 0, z: 23 }, { x: 1, z: 23 });
+  for (let x = 0; x < PLOT_WIDTH; x += 2) cells.push({ x, z: 42 });
+  for (let x = PLOT_WIDTH - 2; x >= 0; x -= 2) cells.push({ x, z: 44 });
+  cells.push({ x: 0, z: 46 }, { x: 2, z: 46 });
   expect(cells).toHaveLength(50);
   editor.beginStroke();
   let applied = 0;
@@ -83,7 +83,7 @@ describe('TownEditor strokes and history', () => {
   it('apply inside a stroke emits history:changed once (at endStroke), not per cell', () => {
     const { editor, events } = setup();
     editor.beginStroke();
-    for (let x = 0; x < 10; x += 1) editor.apply(road(x, 0), 'road');
+    for (let x = 0; x < 10; x += 1) editor.apply(road(x * 2, 0), 'road');
     expect(events.of('history:changed')).toHaveLength(0);
     expect(events.of('town:changed')).toHaveLength(10);
     expect(events.of('build:placed').map((e) => e.strokeIndex)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
@@ -152,25 +152,35 @@ describe('TownEditor strokes and history', () => {
 });
 
 describe('TownEditor road paint removes the in-between fence', () => {
-  it('removes it in the same change list, emits a ground build event, and undo restores it', () => {
+  it('removes it in the same change list, emits a ground build event at the block centre, and undo restores it', () => {
     const { editor, events } = setup();
-    editor.apply(road(2, 2), 'road');
-    editor.apply({ type: 'place-edge', kind: 'fence-tall', edge: { x: 3, z: 2, side: 'w' } }, 'fence-tall');
+    editor.apply(road(2, 2), 'road'); // block 2..3 × 2..3
+    editor.apply({ type: 'place-edge', kind: 'fence-tall', edge: { x: 4, z: 2, side: 'w' } }, 'fence-tall');
     const before = snapshot(editor);
     events.clear();
 
-    const result = editor.apply(road(3, 2), 'road');
-    expect(result.ok && result.changes.map((c) => c.layer)).toEqual(['edge', 'ground']);
-    expect(editor.state.getEdge({ x: 3, z: 2, side: 'w' })).toBeUndefined();
+    const result = editor.apply(road(5, 3), 'road'); // block 4..5 × 2..3
+    expect(result.ok && result.changes.map((c) => c.layer)).toEqual(['edge', 'ground', 'ground', 'ground', 'ground']);
+    expect(editor.state.getEdge({ x: 4, z: 2, side: 'w' })).toBeUndefined();
+    expect(editor.state.stats().roadTiles).toBe(2);
     const placed = events.of('build:placed');
-    const world = cellToWorld({ x: 3, z: 2 });
-    expect(placed).toEqual([{ toolId: 'road', layer: 'ground', cell: { x: 3, z: 2 }, worldX: world.x, worldZ: world.z, strokeIndex: 0 }]);
+    const world = roadBlockCentreWorld({ x: 5, z: 3 });
+    expect(placed).toEqual([{ toolId: 'road', layer: 'ground', cell: { x: 5, z: 3 }, worldX: world.x, worldZ: world.z, strokeIndex: 0 }]);
 
     editor.undo();
-    expect(editor.state.getEdge({ x: 3, z: 2, side: 'w' })).toEqual({ kind: 'fence-tall', edge: { x: 3, z: 2, side: 'w' } });
+    expect(editor.state.getEdge({ x: 4, z: 2, side: 'w' })).toEqual({ kind: 'fence-tall', edge: { x: 4, z: 2, side: 'w' } });
     expect(snapshot(editor)).toEqual(before);
     editor.redo();
-    expect(editor.state.getEdge({ x: 3, z: 2, side: 'w' })).toBeUndefined();
+    expect(editor.state.getEdge({ x: 4, z: 2, side: 'w' })).toBeUndefined();
+  });
+
+  it('multi-cell objects report their footprint centre in build:placed / build:removed', () => {
+    const { editor, events } = setup();
+    editor.apply({ type: 'place-object', kind: 'townhouse-b', cell: { x: 10, z: 10 }, rotation: 1 }, 'townhouse-b');
+    editor.apply({ type: 'bulldoze', cell: { x: 12, z: 11 }, edge: null }, 'bulldoze');
+    const centre = footprintCentreWorld({ x: 10, z: 10 }, [2, 3], 1);
+    expect(events.of('build:placed')[0]).toMatchObject({ cell: { x: 10, z: 10 }, worldX: centre.x, worldZ: centre.z });
+    expect(events.of('build:removed')[0]).toMatchObject({ layer: 'object', kind: 'townhouse-b', cell: { x: 12, z: 11 }, worldX: centre.x, worldZ: centre.z });
   });
 });
 
@@ -214,7 +224,7 @@ describe('TownEditor.applyBatch', () => {
     const result = editor.applyBatch(items, { silent: true });
     expect(result.applied).toBe(2);
     expect(result.rejected).toEqual([{ index: 1, item: items[1], reason: 'no-change', message: '' }]);
-    expect(result.changes).toHaveLength(2);
+    expect(result.changes).toHaveLength(5); // a 4-cell road block + the postbox
     expect(events.of('town:changed')).toHaveLength(1);
     expect(events.of('town:changed')[0]).toEqual({ changes: result.changes, cause: 'edit' });
     expect(events.of('town:stats')).toHaveLength(1);
@@ -347,9 +357,9 @@ describe('stats after the sample town', () => {
     const { editor } = setup();
     buildSampleTown(editor);
     // Homes: cottage ×2 (2 residents), townhouse ×2 (3), family home ×1 (4) → 5 homes, 14 residents.
-    // Trees: 5. Road: main street x 2..21 (20) + side street z 4..11 (8) + z 13..20 (8) = 36.
+    // Trees: 5. Road blocks: main street x 4..43 (20) + side street z 8..23 (8) + z 26..41 (8) = 36.
     // Props: bus stop + postbox + 4 lampposts = 6 (the garage is a 'building', not a prop).
-    // Fences: 7 low (x 3..9) + 4 tall (z 14..17) = 11.
-    expect(editor.state.stats()).toEqual({ homes: 5, residents: 14, trees: 5, roadTiles: 36, props: 6, fences: 11 });
+    // Fences: 14 low (x 6..19) + 8 tall (z 28..35) = 22.
+    expect(editor.state.stats()).toEqual({ homes: 5, residents: 14, trees: 5, roadTiles: 36, props: 6, fences: 22 });
   });
 });

@@ -70,10 +70,11 @@ test('a 30-tile road drag is rate-limited to 10..30 sound starts', async ({ page
   await expect.poll(async () => (await diag(page)).tool).toBe('road');
   await page.waitForTimeout(200);
 
-  // An L-shaped stroke: 20 cells along z=6, then 10 more down x=21 → 30 road tiles.
+  // An L-shaped stroke (WP-12: one point per 2×2 road block): 20 blocks along z=12, then 10 more
+  // down x=42 → 30 road tiles.
   const path: Array<[number, number]> = [];
-  for (let x = 2; x <= 21; x += 1) path.push([x, 6]);
-  for (let z = 7; z <= 16; z += 1) path.push([21, z]);
+  for (let x = 4; x <= 42; x += 2) path.push([x, 12]);
+  for (let z = 14; z <= 32; z += 2) path.push([42, z]);
   const points = [];
   for (const [x, z] of path) points.push(await cellPoint(page, x, z));
 

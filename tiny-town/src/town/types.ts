@@ -10,6 +10,8 @@
  *  - Rotation r = r quarter turns, counter-clockwise seen from above (= +Y rotation of r·π/2 in three.js).
  *    Rotation 0 means the model's "front" faces +z (south, towards the default camera).
  *  - Multi-cell objects are anchored at their MIN corner cell; footprint w×d swaps for odd rotations.
+ *  - Roads come in aligned 2 × 2 blocks (grid.ROAD_BLOCK, min corner at even x, z): every cell of a
+ *    block is road, or none is (rules.ts keeps it; parseSave demotes partial blocks to field).
  */
 
 export type GroundKind = 'field' | 'grass' | 'meadow' | 'road' | 'pavement' | 'walkway';
@@ -111,9 +113,13 @@ export interface TownStateReader {
   stats(): TownStats;
 }
 
-/** Versioned save format. Bump `version` and add a migration in serialize.ts when it changes. */
-export interface SavedTownV1 {
-  version: 1;
+/**
+ * Versioned save format. Bump `version` and add a migration in serialize.ts when it changes.
+ * V2 (WP-12): 48 × 48 half-unit cells, roads in aligned 2 × 2 blocks, multi-cell houses.
+ * V1 (v0.1: 24 × 24 one-unit cells) is migrated by serialize.SAVE_MIGRATIONS[1].
+ */
+export interface SavedTownV2 {
+  version: 2;
   width: number;
   depth: number;
   /** Row-major (z * width + x) ground codes, run-length encoded: [[kind, count], ...]. */
@@ -123,3 +129,12 @@ export interface SavedTownV1 {
   nextObjectId: number;
   camera?: { targetX: number; targetZ: number; azimuth: number; polar: number; distance: number };
 }
+
+/** The current save format. */
+export type SavedTown = SavedTownV2;
+
+/**
+ * @deprecated Old name, kept only so modules outside WP-12 (persistence/SaveStore.ts) compile
+ * unchanged. It now means the CURRENT format (SavedTownV2); use `SavedTown`.
+ */
+export type SavedTownV1 = SavedTown;

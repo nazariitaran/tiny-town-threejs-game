@@ -39,10 +39,17 @@ async function requireLife(page: Page): Promise<LifeDiagnostics> {
   return value!;
 }
 
-/** Car positions don't leave the published cells; the town's road cells come from the sample layout. */
+/**
+ * Car positions don't leave the published cells; the town's road cells come from the sample layout
+ * (WP-12: main street rows 24–25, x 4–43; side street columns 22–23, z 8–41; 2×2 road blocks).
+ */
 function sampleTownRoad(x: number, z: number): boolean {
-  return (z === 12 && x >= 2 && x <= 21) || (x === 11 && z >= 4 && z <= 20);
+  return ((z === 24 || z === 25) && x >= 4 && x <= 43) || ((x === 22 || x === 23) && z >= 8 && z <= 41);
 }
+
+/** Same 2×2 road block? */
+const sameBlock = (a: { x: number; z: number }, b: { x: number; z: number }) =>
+  Math.floor(a.x / 2) === Math.floor(b.x / 2) && Math.floor(a.z / 2) === Math.floor(b.z / 2);
 
 async function sampleTown(page: Page): Promise<LifeDiagnostics> {
   await gotoTitle(page);
@@ -66,7 +73,7 @@ test('cars drive the sample-town roads (10 s video)', async ({ browser }, testIn
   expect(start.target).toBe(6);
 
   // Zoom towards the crossroads with the real wheel so the cars read in the video.
-  const centre = await page.evaluate(() => window.__THREE_GAME_TEST_HOOKS__!.cellToClient(11, 12));
+  const centre = await page.evaluate(() => window.__THREE_GAME_TEST_HOOKS__!.cellToClient(22, 24));
   await page.mouse.move(centre.x, centre.y);
   for (let i = 0; i < 12; i += 1) {
     await page.mouse.wheel(0, -300);
@@ -113,7 +120,7 @@ test('bulldozing the road under a car removes that car cleanly', async ({ page }
   await page.evaluate(() => window.__THREE_GAME_TEST_HOOKS__!.setReducedMotion(true));
   const frozen = (await life(page))!;
   // Pick the car nearest the middle of the view, well clear of the top bar and the dock.
-  const victim = [...frozen.carCells].sort((a, b) => Math.abs(a.x - 11) + Math.abs(a.z - 11) - (Math.abs(b.x - 11) + Math.abs(b.z - 11)))[0];
+  const victim = [...frozen.carCells].sort((a, b) => Math.abs(a.x - 22) + Math.abs(a.z - 22) - (Math.abs(b.x - 22) + Math.abs(b.z - 22)))[0];
   await selectTool(page, 'bulldoze');
   await clickCell(page, victim.x, victim.z);
   await expect.poll(async () => (await diagnostics(page)).town.roadTiles, { message: 'road tile bulldozed' }).toBe(35);
@@ -123,7 +130,7 @@ test('bulldozing the road under a car removes that car cleanly', async ({ page }
   // The victim, plus any car that was about to drive into the removed cell.
   expect(after.despawned).toBeGreaterThanOrEqual(frozen.despawned + 1);
   for (const c of after.carCells) {
-    expect(sampleTownRoad(c.x, c.z) && !(c.x === victim.x && c.z === victim.z), `car ${c.id} still on a road cell`).toBe(true);
+    expect(sampleTownRoad(c.x, c.z) && !sameBlock(c, victim), `car ${c.id} still on a road cell`).toBe(true);
   }
   // Remaining network: count follows the target (topped up or trimmed), never above 6.
   expect(after.cars).toBe(after.target);

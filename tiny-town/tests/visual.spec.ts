@@ -68,8 +68,8 @@ test('loads, starts, and builds a road through real input', async ({ page }, tes
 
   const cellPoint = (x: number, z: number) =>
     page.evaluate(([cx, cz]) => window.__THREE_GAME_TEST_HOOKS__!.cellToClient(cx, cz), [x, z] as const);
-  const from = await cellPoint(8, 12);
-  const to = await cellPoint(15, 12);
+  const from = await cellPoint(16, 24);
+  const to = await cellPoint(31, 24);
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
   await page.mouse.move(to.x, to.y, { steps: 12 });

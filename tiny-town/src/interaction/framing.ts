@@ -28,9 +28,10 @@ export interface ScreenInsets {
 export const SAFE_INSETS: Readonly<{ wide: ScreenInsets; narrow: ScreenInsets }> = {
   // side 128: the plot spans ~80 % of a 1280 px screen, so a townhouse reads clearly.
   wide: { top: 76, bottom: 172, side: 128 },
-  // side −150: on phones the plot is ~1.8× the screen width (its side corners are off-screen, reachable by
-  // panning) so cells stay big enough to tap; the centre stays well above the dock.
-  narrow: { top: 88, bottom: 0.32, side: -150 },
+  // side −260 (WP-12, was −150): on phones the plot is ~2.3× the screen width (its side corners are
+  // off-screen, reachable by panning) so the 0.5-unit cells stay ≥ 9 px (≈ 10.6) at the default pose;
+  // the centre stays well above the dock. Small props still want a pinch-zoom on touch.
+  narrow: { top: 88, bottom: 0.32, side: -260 },
 };
 
 /** The plot centre must stay at least this far (CSS px) above the dock top. */

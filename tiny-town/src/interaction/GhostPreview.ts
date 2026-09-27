@@ -6,7 +6,9 @@
  *  - parts: one or more translucent models (an object, a fence, or the pieces of a ground tile:
  *    the auto-tiled road piece, the pavement tile, walkway hub + arms, lawn tufts / flowers),
  *    tinted valid (soft white-green), invalid (brick red) or remove (bulldoze target, pulsing)
- *  - tile:  a flat fill (ground colour, or the state tint) with a crisp square frame on top
+ *  - tile:  a flat fill (ground colour, or the state tint) with a crisp rectangular frame on top,
+ *           sized to the target in cells (a multi-cell footprint, a 2 × 2 road block, a fence strip);
+ *           the frame keeps a constant border width whatever the size (WP-12)
  *
  * It follows the cursor with a light lerp, animates rotation over 100 ms, shakes on an invalid
  * click (±0.05 for 150 ms) and is hidden off-plot / outside the build phase.
@@ -68,7 +70,7 @@ export interface GhostShowOptions {
   showTile?: boolean;
   /** Ground tiles: keep the parts' real colours and draw them nearly opaque (valid/neutral only). */
   solid?: boolean;
-  /** Tile size in cells along [x, z] (e.g. a thin strip under a fence). */
+  /** Tile size in cells along [x, z] (a footprint, a road block, a thin strip under a fence). */
   tileScale?: readonly [number, number];
   snap?: boolean;
 }
@@ -79,8 +81,10 @@ export class GhostPreview {
 
   private readonly tileGroup = new THREE.Group();
   private readonly fill: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
-  private readonly frame: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
-  private readonly glow: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
+  private readonly frame: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
+  private readonly glow: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
+  private tileW = 0;
+  private tileD = 0;
   /** Shared by every ghost material's fresnel rim (one program, updated in place). */
   private readonly rimUniforms = { uGhostRimColor: { value: new THREE.Color(GHOST_TINTS.valid) }, uGhostRimStrength: { value: 1 } };
   private glowTime = 0;
@@ -110,17 +114,15 @@ export class GhostPreview {
   ) {
     this.root.name = 'ghost-preview';
     this.fill = new THREE.Mesh(
-      new THREE.PlaneGeometry(CELL_SIZE * 0.98, CELL_SIZE * 0.98).rotateX(-Math.PI / 2),
+      new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({ color: GHOST_TINTS.neutral, transparent: true, opacity: 0.2, depthWrite: false, toneMapped: false }),
     );
     this.fill.name = 'ghost-fill';
     this.fill.position.y = 0.036;
     this.fill.renderOrder = 10;
-    // RingGeometry with 4 segments is a diamond; turned 45° it is a square frame (outer half-size 0.5, inner 0.41).
+    // Rectangular frames (outer edge on the tile edge, border 0.09 cell); rebuilt in place by setTileSize.
     this.frame = new THREE.Mesh(
-      new THREE.RingGeometry(CELL_SIZE * 0.41 * Math.SQRT2, CELL_SIZE * 0.5 * Math.SQRT2, 4, 1)
-        .rotateZ(Math.PI / 4)
-        .rotateX(-Math.PI / 2),
+      rectRingGeometry(),
       new THREE.MeshBasicMaterial({ color: GHOST_TINTS.neutral, transparent: true, opacity: 0.5, depthWrite: false, toneMapped: false }),
     );
     this.frame.name = 'ghost-frame';
@@ -128,9 +130,7 @@ export class GhostPreview {
     this.frame.renderOrder = 12;
     // Soft glow band just outside the frame (additive, so it brightens the field rather than covering it).
     this.glow = new THREE.Mesh(
-      new THREE.RingGeometry(CELL_SIZE * 0.5 * Math.SQRT2, CELL_SIZE * 0.62 * Math.SQRT2, 4, 1)
-        .rotateZ(Math.PI / 4)
-        .rotateX(-Math.PI / 2),
+      rectRingGeometry(),
       new THREE.MeshBasicMaterial({
         color: GLOW_COLOR,
         transparent: true,
@@ -144,6 +144,7 @@ export class GhostPreview {
     this.glow.position.y = 0.038;
     this.glow.renderOrder = 11;
     this.tileGroup.add(this.fill, this.glow, this.frame);
+    this.setTileSize(1, 1);
     this.root.add(this.tileGroup, this.modelHolder);
     this.root.visible = false;
     scene.add(this.root);
@@ -180,7 +181,7 @@ export class GhostPreview {
     const state = options.state;
     this.tileState = state;
     this.tileGroup.visible = options.showTile ?? true;
-    this.tileGroup.scale.set(options.tileScale?.[0] ?? 1, 1, options.tileScale?.[1] ?? 1);
+    this.setTileSize(options.tileScale?.[0] ?? 1, options.tileScale?.[1] ?? 1);
     this.fill.material.color.set(options.fillColor ?? FILL_COLORS[state]);
     const baseFill = options.fillOpacity ?? FILL_OPACITY[state];
     this.fill.material.opacity = options.parts.length > 0 && !options.fillColor ? baseFill * 0.6 : baseFill;
@@ -242,6 +243,19 @@ export class GhostPreview {
     for (const material of this.ghostMaterials.values()) material.dispose();
     this.ghostMaterials.clear();
     this.pool.clear();
+  }
+
+  /** Size the tile to w × d cells (rebuilds the frame/glow rings in place only when it changes). */
+  private setTileSize(w: number, d: number): void {
+    if (w === this.tileW && d === this.tileD) return;
+    this.tileW = w;
+    this.tileD = d;
+    const hx = (w * CELL_SIZE) / 2;
+    const hz = (d * CELL_SIZE) / 2;
+    this.fill.scale.set(w * CELL_SIZE * 0.98, 1, d * CELL_SIZE * 0.98);
+    const border = Math.min(0.09 * CELL_SIZE, hx * 0.5, hz * 0.5);
+    writeRectRing(this.frame.geometry, hx - border, hz - border, hx, hz);
+    writeRectRing(this.glow.geometry, hx, hz, hx + 0.12 * CELL_SIZE, hz + 0.12 * CELL_SIZE);
   }
 
   private setParts(parts: readonly GhostPart[], state: GhostState, solid: boolean): void {
@@ -338,4 +352,31 @@ export class GhostPreview {
     material.emissiveIntensity = solid ? 0.06 : state === 'valid' ? 0.2 : calm ? 0.12 : 0.5;
     material.opacity = solid ? 0.95 : calm ? this.tuning.modelOpacity : 0.78;
   }
+}
+
+/** A flat (y = 0) rectangular ring: 8 vertices (outer corners 0–3, inner 4–7), 8 triangles. */
+function rectRingGeometry(): THREE.BufferGeometry {
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(8 * 3), 3));
+  const index: number[] = [];
+  for (let i = 0; i < 4; i += 1) {
+    const j = (i + 1) % 4;
+    // Outer i, outer j, inner j / outer i, inner j, inner i (counter-clockwise seen from above).
+    index.push(i, 4 + j, j, i, 4 + i, 4 + j);
+  }
+  geometry.setIndex(index);
+  geometry.setAttribute('normal', new THREE.BufferAttribute(new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]), 3));
+  return geometry;
+}
+
+/** Rewrite a rectRingGeometry for inner half-extents (ix, iz) and outer (ox, oz). No allocations. */
+function writeRectRing(geometry: THREE.BufferGeometry, ix: number, iz: number, ox: number, oz: number): void {
+  const position = geometry.getAttribute('position') as THREE.BufferAttribute;
+  const corners = [-1, -1, 1, -1, 1, 1, -1, 1];
+  for (let i = 0; i < 4; i += 1) {
+    position.setXYZ(i, corners[i * 2] * ox, 0, corners[i * 2 + 1] * oz);
+    position.setXYZ(4 + i, corners[i * 2] * ix, 0, corners[i * 2 + 1] * iz);
+  }
+  position.needsUpdate = true;
+  geometry.computeBoundingSphere();
 }

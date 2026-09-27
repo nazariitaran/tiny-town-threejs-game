@@ -76,8 +76,8 @@ const bulldoze = (x: number, z: number, edge: Edge | null = null): BuildAction =
 
 // ---------------------------------------------------------------------------------------------
 describe('row 1 — paint-ground: in bounds and kind differs', () => {
-  it('valid: paints every paintable kind on field with one ground change', () => {
-    for (const kind of ['grass', 'meadow', 'road', 'pavement', 'walkway'] as const) {
+  it('valid: paints every paintable non-road kind on field with one ground change', () => {
+    for (const kind of ['grass', 'meadow', 'pavement', 'walkway'] as const) {
       const state = makeState();
       const changes = expectOk(plan(state, paint(kind, 3, 4)));
       expect(changes).toEqual([{ layer: 'ground', cell: { x: 3, z: 4 }, before: 'field', after: kind }]);
@@ -149,55 +149,127 @@ describe('row 2 — paint-ground under an object: new kind ∈ allowedGround', (
 });
 
 // ---------------------------------------------------------------------------------------------
-describe('row 3 — paint-ground road removes fences on edges shared with adjacent road cells', () => {
-  const centre: Cell = { x: 3, z: 3 };
-  const sides: Array<{ name: string; neighbour: [number, number]; edge: Edge }> = [
-    { name: 'north', neighbour: [3, 2], edge: { x: 3, z: 3, side: 'n' } },
-    { name: 'east', neighbour: [4, 3], edge: { x: 4, z: 3, side: 'w' } },
-    { name: 'south', neighbour: [3, 4], edge: { x: 3, z: 4, side: 'n' } },
-    { name: 'west', neighbour: [2, 3], edge: { x: 3, z: 3, side: 'w' } },
+describe('row 3 — road blocks: paint/repaint/bulldoze whole aligned 2×2 blocks; fences inside and towards road go', () => {
+  /** The 4 cells of the block anchored at (x, z) (x, z even). */
+  const block = (x: number, z: number): Cell[] => [
+    { x, z },
+    { x: x + 1, z },
+    { x, z: z + 1 },
+    { x: x + 1, z: z + 1 },
   ];
+  const groundChanges = (changes: TownChange[]) => changes.filter((c) => c.layer === 'ground');
 
-  for (const { name, neighbour, edge } of sides) {
-    it(`valid: removes the fence towards a ${name} road neighbour, ground change last`, () => {
+  it('valid: road on any cell converts its whole block, the clicked cell last', () => {
+    for (const clicked of block(2, 4)) {
       const state = makeState();
-      ground(state, 'road', neighbour);
-      fence(state, 'fence-small', edge);
-      const changes = expectOk(plan(state, paint('road', centre.x, centre.z)));
-      expect(changes).toEqual([
-        { layer: 'edge', op: 'remove', placed: { kind: 'fence-small', edge } },
-        { layer: 'ground', cell: centre, before: 'field', after: 'road' },
-      ]);
+      const changes = expectOk(plan(state, paint('road', clicked.x, clicked.z)));
+      expect(changes).toHaveLength(4);
+      expect(changes.every((c) => c.layer === 'ground' && c.before === 'field' && c.after === 'road')).toBe(true);
+      expect(changes.map((c) => (c.layer === 'ground' ? `${c.cell.x},${c.cell.z}` : '')).sort()).toEqual(['2,4', '2,5', '3,4', '3,5']);
+      expect(changes[3]).toEqual({ layer: 'ground', cell: clicked, before: 'field', after: 'road' });
+    }
+  });
+
+  it('invalid: road on a block already road → silent no-change', () => {
+    const state = makeState();
+    ground(state, 'road', [2, 4], [3, 4], [2, 5], [3, 5]);
+    expectFail(plan(state, paint('road', 3, 5)), 'no-change', '');
+  });
+
+  it('valid: road over a mixed block converts every cell (row-major, clicked cell last)', () => {
+    const state = makeState();
+    ground(state, 'grass', [2, 4]);
+    ground(state, 'pavement', [3, 5]);
+    const changes = groundChanges(expectOk(plan(state, paint('road', 3, 4))));
+    expect(changes.map((c) => c.layer === 'ground' && `${c.cell.x},${c.cell.z}:${c.before}`)).toEqual(['2,4:grass', '2,5:field', '3,5:pavement', '3,4:field']);
+  });
+
+  it('invalid: road fails occupied if ANY cell of the block has an object', () => {
+    for (const [x, z] of [[2, 4], [3, 4], [2, 5], [3, 5]]) {
+      const state = makeState();
+      object(state, 'lamppost', x, z);
+      expectFail(plan(state, paint('road', 2, 4)), 'occupied', 'Move the Lamppost first');
+    }
+    const state = makeState();
+    object(state, 'townhouse-a', 3, 5); // a 3×3 whose corner reaches into the block (2..3, 4..5)
+    expectFail(plan(state, paint('road', 2, 4)), 'occupied', 'Move the Cottage first');
+  });
+
+  it('valid: another kind on a road cell converts the whole block, clicked cell last', () => {
+    const state = makeState();
+    ground(state, 'road', [2, 4], [3, 4], [2, 5], [3, 5]);
+    const changes = expectOk(plan(state, paint('pavement', 2, 5)));
+    expect(changes).toHaveLength(4);
+    expect(changes.every((c) => c.layer === 'ground' && c.before === 'road' && c.after === 'pavement')).toBe(true);
+    expect(changes[3]).toEqual({ layer: 'ground', cell: { x: 2, z: 5 }, before: 'road', after: 'pavement' });
+  });
+
+  it('valid: bulldozing a road cell turns its whole block back to field', () => {
+    const state = makeState();
+    ground(state, 'road', [2, 4], [3, 4], [2, 5], [3, 5]);
+    const changes = expectOk(plan(state, bulldoze(3, 4)));
+    expect(changes).toHaveLength(4);
+    expect(changes.every((c) => c.layer === 'ground' && c.before === 'road' && c.after === 'field')).toBe(true);
+    expect(changes[3]).toEqual({ layer: 'ground', cell: { x: 3, z: 4 }, before: 'road', after: 'field' });
+  });
+
+  it("valid: removes fences on the block's 4 inside edges, edge removals first and ground last", () => {
+    const state = makeState();
+    const inside: Edge[] = [
+      { x: 3, z: 4, side: 'w' },
+      { x: 3, z: 5, side: 'w' },
+      { x: 2, z: 5, side: 'n' },
+      { x: 3, z: 5, side: 'n' },
+    ];
+    for (const edge of inside) fence(state, 'fence-small', edge);
+    const changes = expectOk(plan(state, paint('road', 2, 4)));
+    expect(changes).toHaveLength(8);
+    expect(changes.slice(0, 4).every((c) => c.layer === 'edge' && c.op === 'remove')).toBe(true);
+    expect(changes.slice(4).every((c) => c.layer === 'ground')).toBe(true);
+    expect(changes.slice(0, 4).map((c) => (c.layer === 'edge' ? c.placed.edge : null))).toEqual(expect.arrayContaining(inside));
+  });
+
+  const sides: Array<{ name: string; neighbour: [number, number]; edges: Edge[] }> = [
+    { name: 'north', neighbour: [2, 2], edges: [{ x: 2, z: 4, side: 'n' }, { x: 3, z: 4, side: 'n' }] },
+    { name: 'east', neighbour: [4, 4], edges: [{ x: 4, z: 4, side: 'w' }, { x: 4, z: 5, side: 'w' }] },
+    { name: 'south', neighbour: [2, 6], edges: [{ x: 2, z: 6, side: 'n' }, { x: 3, z: 6, side: 'n' }] },
+    { name: 'west', neighbour: [0, 4], edges: [{ x: 2, z: 4, side: 'w' }, { x: 2, z: 5, side: 'w' }] },
+  ];
+  for (const { name, neighbour, edges } of sides) {
+    it(`valid: removes the outside fences towards a ${name} road block`, () => {
+      const state = makeState();
+      const [nx, nz] = neighbour;
+      ground(state, 'road', [nx, nz], [nx + 1, nz], [nx, nz + 1], [nx + 1, nz + 1]);
+      for (const edge of edges) fence(state, 'fence-tall', edge);
+      const changes = expectOk(plan(state, paint('road', 3, 5)));
+      expect(changes).toHaveLength(6);
+      expect(changes.slice(0, 2)).toEqual(edges.map((edge) => ({ layer: 'edge', op: 'remove', placed: { kind: 'fence-tall', edge } })));
     });
   }
 
-  it('valid: removes all four fences at a crossroads, primary (ground) change last', () => {
+  it('keeps outside fences towards non-road neighbours and on the plot border', () => {
     const state = makeState();
-    for (const { neighbour, edge } of sides) {
-      ground(state, 'road', neighbour);
-      fence(state, 'fence-tall', edge);
-    }
-    const changes = expectOk(plan(state, paint('road', 3, 3)));
-    expect(changes).toHaveLength(5);
-    expect(changes.slice(0, 4).every((c) => c.layer === 'edge' && c.op === 'remove')).toBe(true);
-    expect(changes[4]).toEqual({ layer: 'ground', cell: centre, before: 'field', after: 'road' });
-  });
-
-  it('keeps fences towards non-road neighbours and fences on the plot border', () => {
-    const state = makeState();
-    ground(state, 'pavement', [3, 2]);
-    fence(state, 'fence-small', { x: 3, z: 3, side: 'n' }); // towards pavement
-    fence(state, 'fence-small', { x: 0, z: 0, side: 'n' }); // plot border of (0,0)
-    fence(state, 'fence-small', { x: 0, z: 0, side: 'w' });
-    expect(expectOk(plan(state, paint('road', 3, 3)))).toHaveLength(1);
-    expect(expectOk(plan(state, paint('road', 0, 0)))).toHaveLength(1);
+    ground(state, 'pavement', [2, 3], [3, 3]);
+    fence(state, 'fence-small', { x: 2, z: 4, side: 'n' }); // towards pavement
+    fence(state, 'fence-small', { x: 0, z: 0, side: 'n' }); // plot border of block (0, 0)
+    fence(state, 'fence-small', { x: 0, z: 1, side: 'w' });
+    expect(expectOk(plan(state, paint('road', 2, 4)))).toHaveLength(4);
+    expect(expectOk(plan(state, paint('road', 1, 1)))).toHaveLength(4);
   });
 
   it('does not remove fences when painting a non-road kind next to a road', () => {
     const state = makeState();
-    ground(state, 'road', [3, 2]);
-    fence(state, 'fence-small', { x: 3, z: 3, side: 'n' });
-    expect(expectOk(plan(state, paint('pavement', 3, 3)))).toHaveLength(1);
+    ground(state, 'road', [2, 2], [3, 2], [2, 3], [3, 3]);
+    fence(state, 'fence-small', { x: 3, z: 4, side: 'n' });
+    expect(expectOk(plan(state, paint('pavement', 3, 4)))).toHaveLength(1);
+  });
+
+  it("invalid: a fence on a road block's inside edge → blocked-by-road", () => {
+    const state = makeState();
+    ground(state, 'road', [2, 4], [3, 4], [2, 5], [3, 5]);
+    expectFail(plan(state, placeEdge('fence-small', 3, 4, 'w')), 'blocked-by-road', "Fences can't cross roads");
+    expectFail(plan(state, placeEdge('fence-small', 2, 5, 'n')), 'blocked-by-road', "Fences can't cross roads");
+    expectOk(plan(state, placeEdge('fence-small', 2, 4, 'n'))); // outside edge towards field
   });
 });
 
@@ -278,21 +350,29 @@ describe('row 4 — place-object: footprint in bounds, unoccupied, ground ∈ al
 });
 
 // ---------------------------------------------------------------------------------------------
-describe('row 5 — place-object bus-stop: ≥ 1 footprint cell 4-adjacent to a road', () => {
-  for (const [name, x, z] of [['north', 3, 2], ['east', 4, 3], ['south', 3, 4], ['west', 2, 3]] as const) {
-    it(`valid: road to the ${name}`, () => {
+describe('row 5 — place-object bus-stop (2×1): ≥ 1 footprint cell 4-adjacent to a road', () => {
+  // Bus stop at (3, 3), rotation 0, covers (3, 3) and (4, 3).
+  for (const [name, x, z] of [['north of the first cell', 3, 2], ['north of the second cell', 4, 2], ['east', 5, 3], ['south of the second cell', 4, 4], ['west', 2, 3]] as const) {
+    it(`valid: road ${name}`, () => {
       const state = makeState();
       ground(state, 'road', [x, z]);
       expectOk(plan(state, placeObj('bus-stop', 3, 3)));
     });
   }
 
+  it('valid: rotated (1×2) it is adjacent through either footprint cell', () => {
+    const state = makeState();
+    ground(state, 'road', [4, 4]); // east of (3, 4), the second cell at rotation 1
+    expectOk(plan(state, placeObj('bus-stop', 3, 3, 1)));
+    expectFail(plan(state, placeObj('bus-stop', 3, 2, 1)), 'needs-ground', 'Bus stops need to be next to a road');
+  });
+
   it('valid: on pavement or walkway next to a road', () => {
     const state = makeState();
     ground(state, 'road', [3, 2]);
-    ground(state, 'pavement', [3, 3]);
+    ground(state, 'pavement', [3, 3], [4, 3]);
     expectOk(plan(state, placeObj('bus-stop', 3, 3)));
-    ground(state, 'walkway', [3, 3]);
+    ground(state, 'walkway', [3, 3], [4, 3]);
     expectOk(plan(state, placeObj('bus-stop', 3, 3)));
   });
 
@@ -303,14 +383,14 @@ describe('row 5 — place-object bus-stop: ≥ 1 footprint cell 4-adjacent to a 
 
   it('invalid: diagonal road does not count', () => {
     const state = makeState();
-    ground(state, 'road', [4, 4], [2, 2]);
+    ground(state, 'road', [5, 4], [2, 2], [5, 2], [2, 4]);
     expectFail(plan(state, placeObj('bus-stop', 3, 3)), 'needs-ground', 'Bus stops need to be next to a road');
   });
 
   it('invalid: adjacent non-road paths (pavement/walkway) do not count', () => {
     const state = makeState();
     ground(state, 'pavement', [3, 2]);
-    ground(state, 'walkway', [3, 4]);
+    ground(state, 'walkway', [4, 4]);
     expectFail(plan(state, placeObj('bus-stop', 3, 3)), 'needs-ground', 'Bus stops need to be next to a road');
   });
 
@@ -318,6 +398,58 @@ describe('row 5 — place-object bus-stop: ≥ 1 footprint cell 4-adjacent to a 
     const state = makeState();
     expectOk(plan(state, placeObj('postbox', 3, 3)));
     expectOk(plan(state, placeObj('lamppost', 3, 3)));
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+describe('multi-cell footprints (WP-12)', () => {
+  it('invalid: a footprint partly out of bounds → out-of-bounds, on every side', () => {
+    const state = makeState();
+    expectFail(plan(state, placeObj('townhouse-a', W - 2, 2)), 'out-of-bounds', 'Outside your plot');
+    expectFail(plan(state, placeObj('townhouse-a', 2, D - 2)), 'out-of-bounds', 'Outside your plot');
+    expectFail(plan(state, placeObj('townhouse-a', -1, 2)), 'out-of-bounds', 'Outside your plot');
+    expectFail(plan(state, placeObj('garage', 3, D - 1)), 'out-of-bounds', 'Outside your plot');
+    expectOk(plan(state, placeObj('townhouse-a', W - 3, D - 3)));
+  });
+
+  it('invalid: any footprint cell occupied → occupied', () => {
+    const state = makeState();
+    object(state, 'tree-a', 4, 4); // bottom-right cell of a 3×3 anchored at (2, 2)
+    expectFail(plan(state, placeObj('townhouse-c', 2, 2)), 'occupied', 'Something is already here');
+    expectOk(plan(state, placeObj('townhouse-c', 1, 1)));
+    // Two houses may not overlap either.
+    object(state, 'townhouse-b', 0, 0); // covers 0..1 × 0..2
+    expectFail(plan(state, placeObj('townhouse-a', 1, 2)), 'occupied');
+  });
+
+  it('invalid: any footprint cell on bad ground → blocked-by-road / needs-ground', () => {
+    const state = makeState();
+    ground(state, 'road', [4, 4]);
+    expectFail(plan(state, placeObj('townhouse-a', 2, 2)), 'blocked-by-road', "Cottage can't go on a road");
+    const other = makeState();
+    ground(other, 'pavement', [3, 4]);
+    expectFail(plan(other, placeObj('townhouse-b', 2, 2)), 'needs-ground', 'Townhouse needs grass, meadow or open field');
+  });
+
+  it('rotation swaps the footprint: a 2×3 townhouse at rotation 1 occupies 3×2', () => {
+    const state = makeState();
+    const changes = expectOk(plan(state, placeObj('townhouse-b', 5, 6, 1)));
+    state.applyChanges(changes);
+    const id = changes[0].layer === 'object' ? changes[0].object.id : -1;
+    for (const [x, z] of [[5, 6], [6, 6], [7, 6], [5, 7], [6, 7], [7, 7]]) expect(state.getObjectAt({ x, z })?.id).toBe(id);
+    expect(state.getObjectAt({ x: 5, z: 5 })).toBeUndefined();
+    expect(state.getObjectAt({ x: 4, z: 6 })).toBeUndefined();
+    // Rotation 0 would reach row 8 = out of bounds; rotation 1 fits.
+    expectFail(plan(makeState(), placeObj('townhouse-b', 5, 6, 0)), 'out-of-bounds');
+  });
+
+  it('bulldozing any footprint cell removes the whole object', () => {
+    for (const [x, z] of [[2, 2], [3, 3], [4, 4], [4, 2], [2, 4]]) {
+      const state = makeState();
+      const id = object(state, 'townhouse-a', 2, 2);
+      const changes = expectOk(plan(state, bulldoze(x, z)));
+      expect(changes).toEqual([{ layer: 'object', op: 'remove', object: { id, kind: 'townhouse-a', anchor: { x: 2, z: 2 }, rotation: 0, variant: 0 } }]);
+    }
   });
 });
 

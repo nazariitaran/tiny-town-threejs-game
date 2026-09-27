@@ -271,6 +271,11 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
 
 ---
 
+### WP-12 — Scale, proportions & grid density (v0.2)
+- **Contract:** `docs/plans/wp-12-scale.md` (integrator-approved). Grid 48 × 48 cells of 0.5 world units (plot size unchanged), roads in aligned 2 × 2 blocks, multi-cell houses (3×3 / 2×3), garage 1×2, bus stop 2×1, proportion scales in `catalog/models.ts`, `SavedTownV2` + v1 migration.
+- **Owns (delegated for this change):** the plan's "Files" list including the contract files it marks [C]; `docs/design/03-architecture.md` §Grid / §Placement rules / §Save format; the scale table in `docs/assets/models.md`/`.json`; e2e specs for cell coordinates only.
+- **Acceptance:** unit tests (multi-cell rules, road blocks, `anchorForPointer`, migration fixtures, demo towns, proportions); inspector captures of asset-gallery / sample-town / stress-town on desktop and mobile within budget (stress ≤ 150 calls / 400k tris desktop, ≤ 120 / 250k mobile) with 0 console errors; cell pitch ≥ 12 px desktop / ≥ 9 px mobile; desktop frame time ≤ 8 ms; real-input e2e green except the intended visual-baseline diffs; before/after proportions side-by-side in `artifacts/wp-12/`.
+
 ## 5. Checkpoints (integrator runs these on merged main)
 
 **M1 — vertical slice (after Wave 1).** Merge order: WP-02 → WP-03 → WP-04 → WP-05 → WP-06 → WP-07 → WP-09a. Resolve lockfile conflicts by re-running `npm install`. Then:

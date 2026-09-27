@@ -17,18 +17,19 @@
  *  - load(save)                       replace the town with a VALIDATED save (see parseSave), cause
  *                                     'load' with a full change list (remove old…, add new…),
  *                                     history cleared. Not undoable.
- *  - serialize(camera?)               current town as SavedTownV1 (for SaveStore).
+ *  - serialize(camera?)               current town as SavedTown (for SaveStore).
  *
  * Every change list keeps its primary change last; build events derive from it.
  */
-import { cellToWorld, edgeToWorld } from '../game/config';
+import { cellToWorld, edgeToWorld, footprintCentreWorld, roadBlockCentreWorld } from '../game/config';
+import { objectDef } from '../catalog/objects';
 import type { GameBus } from '../game/events';
 import type { ToolId } from '../catalog/tools';
 import { History } from './History';
 import { planAction } from './rules';
 import { decodeGround, serializeTown, type CameraPose } from './serialize';
 import type { TownState } from './TownState';
-import type { BuildAction, InvalidReason, PlanResult, SavedTownV1, TownChange } from './types';
+import type { BuildAction, InvalidReason, PlanResult, SavedTown, TownChange } from './types';
 
 export interface BatchItem {
   action: BuildAction;
@@ -156,7 +157,7 @@ export class TownEditor {
    * this plot); a save for a different plot size throws. Emits one town:changed with cause 'load'
    * whose changes remove the old town and then add the new one; clears history. Not undoable.
    */
-  load(save: SavedTownV1): void {
+  load(save: SavedTown): void {
     if (save.width !== this.state.width || save.depth !== this.state.depth) {
       throw new Error(`TownEditor.load: save is ${save.width}×${save.depth}, plot is ${this.state.width}×${this.state.depth} (run parseSave first)`);
     }
@@ -181,7 +182,7 @@ export class TownEditor {
   }
 
   /** The current town as a save (deterministic). SaveStore / Game use this for autosave. */
-  serialize(camera?: CameraPose): SavedTownV1 {
+  serialize(camera?: CameraPose): SavedTown {
     return serializeTown(this.state, camera);
   }
 
@@ -199,7 +200,15 @@ export class TownEditor {
     // The primary change is the last one (e.g. a fence replace is [remove old, add new]).
     const primary = changes[changes.length - 1];
     const cell = 'cell' in action ? { x: action.cell.x, z: action.cell.z } : { x: action.edge.x, z: action.edge.z };
-    const world = primary.layer === 'edge' ? edgeToWorld(primary.placed.edge) : cellToWorld(cell);
+    // FX/audio position: the centre of what changed (a multi-cell object, a whole road block).
+    const world =
+      primary.layer === 'edge'
+        ? edgeToWorld(primary.placed.edge)
+        : primary.layer === 'object'
+        ? footprintCentreWorld(primary.object.anchor, objectDef(primary.object.kind).footprint, primary.object.rotation)
+        : primary.before === 'road' || primary.after === 'road'
+        ? roadBlockCentreWorld(primary.cell)
+        : cellToWorld(primary.cell);
     if (action.type === 'bulldoze') {
       const kind = primary.layer === 'ground' ? primary.before : primary.layer === 'object' ? primary.object.kind : primary.placed.kind;
       this.bus.emit('build:removed', { layer: primary.layer, kind, cell, worldX: world.x, worldZ: world.z, strokeIndex });

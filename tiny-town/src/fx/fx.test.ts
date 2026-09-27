@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TOOLS } from '../catalog/tools';
 import { createGameBus } from '../game/events';
 import { createSeededRandom } from '../utils/random';
-import { classify, emitPlaced, emitRemoved, strokeCount, type FxPools } from './fxRecipes';
+import { classify, emitPlaced, emitRemoved, footprintPoofRadius, strokeCount, type FxPools } from './fxRecipes';
 import { Curve, FLOOR_Y, ParticlePool, type ParticleSpec } from './particlePool';
 import { PlacementFx } from './PlacementFx';
 import { WIND_SWAY_CACHE_KEY, applyWindSway, patchShader, setWindStrength, updateWindSway, windStrength } from './windSway';
@@ -303,5 +303,15 @@ describe('PlacementFx', () => {
 
     fx.dispose();
     expect(scene.children).toHaveLength(0);
+  });
+});
+
+describe('removal poof radius follows the footprint (WP-12)', () => {
+  it('hugs a 3×3 house, a 1×2 garage and falls back to the minimum for unknown kinds', () => {
+    expect(footprintPoofRadius('townhouse-a', 0.3)).toBeCloseTo(0.7, 5);
+    expect(footprintPoofRadius('townhouse-b', 0.3)).toBeCloseTo(0.7, 5);
+    expect(footprintPoofRadius('garage', 0.3)).toBeCloseTo(0.45, 5);
+    expect(footprintPoofRadius('postbox', 0.3)).toBe(0.3);
+    expect(footprintPoofRadius('toString', 0.28)).toBe(0.28);
   });
 });
