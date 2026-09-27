@@ -95,7 +95,7 @@ float starField(vec3 p, float px) {
   float r = length(p - centre) / px;
   float bright = (h - 0.93) / 0.07;
   float twinkle = 0.75 + 0.25 * sin(uTime * (1.3 + 2.0 * h) + h * 91.0);
-  return (1.0 - smoothstep(0.35, 1.25, r)) * (0.35 + 0.65 * bright * bright) * twinkle;
+  return (1.0 - smoothstep(0.5, 1.6, r)) * (0.35 + 0.65 * bright * bright) * twinkle;
 }
 
 void main() {

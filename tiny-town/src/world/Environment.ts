@@ -60,8 +60,8 @@ const DAYLIGHT_TUNING = {
    * Fog pulled in at night (blended by `night`; the day values are LIGHTING's). The navy horizon
    * colour then washes over the plot a little, which is what turns green grass into "blue hour".
    */
-  nightFogNear: 0,
-  nightFogFar: 140,
+  nightFogNear: 10,
+  nightFogFar: 170,
 };
 
 export class Environment {

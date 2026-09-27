@@ -349,8 +349,8 @@ export const AFTERNOON = {
 } as const;
 
 const NIGHT_SPEC: KeyframeSpec = {
-  key: 0x8aa2ff, keyI: 0.62,
-  hemiSky: 0x3c54b4, hemiGround: 0x222c4c, hemiI: 1.1,
+  key: 0x8aa2ff, keyI: 0.95,
+  hemiSky: 0x3c54b4, hemiGround: 0x1c2444, hemiI: 0.85,
   top: 0x0b1430, horizon: 0x22325a, glow: 0x243558, disc: 0xfff1d2,
   sun: 0, moon: 1, clouds: 0.25, stars: 1, env: 0.0,
 };
