@@ -38,14 +38,14 @@ Constraints (tunable in `?debug`):
 - **Rotate**: `R` (clockwise) / `Shift+R` (counter-clockwise), or on-screen rotate button. (`intent:rotate` direction 1 = clockwise.) Rotation persists per tool until changed. Ghost animates the turn (100 ms).
 - **Esc**: deselect tool (back to pointer). Right-click never places.
 - **Undo/Redo**: `Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z` / `Ctrl+Y`. Every stroke is one history entry.
-- Placement feedback (same frame): pop-in scale tween (easeOutBack, ~220 ms), small dust puff, SFX by category, stats count-up in HUD. Removal: shrink-out (~150 ms) + poof + crunch SFX.
+- Placement feedback (same frame): pop-in scale tween (easeOutBack, ~220 ms), small dust puff, SFX by category. Removal: shrink-out (~150 ms) + poof + crunch SFX.
 - Invalid click: ghost shakes (±0.05, 150 ms), soft "nope" SFX, tooltip near cursor with the reason for ~1.5 s (throttled).
 
 ## 4. Screen layout (desktop 1280×720)
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│ [🏡 Tiny Town]  Homes 4 · Residents 11 · Trees 9      [↶][↷] [🔊][☰] │  top bar (transparent, pills)
+│ [🏡 Tiny Town]                                        [↶][↷] [🔊][☰] │  top bar (transparent, pills)
 │                                                                      │
 │                                                                      │
 │                          3D  TOWN  VIEW                              │
@@ -62,7 +62,7 @@ Constraints (tunable in `?debug`):
 
 - **Dock** (bottom centre): category tabs; the active category's **item tray** slides up above the tabs. Item card = 64–72 px icon (Kenney preview PNG) + short label + number-key badge. Selected card: raised, accent outline. Clicking the active item again deselects.
 - **Mode buttons** (right end of dock): Rotate (shows current rotation arrow), Bulldoze (toggles, red accent when active).
-- **Top-left**: title mark + live stats (fixed-width numerals). Stats derived from `TownState.stats()`: homes (townhouses), residents (sum of per-house residents from the catalog), trees, roads length.
+- **Top-left**: title mark only. v0.2 removed the live stats pill as redundant; `TownState.stats()` remains for diagnostics and tests.
 - **Top-right**: Undo, Redo (disabled state when unavailable), Sound toggle (mute; long-press/hover shows volume slider), Menu.
 - **Hint line**: contextual one-liner above the dock describing the active tool's gesture; hides after 3 uses of that tool.
 - **Cursor tooltip**: invalid-placement reason, anchored near the pointer, never under it.
@@ -70,7 +70,7 @@ Constraints (tunable in `?debug`):
 
 ### Mobile (≤ 760 px wide or `pointer: coarse`)
 - Dock is full-width at the bottom (safe-area padded); item tray scrolls horizontally (scroll-snap), icons 56 px, labels hidden for the tray when < 380 px wide (tooltip on long-press).
-- Top bar collapses: title mark + compact stats pill; undo/redo/menu remain ≥ 44 px targets.
+- The top bar stays one row: the title mark (an icon-only badge at ≤ 380 px) plus the actions; undo/redo/menu remain ≥ 44 px targets. The hint pill sits 10 px under the top bar.
 - One finger = tool action (tap place / drag paint); two fingers = camera. With no tool selected, one finger pans.
 - Hint line mentions "two fingers to move the camera".
 
