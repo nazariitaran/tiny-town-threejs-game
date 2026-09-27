@@ -1,5 +1,7 @@
 # WP-12 — Scale, proportions & grid density (plan; integrator-approved 2026-09-27)
 
+> **Approved plan (implemented and merged in `fbbef2a`, v0.2).** This is the pre-implementation contract, not the as-built record. As-built facts are in `docs/design/03-architecture.md` (§Grid, §Placement rules, §Save format) and `docs/assets/models.md` (§Grid and scale). The deviations from this plan are listed in `docs/progress.md` under "WP-12 as built": extra migration fallback, trimmed stress town, framing side −260, road tile at the block centre, and the IconStudio re-render. `artifacts/wp-12/` is local-only (gitignored).
+
 This plan was produced by the WP-12 planning agent and approved by the integrator. It is the implementer's contract. Where it says "optional", the implementer may cut it in the stated order.
 
 ## Decisions
