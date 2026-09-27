@@ -129,6 +129,8 @@ describe('glow masks against the real assets', () => {
     for (const [id, spec] of Object.entries(MODELS) as Array<[ModelId, (typeof MODELS)[ModelId]]>) {
       const kind = 'glow' in spec ? spec.glow : undefined;
       if (!kind) continue;
+      // The church mask is a whole quadrant of its own texture (tested triangle by triangle below).
+      if (kind === 'church') continue;
       for (const cell of GLOW_CELLS[kind]) {
         // Traffic lights: every lens; windows/lamp: their single cell.
         expect(centroid(spec.url, cell.col, cell.row)?.triangles ?? 0, `${id} (${cell.col},${cell.row})`).toBeGreaterThan(0);
@@ -153,7 +155,7 @@ describe('glow masks against the real assets', () => {
   });
 });
 
-describe('church windows mask (stretch, dormant until the catalog sets glow: church)', () => {
+describe('church windows mask (stretch; catalog glow: church since 9348eaf)', () => {
   it('lights every window triangle and no door or other church triangle', async () => {
     const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
     const file = path.resolve(__dirname, '../../public', MODELS.church.url.replace(/^\//, ''));

@@ -57,6 +57,8 @@ const FALLBACK_HEAD: Vec3Like = { x: 0, y: 0.653, z: 0.154 };
 const POOL_Y = 0.028;
 const BEAM_Y = 0.026;
 const INITIAL_LAMP_CAPACITY = 32;
+/** Pool / halo brightness at night = 0 relative to full night (see update()). */
+const DUSK_POOL_LEVEL = 0.55;
 
 export interface NightLightsTuning {
   poolRadius: number;
@@ -72,15 +74,15 @@ export interface NightLightsTuning {
 }
 
 export const DEFAULT_NIGHT_LIGHTS_TUNING: Readonly<NightLightsTuning> = {
-  poolRadius: 1.1,
-  poolStrength: 0.42,
-  poolColor: '#ffcf8a',
+  poolRadius: 1.05,
+  poolStrength: 0.8,
+  poolColor: '#ffcc66',
   haloSize: 0.34,
-  haloStrength: 0.7,
+  haloStrength: 0.9,
   haloColor: '#ffe2b0',
   beamLength: 0.75,
   beamWidth: 0.34,
-  beamStrength: 0.32,
+  beamStrength: 0.5,
   beamColor: '#fff1c8',
 };
 
@@ -171,8 +173,11 @@ export class NightLights {
     this.night = this.library.glow.levels.night;
     this.lampLevel = this.library.glow.levels.lamps;
     // No iterators here (per frame): three direct lookups.
-    this.setLevel('pool', this.lampLevel);
-    this.setLevel('halo', this.lampLevel);
+    // Lamps are fully on from night ≈ 0.42, but the sky is still bright then: the ground pools and
+    // halos grow into full night so they don't blow out over the lighter dusk / dawn pavement.
+    const dark = DUSK_POOL_LEVEL + (1 - DUSK_POOL_LEVEL) * this.night;
+    this.setLevel('pool', this.lampLevel * dark);
+    this.setLevel('halo', this.lampLevel * dark);
     this.setLevel('beam', this.night);
     if (this.fireflies) {
       // The wind clock: frozen under reduced motion / while paused, rest pose after stabilize().
@@ -268,6 +273,9 @@ export class NightLights {
       const on = shown && this.fireflyLevel > 0;
       this.fireflies.mesh.visible = on && this.fireflies.refresh(this.town) > 0;
     }
+    // What this render really draws (update()'s estimate can lag while paused: cars settle after it).
+    this.diag.drawCalls =
+      (pools.mesh.visible ? 1 : 0) + (halos?.mesh.visible ? 1 : 0) + (beams.mesh.visible ? 1 : 0) + (this.fireflies?.mesh.visible ? 1 : 0);
   }
 
   private writeLamps(): void {
@@ -498,7 +506,7 @@ const POOL_FRAGMENT = /* glsl */ `
 void main() {
   float d = length(vUv * 2.0 - 1.0);
   float a = 1.0 - smoothstep(0.0, 1.0, d);
-  a = a * a * (0.65 + 0.35 * a) * uLevel;
+  a = a * (0.35 + 0.65 * a) * uLevel;
   gl_FragColor = vec4(max(uColor * a + glowDither(a), 0.0), 1.0);
 }
 `;

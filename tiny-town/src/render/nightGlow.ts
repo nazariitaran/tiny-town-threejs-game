@@ -31,7 +31,7 @@ export const ATLAS_ROWS = 4;
 
 /**
  * The catalog kinds plus the car material's own mask (LifeSystem) and the church (stretch: its own
- * 256² texture, not a Kenney atlas; dormant until the catalog sets `glow: 'church'`, a contract change).
+ * 256² texture, not a Kenney atlas; catalog `glow: 'church'`).
  */
 export type GlowMaskKind = GlowKind | 'headlights' | 'church';
 
@@ -137,11 +137,11 @@ export interface GlowTuning {
 }
 
 export const DEFAULT_GLOW_TUNING: Readonly<GlowTuning> = {
-  windows: 1.6,
+  windows: 1.9,
   lamp: 2.4,
-  traffic: 1.6,
-  headlights: 2.2,
-  church: 1.3,
+  traffic: 2.6,
+  headlights: 2.8,
+  church: 1.1,
   lampOnFrom: 0.3,
   lampOnTo: 0.42,
 };
