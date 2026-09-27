@@ -174,6 +174,56 @@ describe('catalog', () => {
     }
   });
 
+  it('WP-17 footprints: homes and town buildings grew one cell each way; everything else is unchanged', () => {
+    const footprints = Object.fromEntries(Object.values(OBJECTS).map((def) => [def.kind, def.footprint]));
+    expect(footprints).toEqual({
+      roundabout: [6, 6], 'traffic-light': [1, 1], lamppost: [1, 1], 'bus-stop': [2, 1], postbox: [1, 1],
+      cottage: [4, 4], townhouse: [3, 4], bungalow: [4, 4], 'family-home': [4, 4], 'garage-house': [4, 4], 'big-house': [5, 4],
+      garage: [1, 2], 'corner-shop': [3, 3], supermarket: [5, 4], church: [3, 4], 'swimming-pool': [4, 3], fountain: [2, 2],
+      oak: [1, 1], pine: [1, 1], birch: [1, 1], bush: [1, 1],
+      planter: [1, 1], bench: [1, 1], swing: [2, 1], barbecue: [1, 1],
+    });
+  });
+
+  it('objects stay inside their footprint at every rotation (drawn bounds turned with the object)', () => {
+    for (const def of Object.values(OBJECTS)) {
+      if (def.roadFeature) continue;
+      for (const id of def.models) {
+        const size = drawn(id);
+        const [ox, , oz] = MODELS[id].offset ?? [0, 0, 0];
+        // Model-space box (footprint-centred, then offset), turned like TownRenderer turns the object.
+        const box = new THREE.Box3(new THREE.Vector3(ox - size.x / 2, 0, oz - size.z / 2), new THREE.Vector3(ox + size.x / 2, size.y, oz + size.z / 2));
+        for (const rotation of [0, 1, 2, 3] as const) {
+          const turned = box.clone().applyMatrix4(new THREE.Matrix4().makeRotationY((rotation * Math.PI) / 2));
+          const [w, d] = rotation % 2 === 0 ? def.footprint : [def.footprint[1], def.footprint[0]];
+          const halfW = (w * CELL_SIZE) / 2 + 0.03;
+          const halfD = (d * CELL_SIZE) / 2 + 0.03;
+          expect(Math.max(-turned.min.x, turned.max.x), `${id} r${rotation} x`).toBeLessThanOrEqual(halfW);
+          expect(Math.max(-turned.min.z, turned.max.z), `${id} r${rotation} z`).toBeLessThanOrEqual(halfD);
+        }
+      }
+    }
+  });
+
+  it('WP-17: homes and town buildings fill their bigger lot (≥ 80 % of it along their longer fit)', () => {
+    const grown = Object.values(OBJECTS).filter((def) => def.group === 'home' || ['corner-shop', 'supermarket', 'church'].includes(def.kind));
+    expect(grown).toHaveLength(9);
+    for (const def of grown) {
+      for (const id of def.models) {
+        const size = drawn(id);
+        const fill = Math.max(size.x / (def.footprint[0] * CELL_SIZE), size.z / (def.footprint[1] * CELL_SIZE));
+        expect(fill, id).toBeGreaterThanOrEqual(0.8);
+      }
+    }
+  });
+
+  it('WP-17: the swing is 10–15 % smaller than its native 0.56 wide set, on the same 2 × 1 cells', () => {
+    expect(OBJECTS.swing.footprint).toEqual([2, 1]);
+    expect(MODELS.swing.scale).toBeGreaterThanOrEqual(0.85);
+    expect(MODELS.swing.scale).toBeLessThanOrEqual(0.9);
+    expect(drawn('swing').x).toBeLessThan(0.5);
+  });
+
   it('road features fill their whole footprint (whole road blocks) at road-tile height', () => {
     const roadHeight = sizes.get('road-straight')!.y;
     const features = Object.values(OBJECTS).filter((def) => def.roadFeature);
@@ -229,12 +279,12 @@ describe('proportions', () => {
     }
   });
 
-  it('trees are about cottage height and below the townhouse ridges', () => {
+  it('trees reach about the cottage roof (WP-17: 75–100 % of its height) and stay below the townhouse ridges', () => {
     const cottage = h('cottage');
     const townhouseRidge = Math.min(h('townhouse'), h('townhouse-alt'));
     for (const tree of ['oak', 'pine', 'birch'] as const) {
-      expect(h(tree) / cottage, `${tree} vs cottage`).toBeGreaterThan(0.85);
-      expect(h(tree) / cottage, `${tree} vs cottage`).toBeLessThan(1.25);
+      expect(h(tree) / cottage, `${tree} vs cottage`).toBeGreaterThan(0.75);
+      expect(h(tree) / cottage, `${tree} vs cottage`).toBeLessThan(1);
       expect(h(tree), `${tree} vs townhouse`).toBeLessThan(townhouseRidge);
     }
   });

@@ -102,10 +102,12 @@ describe('SaveStore basic API', () => {
     expect(store.has()).toBe(false);
   });
 
-  it('an older (v1/v2) save under the same key is rejected, so the game starts a fresh town', () => {
+  it('an older (v1/v2/v3) save under the same key is rejected, so the game starts a fresh town', () => {
     const v1 = { version: 1, width: 24, depth: 24, ground: [['field', 576]], objects: [{ id: 1, kind: 'tree-a', anchor: { x: 2, z: 2 }, rotation: 0, variant: 0 }], edges: [], nextObjectId: 2 };
     const v2 = { ...v1, version: 2, width: PLOT_WIDTH, depth: PLOT_DEPTH, ground: [['field', PLOT_WIDTH * PLOT_DEPTH]] };
-    for (const [version, old] of [[1, v1], [2, v2]] as const) {
+    // v3 (v0.3): the WP-17 footprints grew, so a v3 town is not migrated either.
+    const v3 = { ...v2, version: 3, objects: [{ id: 1, kind: 'cottage', anchor: { x: 2, z: 2 }, rotation: 0, variant: 0 }] };
+    for (const [version, old] of [[1, v1], [2, v2], [3, v3]] as const) {
       const storage = new MemoryStorage();
       storage.data.set(SAVE_STORAGE_KEY, JSON.stringify(old));
       const { store } = setup(storage);
@@ -115,14 +117,14 @@ describe('SaveStore basic API', () => {
     }
   });
 
-  it('a v3 save of the sample town written by an earlier session reads back unchanged and loads', () => {
+  it('a v4 save of the sample town written by an earlier session reads back unchanged and loads', () => {
     const source = setup();
     buildSampleTown(source.editor);
     const storage = new MemoryStorage();
     storage.data.set(SAVE_STORAGE_KEY, JSON.stringify(serializeTown(source.editor.state)));
     const { store, editor } = setup(storage);
     const save = store.read()!;
-    expect([save.version, save.width, save.depth]).toEqual([3, PLOT_WIDTH, PLOT_DEPTH]);
+    expect([save.version, save.width, save.depth]).toEqual([4, PLOT_WIDTH, PLOT_DEPTH]);
     expect(save).toEqual(serializeTown(source.editor.state));
     editor.load(save);
     expect(editor.state.stats()).toEqual(source.editor.state.stats());

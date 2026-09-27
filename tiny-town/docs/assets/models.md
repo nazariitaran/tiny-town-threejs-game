@@ -65,7 +65,9 @@ The suburban houses can change roof colour. `suburban/Textures/variation-{a,b,c}
 
 ## Grid and scale
 
-This section is **current**. It matches `src/catalog/models.ts` and `objects.ts` in the v0.3 working tree (v0.2 rows unchanged).
+This section is **current**. It matches `src/catalog/models.ts` and `objects.ts` after WP-17 (bigger buildings, smaller swing; v0.2 rows otherwise unchanged).
+
+**WP-17:** every home, the corner shop, the supermarket and the church grew one cell in each direction, and their models scaled up to fill the bigger lot: the homes, supermarket and church by `HOME_SCALE` = 4/3 (the depth ratio 3 → 4), the corner shop by 1.4. The front-yard nudge grew with them (−0.15 → −0.2; type-n −0.04 → −0.05), so the yard keeps its share of the lot. The swing shrank to 0.87. Trees (≈ 0.88) now reach about 80 % of the cottage (1.11) instead of matching it. Drawn sizes below are from `catalog.test.ts` › proportions.
 
 **WP-12 (v0.2): `CELL_SIZE = 0.5` world units, a 48 × 48-cell plot, and one Kenney road tile (1 world unit, `ROAD_TILE_SIZE`) covers an aligned 2 × 2 road block.** Toy scale: 1 world unit ≈ 8 m, a cell ≈ 4 m. All road pieces are exactly 1 × 1 at scale 1, centred, with their top at y = 0.02. The scales below are the live values in `src/catalog/models.ts`; sizes are as drawn (including TownRenderer's `MODEL_STYLES` stretch). The v0.2 rows were measured by `catalog.test.ts` › proportions (it logs this table). The v0.3 rows are the `inspect:models` bounds × the catalog scale, at rotation 0.
 
@@ -73,15 +75,15 @@ This section is **current**. It matches `src/catalog/models.ts` and `objects.ts`
 | --- | --- | --- | --- | --- |
 | Roads | 2 × 2 block | 1 (1) | 1 × 0.02 × 1 | One tile per block. Two lanes of ≈0.37 between kerbs. |
 | Pavement `tile-low` | 1 × 1 | 0.5 (1), style Y × 2 | 0.5 × 0.02 × 0.5 | Kerb-height strip beside the road tile's own kerb. |
-| Cottage (type-a) | 3 × 3 | 1 (0.78), offset z −0.15 | 1.30 × 0.83 × 1.03 | ≈ 3× a car length, 3.5× a lane; front yard reads. |
-| Townhouse (type-k / type-r) | 2 × 3 | 1 (0.88 / 0.87), offset z −0.15 | 0.92–1.03 × 1.15 × 1.02 | Kit-native: storeys and doors match across types. |
-| Family home (type-e) | 3 × 3 | 1 (0.78), offset z −0.15 | 1.30 × 1.14 × 1.03 | v0.3: type-c moved to Suburban. |
-| Bungalow (type-i / type-m) | 3 × 3 | 1 (new), offset z −0.15 / none | 1.29 × 0.74 × 1.03 / 1.43 × 0.74 × 1.43 | Single storey. The L-shaped type-m fills the footprint, so no nudge. |
-| Suburban (type-c / -o / -s / -u) | 3 × 3 | 1 (type-c 0.78), offset z −0.15 | 1.27–1.43 × 1.03–1.14 × 1.03–1.09 | Two storeys with an attached garage. |
-| Big house (type-d / type-n) | 4 × 3 | 1 (new), offset z −0.15 / −0.04 | 1.76 × 1.24 × 1.03 / 1.78 × 1.14 × 1.38 | type-n is deeper, so only a small nudge. |
-| Corner shop (KayKit, composed) | 2 × 2 | 1 (new) | 0.92 × 0.76 × 0.92 | Scale is baked into the composed GLB. |
-| Supermarket (commercial building-e) | 4 × 3 | 1 (new) | 1.64 × 0.89 × 1.01 | Kit-native; low and wide. |
-| Church (Poly Pizza, composed) | 2 × 3 | 1 (new) | 0.78 × 1.75 × 1.42 | Tallest building; scale baked into the GLB. |
+| Cottage (type-a) | 4 × 4 | 4/3 (0.78), offset z −0.2 | 1.73 × 1.11 × 1.37 | ≈ 3.6× a car length, 4.7× a lane; front yard reads. |
+| Townhouse (type-k / type-r) | 3 × 4 | 4/3 (0.88 / 0.87), offset z −0.2 | 1.23–1.37 × 1.53 × 1.36 | Same scale as the other homes: storeys and doors match across types. |
+| Family home (type-e) | 4 × 4 | 4/3 (0.78), offset z −0.2 | 1.73 × 1.52 × 1.37 | v0.3: type-c moved to Suburban. |
+| Bungalow (type-i / type-m) | 4 × 4 | 4/3 (new), offset z −0.2 / none | 1.71 × 0.98 × 1.37 / 1.90 × 0.98 × 1.90 | Single storey. The L-shaped type-m fills the footprint, so no nudge. |
+| Suburban (type-c / -o / -s / -u) | 4 × 4 | 4/3 (type-c 0.78), offset z −0.2 | 1.69–1.90 × 1.38–1.52 × 1.37–1.45 | Two storeys with an attached garage. |
+| Big house (type-d / type-n) | 5 × 4 | 4/3 (new), offset z −0.2 / −0.05 | 2.34 × 1.65 × 1.37 / 2.38 × 1.52 × 1.84 | type-n is deeper, so only a small nudge. |
+| Corner shop (KayKit, composed) | 3 × 3 | 1.4 (new) | 1.29 × 1.06 × 1.29 | Composed GLB normalised to 0.92 wide; WP-17 scales it 1.4 (not 1.5) so it stays below the two-storey homes. |
+| Supermarket (commercial building-e) | 5 × 4 | 4/3 (new) | 2.19 × 1.19 × 1.34 | Low and wide. |
+| Church (Poly Pizza, composed) | 3 × 4 | 4/3 (new) | 1.04 × 2.33 × 1.89 | Tallest building. |
 | Pool (composed) | 4 × 3 | 0.5 (new) | 2 × 0.36 × 1.44 | Basin at the back, deck with two parasols in front. |
 | Fountain (composed) | 2 × 2 | 0.45 (new) | 0.9 × 0.22 × 0.9 | |
 | Roundabout | 6 × 6 (3 × 3 road blocks) | 1 (new) | 3 × 0.02 × 3 | Same tile scale as the road pieces. |
@@ -90,7 +92,7 @@ This section is **current**. It matches `src/catalog/models.ts` and `objects.ts`
 | Bus stop | 2 × 1 | 0.8 (1) | 0.76 × 0.34 × 0.37 | |
 | Postbox | 1 × 1 | 1.4 (2) | 0.15 × 0.24 × 0.15 | ≈ car height, ~1.2× real so it stays readable. |
 | Lamppost `light-curved` | 1 × 1 | 1 (1.35), offset z 0.087, style 1.5 × 1 × 1.15 | 0.075 × 0.675 × 0.26 | Taller than garage and bus-stop bench, below the eaves. |
-| Oak / Pine (platformer) | 1 × 1 | 0.45 (0.36) | 0.49 × 0.87 / 0.43 × 0.90 | About cottage height, below townhouse ridges. |
+| Oak / Pine (platformer) | 1 × 1 | 0.45 (0.36) | 0.49 × 0.87 / 0.43 × 0.90 | About 80 % of the cottage since WP-17, below townhouse ridges. |
 | Bush (platformer `tree`) | 1 × 1 | 0.3 (new), offset y −0.26, style Y × 0.58 | ≈ 0.33 wide, a low round canopy | The trunk is sunk out of sight. Trees and bushes also get ±12 % size jitter. |
 | Birch `tree-large` / `-small` | 1 × 1 | 1.15 (1) | 0.24 × 0.88 / 0.65 | |
 | Tall / low fence | cell edge (0.5) | 0.5 (1), style Y 1.8 / 1.4 | 0.5 long, 0.21 / 0.10 tall | ≈ 1.65 m / 0.8 m. |
@@ -98,13 +100,13 @@ This section is **current**. It matches `src/catalog/models.ts` and `objects.ts`
 | Planter (suburban) | 1 × 1 | 1 (new) | 0.40 × 0.18 × 0.30 | |
 | Bench (holiday) | 1 × 1 | 0.3 (0.26, unused) | 0.34 × 0.22 × 0.19 | |
 | Barbecue (Poly Pizza, composed) | 1 × 1 | 1 (new) | 0.15 × 0.20 × 0.15 | Scale baked into the GLB. |
-| Swing (Poly Pizza, composed) | 2 × 1 | 1 (new) | 0.56 × 0.42 × 0.32 | Scale baked into the GLB; frame along x. |
+| Swing (Poly Pizza, composed) | 2 × 1 | 0.87 (new) | 0.48 × 0.37 × 0.28 | Composed GLB is 0.56 wide; WP-17 made it 13 % smaller. Frame along x. |
 | Flowers / grass tufts | scatter | 0.35 (0.35) | 0.1–0.27 clumps | One clump per cell (same density per area as v0.1). |
 | Walkway | 1 × 1 | procedural | path 0.25 wide (half a cell) | Hub + arms per cell. The ghost uses `path-short` at 1.25 (0.25²). |
 | Cars (`LifeSystem.CAR_SCALE`) | road lane | 0.17 (0.14) | 0.22–0.26 × 0.19–0.26 × 0.43–0.49 | Fits one lane. |
 | Decor ring oak / pine | outside the plot | rendered at 0.36 (`DecorRing.TEMPLATE_RESCALE`) | unchanged | The ring stays exactly as in v0.1. |
 
-Side-by-side evidence (same camera, v0.1 vs WP-12): `artifacts/wp-12/proportions-{before,after}.png`. `artifacts/` is gitignored, so this exists only in the main checkout.
+Side-by-side evidence (same camera, v0.1 vs WP-12): `artifacts/wp-12/proportions-{before,after}.png`; WP-17: `artifacts/wp-17a/{before,after}/`. `artifacts/` is gitignored, so this exists only in the main checkout.
 
 ## Pivot and orientation conventions
 

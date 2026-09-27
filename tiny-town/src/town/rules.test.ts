@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { OBJECTS } from '../catalog/objects';
 import { createGameBus } from '../game/events';
 import { createSeededRandom } from '../utils/random';
+import { rotatedFootprint } from './grid';
 import { planAction, RULE_MESSAGES, type PlanContext } from './rules';
 import { serializeTown } from './serialize';
 import { TownEditor } from './TownEditor';
@@ -581,24 +582,39 @@ describe('road features — the roundabout (6×6 cells = 3×3 road blocks, block
 });
 
 // ---------------------------------------------------------------------------------------------
-describe('multi-cell footprints (WP-12)', () => {
+describe('multi-cell footprints (WP-12; WP-17 sizes: homes 4 × 4, townhouse 3 × 4, big house 5 × 4)', () => {
   it('invalid: a footprint partly out of bounds → out-of-bounds, on every side', () => {
     const state = makeState();
-    expectFail(plan(state, placeObj('cottage', W - 2, 2)), 'out-of-bounds', 'Outside your plot');
-    expectFail(plan(state, placeObj('cottage', 2, D - 2)), 'out-of-bounds', 'Outside your plot');
+    expectFail(plan(state, placeObj('cottage', W - 3, 2)), 'out-of-bounds', 'Outside your plot');
+    expectFail(plan(state, placeObj('cottage', 2, D - 3)), 'out-of-bounds', 'Outside your plot');
     expectFail(plan(state, placeObj('cottage', -1, 2)), 'out-of-bounds', 'Outside your plot');
+    expectFail(plan(state, placeObj('cottage', 2, -1)), 'out-of-bounds', 'Outside your plot');
     expectFail(plan(state, placeObj('garage', 3, D - 1)), 'out-of-bounds', 'Outside your plot');
-    expectOk(plan(state, placeObj('cottage', W - 3, D - 3)));
+    expectOk(plan(state, placeObj('cottage', W - 4, D - 4)));
+  });
+
+  it('plot-edge bounds of every WP-17 building, flush in each corner, at rotation 0 and 1', () => {
+    const kinds = ['cottage', 'bungalow', 'family-home', 'garage-house', 'townhouse', 'big-house', 'corner-shop', 'supermarket', 'church'] as const;
+    for (const kind of kinds) {
+      for (const rotation of [0, 1] as const) {
+        const [w, d] = rotatedFootprint(OBJECTS[kind].footprint, rotation);
+        for (const [x, z] of [[0, 0], [W - w, 0], [0, D - d], [W - w, D - d]]) expectOk(plan(makeState(), placeObj(kind, x, z, rotation)));
+        // One cell further out on either axis leaves the plot.
+        expectFail(plan(makeState(), placeObj(kind, W - w + 1, 0, rotation)), 'out-of-bounds');
+        expectFail(plan(makeState(), placeObj(kind, 0, D - d + 1, rotation)), 'out-of-bounds');
+      }
+    }
   });
 
   it('invalid: any footprint cell occupied → occupied', () => {
     const state = makeState();
-    object(state, 'oak', 4, 4); // bottom-right cell of a 3×3 anchored at (2, 2)
+    object(state, 'oak', 5, 5); // bottom-right cell of a 4×4 anchored at (2, 2)
     expectFail(plan(state, placeObj('family-home', 2, 2)), 'occupied', 'Something is already here');
     expectOk(plan(state, placeObj('family-home', 1, 1)));
     // Two houses may not overlap either.
-    object(state, 'townhouse', 0, 0); // covers 0..1 × 0..2
-    expectFail(plan(state, placeObj('cottage', 1, 2)), 'occupied');
+    object(state, 'townhouse', 0, 0); // covers 0..2 × 0..3
+    expectFail(plan(state, placeObj('cottage', 2, 3)), 'occupied');
+    expectOk(plan(state, placeObj('corner-shop', 3, 0))); // 3 × 3 next to it: 3..5 × 0..2
   });
 
   it('invalid: any footprint cell on bad ground → blocked-by-road / needs-ground', () => {
@@ -610,20 +626,36 @@ describe('multi-cell footprints (WP-12)', () => {
     expectFail(plan(other, placeObj('townhouse', 2, 2)), 'needs-ground', 'Townhouse needs grass, meadow or open field');
   });
 
-  it('rotation swaps the footprint: a 2×3 townhouse at rotation 1 occupies 3×2', () => {
+  it('rotation swaps the footprint: a 3×4 townhouse at rotation 1 occupies 4×3', () => {
     const state = makeState();
-    const changes = expectOk(plan(state, placeObj('townhouse', 5, 6, 1)));
+    const changes = expectOk(plan(state, placeObj('townhouse', 4, 5, 1)));
     state.applyChanges(changes);
     const id = changes[0].layer === 'object' ? changes[0].object.id : -1;
-    for (const [x, z] of [[5, 6], [6, 6], [7, 6], [5, 7], [6, 7], [7, 7]]) expect(state.getObjectAt({ x, z })?.id).toBe(id);
-    expect(state.getObjectAt({ x: 5, z: 5 })).toBeUndefined();
-    expect(state.getObjectAt({ x: 4, z: 6 })).toBeUndefined();
+    for (let z = 5; z <= 7; z += 1) for (let x = 4; x <= 7; x += 1) expect(state.getObjectAt({ x, z })?.id, `${x},${z}`).toBe(id);
+    expect(state.getObjectAt({ x: 4, z: 4 })).toBeUndefined();
+    expect(state.getObjectAt({ x: 3, z: 5 })).toBeUndefined();
     // Rotation 0 would reach row 8 = out of bounds; rotation 1 fits.
-    expectFail(plan(makeState(), placeObj('townhouse', 5, 6, 0)), 'out-of-bounds');
+    expectFail(plan(makeState(), placeObj('townhouse', 4, 5, 0)), 'out-of-bounds');
+    expectOk(plan(makeState(), placeObj('townhouse', 4, 5, 3)));
+  });
+
+  it('rotation swaps the footprint: a 5×4 big house at rotation 1 occupies 4×5', () => {
+    const state = makeState();
+    const changes = expectOk(plan(state, placeObj('big-house', 4, 3, 1)));
+    state.applyChanges(changes);
+    const cells = [...Array(D).keys()].flatMap((z) => [...Array(W).keys()].map((x) => ({ x, z }))).filter((c) => state.getObjectAt(c));
+    expect(cells).toHaveLength(20);
+    expect(cells.every((c) => c.x >= 4 && c.x <= 7 && c.z >= 3 && c.z <= 7)).toBe(true);
+    // At rotation 0 it is 5 wide: x 4..8 leaves the 8-wide plot.
+    expectFail(plan(makeState(), placeObj('big-house', 4, 3, 0)), 'out-of-bounds');
+    expectOk(plan(makeState(), placeObj('big-house', 3, 3, 2)));
+    // The supermarket (also 5 × 4) behaves the same.
+    expectOk(plan(makeState(), placeObj('supermarket', 4, 3, 1)));
+    expectFail(plan(makeState(), placeObj('supermarket', 4, 3, 0)), 'out-of-bounds');
   });
 
   it('bulldozing any footprint cell removes the whole object', () => {
-    for (const [x, z] of [[2, 2], [3, 3], [4, 4], [4, 2], [2, 4]]) {
+    for (const [x, z] of [[2, 2], [3, 3], [5, 5], [5, 2], [2, 5]]) {
       const state = makeState();
       const id = object(state, 'cottage', 2, 2);
       const changes = expectOk(plan(state, bulldoze(x, z)));

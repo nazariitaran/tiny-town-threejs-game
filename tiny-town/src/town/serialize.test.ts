@@ -16,9 +16,9 @@ function ok(result: SavedTown | Error): SavedTown {
   return result;
 }
 
-/** A minimal valid current (v3) save for a w×d plot with all-field ground. */
+/** A minimal valid current (v4) save for a w×d plot with all-field ground. */
 function blank(w = PLOT_WIDTH, d = PLOT_DEPTH): SavedTown {
-  return { version: 3, width: w, depth: d, ground: [['field', w * d]], objects: [], edges: [], nextObjectId: 1 };
+  return { version: 4, width: w, depth: d, ground: [['field', w * d]], objects: [], edges: [], nextObjectId: 1 };
 }
 
 /** Ground with the 2 × 2 road block at (0, 0)..(1, 1) and field elsewhere. */
@@ -43,9 +43,9 @@ function groundWithRoad(x0: number, z0: number, w: number, d: number): Array<[st
 const roundabout = (id: number, x: number, z: number) => ({ id, kind: 'roundabout', anchor: { x, z }, rotation: 0, variant: 0 });
 
 describe('serializeTown', () => {
-  it('writes save version 3', () => {
-    expect(CURRENT_SAVE_VERSION).toBe(3);
-    expect(serializeTown(new TownState(PLOT_WIDTH, PLOT_DEPTH)).version).toBe(3);
+  it('writes save version 4', () => {
+    expect(CURRENT_SAVE_VERSION).toBe(4);
+    expect(serializeTown(new TownState(PLOT_WIDTH, PLOT_DEPTH)).version).toBe(4);
   });
 
   it('encodes an empty plot as one RLE run', () => {
@@ -132,6 +132,7 @@ describe('parseSave rejects corrupted / foreign data without throwing', () => {
     ['version 0 without a migration', { ...blank(), version: 0 }],
     ['a v1 (v0.1) save', { ...blank(24, 24), version: 1 }],
     ['a v2 (v0.2) save', { ...blank(), version: 2 }],
+    ['a v3 (v0.3) save', { ...blank(), version: 3 }],
     ['future version', { ...blank(), version: CURRENT_SAVE_VERSION + 1 }],
     ['missing width', { ...blank(), width: undefined }],
     ['zero depth', { ...blank(), depth: 0 }],
@@ -157,6 +158,31 @@ describe('parseSave rejects corrupted / foreign data without throwing', () => {
     const result = parseSave(JSON.stringify(v2));
     expect(result).toBeInstanceOf(Error);
     expect((result as Error).message).toBe('No migration from save version 2');
+  });
+
+  it('rejects a v3 save with "No migration from save version 3" (WP-17: bigger footprints, fresh town)', () => {
+    // A v0.3 town: a 3 × 3 cottage next to a 3 × 3 family home would overlap as 4 × 4 lots.
+    const objects = [
+      { id: 1, kind: 'cottage', anchor: { x: 2, z: 2 }, rotation: 0, variant: 0 },
+      { id: 2, kind: 'family-home', anchor: { x: 5, z: 2 }, rotation: 0, variant: 0 },
+    ];
+    const v3 = { ...blank(), version: 3, objects, nextObjectId: 3 };
+    const result = parseSave(JSON.stringify(v3));
+    expect(result).toBeInstanceOf(Error);
+    expect((result as Error).message).toBe('No migration from save version 3');
+    // The same town as v4 loads, minus the overlapping home (parseSave drops overlaps).
+    const v4 = ok(parseSave(JSON.stringify({ ...v3, version: 4 })));
+    expect(v4.objects.map((o) => o.kind)).toEqual(['cottage']);
+  });
+
+  it('accepts a v4 save of the WP-17 footprints (a 5 × 4 big house turned beside a 3 × 4 church)', () => {
+    const objects = [
+      { id: 1, kind: 'big-house', anchor: { x: 2, z: 2 }, rotation: 1, variant: 1 },
+      { id: 2, kind: 'church', anchor: { x: 6, z: 2 }, rotation: 2, variant: 0 },
+    ];
+    const save = ok(parseSave(JSON.stringify({ ...blank(), objects, nextObjectId: 3 })));
+    expect(save.version).toBe(4);
+    expect(save.objects).toEqual(objects);
   });
 
   it('rejects hostile objects whose getters throw', () => {
@@ -271,7 +297,7 @@ describe('parseSave sanitises and clamps', () => {
     const ground = Array.from({ length: d }, () => [['grass', w]] as Array<[string, number]>).flat();
     const save = ok(
       parseSave({
-        version: 3,
+        version: 4,
         width: w,
         depth: d,
         ground,
@@ -342,11 +368,11 @@ describe('parseSave sanitises and clamps', () => {
 });
 
 describe('parseSave and road features', () => {
-  it('a version 3 save with a roundabout on its road round-trips through JSON unchanged', () => {
+  it('a version 4 save with a roundabout on its road round-trips through JSON unchanged', () => {
     const editor = makeEditor();
     expect(editor.apply({ type: 'place-object', kind: 'roundabout', cell: { x: 10, z: 10 }, rotation: 0 }, 'roundabout').ok).toBe(true);
     const saved = serializeTown(editor.state, camera);
-    expect(saved.version).toBe(3);
+    expect(saved.version).toBe(4);
     expect(saved.objects.map((o) => o.kind)).toEqual(['roundabout']);
     const parsed = ok(parseSave(JSON.stringify(saved)));
     expect(parsed).toEqual(saved);
@@ -381,7 +407,7 @@ describe('parseSave and road features', () => {
 });
 
 describe('migration hook', () => {
-  it('has no built-in migrations (v0.3 dropped v1/v2 support)', () => {
+  it('has no built-in migrations (v0.3 dropped v1/v2 support; WP-17 has no v3 → v4 either)', () => {
     expect(SAVE_MIGRATIONS).toEqual({});
   });
 
@@ -389,6 +415,7 @@ describe('migration hook', () => {
     // Pretend version 0 stored ground as a flat list of kinds.
     const legacy = { version: 0, width: 2, depth: 1, cells: ['road', 'grass'], things: [] };
     const migrations = {
+      3: (raw: Record<string, unknown>) => ({ ...raw, version: 4 }),
       2: (raw: Record<string, unknown>) => ({ ...raw, version: 3 }),
       1: (raw: Record<string, unknown>) => ({ ...raw, version: 2 }),
       0: (raw: Record<string, unknown>) => ({

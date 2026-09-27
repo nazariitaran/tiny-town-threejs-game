@@ -146,12 +146,14 @@ export interface TownStateReader {
 
 /**
  * Versioned save format. Bump `version` (and add a migration in serialize.ts if old saves must load).
+ * V4 (WP-17): homes, shops and the church got bigger footprints (e.g. 3 × 3 → 4 × 4), so a v3 town
+ * would overlap; v3 saves are rejected ("No migration from save version 3") and the game starts fresh.
  * V3 (v0.3): the catalog re-organised (object/edge kinds renamed, roundabouts). Older saves are
  * rejected, so the game starts a fresh town; v0.3 dropped the v1/v2 migrations on purpose.
  * V2 (WP-12): 48 × 48 half-unit cells, roads in aligned 2 × 2 blocks, multi-cell houses.
  */
-export interface SavedTownV3 {
-  version: 3;
+export interface SavedTownV4 {
+  version: 4;
   width: number;
   depth: number;
   /** Row-major (z * width + x) ground codes, run-length encoded: [[kind, count], ...]. */
@@ -163,4 +165,4 @@ export interface SavedTownV3 {
 }
 
 /** The current save format. */
-export type SavedTown = SavedTownV3;
+export type SavedTown = SavedTownV4;
