@@ -137,4 +137,3 @@ export type SavedTown = SavedTownV2;
  * @deprecated Old name, kept only so modules outside WP-12 (persistence/SaveStore.ts) compile
  * unchanged. It now means the CURRENT format (SavedTownV2); use `SavedTown`.
  */
-export type SavedTownV1 = SavedTown;

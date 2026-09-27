@@ -27,7 +27,7 @@
 import { SAVE_STORAGE_KEY, SETTINGS_STORAGE_KEY } from '../game/config';
 import type { GameBus } from '../game/events';
 import { parseSave, type ParseOptions } from '../town/serialize';
-import type { SavedTownV1 } from '../town/types';
+import type { SavedTown } from '../town/types';
 
 /** The subset of the Web Storage API SaveStore needs (window.localStorage satisfies it). */
 export interface StorageLike {
@@ -106,7 +106,7 @@ export class SaveStore {
   private readonly now: () => number;
 
   private bus: GameBus | null = null;
-  private snapshot: (() => SavedTownV1) | null = null;
+  private snapshot: (() => SavedTown) | null = null;
   private debounceMs = AUTOSAVE_DEBOUNCE_MS;
   private timer: TimerHandle | null = null;
   private unsubscribe: (() => void) | null = null;
@@ -141,7 +141,7 @@ export class SaveStore {
   }
 
   /** The stored save, validated/migrated/clamped by parseSave, or null if absent or unusable. */
-  read(): SavedTownV1 | null {
+  read(): SavedTown | null {
     const text = this.getItem(this.saveKey);
     if (text === null) return null;
     const parsed = parseSave(text, this.plot);
@@ -153,7 +153,7 @@ export class SaveStore {
   }
 
   /** Write a save now. Returns false (and sets lastError) on quota/serialization errors. */
-  write(save: SavedTownV1): boolean {
+  write(save: SavedTown): boolean {
     if (!this.storage) return false;
     let text: string;
     try {
@@ -185,7 +185,7 @@ export class SaveStore {
    * Start autosaving: debounced `debounceMs` after 'town:changed' (cause ≠ 'load'), writes
    * `snapshot()`. Calling again re-attaches (previous subscription removed).
    */
-  attachAutosave(bus: GameBus, snapshot: () => SavedTownV1, debounceMs = AUTOSAVE_DEBOUNCE_MS): void {
+  attachAutosave(bus: GameBus, snapshot: () => SavedTown, debounceMs = AUTOSAVE_DEBOUNCE_MS): void {
     this.detachAutosave();
     this.bus = bus;
     this.snapshot = snapshot;
@@ -273,7 +273,7 @@ export class SaveStore {
 
   private writeSnapshot(): boolean {
     if (!this.snapshot) return false;
-    let save: SavedTownV1;
+    let save: SavedTown;
     try {
       save = this.snapshot();
     } catch (error) {
