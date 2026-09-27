@@ -123,7 +123,7 @@ Variant choice (e.g. tree shape, house colour) uses the seeded RNG at placement 
 - Shared materials: Kenney kits use one colour-atlas texture per kit, so the whole town should need a handful of materials. Don't clone materials per instance.
 - Ghost preview uses `ModelLibrary.createObject()` with a separate translucent tinted material (not shared with the town).
 - Ambient cars (`LifeSystem`) are one `BatchedMesh`: +1 main-pass and +1 shadow draw call.
-- FX (`PlacementFx`) use pooled particles, at most 2 draw calls, and none when idle.
+- FX (`PlacementFx`) use pooled particles in 3 meshes (soft dust, chips/leaves/petals, sparkles): at most 3 draw calls, and none when idle.
 
 ## Budgets (full 48×48-cell town, desktop 1280×720; mobile 390×844)
 The `stress-town` state is the gate. "Measured" gives the latest number and says where it came from. v0.2 has not been re-measured on the production preview; `docs/release.md` has the v0.1 preview table.
