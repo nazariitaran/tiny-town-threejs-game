@@ -382,6 +382,15 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
   - Real-input mode toggle that persists across reload.
   - A 20 s day → night → day capture in `artifacts/wp-16/`.
 
+### WP-17 — Bigger buildings, smaller swing, dark shops at night
+- **Status: in progress** on the integration branch `building-sizes` (owner-requested 2026-09-27). It merges into `main` after the owner's approval. The version label is the owner's call.
+- **Contract:** `docs/plans/wp-17-building-sizes.md`. It holds the footprint table, the save v4 decision, ownership and acceptance.
+- **Summary:**
+  - Homes and town buildings grow by one cell each way, with models scaled to fill the new lot.
+  - The swing gets about 10–15% smaller.
+  - The supermarket, corner shop and church don't light up at night.
+- **Work split:** 17a Scale & layouts (port 5218) and 17b Shop lights (5219) run in parallel; then 17c QA (5221).
+
 ## 5. Checkpoints (integrator runs these on merged main)
 
 > Historical: M1, M2 and M3 all passed on 2026-09-26 (`docs/checkpoints/m1.md`–`m3.md`). Reuse the procedure for future checkpoints.

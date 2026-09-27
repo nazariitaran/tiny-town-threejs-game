@@ -18,6 +18,7 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
 - **WP-16 day/night is complete:** the owner approved it on 2026-09-27 and `v0.3-day-night` is merged into `main`. See "WP-16 as built" below.
   - Gates on the branch after all merges (2026-09-27): `npm run verify` green (21 files, 387 unit tests, build OK); `npm run test:e2e` green: 114 tests, 100 passed, 14 skipped by design, 0 failed (6.1 min).
   - Worktrees `wp-16a/b/c` removed after their evidence was copied to `artifacts/wp-16a/`, `wp-16b/`, `wp-16c/`.
+- **In flight: WP-17** (bigger buildings, smaller swing, dark shops at night) on the integration branch `building-sizes`. Plan: `docs/plans/wp-17-building-sizes.md`. Worktrees `wp-17a` (5218) and `wp-17b` (5219), then `wp-17c` (5221).
 - **Where current facts live:**
   - grid, rules, save, modules, diagnostics and budgets: `docs/design/03-architecture.md`;
   - asset scales and footprints: `docs/assets/models.md`;
