@@ -55,18 +55,33 @@ Test hooks stay in production because the canvas inspector, the e2e suite and th
 - Never add hooks that run on load or change defaults.
 
 ## Budgets (targets in `docs/design/03-architecture.md`)
-Numbers are labelled with their version and source. **Neither v0.2 nor v0.3 has been re-profiled on the production preview.** The v0.3 column is the working tree before release (evidence, local only: `artifacts/v03/stress-desk4/`, `artifacts/v03/stress-mobile4/`). Before the next release, re-run the v0.1 method with a fresh run id.
+Numbers are labelled with their version and source.
+- **v0.3 was re-measured on the production preview** on 2026-09-27, package version 0.3.0, with the WP-11 method: `vite preview`, headless full Chromium, real GPU (ANGLE Metal, M2 Max).
+- **Evidence** (local only, `artifacts/v03-release/`):
+  - frame-time profiles: `profile-*.json`;
+  - network / debug-gating checks: `release-*.json`;
+  - the e2e run against the preview: `e2e-preview.txt`;
+  - the scripts: copies of WP-11's, with `profile.mjs --time=T` added to pin the time of day.
+- **Other columns:** v0.2 has only dev-server numbers; the v0.1 column is WP-11's.
 
-| Metric | Budget (desktop / mobile) | v0.1 — WP-11, production preview, 2026-09-26 (desktop / Pixel 7 emu) | v0.2 — 2026-09-27 | v0.3 working tree — 2026-09-27 (not released) |
+| Metric | Budget (desktop / mobile) | v0.1 — WP-11, production preview, 2026-09-26 (desktop / Pixel 7 emu) | v0.2 — 2026-09-27 | **v0.3 — production preview, 2026-09-27** (desktop / Pixel 7 emu) |
 | --- | --- | --- | --- | --- |
-| Draw calls (stress-town) | 150 / 120 | 25 / 25 | 30 / 30 (WP-12 inspector, dev server) | 32 / 32 (dev-server inspector) |
-| Triangles (stress-town) | 400k / 250k | 232k / 195k | 311k / 243.5k (same run; mobile headroom ~6.5k) | 306.1k / 239.1k (same run; mobile headroom ~10.9k) |
-| Textures | ≤ 30 | 11–14 / 10–13 | 11 / 10 (stress-town, same run) | 11 / 10 (same run) |
-| Shadow map | 2048 / 1024 | 2048 (high tier) / 1024 (low tier) | unchanged | unchanged |
+| Draw calls (stress-town) | 150 / 120 | 25 / 25 | 30 / 30 (WP-12 inspector, dev server) | Day 32 / 32; night (t 0.82) 35 / 34 |
+| Triangles (stress-town) | 400k / 250k | 232k / 195k | 311k / 243.5k (same run; mobile headroom ~6.5k) | Day 306.1k / 237.0k (mobile headroom ~13k); night 300.0k / 232.9k (3 cars instead of 6) |
+| Draw calls / triangles (sample-town; night-town) | — | — | — | Day 56 / 56, 182.8k / 117.9k; night-town 60 / 59, 176.8k / 111.8k |
+| Textures | ≤ 30 | 11–14 / 10–13 | 11 / 10 (stress-town, same run) | Stress-town 14 / 13. Sample-town 28 / 27 (the composed models' own textures plus the 4 glow masks) |
+| Shadow map | 2048 / 1024 | 2048 (high tier) / 1024 (low tier) | unchanged | unchanged (quality high / low; mobile canvas 618×1372) |
 | DPR cap | 2 / 1.5 | 2 / 1.5 (canvas 618×1372 at 412 CSS px) | unchanged | unchanged |
-| Frame time (stress-town, headless full Chromium, M2 Max) | ≤ 8 ms | 1.36 ms mean (738 fps uncapped) / 1.41 ms | not re-measured | not measured |
-| Initial download (JS+CSS+font+models+SFX+icons) | ≤ 8 MB | 3.14 MB over the network; 3.28 MB in `dist/` without maps | 3.29 MB in `dist/` without maps **and without the 4.68 MB music file**, which streams after Start. WP-13 measured on the dev server: 2.38 MB before Start with no music requests | not measured (on disk: models 3.58 MB, icons 259 KB) |
-| Main JS chunk | code-split if > 900 kB | 830 kB (221 kB gzip) → no split | 843 kB (225 kB gzip) → no split | not measured |
+| Frame time (stress-town, headless full Chromium, M2 Max, uncapped) | ≤ 8 ms | 1.36 ms mean (738 fps uncapped) / 1.41 ms | not re-measured | Day 1.38 ms mean (p95 2.7) / 1.39 ms. Night 1.37 / 1.38 ms. Sample-town 1.49 / 1.45 ms; night-town 1.50 / 1.47 ms |
+| Initial download before the title (network) | ≤ 8 MB | 3.14 MB over the network; 3.28 MB in `dist/` without maps | 3.29 MB in `dist/` without maps **and without the 4.68 MB music file**, which streams after Start. WP-13 measured on the dev server: 2.38 MB before Start with no music requests | **4.70 MB** over the network before the title (170 requests, 0.3–0.37 s to the title); 4.98 MB after Start with every dock category opened. The music streams after Start and is not counted. `dist/` without maps or music: 4.94 MB (models 3.59, JS/CSS/HTML 0.91, icons 0.26, fonts 0.14, SFX 0.05) |
+| Main JS chunk | code-split if > 900 kB | 830 kB (221 kB gzip) → no split | 843 kB (225 kB gzip) → no split | **887 kB** (240 kB gzip) → no split yet, but only 13 kB under the threshold |
+
+**v0.3 release checks (production preview and a sub-path static host, 2026-09-27).**
+- **Network:** 0 failed requests, 0 console or page errors, and no request outside the base path. This holds both on `vite preview` and with `dist/` served from `/tiny-town/` by a plain static server.
+- **Debug gating:** no lil-gui without `?debug`; with `?debug` the panel appears. The globals are `__THREE__`, `__THREE_GAME_TEST_HOOKS__` and `__THREE_GAME_DIAGNOSTICS__`, as the policy above allows.
+- **Start:** Start gets to `building` through real input, and music is requested only after Start.
+- **e2e against the preview:** the whole suite through `artifacts/v03-release/playwright.preview.config.ts`: 114 tests, 100 passed, 14 skipped by design, 0 failed (6.0 min).
+- **CPU profile (stress-town, desktop):** time goes to native GL calls, `multiDrawElementsWEBGL` 25.5%, then `bindTexture` 11.5%. The picture is the same as v0.1.
 
 **Frame-time method (v0.1).**
 - Chromium runs with `--disable-gpu-vsync --disable-frame-rate-limit`, so frames aren't capped.

@@ -192,9 +192,10 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
 **Touch precision**
 - At the default phone pose a cell is about 10.6 px, so small props need a pinch-zoom on touch.
 
-**Measurements not redone for v0.2**
-- The budget table in `docs/release.md` was measured on the v0.1 production preview. v0.2 and v0.3 have only dev-server inspector numbers (WP-12 and WP-15 above).
-- Frame time and download size were not re-measured on the preview for v0.2. The one exception is dist size, measured 2026-09-27: 3.29 MB excluding maps and music.
+**Release measurements**
+- v0.3 (package 0.3.0) was re-measured on the production preview on 2026-09-27 (`docs/release.md` §Budgets; evidence in `artifacts/v03-release/`). Every budget is met.
+- The main JS chunk is 887 kB, 13 kB under the 900 kB code-split threshold, so the next feature will likely need a split (lazy `lil-gui` saves about 30 kB).
+- The sample town uses 28 of 30 textures.
 
 **Audio**
 - No human has listened to the SFX or the music.
@@ -211,12 +212,10 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
 - `tests/helpers.ts` imports `UI_TEST_IDS` via `src/ui/UiRoot.ts` in Node. `UiRoot.ts` must stay free of CSS and asset side effects; the ids live in `src/ui/testIds.ts`.
 
 **Stale code comments** (owners, when they next touch these files)
-- `package.json`: `version` is still `0.1.0`.
 - The `events.ts`, `UiRoot.ts` and `types.ts` comments listed here before were fixed in `0e760b5`.
 
 **v0.3 before release**
-- Re-measure `docs/release.md` §Budgets on the production preview (v0.2 and v0.3 have only dev-server numbers).
-- `package.json` `version` → 0.3.0 at release.
+- Done 2026-09-27: production-preview measurements (all budgets met) and `package.json` 0.3.0.
 - `models.md`'s screenshots are from sourcing time (44 models); the `asset-gallery` state is the current visual record.
 
 ## Backlog (post-v1 from the M3 review, WP-11, and v0.2)
@@ -242,5 +241,5 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
 - Optional: expand the plot. `PLOT_WIDTH/DEPTH` keep this cheap.
 
 ## Next actions
-1. Before any release (v0.3), re-measure `docs/release.md` §Budgets on the production preview. Use a fresh run id, and label the results with the date and version.
+1. v0.3 is measured and versioned (0.3.0). What's left is the deploy itself (`docs/release.md` §Build and deploy) and, if wanted, a release tag.
 2. For the next iteration, open a new WP section in `docs/PLAN.md`. Take ports from 5218 up and follow the `docs/HANDOVER.md` runbook with an integration branch.

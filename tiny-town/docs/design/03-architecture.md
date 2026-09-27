@@ -172,17 +172,17 @@ Plan and rationale: `docs/plans/wp-16-day-night.md`. The as-built deviations are
 - **Life:** `LifeSystem.setNight(n)` → `TrafficSim.setDensity(1 − 0.5·n)`, so there are fewer cars at night. Car Kit cars face native +Z (`FRONT_ROTATION` 0 since v0.3).
 
 ## Budgets (full 48×48-cell town, desktop 1280×720; mobile 390×844)
-The `stress-town` state is the gate. "Measured" gives the latest number and says where it came from. Neither v0.2 nor v0.3 has been re-measured on the production preview; `docs/release.md` has the v0.1 preview table.
+The `stress-town` state is the gate. "Measured" gives the latest number and says where it came from. v0.3 was re-measured on the production preview on 2026-09-27; `docs/release.md` §Budgets has the full table and method.
 
 | Metric | Budget desktop | Budget mobile | Measured (desktop / mobile) |
 | --- | --- | --- | --- |
-| Draw calls | ≤ 150 | ≤ 120 | Day 32 / 32; night (t 0.82) 35 / 34 (v0.3 WP-16b, dev-server inspector, 2026-09-27); v0.2: 30 / 30 (WP-12 inspector) |
-| Triangles | ≤ 400k | ≤ 250k | Day 306.1k / 239.1k (v0.3 run; mobile headroom ~10.9k); night 300.0k / 232.9k (fewer cars); v0.2: 311k / 243.5k |
-| Textures | ≤ 30 | ≤ 30 | 14 in the stress town since WP-16 (+4 glow masks, also by day; v0.3 WP-15 run: 11 / 10). The sample town reports 28 |
+| Draw calls | ≤ 150 | ≤ 120 | Day 32 / 32; night (t 0.82) 35 / 34 (v0.3 production preview, 2026-09-27; `docs/release.md`); v0.2: 30 / 30 (WP-12 inspector) |
+| Triangles | ≤ 400k | ≤ 250k | Day 306.1k / 237.0k (v0.3 production preview; mobile headroom ~13k); night 300.0k / 232.9k (fewer cars); v0.2: 311k / 243.5k |
+| Textures | ≤ 30 | ≤ 30 | Stress town 14 / 13, sample town 28 / 27 (v0.3 production preview; includes the 4 day/night glow masks) |
 | Shadow maps | 1 × 2048 | 1 × 1024 | as budgeted (`Environment.setQuality`: high 2048, low 1024) |
 | DPR cap | 2 | 1.5 | `MAX_DPR` in `config.ts` |
-| Frame time (M-series laptop, headless full Chromium) | ≤ 8 ms | — | 1.36 ms (v0.1 production preview, WP-11); not re-measured for v0.2 |
-| Initial download (JS + CSS + font + models + SFX + icons) | ≤ 8 MB | ≤ 8 MB | `dist/` 3.29 MB without maps or music (v0.2, 2026-09-27). The 4.68 MB music track is streamed after Start and isn't part of the initial download |
+| Frame time (M-series laptop, headless full Chromium) | ≤ 8 ms | — | 1.38 ms day / 1.37 ms night on the stress town (v0.3 production preview, uncapped); v0.1: 1.36 ms |
+| Initial download (JS + CSS + font + models + SFX + icons) | ≤ 8 MB | ≤ 8 MB | 4.70 MB over the network before the title (v0.3 production preview); `dist/` 4.94 MB without maps or music. The 4.68 MB music track is streamed after Start and isn't part of the initial download |
 
 ## Test hooks and diagnostics
 `window.__THREE_GAME_TEST_HOOKS__` (installed in production too; policy in `docs/release.md`):
