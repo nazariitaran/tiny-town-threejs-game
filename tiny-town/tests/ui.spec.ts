@@ -6,7 +6,7 @@ import { mkdirSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { TOOL_CATEGORIES, toolsInCategory } from '../src/catalog/tools';
 import { UI_TEST_IDS } from '../src/ui/UiRoot';
-import { clickCell } from './helpers';
+import { clickFootprint } from './helpers';
 
 // UI_RUN_ID picks the evidence folder, e.g. UI_RUN_ID=wp06-fix1 → artifacts/wp06-fix1.
 const OUT = `artifacts/${process.env.UI_RUN_ID ?? 'wp-06'}`;
@@ -185,22 +185,23 @@ test('refusal tooltip shows on an invalid click and is gone after the next succe
   await page.locator(id(UI_TEST_IDS.category('homes'))).click();
   await page.locator(id(UI_TEST_IDS.tool('cottage'))).click();
 
-  await clickCell(page, 18, 18);
+  // WP-17 cottages are 4 × 4: the first on x 17–20, rows 16–19; the second on x 27–30, rows 16–19.
+  await clickFootprint(page, 'cottage', { x: 17, z: 16 });
   await expect.poll(async () => (await diag(page)).town.homes).toBe(1);
   const invalidBefore = (await diag(page)).invalidCount;
-  await clickCell(page, 18, 18); // occupied → refused
+  await clickFootprint(page, 'cottage', { x: 17, z: 16 }); // occupied → refused
   await expect.poll(async () => (await diag(page)).invalidCount).toBe(invalidBefore + 1);
   await expect(tip).toBeVisible();
   await expect(tip).not.toHaveText('');
 
-  await clickCell(page, 28, 18); // valid → placed
+  await clickFootprint(page, 'cottage', { x: 27, z: 16 }); // valid → placed
   await expect.poll(async () => (await diag(page)).town.homes).toBe(2);
   await expect(tip).toBeHidden();
 
   // A refusal followed by a tool switch also clears it. (build:invalid is throttled to one per
   // 400 ms per reason, so wait before refusing the same reason again.)
   await page.waitForTimeout(450);
-  await clickCell(page, 28, 18);
+  await clickFootprint(page, 'cottage', { x: 27, z: 16 });
   await expect(tip).toBeVisible();
   await page.locator(id(UI_TEST_IDS.tool('garage'))).click();
   await expect(tip).toBeHidden();

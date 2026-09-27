@@ -4,6 +4,7 @@
  * cellToClient test hook; diagnostics are only read, never written.
  */
 import { expect, test, type Page } from '@playwright/test';
+import { footprintPoint, footprintPointer } from './helpers';
 
 /** `hover` also carries the validity the UI shows (ToolController.hovered); typed narrower in vite-env.d.ts. */
 type Diagnostics = Omit<NonNullable<Window['__THREE_GAME_DIAGNOSTICS__']>, 'hover'> & {
@@ -79,7 +80,7 @@ async function drag(page: Page, from: { x: number; y: number }, to: { x: number;
 test.describe('desktop mouse + keyboard', () => {
   test.skip(({ isMobile }) => isMobile, 'mouse checks run on desktop-chrome');
 
-  test('road drag, invalid townhouse, rotate, fences, bulldoze, undo', async ({ page }, testInfo) => {
+  test('road drag, invalid house, rotate, fences, bulldoze, undo', async ({ page }, testInfo) => {
     const errors = collectErrors(page);
     await startBuilding(page);
 
@@ -92,9 +93,12 @@ test.describe('desktop mouse + keyboard', () => {
     expect(afterRoad.history.undoDepth).toBe(before.history.undoDepth + 1);
     console.log(`[road] roadTiles=${afterRoad.town.roadTiles} undoDepth ${before.history.undoDepth}→${afterRoad.history.undoDepth}`);
 
-    // 2. Townhouse on a valid cell, then on a road cell: rejected, invalidCount +1.
+    // 2. Cottage on a valid plot, then over the road: rejected, invalidCount +1. WP-17: the cottage is
+    //    4 × 4 and centres on a cell corner, so the pointer aims at the footprint centre
+    //    (footprintPointer): anchor (11, 14) covers x 11–14, rows 14–17; the pointer is in cell (12, 15).
     await selectTool(page, 'homes', 'cottage');
-    const valid = await cellPoint(page, 12, 16);
+    const plot = footprintPointer('cottage', { x: 11, z: 14 });
+    const valid = await assertOnCanvas(page, await footprintPoint(page, 'cottage', { x: 11, z: 14 }), 'cottage plot');
     await page.mouse.move(valid.x, valid.y);
     await page.mouse.click(valid.x, valid.y);
     await expect.poll(async () => (await diag(page)).objects).toBe(1);
@@ -102,18 +106,19 @@ test.describe('desktop mouse + keyboard', () => {
     await diag(page);
     await diag(page);
     const afterPlace = await diag(page);
-    expect(afterPlace.hover).toEqual({ x: 12, z: 16, valid: true, reason: null });
+    expect(afterPlace.hover).toEqual({ ...plot.cell, valid: true, reason: null });
     await expect(page.locator('#ui-tooltip')).toBeHidden();
     console.log(`[place] hover after successful click = ${JSON.stringify(afterPlace.hover)}; tooltip hidden`);
     // Moving away and back does re-evaluate it: now it really is occupied.
-    const neighbour = await cellPoint(page, 14, 16);
+    const neighbour = await cellPoint(page, 16, 15); // outside the 4 × 4 footprint
     await page.mouse.move(neighbour.x, neighbour.y, { steps: 3 });
     await page.mouse.move(valid.x, valid.y, { steps: 3 });
-    await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 12, z: 16, valid: false });
+    await expect.poll(async () => (await diag(page)).hover).toMatchObject({ ...plot.cell, valid: false, reason: 'Something is already here' });
     const beforeInvalid = await diag(page);
-    const onRoad = await cellPoint(page, 12, 24);
+    // Anchor (11, 23): rows 23–26 would cover the road on rows 24–25; the pointer is in cell (12, 24).
+    const onRoad = await assertOnCanvas(page, await footprintPoint(page, 'cottage', { x: 11, z: 23 }), 'cottage over the road');
     await page.mouse.move(onRoad.x, onRoad.y);
-    await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 12, z: 24 });
+    await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 12, z: 24, valid: false, reason: "Cottage can't go on a road" });
     await page.mouse.click(onRoad.x, onRoad.y);
     await expect.poll(async () => (await diag(page)).invalidCount).toBe(beforeInvalid.invalidCount + 1);
     const afterInvalid = await diag(page);
@@ -272,13 +277,16 @@ test.describe('desktop mouse + keyboard', () => {
     await page.mouse.move(p.x, p.y, { steps: 2 });
     await shot('ghost-meadow-tile');
 
+    // WP-17 townhouse 3 × 4: anchor (23, 19) = x 23–25, rows 19–22 on the verge north of the road
+    // (pointer in cell (24, 20)); anchor (23, 23) would cover the road (pointer in cell (24, 24)).
     await selectTool(page, 'homes', 'townhouse');
-    p = await cellPoint(page, 24, 20);
+    p = await assertOnCanvas(page, await footprintPoint(page, 'townhouse', { x: 23, z: 19 }), 'townhouse plot');
     await page.mouse.move(p.x, p.y, { steps: 3 });
-    await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 24, z: 20 });
+    await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 24, z: 20, valid: true });
     await shot('ghost-house-valid');
-    p = await cellPoint(page, 24, 24);
+    p = await assertOnCanvas(page, await footprintPoint(page, 'townhouse', { x: 23, z: 23 }), 'townhouse over the road');
     await page.mouse.move(p.x, p.y, { steps: 3 });
+    await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 24, z: 24, valid: false });
     await shot('ghost-house-invalid');
     await page.mouse.click(p.x, p.y);
     await page.waitForTimeout(40);
@@ -417,8 +425,9 @@ test('valid ghost at default zoom: house, road tile, fence (screenshots)', async
     await page.screenshot({ path: testInfo.outputPath(`${project}-${name}-crop.png`), clip });
   };
 
+  // WP-17 townhouse 3 × 4 anchored at (23, 19): the pointer sits in cell (24, 20) (footprintPointer).
   await selectTool(page, 'homes', 'townhouse');
-  const house = await cellPoint(page, 24, 20);
+  const house = await assertOnCanvas(page, await footprintPoint(page, 'townhouse', { x: 23, z: 19 }), 'townhouse plot');
   await hoverAndShoot(house, 'ghost-valid-house');
   await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 24, z: 20, valid: true });
 
