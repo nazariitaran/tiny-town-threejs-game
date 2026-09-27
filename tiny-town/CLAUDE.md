@@ -2,7 +2,7 @@
 
 A cosy browser city-builder sandbox (three.js + TypeScript + Vite). Start here. If you were given a work package (WP), read its section in `docs/PLAN.md` next.
 
-## Current state (v0.2 released; v0.3 = WP-15 merged + WP-16 in progress)
+## Current state (v0.2 released; v0.3 = WP-15 + WP-16, complete on `main`, not yet released)
 - **v0.2**: v1 (checkpoint M3) plus WP-12, WP-13 and WP-14.
   - WP-12: 48 × 48 grid of 0.5-unit cells, roads in 2 × 2 blocks, multi-cell houses, save v2 with migration.
   - WP-13: streamed background music.
@@ -13,18 +13,17 @@ A cosy browser city-builder sandbox (three.js + TypeScript + Vite). Start here. 
   - Renamed ids (`oak`, `pine`, `birch`, `cottage`, `townhouse`, `family-home`, `fence-low`); tool icons are `public/assets/icons/tool-<id>.png`.
   - Save v3 with **no migrations**: older saves are rejected and the game starts a fresh town.
   - The first CC-BY assets (Poly Pizza church, swing and barbecue); see `docs/assets/CREDITS.md`.
-- **v0.3, part 2: WP-16 "Day/night cycle"**, built on the integration branch **`v0.3-day-night`**. It merges into `main` only after the owner's approval.
+- **v0.3, part 2: WP-16 "Day/night cycle"**, merged on `main` (owner-approved; built on the integration branch `v0.3-day-night`).
   - Auto / Day / Night: the time button, `T` and the menu row.
   - Lit windows, lamp pools, traffic lights, headlights, church windows, fireflies, fewer cars at night.
   - `night-town` test state and hook `setTimeOfDay`.
-  - The plan and contract are in `docs/plans/wp-16-day-night.md`.
-  - Workers branch from `v0.3-day-night`, not `main`.
+  - Current facts: `docs/design/03-architecture.md` §Day/night. The plan (historical) is `docs/plans/wp-16-day-night.md`.
 - Status, decisions, open issues and the backlog are in `docs/progress.md`, the integrator's recovery point. Read it before planning anything.
 - Current facts (grid, rules, save format, modules, diagnostics, budgets) are in `docs/design/03-architecture.md`.
 - Some docs are historical snapshots, and each says so in a banner at the top:
   - `docs/checkpoints/*`;
   - the v0.1 sections of `docs/PLAN.md`;
-  - `docs/plans/wp-12-scale.md`, which is the approved plan and not the as-built record.
+  - `docs/plans/wp-12-scale.md` and `docs/plans/wp-16-day-night.md`, which are approved plans and not the as-built record.
 
 ## Read before coding
 1. `docs/progress.md` — current state, open issues, next actions.

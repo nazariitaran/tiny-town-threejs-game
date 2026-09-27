@@ -3,7 +3,7 @@
 Only the integrator (WP-01) edits this file. Workers report in their hand-off. This is the recovery point: after any interruption, re-read it together with `docs/HANDOVER.md`.
 
 ## Current state (2026-09-27)
-- **Version: v0.3 in progress.** WP-15 (new building blocks) is merged on `main` (`ea54bb5`). WP-16 (day/night) is being built on the integration branch **`v0.3-day-night`**, which merges into `main` only after the owner's final approval. v0.3 = WP-15 + WP-16. v0.2's integration commit is `30fe85b`.
+- **Version: v0.3 complete on `main`** (not yet released). v0.3 = WP-15 (new building blocks, `ea54bb5`) + WP-16 (day/night, integration branch `v0.3-day-night`, owner-approved and merged into `main` 2026-09-27). v0.2's integration commit is `30fe85b`.
 - **v0.1** is the M3 "v1" build at `3f9c6cf`. v0.2 adds three owner requests on top:
   - **WP-12**: 48 × 48 grid of 0.5-unit cells, roads as 2 × 2 blocks, multi-cell houses, save v2 with a v1 → v2 migration.
   - **WP-13**: streamed background music with settings.
@@ -15,7 +15,7 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
 - **WP-15 gates on `main` (`ea54bb5`, 2026-09-27 WP-16 preflight):**
   - `npm run verify` is green: 18 files, 336 unit tests, build OK.
   - `npm run test:e2e`: 70 passed, 12 skipped, 4 failed in one full run (19 min). The failures were browser-launch/test timeouts, texture-load errors under load, and a music-time check. All 4 passed when re-run in isolation (twice).
-- **WP-16 day/night is built** on `v0.3-day-night` and awaits the owner's review before it merges into `main`. See "WP-16 as built" below.
+- **WP-16 day/night is complete:** the owner approved it on 2026-09-27 and `v0.3-day-night` is merged into `main`. See "WP-16 as built" below.
   - Gates on the branch after all merges (2026-09-27): `npm run verify` green (21 files, 387 unit tests, build OK); `npm run test:e2e` green: 114 tests, 100 passed, 14 skipped by design, 0 failed (6.1 min).
   - Worktrees `wp-16a/b/c` removed after their evidence was copied to `artifacts/wp-16a/`, `wp-16b/`, `wp-16c/`.
 - **Where current facts live:**
@@ -47,7 +47,7 @@ The SHA is the merge commit on `main`; the WP's own commit is in brackets. Every
 | WP-13 | Background music | ✅ | `1fab73f` (`e76d1a8`) | `src/audio/MusicPlayer.ts`; streamed after Start; music on/off + volume; −3 dB menu duck |
 | WP-12 | Scale & grid density | ✅ | `fbbef2a` (plan `2f6446d`, docs `cf4123b`) | see "WP-12 as built" below |
 | WP-15 | New building blocks & categories (v0.3) | ✅ | `ea54bb5` (`27add32`) | see "WP-15 as built" below |
-| WP-16 | Day/night cycle (v0.3) | ✅ on `v0.3-day-night`, awaiting owner approval | contract `7aefe67`, `af576a1`; 16a `42f0590` (`a4965c9`); 16b `a849f35` (`d6f97e3`); 16c `1a0c360` (`eb2c2d8`) | see "WP-16 as built" below |
+| WP-16 | Day/night cycle (v0.3) | ✅ merged to `main` (owner-approved) | contract `7aefe67`, `af576a1`; 16a `42f0590` (`a4965c9`); 16b `a849f35` (`d6f97e3`); 16c `1a0c360` (`eb2c2d8`) | see "WP-16 as built" below |
 
 **Integrator (WP-01) commits worth knowing:**
 
@@ -215,7 +215,6 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
 - The `events.ts`, `UiRoot.ts` and `types.ts` comments listed here before were fixed in `0e760b5`.
 
 **v0.3 before release**
-- The owner reviews `v0.3-day-night` and approves the merge into `main`.
 - Re-measure `docs/release.md` §Budgets on the production preview (v0.2 and v0.3 have only dev-server numbers).
 - `package.json` `version` → 0.3.0 at release.
 - `models.md`'s screenshots are from sourcing time (44 models); the `asset-gallery` state is the current visual record.
@@ -243,6 +242,5 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
 - Optional: expand the plot. `PLOT_WIDTH/DEPTH` keep this cheap.
 
 ## Next actions
-1. **Owner review of `v0.3-day-night`** (WP-15 is on `main`; WP-16 is on the branch). On approval: `git checkout main && git merge --no-ff v0.3-day-night`, then `npm run verify && npm run test:e2e` on `main`.
-2. Before any release, re-measure `docs/release.md` §Budgets on the production preview. Use a fresh run id, and label the results with the date and version.
-3. For the next iteration, open a new WP section in `docs/PLAN.md`. Take ports from 5218 up and follow the `docs/HANDOVER.md` runbook with an integration branch.
+1. Before any release (v0.3), re-measure `docs/release.md` §Budgets on the production preview. Use a fresh run id, and label the results with the date and version.
+2. For the next iteration, open a new WP section in `docs/PLAN.md`. Take ports from 5218 up and follow the `docs/HANDOVER.md` runbook with an integration branch.
