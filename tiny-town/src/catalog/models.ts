@@ -69,7 +69,7 @@ export const MODELS = {
   'grass-tuft': M('/assets/models/platformer/grass.glb', 0.35, 0, { sway: true }),
   'meadow-flowers': M('/assets/models/platformer/flowers.glb', 0.35, 0, { sway: true }),
   'meadow-flowers-tall': M('/assets/models/platformer/flowers-tall.glb', 0.35, 0, { sway: true }),
-  // Walkway kit pieces (the ghost preview uses them; TownRenderer draws walkways procedurally).
+  // Walkway kit pieces (the ghost preview uses the hub; TownRenderer draws walkways procedurally).
   // At 1.25 the hub is 0.25² = the WP-12 walkway width (0.5 · CELL_SIZE).
   'walkway-hub': M('/assets/models/suburban/path-short.glb', 1.25, 0),
   'walkway-arm': M('/assets/models/suburban/path-long.glb', 1.25, 0),

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
+import { CELL_SIZE, cellToWorld, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
 import { DEFAULT_POSE, defaultPoseFor, TITLE_POSE, titlePoseFor, type CameraPose } from './CameraController';
 import { CENTRE_ABOVE_DOCK_PX, dockTopPx, SAFE_INSETS } from './framing';
 
@@ -73,5 +73,28 @@ describe('build camera framing (readability first)', () => {
     expect(rect.right - rect.left).toBeLessThan(1.8 * 390);
     expect(pose.targetX).toBe(TITLE_POSE.targetX);
     expect(pose.targetZ).toBe(TITLE_POSE.targetZ);
+  });
+
+  it('WP-12 cell pitch at the default pose: ≥ 12 px desktop, ≥ 9 px phone (|cell(24,24) − cell(25,24)|)', () => {
+    const pitch = (width: number, height: number) => {
+      const pose = defaultPoseFor(width, height);
+      const camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 2000);
+      camera.position.setFromSphericalCoords(pose.distance, pose.polar, pose.azimuth).add(new THREE.Vector3(pose.targetX, 0, pose.targetZ));
+      camera.lookAt(pose.targetX, 0, pose.targetZ);
+      camera.updateMatrixWorld();
+      const toScreen = (x: number, z: number) => {
+        const w = cellToWorld({ x, z });
+        const p = new THREE.Vector3(w.x, 0, w.z).project(camera);
+        return { x: ((p.x + 1) / 2) * width, y: ((1 - p.y) / 2) * height };
+      };
+      const a = toScreen(24, 24);
+      const b = toScreen(25, 24);
+      return Math.hypot(b.x - a.x, b.y - a.y);
+    };
+    const desktop = pitch(1280, 720);
+    const phone = pitch(390, 844);
+    console.log(`cell pitch (px): desktop ${desktop.toFixed(1)}, phone ${phone.toFixed(1)}`);
+    expect(desktop).toBeGreaterThanOrEqual(12);
+    expect(phone).toBeGreaterThanOrEqual(9);
   });
 });

@@ -5,11 +5,14 @@
  *
  * Tool semantics (docs/design/02-interaction-and-ui.md §3):
  *  - paint   (ground tools, bulldoze): every crossed cell, gap-free; bulldoze samples the drag
- *            path and passes an edge only when the pointer is within 0.3 cell of it
+ *            path and passes an edge only when the pointer is within 0.3 cell of it (0.4 on touch).
+ *            Road strokes visit each 2 × 2 road block once (WP-12: a road paint converts a block).
  *  - scatter (trees, lamppost): each new valid cell the pointer visits
  *  - single  (buildings, props): click only
  *  - line    (fences): straight run of edges, axis locked by the first movement; a click places
  *            the nearest edge on release
+ * Objects (WP-12: multi-cell footprints) are anchored so the footprint is centred on the pointer
+ * (grid.anchorForPointer; R re-centres it), and the ghost tile covers the whole footprint.
  * Every stroke is one undo entry. Only a deliberate click reports build:invalid (throttled to one
  * per 400 ms per reason); drags skip blocked cells silently.
  *
@@ -24,11 +27,34 @@ import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS } from '../catalog/models
 import { objectDef } from '../catalog/objects';
 import { actionForTool, toolDef, type DragMode, type ToolId } from '../catalog/tools';
 import type { DebugTools } from '../debug/DebugTools';
-import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH, cellToWorld, edgeToWorld, worldToNearestEdge } from '../game/config';
+import {
+  CELL_SIZE,
+  PLOT_DEPTH,
+  PLOT_WIDTH,
+  cellToWorld,
+  edgeToWorld,
+  footprintCentreWorld,
+  roadBlockCentreWorld,
+  worldToNearestEdge,
+} from '../game/config';
 import type { GameBus } from '../game/events';
 import type { ModelLibrary } from '../render/ModelLibrary';
 import { roadMask, roadTileFor } from '../render/roadTiles';
-import { cellKey, cellsOnLine, edgeInBounds, edgeKey, footprintCells, NEIGHBOURS, nextRotation, rotatedFootprint, sameCell, sameEdge } from '../town/grid';
+import {
+  anchorForPointer,
+  cellKey,
+  cellsOnLine,
+  edgeInBounds,
+  edgeKey,
+  footprintCells,
+  NEIGHBOURS,
+  nextRotation,
+  ROAD_BLOCK,
+  roadBlockAnchor,
+  rotatedFootprint,
+  sameCell,
+  sameEdge,
+} from '../town/grid';
 import type { TownEditor } from '../town/TownEditor';
 import type { BuildAction, Cell, Edge, GroundKind, PlacedObject, PlanResult, Rotation } from '../town/types';
 import type { CameraController } from './CameraController';
@@ -39,6 +65,11 @@ import { clampCellNearPlot, isNearEdge, KeyedThrottle, lineEdges, lockAxis, segm
 
 /** Lawn/meadow slab top height in TownRenderer (tufts and flowers stand on it). */
 const LAWN_TOP = 0.02;
+/** Ghost tile sizes in cells: one cell, one 2 × 2 road block. */
+const ONE_TILE: readonly [number, number] = [1, 1];
+const BLOCK_TILE: readonly [number, number] = [ROAD_BLOCK, ROAD_BLOCK];
+/** Pavement tile top colour (docs/assets/models.md, warmed) for block ghosts. */
+const PAVEMENT_FILL = '#c7c2b8';
 
 /** What diagnostics `hover` publishes: the cell plus the validity the UI shows for it. */
 export type HoverInfo = Cell & { valid: boolean; reason: string | null };
@@ -46,7 +77,9 @@ export type HoverInfo = Cell & { valid: boolean; reason: string | null };
 /** Touch: a single finger becomes a tool stroke after this long / this far (px). */
 const TOUCH_COMMIT_MS = 150;
 const TOUCH_COMMIT_PX = 10;
+/** Bulldoze targets a fence when the pointer is within this many cells of it (touch: coarser). */
 const BULLDOZE_EDGE_RANGE = 0.3;
+const BULLDOZE_EDGE_RANGE_COARSE = 0.4;
 
 interface Stroke {
   pointerId: number;
@@ -85,6 +118,8 @@ export class ToolController {
   private readonly touchPointers = new Set<number>();
   /** Last known pointer position over the canvas (null when outside / touch lifted). */
   private pointer: { x: number; y: number } | null = null;
+  /** The last pointer was a finger (coarse): wider fence pick range for bulldoze. */
+  private coarsePointer = false;
   private lastPick: PickResult | null = null;
   private hoverDirty = true;
   private hover: HoverState = { cell: null, edge: null, valid: true, reason: null };
@@ -322,6 +357,7 @@ export class ToolController {
 
   private trackPointer(event: PointerEvent): void {
     this.pointer = { x: event.clientX, y: event.clientY };
+    this.coarsePointer = event.pointerType === 'touch';
     this.lastPick = this.picker.pick(event.clientX, event.clientY);
     this.hoverDirty = true;
   }
@@ -342,9 +378,10 @@ export class ToolController {
     const def = toolDef(this.toolId);
     const mode: Stroke['mode'] = def.layer === 'bulldoze' ? 'bulldoze' : def.drag;
 
+    const target = this.targetCell(pick);
     if (mode === 'single') {
       this.editor.beginStroke();
-      this.applyAction(actionForTool(this.toolId, pick.cell, pick.edge, this.rotation), pick.cell, true);
+      this.applyAction(actionForTool(this.toolId, target, pick.edge, this.rotation), target, true);
       this.editor.endStroke();
       return;
     }
@@ -370,8 +407,8 @@ export class ToolController {
     }
 
     if (mode === 'paint' || mode === 'scatter') {
-      stroke.visited.add(cellKey(pick.cell));
-      this.applyAction(actionForTool(this.toolId, pick.cell, pick.edge, this.rotation), pick.cell, true);
+      stroke.visited.add(this.strokeKey(target));
+      this.applyAction(actionForTool(this.toolId, target, pick.edge, this.rotation), target, true);
     } else if (mode === 'bulldoze') {
       this.bulldozeAt(pick.grid, true);
     }
@@ -388,16 +425,24 @@ export class ToolController {
         if (sameCell(target, stroke.lastCell)) return;
         for (const cell of cellsOnLine(stroke.lastCell, target).slice(1)) {
           if (!state.inBounds(cell)) continue;
+          // Road: one action per 2 × 2 block per stroke (the first touch converts the whole block).
+          if (this.toolId === 'road') {
+            const key = this.strokeKey(cell);
+            if (stroke.visited.has(key)) continue;
+            stroke.visited.add(key);
+          }
           this.applyAction(actionForTool(this.toolId, cell, pick.edge, this.rotation), cell, false);
         }
         stroke.lastCell = target;
         return;
       }
       case 'scatter': {
-        const key = cellKey(pick.cell);
-        if (!state.inBounds(pick.cell) || stroke.visited.has(key)) return;
+        if (!state.inBounds(pick.cell)) return;
+        const cell = this.targetCell(pick);
+        const key = this.strokeKey(cell);
+        if (stroke.visited.has(key)) return;
         stroke.visited.add(key);
-        this.applyAction(actionForTool(this.toolId, pick.cell, pick.edge, this.rotation), pick.cell, false);
+        this.applyAction(actionForTool(this.toolId, cell, pick.edge, this.rotation), cell, false);
         return;
       }
       case 'bulldoze': {
@@ -428,11 +473,19 @@ export class ToolController {
     const state = this.editor.state;
     const cell = { x: Math.floor(point.x), z: Math.floor(point.z) };
     const nearest = this.nearestEdge(point);
-    const edge = isNearEdge(point, nearest, BULLDOZE_EDGE_RANGE) ? nearest : null;
-    const hasObject = state.inBounds(cell) && !!state.getObjectAt(cell);
+    const edge = isNearEdge(point, nearest, this.edgeRange) ? nearest : null;
+    const object = state.inBounds(cell) ? state.getObjectAt(cell) : undefined;
     const fence = edge ? state.getEdge(edge) : undefined;
-    if (stroke.edgesOnly && (!fence || hasObject)) return;
-    const key = hasObject ? `o:${cellKey(cell)}` : fence ? `e:${edgeKey(edge!)}` : `g:${cellKey(cell)}`;
+    if (stroke.edgesOnly && (!fence || object)) return;
+    // One removal per object (any footprint cell) and per road block (bulldozing one cell clears it).
+    const ground = state.inBounds(cell) ? state.getGround(cell) : 'field';
+    const key = object
+      ? `o:${object.id}`
+      : fence
+      ? `e:${edgeKey(edge!)}`
+      : ground === 'road'
+      ? `g:${cellKey(roadBlockAnchor(cell))}`
+      : `g:${cellKey(cell)}`;
     if (stroke.visited.has(key)) return;
     stroke.visited.add(key);
     if (!state.inBounds(cell) && !fence) return;
@@ -461,6 +514,23 @@ export class ToolController {
       }
     }
     return result;
+  }
+
+  /** Where the active tool acts for this pick: objects centre their footprint on the pointer. */
+  private targetCell(pick: PickResult): Cell {
+    if (!this.toolId || toolDef(this.toolId).layer !== 'object') return pick.cell;
+    const def = objectDef(this.toolId as PlacedObject['kind']);
+    const state = this.editor.state;
+    return anchorForPointer(pick.grid.x, pick.grid.z, def.footprint, this.rotation, state.width, state.depth);
+  }
+
+  /** Stroke de-duplication key: road strokes visit blocks, everything else cells. */
+  private strokeKey(cell: Cell): string {
+    return this.toolId === 'road' ? `b:${cellKey(roadBlockAnchor(cell))}` : cellKey(cell);
+  }
+
+  private get edgeRange(): number {
+    return this.coarsePointer ? BULLDOZE_EDGE_RANGE_COARSE : BULLDOZE_EDGE_RANGE;
   }
 
   private finishStroke(): void {
@@ -521,6 +591,7 @@ export class ToolController {
     }
 
     const edge = def.layer === 'edge' && edgeInBounds(pick.edge, state.width, state.depth) ? { ...pick.edge } : null;
+    const target = this.targetCell(pick);
 
     // Just filled by this tool (click or current stroke): calm, never "invalid".
     const targetKey = def.layer === 'edge' ? (edge ? `e:${edgeKey(edge)}` : null) : `c:${cellKey(cell)}`;
@@ -535,35 +606,39 @@ export class ToolController {
     }
     if (!this.stroke) this.justPlaced.clear();
 
-    const preview = this.editor.preview(actionForTool(toolId, cell, edge ?? pick.edge, this.rotation));
+    const preview = this.editor.preview(actionForTool(toolId, target, edge ?? pick.edge, this.rotation));
     const valid = preview.ok || preview.reason === 'no-change';
     const reason = preview.ok || preview.reason === 'no-change' ? null : preview.message;
     const ghostState: GhostState = !valid ? 'invalid' : preview.ok ? 'valid' : 'neutral';
 
     if (def.layer === 'ground') {
-      const world = cellToWorld(cell);
       const kind = toolId as Exclude<GroundKind, 'field'>;
+      // Road paints (and repaints of a road) change the whole 2 × 2 block: the ghost covers it.
+      const block = kind === 'road' || state.getGround(cell) === 'road';
+      const world = block ? roadBlockCentreWorld(cell) : cellToWorld(cell);
       const look = this.groundLook(kind, cell);
       this.ghost.show({
         x: world.x,
         z: world.z,
         quarterTurns: 0,
         state: ghostState,
-        parts: ghostState === 'invalid' ? [] : look.parts,
-        fillColor: ghostState === 'valid' ? look.fill : undefined,
+        parts: ghostState === 'invalid' ? [] : block && kind !== 'road' ? [] : look.parts,
+        fillColor: ghostState === 'valid' ? look.fill ?? (block && kind !== 'road' ? this.groundFill(kind) : undefined) : undefined,
         // Model tiles (road/pavement/walkway) show themselves; only lawns use the flat fill.
-        fillOpacity: ghostState === 'invalid' ? undefined : look.fill ? 0.8 : 0,
+        fillOpacity: ghostState === 'invalid' ? undefined : look.fill || (block && kind !== 'road') ? 0.8 : 0,
         solid: true,
+        tileScale: block ? BLOCK_TILE : ONE_TILE,
       });
     } else if (def.layer === 'object') {
       const objectDefinition = objectDef(toolId as PlacedObject['kind']);
-      const centre = this.footprintCentre(cell, objectDefinition.footprint, this.rotation);
+      const centre = footprintCentreWorld(target, objectDefinition.footprint, this.rotation);
       this.ghost.show({
         x: centre.x,
         z: centre.z,
         quarterTurns: this.rotation,
         state: ghostState,
         parts: [{ model: objectDefinition.models[0] }],
+        tileScale: rotatedFootprint(objectDefinition.footprint, this.rotation),
       });
     } else if (edge) {
       const world = edgeToWorld(edge);
@@ -586,18 +661,19 @@ export class ToolController {
   private showBulldozeTarget(cell: Cell, pick: PickResult): void {
     const state = this.editor.state;
     const object = state.getObjectAt(cell);
-    const nearEdge = isNearEdge(pick.grid, pick.edge, BULLDOZE_EDGE_RANGE) && edgeInBounds(pick.edge, state.width, state.depth);
+    const nearEdge = isNearEdge(pick.grid, pick.edge, this.edgeRange) && edgeInBounds(pick.edge, state.width, state.depth);
     const edge = nearEdge ? { ...pick.edge } : null;
     const fence = edge ? state.getEdge(edge) : undefined;
     if (object) {
       const def = objectDef(object.kind);
-      const centre = this.footprintCentre(object.anchor, def.footprint, object.rotation);
+      const centre = footprintCentreWorld(object.anchor, def.footprint, object.rotation);
       this.ghost.show({
         x: centre.x,
         z: centre.z,
         quarterTurns: object.rotation,
         state: 'remove',
         parts: [{ model: def.models[object.variant % def.models.length] }],
+        tileScale: rotatedFootprint(def.footprint, object.rotation),
         snap: true,
       });
     } else if (fence && edge) {
@@ -612,9 +688,17 @@ export class ToolController {
         snap: true,
       });
     } else {
-      const world = cellToWorld(cell);
-      const hasGround = state.getGround(cell) !== 'field';
-      this.ghost.show({ x: world.x, z: world.z, quarterTurns: 0, state: hasGround ? 'remove' : 'neutral', parts: [] });
+      const ground = state.getGround(cell);
+      // Bulldozing a road cell clears its whole block.
+      const world = ground === 'road' ? roadBlockCentreWorld(cell) : cellToWorld(cell);
+      this.ghost.show({
+        x: world.x,
+        z: world.z,
+        quarterTurns: 0,
+        state: ground !== 'field' ? 'remove' : 'neutral',
+        parts: [],
+        tileScale: ground === 'road' ? BLOCK_TILE : ONE_TILE,
+      });
     }
     this.publishHover({ cell, edge, valid: true, reason: null });
   }
@@ -637,41 +721,26 @@ export class ToolController {
         if (ground === 'walkway' || ground === 'pavement') mask |= 1 << i;
       });
       const arms = mask === 0 ? 0b0101 : mask; // a lone walkway reads as a short north–south path
+      // WP-12: the hub piece (0.25² = the walkway width, half a cell) at the centre, plus one more
+      // hub per connected side, shifted a quarter cell so it overlaps the centre and ends on the cell edge.
       const parts: GhostPart[] = [{ model: 'walkway-hub' }];
       NEIGHBOURS.forEach((offset, i) => {
-        if (arms & (1 << i)) {
-          parts.push({ model: 'walkway-arm', x: offset.x * 0.25 * CELL_SIZE, z: offset.z * 0.25 * CELL_SIZE, quarterTurns: offset.x !== 0 ? 1 : 0 });
-        }
+        if (arms & (1 << i)) parts.push({ model: 'walkway-hub', x: offset.x * 0.25 * CELL_SIZE, z: offset.z * 0.25 * CELL_SIZE });
       });
       return { parts };
     }
     const visual = GROUND_MODELS[kind];
     if (visual.type === 'model') return { parts: [{ model: visual.model }] };
-    const q = CELL_SIZE / 4;
-    if (kind === 'meadow') {
-      return {
-        fill: visual.color,
-        parts: [
-          { model: 'meadow-flowers', x: -q, z: -q, y: LAWN_TOP },
-          { model: 'meadow-flowers-tall', x: q, z: -q, y: LAWN_TOP, quarterTurns: 1 },
-          { model: 'grass-tuft', x: -q, z: q, y: LAWN_TOP },
-          { model: 'meadow-flowers', x: q, z: q, y: LAWN_TOP, quarterTurns: 2 },
-        ],
-      };
-    }
-    return {
-      fill: visual.color,
-      parts: [
-        { model: 'grass-tuft', x: -q, z: -q * 0.6, y: LAWN_TOP, scale: 0.9 },
-        { model: 'grass-tuft', x: q * 0.8, z: q, y: LAWN_TOP, scale: 0.8, quarterTurns: 1 },
-      ],
-    };
+    // WP-12: one clump per (half-unit) cell, like the renderer's meadow scatter.
+    if (kind === 'meadow') return { fill: visual.color, parts: [{ model: 'meadow-flowers', y: LAWN_TOP }] };
+    return { fill: visual.color, parts: [{ model: 'grass-tuft', y: LAWN_TOP, scale: 0.9 }] };
   }
 
-  private footprintCentre(anchor: Cell, footprint: readonly [number, number], rotation: Rotation): { x: number; z: number } {
-    const first = cellToWorld(footprintCells(anchor, footprint, rotation)[0]);
-    const [w, d] = rotatedFootprint(footprint, rotation);
-    return { x: first.x + ((w - 1) * CELL_SIZE) / 2, z: first.z + ((d - 1) * CELL_SIZE) / 2 };
+  /** Flat fill colour of a ground kind (for block ghosts that show no model). */
+  private groundFill(kind: Exclude<GroundKind, 'field'>): string | undefined {
+    if (kind === 'road') return undefined;
+    const visual = GROUND_MODELS[kind];
+    return visual.type === 'flat' ? visual.color : PAVEMENT_FILL;
   }
 
   private nearestEdge(point: GridPoint): Edge {
