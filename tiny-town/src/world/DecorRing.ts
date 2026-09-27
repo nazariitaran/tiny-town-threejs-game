@@ -15,7 +15,7 @@
  * WP-04 (World & look).
  */
 import * as THREE from 'three';
-import type { ModelId } from '../catalog/models';
+import { MODELS, type ModelId } from '../catalog/models';
 import type { QualityTier } from '../game/config';
 import { DEFAULT_POSE, type CameraPose } from '../interaction/CameraController';
 import type { ModelLibrary } from '../render/ModelLibrary';
@@ -98,7 +98,19 @@ function makeTopBandTest(): (x: number, y0: number, y1: number, z: number) => bo
   };
 }
 
-/** Approximate normalised model height (world units at scale 1) for the top-band test. */
+/**
+ * WP-12: the plot trees grew (tree-a/-b catalog scale 0.36 → 0.45) but the ring was planned for the
+ * v0.1 templates. Planned scales stay in v0.1 units; this factor is applied when the instances are
+ * composed, so the ring renders exactly as before (same plan, same sizes).
+ */
+const RING_SCALE_BASE = 0.36;
+export const TEMPLATE_RESCALE: Readonly<Record<DecorId, number>> = {
+  'tree-a': RING_SCALE_BASE / MODELS['tree-a'].scale,
+  'tree-b': RING_SCALE_BASE / MODELS['tree-b'].scale,
+  'decor-rocks': 1,
+};
+
+/** Approximate normalised model height (world units at scale 1, v0.1 templates) for the top-band test. */
 const MODEL_HEIGHT: Readonly<Record<DecorId, number>> = { 'tree-a': 0.72, 'tree-b': 0.72, 'decor-rocks': 0.2 };
 
 /** Deterministic placement (three.js maths only, no GPU objects). Sorted nearest first. */
@@ -251,11 +263,13 @@ export class DecorRing {
         mesh.name = `decor:${id}`;
         mesh.castShadow = false;
         mesh.receiveShadow = false;
+        const rescale = TEMPLATE_RESCALE[id];
         items.forEach((item, index) => {
-          const height = (template.bounds.max.y - template.bounds.min.y) * item.scale * item.squash;
+          const s = item.scale * rescale;
+          const height = (template.bounds.max.y - template.bounds.min.y) * s * item.squash;
           position.set(item.x, item.y - height * item.sink, item.z);
           rotation.setFromAxisAngle(up, item.rotation);
-          scale.set(item.scale, item.scale * item.squash, item.scale);
+          scale.set(s, s * item.squash, s);
           instance.compose(position, rotation, scale);
           matrix.multiplyMatrices(instance, part.matrix);
           mesh.setMatrixAt(index, matrix);

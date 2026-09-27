@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_POSE } from '../interaction/CameraController';
-import { DECOR_CLEAR_MARGIN, TOP_BAR_BAND_PX, cameraForPose, planDecor } from './DecorRing';
+import { DECOR_CLEAR_MARGIN, TEMPLATE_RESCALE, TOP_BAR_BAND_PX, cameraForPose, planDecor } from './DecorRing';
+import { MODELS } from '../catalog/models';
 import { distanceToPlot } from './terrainShape';
 import * as THREE from 'three';
 
@@ -35,5 +36,11 @@ describe('planDecor', () => {
 
   it('uses at most three decor models (≤ 4 draw calls)', () => {
     expect(new Set(plan.map((p) => p.model)).size).toBeLessThanOrEqual(3);
+  });
+
+  it('renders the ring at its v0.1 size although the plot trees grew (WP-12)', () => {
+    expect(MODELS['tree-a'].scale * TEMPLATE_RESCALE['tree-a']).toBeCloseTo(0.36, 6);
+    expect(MODELS['tree-b'].scale * TEMPLATE_RESCALE['tree-b']).toBeCloseTo(0.36, 6);
+    expect(TEMPLATE_RESCALE['decor-rocks']).toBe(1);
   });
 });
