@@ -33,6 +33,21 @@ interface ThreeGameDiagnostics {
   fx: import('./fx/PlacementFx').FxDiagnostics;
   /** Ambient cars (WP-10). */
   life: import('./life/LifeSystem').LifeDiagnostics;
+  /**
+   * Day/night (WP-16). t = time of day shown (0..1), pinned = a test hook / test state holds it.
+   * night 0 day .. 1 full night; lightsOn = fraction of lit houses; lamps = lampposts NightLights
+   * tracks; drawCalls = main-pass calls NightLights adds (0 by day).
+   */
+  daytime: {
+    mode: import('./world/dayCycle').TimeMode;
+    t: number;
+    phase: import('./world/dayCycle').DayPhase;
+    pinned: boolean;
+    night: number;
+    lightsOn: number;
+    lamps: number;
+    drawCalls: number;
+  };
   renderer: {
     calls: number;
     triangles: number;
@@ -66,6 +81,11 @@ interface ThreeGameTestHooks {
   cellToClient(x: number, z: number): { x: number; y: number };
   /** Move the camera to a pose at once (screenshots of one spot, e.g. the asset gallery). */
   setCameraPose(pose: { targetX: number; targetZ: number; azimuth: number; polar: number; distance: number }): void;
+  /**
+   * Pin the time of day (0..1; 0.55 = afternoon, 0.82 = night) and apply it at once, even while
+   * paused for a screenshot. null releases the pin (Auto/Day/Night resume). Test states pin too.
+   */
+  setTimeOfDay(t: number | null): void;
 }
 
 interface Window {

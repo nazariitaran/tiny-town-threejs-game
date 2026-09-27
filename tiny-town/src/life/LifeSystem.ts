@@ -171,6 +171,12 @@ export class LifeSystem {
     this.sync(animDelta);
   }
 
+  /**
+   * Day/night (WP-16): 0 day .. 1 full night. Fewer cars at night and head/tail lights.
+   * STUB (contract commit): WP-16b implements this.
+   */
+  setNight(_night: number): void {}
+
   /** Finish pop-ins and snap headings (test states, reduced motion). */
   settle(): void {
     for (const car of this.sim.cars) car.age = Math.max(car.age, POP_IN_S);

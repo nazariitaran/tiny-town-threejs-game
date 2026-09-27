@@ -14,6 +14,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import type { DebugTools } from '../debug/DebugTools';
 import type { QualityTier } from '../game/config';
 import type { ModelLibrary } from '../render/ModelLibrary';
+import type { DaySample } from './dayCycle';
 import { DecorRing } from './DecorRing';
 import { GridOverlay } from './GridOverlay';
 import { Sky, type SkyPalette } from './Sky';
@@ -130,6 +131,13 @@ export class Environment {
   setGridVisible(visible: boolean): void {
     this.grid.setVisible(visible);
   }
+
+  /**
+   * Day/night (WP-16): key light, hemisphere, fog, sky, env intensity and grid strength for one
+   * moment of the day. Game calls it every frame (and at once from test hooks while paused).
+   * STUB (contract commit): the afternoon look is already set up; WP-16a implements this.
+   */
+  applyDaylight(_sample: Readonly<DaySample>): void {}
 
   /** Ambient animation (clouds drift). `elapsed` is frozen under reduced motion. */
   update(_delta: number, elapsed: number): void {

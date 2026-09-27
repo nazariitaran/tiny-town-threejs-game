@@ -17,7 +17,15 @@ export interface ModelSpec {
   offset?: readonly [number, number, number];
   /** Foliage that should sway in the wind (gets its own material clone, see fx/windSway.ts). */
   sway?: boolean;
+  /**
+   * Night light source (WP-16): the model gets a private material clone per (atlas, kind) with a
+   * swatch glow mask as its emissiveMap (render/nightGlow.ts). Never set on shared road pieces.
+   */
+  glow?: GlowKind;
 }
+
+/** What lights up at night (docs/plans/wp-16-day-night.md §3). */
+export type GlowKind = 'windows' | 'lamp' | 'traffic';
 
 const M = (url: string, scale = 1, rotationOffset: Rotation = 0, extra: Partial<ModelSpec> = {}): ModelSpec => ({
   url,
@@ -47,35 +55,35 @@ export const MODELS = {
   roundabout: M('/assets/models/roads/road-roundabout.glb', 1, 0),
   // Traffic lights (City Kit Roads): the lamps face −X natively (not −Z like the rest of the kit), so
   // one quarter turn puts them on +z. 0.52 tall, below the lamppost (0.675).
-  'traffic-light': M('/assets/models/roads/traffic-light.glb', 1, 1),
+  'traffic-light': M('/assets/models/roads/traffic-light.glb', 1, 1, { glow: 'traffic' }),
   // Its arm overhangs −X after the turn; like the lamppost, the offset puts the pole back mid-cell.
-  'traffic-light-hanging': M('/assets/models/roads/traffic-light-hanging.glb', 1, 1, { offset: [-0.103, 0, 0] }),
+  'traffic-light-hanging': M('/assets/models/roads/traffic-light-hanging.glb', 1, 1, { offset: [-0.103, 0, 0], glow: 'traffic' }),
   // Pole is at the native origin; the arm overhangs −Z. Bounds-centring moves the pole 0.0867 × scale
   // off-centre; the offset puts it back mid-cell. WP-12: scale 1 (0.675 tall, arm 0.2): taller than
   // the garage and the bus-stop bench, below the eaves.
-  lamppost: M('/assets/models/roads/light-curved.glb', 1, 2, { offset: [0, 0, 0.087] }),
+  lamppost: M('/assets/models/roads/light-curved.glb', 1, 2, { offset: [0, 0, 0.087], glow: 'lamp' }),
   // WP-12: 2×1 cells (0.76 × 0.34 × 0.37).
   'bus-stop': M('/assets/models/composed/bus-stop.glb', 0.8, 2),
   // WP-12: ≈ car height (0.15 × 0.24), ~1.2× real so it still reads as a pillar box.
   postbox: M('/assets/models/composed/postbox.glb', 1.4, 2),
   // ---- Homes: City Kit Suburban at the kit's native scale, nudged back (−z at rotation 0) so a front
   // yard reads between the door and the street. 3 × 3 cells unless noted.
-  cottage: M('/assets/models/suburban/building-type-a.glb', 1, 2, { offset: [0, 0, -0.15] }),
+  cottage: M('/assets/models/suburban/building-type-a.glb', 1, 2, { offset: [0, 0, -0.15], glow: 'windows' }),
   // 2 × 3 cells.
-  townhouse: M('/assets/models/suburban/building-type-k.glb', 1, 2, { offset: [0, 0, -0.15] }),
-  'townhouse-alt': M('/assets/models/suburban/building-type-r.glb', 1, 2, { offset: [0, 0, -0.15] }),
+  townhouse: M('/assets/models/suburban/building-type-k.glb', 1, 2, { offset: [0, 0, -0.15], glow: 'windows' }),
+  'townhouse-alt': M('/assets/models/suburban/building-type-r.glb', 1, 2, { offset: [0, 0, -0.15], glow: 'windows' }),
   // Single-storey with a garage: type-i (1.29 × 0.74 × 1.03), L-shaped type-m (1.43 deep: no nudge).
-  bungalow: M('/assets/models/suburban/building-type-i.glb', 1, 2, { offset: [0, 0, -0.15] }),
-  'bungalow-l': M('/assets/models/suburban/building-type-m.glb', 1, 2),
-  'family-home': M('/assets/models/suburban/building-type-e.glb', 1, 2, { offset: [0, 0, -0.15] }),
+  bungalow: M('/assets/models/suburban/building-type-i.glb', 1, 2, { offset: [0, 0, -0.15], glow: 'windows' }),
+  'bungalow-l': M('/assets/models/suburban/building-type-m.glb', 1, 2, { glow: 'windows' }),
+  'family-home': M('/assets/models/suburban/building-type-e.glb', 1, 2, { offset: [0, 0, -0.15], glow: 'windows' }),
   // Two storeys with an attached garage (1.27–1.43 wide, 1.03–1.09 deep).
-  'garage-house-c': M('/assets/models/suburban/building-type-c.glb', 1, 2, { offset: [0, 0, -0.15] }),
-  'garage-house-o': M('/assets/models/suburban/building-type-o.glb', 1, 2, { offset: [0, 0, -0.15] }),
-  'garage-house-s': M('/assets/models/suburban/building-type-s.glb', 1, 2, { offset: [0, 0, -0.15] }),
-  'garage-house-u': M('/assets/models/suburban/building-type-u.glb', 1, 2, { offset: [0, 0, -0.15] }),
+  'garage-house-c': M('/assets/models/suburban/building-type-c.glb', 1, 2, { offset: [0, 0, -0.15], glow: 'windows' }),
+  'garage-house-o': M('/assets/models/suburban/building-type-o.glb', 1, 2, { offset: [0, 0, -0.15], glow: 'windows' }),
+  'garage-house-s': M('/assets/models/suburban/building-type-s.glb', 1, 2, { offset: [0, 0, -0.15], glow: 'windows' }),
+  'garage-house-u': M('/assets/models/suburban/building-type-u.glb', 1, 2, { offset: [0, 0, -0.15], glow: 'windows' }),
   // 4 × 3 cells: type-d (1.76 × 1.24 × 1.03), type-n (1.78 × 1.14 × 1.38: small nudge).
-  'big-house-d': M('/assets/models/suburban/building-type-d.glb', 1, 2, { offset: [0, 0, -0.15] }),
-  'big-house-n': M('/assets/models/suburban/building-type-n.glb', 1, 2, { offset: [0, 0, -0.04] }),
+  'big-house-d': M('/assets/models/suburban/building-type-d.glb', 1, 2, { offset: [0, 0, -0.15], glow: 'windows' }),
+  'big-house-n': M('/assets/models/suburban/building-type-n.glb', 1, 2, { offset: [0, 0, -0.04], glow: 'windows' }),
   // WP-12: single garage on 1×2 cells (0.49 × 0.41 × 0.62), lower than the eaves.
   garage: M('/assets/models/composed/garage.glb', 0.48, 2),
   // ---- Town
@@ -83,7 +91,7 @@ export const MODELS = {
   // (door, striped awning) faces +Z natively, unlike the Kenney kits.
   'corner-shop': M('/assets/models/composed/corner-shop.glb', 1, 0),
   // City Kit Commercial building-e: low, wide, green awning (1.64 × 0.89 × 1.01), 4 × 3 cells.
-  supermarket: M('/assets/models/commercial/building-e.glb', 1, 2),
+  supermarket: M('/assets/models/commercial/building-e.glb', 1, 2, { glow: 'windows' }),
   // Poly Pizza church (composed: 0.78 × 1.75 × 1.42), 2 × 3 cells. Tower and door face +Z natively.
   church: M('/assets/models/composed/church.glb', 1, 0),
   // Fantasy Town fountain modules + parasols (composed, native 4 × 2.9), 4 × 3 cells.
