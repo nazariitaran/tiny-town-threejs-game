@@ -211,6 +211,13 @@ export class DayClock {
     return this.sweeping;
   }
 
+  /** Jump to the end of a running mode sweep (reduced motion switched on mid-sweep). */
+  finishSweep(): void {
+    if (!this.sweeping) return;
+    this.time = this.sweepTarget;
+    this.sweeping = false;
+  }
+
   /** Advance by real seconds (Game passes animDelta: 0 under reduced motion ⇒ frozen). */
   advance(delta: number): void {
     if (!(delta > 0)) return;

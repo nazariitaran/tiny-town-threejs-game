@@ -444,3 +444,16 @@ describe('DayClock', () => {
     expect(clock.t).toBeCloseTo(T_MORNING + 0.1, 12);
   });
 });
+
+describe('DayClock.finishSweep (integrator)', () => {
+  it('jumps to the sweep target and is a no-op when not sweeping', () => {
+    const clock = new DayClock('day');
+    clock.setMode('night');
+    expect(clock.isSweeping).toBe(true);
+    clock.finishSweep();
+    expect(clock.isSweeping).toBe(false);
+    expect(clock.t).toBe(T_NIGHT);
+    clock.finishSweep();
+    expect(clock.t).toBe(T_NIGHT);
+  });
+});
