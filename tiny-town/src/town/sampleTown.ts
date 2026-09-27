@@ -140,8 +140,9 @@ export function buildAssetGallery(editor: TownEditor): DemoTownResult {
  * A dense, fully built plot for performance budgets. Deterministic. A 12 × 10 cell repeat: road
  * rows at z 0/10/20/30/40 and road columns at x 0/12/24/36 (2 × 2 blocks), a pavement row either
  * side of every road row, and between them two rows of 3-deep lots facing opposite ways, each lot
- * (10 cells wide) holding a cottage, a family home, a townhouse, a garage and trees. Lampposts and
- * postboxes stand on the pavements. The last road row has a pavement, then a tree-lined lawn.
+ * (10 cells wide) holding a cottage, a family home, a townhouse, a garage and (mostly birch) trees on
+ * open field. Lampposts and postboxes stand on the pavements. The last road row has a pavement, then
+ * a tree-lined lawn.
  */
 export function buildStressTown(editor: TownEditor): DemoTownResult {
   const { run, commit } = demoBuilder(editor, (item) => item.toolId);
@@ -149,7 +150,8 @@ export function buildStressTown(editor: TownEditor): DemoTownResult {
   const PERIOD_X = 12;
   const PERIOD_Z = 10;
   const isRoadColumn = (x: number) => x % PERIOD_X < ROAD_BLOCK;
-  const trees = ['tree-a', 'tree-b', 'tree-c'] as const;
+  // Birch and pine (42 / 204 triangles; an oak is 408) so the 96-home plot fits the mobile budget.
+  const trees = ['tree-c', 'tree-b', 'tree-c', 'tree-c'] as const;
   const place = (kind: ObjectKind, x: number, z: number, rotation: Rotation) => run(kind, { type: 'place-object', kind, cell: { x, z }, rotation });
   // Roads: one paint per block.
   for (let z = 0; z < depth; z += ROAD_BLOCK) {
@@ -165,31 +167,29 @@ export function buildStressTown(editor: TownEditor): DemoTownResult {
       const pavementRows = fullPeriod ? [z0 + 2, z0 + PERIOD_Z - 1] : [z0 + 2, depth - 1];
       for (const z of pavementRows) {
         for (let x = x0; x <= x1; x += 1) run('pavement', { type: 'paint-ground', kind: 'pavement', cell: { x, z } });
-        place('lamppost', x0 + 1, z, 0);
-        place('lamppost', x0 + 6, z, 0);
-        place('postbox', x0 + 9, z, 0);
+        place('lamppost', x0 + 4, z, 0);
+        if (z === z0 + 2) place('postbox', x0 + 9, z, 0);
       }
       if (!fullPeriod) {
         // Leftover rows: a lawn with a row of trees.
         for (let z = z0 + 3; z < depth - 1; z += 1) {
           for (let x = x0; x <= x1; x += 1) {
             run('grass', { type: 'paint-ground', kind: 'grass', cell: { x, z } });
-            if (z === z0 + 4 && (x - x0) % 3 === 1) place(trees[((x - x0 - 1) / 3) % 3], x, z, 0);
+            if (z === z0 + 4 && (x - x0) % 3 === 1) place(trees[((x - x0 - 1) / 3) % trees.length], x, z, 0);
           }
         }
         continue;
       }
       // Two lot rows: rows z0+3..z0+5 face north (rotation 2), z0+6..z0+8 face south (rotation 0).
       for (const [top, rotation] of [[z0 + 3, 2], [z0 + 6, 0]] as const) {
-        for (let z = top; z < top + 3; z += 1) for (let x = x0; x <= x1; x += 1) run('grass', { type: 'paint-ground', kind: 'grass', cell: { x, z } });
         place('townhouse-a', x0, top, rotation);
         place('townhouse-c', x0 + 3, top, rotation);
         place('townhouse-b', x0 + 6, top, rotation);
         // Garage (1×2) flush to the street side; a tree behind it; a column of trees at the end.
         const garageZ = rotation === 2 ? top : top + 1;
         place('garage', x0 + 8, garageZ, rotation);
-        place(trees[(x0 + top) % 3], x0 + 8, rotation === 2 ? top + 2 : top, 0);
-        for (let dz = 0; dz < 3; dz += 1) place(trees[(x0 + top + dz + 1) % 3], x0 + 9, top + dz, 0);
+        place(trees[(x0 + top) % trees.length], x0 + 8, rotation === 2 ? top + 2 : top, 0);
+        for (let dz = 0; dz < 3; dz += 1) place(trees[(x0 + top + dz + 1) % trees.length], x0 + 9, top + dz, 0);
       }
     }
   }

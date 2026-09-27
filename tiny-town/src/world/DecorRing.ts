@@ -58,6 +58,11 @@ export const DECOR_CLEAR_MARGIN = 1.2;
  * band between the hedgerow frame and the belt stays open meadow (no trees filling the lens).
  */
 const BELT_INNER = 46;
+/**
+ * Low tier draws this nearest-first share of each decor mesh (WP-12: 0.6 → 0.25, so a fully built
+ * 48 × 48 plot stays inside the 250k mobile triangle budget; the hedgerow frame is nearest, so it stays).
+ */
+export const LOW_TIER_SHARE = 0.25;
 const BELT_OUTER = 105;
 /** Build-camera vertical FOV (Game.ts creates PerspectiveCamera(35, …)). */
 const BUILD_FOV = 35;
@@ -296,7 +301,7 @@ export class DecorRing {
 
   private applyTier(): void {
     this.meshes.forEach((mesh, i) => {
-      mesh.count = this.tier === 'low' ? Math.ceil(this.fullCounts[i] * 0.6) : this.fullCounts[i];
+      mesh.count = this.tier === 'low' ? Math.ceil(this.fullCounts[i] * LOW_TIER_SHARE) : this.fullCounts[i];
     });
   }
 
