@@ -16,7 +16,7 @@
  *     if (save) editor.load(save); else editor.reset();    // load() never autosaves (cause 'load')
  *   });
  *   addEventListener('pagehide', () => saves.flush());     // don't lose the last second
- *   saves.getSettings() / saves.setSettings({ muted, volume, grid })
+ *   saves.getSettings() / saves.setSettings({ muted, volume, grid, music, musicVolume })
  *   // Test states (setState): saves.autosaveEnabled = false, so demo towns never overwrite a player's save.
  *
  * Autosave: 1 s (debounceMs) after the LAST 'town:changed' whose cause is 'edit' | 'undo' | 'redo',
@@ -42,9 +42,13 @@ export interface GameSettings {
   volume: number;
   /** Grid overlay visible. */
   grid: boolean;
+  /** Background music on (WP-13). */
+  music: boolean;
+  /** Music volume 0..1, applied under the master volume (WP-13). */
+  musicVolume: number;
 }
 
-export const DEFAULT_SETTINGS: Readonly<GameSettings> = { muted: false, volume: 0.8, grid: true };
+export const DEFAULT_SETTINGS: Readonly<GameSettings> = { muted: false, volume: 0.8, grid: true, music: true, musicVolume: 0.5 };
 
 export const AUTOSAVE_DEBOUNCE_MS = 1000;
 
@@ -236,6 +240,8 @@ export class SaveStore {
     if (typeof r.muted === 'boolean') settings.muted = r.muted;
     if (typeof r.volume === 'number' && Number.isFinite(r.volume)) settings.volume = Math.min(1, Math.max(0, r.volume));
     if (typeof r.grid === 'boolean') settings.grid = r.grid;
+    if (typeof r.music === 'boolean') settings.music = r.music;
+    if (typeof r.musicVolume === 'number' && Number.isFinite(r.musicVolume)) settings.musicVolume = Math.min(1, Math.max(0, r.musicVolume));
     return settings;
   }
 
@@ -245,6 +251,8 @@ export class SaveStore {
     if (typeof patch.muted === 'boolean') next.muted = patch.muted;
     if (typeof patch.volume === 'number' && Number.isFinite(patch.volume)) next.volume = Math.min(1, Math.max(0, patch.volume));
     if (typeof patch.grid === 'boolean') next.grid = patch.grid;
+    if (typeof patch.music === 'boolean') next.music = patch.music;
+    if (typeof patch.musicVolume === 'number' && Number.isFinite(patch.musicVolume)) next.musicVolume = Math.min(1, Math.max(0, patch.musicVolume));
     this.setItem(this.settingsKey, JSON.stringify(next));
     return next;
   }

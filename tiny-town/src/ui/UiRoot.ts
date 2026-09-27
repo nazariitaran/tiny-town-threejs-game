@@ -15,6 +15,7 @@ import { TOOL_CATEGORIES, toolDef, toolsInCategory, type ToolCategory, type Tool
 import { assetUrl } from '../game/config';
 import type { GameBus, GamePhase } from '../game/events';
 import type { Rotation, TownStats } from '../town/types';
+import { musicBus } from '../audio/musicEvents';
 import { GLYPHS } from './glyphs';
 import { StatsHud } from './StatsHud';
 import { UI_TEST_IDS } from './testIds';
@@ -38,6 +39,9 @@ export function touchHint(hint: string): string {
     .replace(/^Click/, 'Tap');
 }
 const INVALID_TOOLTIP_MS = 1500;
+/** Music note for the menu's Music row (WP-13; same 24×24, 2 px stroke style as GLYPHS). */
+const MUSIC_GLYPH =
+  '<svg class="ui-glyph" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg>';
 
 const escapeHtml = (text: string): string =>
   text.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]!);
@@ -115,6 +119,13 @@ export class UiRoot {
         this.muted = muted;
         this.volume = volume;
         this.renderAudio();
+      }),
+      // WP-13: music settings rows (shim events until they join GameEvents).
+      musicBus(bus).on('music:changed', ({ enabled, volume }) => {
+        this.el<HTMLInputElement>(UI_TEST_IDS.music).checked = enabled;
+        const range = this.el<HTMLInputElement>(UI_TEST_IDS.musicVolume);
+        if (document.activeElement !== range) range.value = String(volume);
+        range.disabled = !enabled;
       }),
       bus.on('intent:toggle-grid', ({ visible }) => {
         this.el<HTMLInputElement>(UI_TEST_IDS.grid).checked = visible;
@@ -216,6 +227,14 @@ export class UiRoot {
           <div class="ui-field">
             <label for="${id.volume}">${GLYPHS.soundOn}<span>Volume</span></label>
             <input type="range" id="${id.volume}" min="0" max="1" step="0.05" value="0.8" />
+          </div>
+          <label class="ui-field ui-check" for="${id.music}">
+            ${MUSIC_GLYPH}<span>Music</span>
+            <input type="checkbox" id="${id.music}" role="switch" checked />
+          </label>
+          <div class="ui-field ui-field-sub">
+            <label for="${id.musicVolume}"><span>Music volume</span></label>
+            <input type="range" id="${id.musicVolume}" min="0" max="1" step="0.05" value="0.5" />
           </div>
           <label class="ui-field ui-check" for="${id.grid}">
             ${GLYPHS.grid}<span>Show grid</span>
@@ -321,6 +340,11 @@ export class UiRoot {
     const target = event.target as HTMLInputElement;
     if (target.id === UI_TEST_IDS.volume && event.type === 'input') {
       this.bus.emit('intent:set-volume', { volume: Number(target.value) });
+    } else if (target.id === UI_TEST_IDS.musicVolume && event.type === 'input') {
+      musicBus(this.bus).emit('intent:set-music-volume', { volume: Number(target.value) });
+    } else if (target.id === UI_TEST_IDS.music && event.type === 'change') {
+      this.sfx('ui-click');
+      musicBus(this.bus).emit('intent:set-music', { enabled: target.checked });
     } else if (target.id === UI_TEST_IDS.grid && event.type === 'change') {
       this.sfx('ui-click');
       this.bus.emit('intent:toggle-grid', { visible: target.checked });

@@ -415,3 +415,38 @@ test('stress-town screenshots: no overlap or clipping at 4 sizes', async ({ brow
     await context.close();
   }
 });
+
+// ---- WP-13: music settings rows in the menu -----------------------------------------------------
+test('menu music rows: ≥ 44 px targets inside the panel, keyboard reachable, screenshot', async ({ page }, info) => {
+  const errors = trackErrors(page);
+  await start(page);
+  await page.locator(id(UI_TEST_IDS.menu)).click();
+  const panel = page.locator(id(UI_TEST_IDS.menuPanel));
+  await expect(panel).toBeVisible();
+  const box = (await panel.boundingBox())!;
+  for (const control of [UI_TEST_IDS.volume, UI_TEST_IDS.music, UI_TEST_IDS.musicVolume]) {
+    const row = page.locator(id(control)).locator('xpath=ancestor::*[contains(@class,"ui-field")][1]');
+    await row.scrollIntoViewIfNeeded();
+    const r = (await row.boundingBox())!;
+    expect(r.height, `${control} row height`).toBeGreaterThanOrEqual(44);
+    expect(r.x).toBeGreaterThanOrEqual(box.x);
+    expect(r.x + r.width).toBeLessThanOrEqual(box.x + box.width + 0.5);
+  }
+  // The Music label toggles the switch (whole row is the target).
+  await page.getByText('Music', { exact: true }).click();
+  await expect(page.locator(id(UI_TEST_IDS.music))).not.toBeChecked();
+  await expect(page.locator(id(UI_TEST_IDS.musicVolume))).toBeDisabled();
+  await page.locator(id(UI_TEST_IDS.music)).click();
+  await expect(page.locator(id(UI_TEST_IDS.musicVolume))).toBeEnabled();
+  if (info.project.name !== 'mobile-chrome') {
+    // Tab from the master volume slider reaches the music switch, then the music volume slider.
+    await page.locator(id(UI_TEST_IDS.volume)).focus();
+    await page.keyboard.press('Tab');
+    await expect(page.locator(id(UI_TEST_IDS.music))).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.locator(id(UI_TEST_IDS.musicVolume))).toBeFocused();
+  }
+  mkdirSync(OUT, { recursive: true });
+  await panel.screenshot({ path: `${OUT}/menu-music-${info.project.name}.png` });
+  expect(errors).toEqual([]);
+});

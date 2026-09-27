@@ -30,6 +30,9 @@ export const UI_TEST_IDS = {
   credits: 'btn-credits',
   volume: 'range-volume',
   grid: 'chk-grid',
+  // --- added by WP-13 (menu music settings) ---
+  music: 'chk-music',
+  musicVolume: 'range-music',
   confirmPanel: 'ui-confirm',
   confirmClear: 'btn-confirm-clear',
   confirmCancel: 'btn-confirm-cancel',

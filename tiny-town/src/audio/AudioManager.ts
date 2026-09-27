@@ -10,6 +10,11 @@
  *   STROKE_PITCH_STEP per consecutive placement (build:placed.strokeIndex; resets with each new stroke).
  * - Per-event base playbackRate (undo 0.89×, redo 1.12×) comes from SFX_TABLE.
  *
+ * Music (WP-13): MusicPlayer streams one looping track on its own bus under the master gain. It is
+ * created in unlock() (the Start/Continue gesture), so nothing is fetched before Start. Music on/off and
+ * music volume persist through the same SettingsPort (`music`, `musicVolume`); it is ducked while the
+ * menu is open, paused while muted or hidden. See MusicPlayer.ts and docs/assets/audio.md.
+ *
  * Settings come from the SettingsPort (Game passes WP-02's SaveStore). If none is given, the manager
  * runs on DEFAULT_SETTINGS and doesn't persist.
  */
@@ -17,6 +22,8 @@ import { assetUrl } from '../game/config';
 import type { GameBus } from '../game/events';
 import type { SfxEvent } from './sfx';
 import { SFX_TABLE } from './sfxTable';
+import { MusicPlayer, type MusicState } from './MusicPlayer';
+import { musicBus } from './musicEvents';
 import type { ToolId } from '../catalog/tools';
 import { toolDef } from '../catalog/tools';
 
@@ -25,6 +32,10 @@ type Group = 'ui' | 'sfx';
 export interface AudioSettings {
   muted: boolean;
   volume: number;
+  /** Background music on (WP-13). */
+  music: boolean;
+  /** Music volume 0..1 (WP-13). */
+  musicVolume: number;
 }
 
 /**
@@ -45,7 +56,7 @@ export const STROKE_PITCH_STEP = 0.02;
 export const STROKE_PITCH_MAX = 0.4;
 /** Pitch jitter multiplier for placements after the first in a stroke. */
 const STROKE_JITTER_SCALE = 0.35;
-const DEFAULT_SETTINGS: AudioSettings = { muted: false, volume: 0.8 };
+const DEFAULT_SETTINGS: AudioSettings = { muted: false, volume: 0.8, music: true, musicVolume: 0.5 };
 /** Master-gain ramp time constant (s): mute/volume changes fade instead of clicking. */
 const GAIN_RAMP_S = 0.015;
 
@@ -57,6 +68,8 @@ const memorySettings: SettingsPort = {
   getSettings: () => ({}),
   setSettings: () => undefined,
 };
+
+const clamp01 = (value: number, fallback: number): number => (Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : fallback);
 
 export class AudioManager {
   private context: AudioContext | null = null;
@@ -73,6 +86,7 @@ export class AudioManager {
   /** True while we suspended the context because the page was hidden. */
   private suspendedForHidden = false;
   private loading: Promise<void> | null = null;
+  private readonly music: MusicPlayer;
 
   constructor(
     private readonly bus: GameBus,
@@ -82,6 +96,7 @@ export class AudioManager {
     const stored = { ...DEFAULT_SETTINGS, ...settings.getSettings() };
     this.muted = stored.muted;
     this.volume = stored.volume;
+    this.music = new MusicPlayer(stored.music, clamp01(stored.musicVolume, DEFAULT_SETTINGS.musicVolume));
 
     const on = bus.on.bind(bus);
     this.unsubscribers.push(
@@ -101,6 +116,11 @@ export class AudioManager {
       on('intent:redo', () => this.play('redo')),
       on('intent:set-muted', ({ muted }) => this.setMuted(muted)),
       on('intent:set-volume', ({ volume }) => this.setVolume(volume)),
+      // WP-13 shim events (musicEvents.ts) until they land in the contract GameEvents.
+      musicBus(bus).on('intent:set-music', ({ enabled }) => this.setMusicEnabled(enabled)),
+      musicBus(bus).on('intent:set-music-volume', ({ volume }) => this.setMusicVolume(volume)),
+      // Duck the music while the menu (or any overlay opened from it) is up.
+      on('phase:changed', ({ phase }) => this.music.setDucked(phase === 'menu')),
     );
     document.addEventListener('visibilitychange', this.onVisibilityChange);
     // Game builds the UI after the AudioManager; announce the stored settings once it's listening.
@@ -124,7 +144,10 @@ export class AudioManager {
       }
       this.applyVolume(true);
       this.loading = this.loadAll();
+      this.music.attach(this.context, this.master);
     }
+    // Starts streaming on the first call; still inside the Start click, so play() is allowed.
+    this.syncMusic();
     if (this.context.state !== 'running' && !document.hidden) {
       try {
         await this.context.resume();
@@ -159,7 +182,22 @@ export class AudioManager {
   setMuted(muted: boolean): void {
     this.muted = muted;
     this.applyVolume();
+    this.syncMusic();
     this.settings.setSettings({ muted });
+    this.announce();
+  }
+
+  setMusicEnabled(enabled: boolean): void {
+    this.music.setEnabled(enabled);
+    this.syncMusic();
+    this.settings.setSettings({ music: enabled });
+    this.announce();
+  }
+
+  setMusicVolume(volume: number): void {
+    const next = clamp01(volume, this.music.state.volume);
+    this.music.setVolume(next);
+    this.settings.setSettings({ musicVolume: next });
     this.announce();
   }
 
@@ -170,8 +208,15 @@ export class AudioManager {
     this.announce();
   }
 
-  get state(): { muted: boolean; volume: number; unlocked: boolean; loaded: number; starts: number } {
-    return { muted: this.muted, volume: this.volume, unlocked: this.context?.state === 'running', loaded: this.buffers.size, starts: this.starts };
+  get state(): { muted: boolean; volume: number; unlocked: boolean; loaded: number; starts: number; music: MusicState } {
+    return {
+      muted: this.muted,
+      volume: this.volume,
+      unlocked: this.context?.state === 'running',
+      loaded: this.buffers.size,
+      starts: this.starts,
+      music: this.music.state,
+    };
   }
 
   /** Resolves when every file has been fetched and decoded (or failed). For tests/tools. */
@@ -183,6 +228,7 @@ export class AudioManager {
     for (const off of this.unsubscribers) off();
     this.unsubscribers.length = 0;
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
+    this.music.dispose();
     void this.context?.close().catch(() => undefined);
     this.context = null;
     this.master = null;
@@ -205,6 +251,14 @@ export class AudioManager {
 
   private announce(): void {
     this.bus.emit('audio:changed', { muted: this.muted, volume: this.volume });
+    const { enabled, volume } = this.music.state;
+    musicBus(this.bus).emit('music:changed', { enabled, volume });
+  }
+
+  /** Music sounds only once unlocked, while unmuted and visible (its own `enabled` is checked inside). */
+  private syncMusic(): void {
+    if (!this.context) return;
+    this.music.setActive(!this.muted && !document.hidden);
   }
 
   private applyVolume(immediate = false): void {
@@ -226,10 +280,12 @@ export class AudioManager {
     if (document.hidden) {
       if (ctx.state === 'running') {
         this.suspendedForHidden = true;
+        this.syncMusic();
         void ctx.suspend().catch(() => undefined);
       }
     } else if (this.suspendedForHidden) {
       this.suspendedForHidden = false;
+      this.syncMusic();
       void ctx.resume().catch((error: unknown) => console.warn('[audio] could not resume after the page became visible', error));
     }
   };

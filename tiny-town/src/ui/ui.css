@@ -849,6 +849,20 @@
   cursor: pointer;
 }
 
+/* WP-13: "Music volume" sits under the Music switch, its label aligned with the row labels above. */
+.ui-field-sub {
+  margin-top: -6px;
+  padding-left: 42px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+}
+
+.ui-field input[type='range']:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .ui-help-cols {
   display: grid;
   grid-template-columns: 1.3fr 1fr;
