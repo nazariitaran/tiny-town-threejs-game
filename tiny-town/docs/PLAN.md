@@ -351,7 +351,7 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
   - Every new asset recorded in `models.md` / `models.json` and `CREDITS.md`; CC-BY lines visible in the in-game Credits panel.
 
 ### WP-16 — Day/night cycle (v0.3)
-- **Status: in progress** on the integration branch `v0.3-day-night` (owner-approved 2026-09-27; plan revised after WP-15 merged). It merges into `main` only after the owner's final approval.
+- **Status: built** on the integration branch `v0.3-day-night` (16a, 16b and 16c merged 2026-09-27) and awaiting the owner's final approval before it merges into `main`. As built: `docs/progress.md` "WP-16 as built".
 - **Contract:** `docs/plans/wp-16-day-night.md`. It holds the owner decisions, the measured asset facts, the design, the budgets and the acceptance checks. This section is only a summary.
 - **Owner decisions:**
   - 10-minute day with 25% night, cosy "blue hour" darkness.

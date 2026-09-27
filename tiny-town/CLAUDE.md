@@ -13,7 +13,10 @@ A cosy browser city-builder sandbox (three.js + TypeScript + Vite). Start here. 
   - Renamed ids (`oak`, `pine`, `birch`, `cottage`, `townhouse`, `family-home`, `fence-low`); tool icons are `public/assets/icons/tool-<id>.png`.
   - Save v3 with **no migrations**: older saves are rejected and the game starts a fresh town.
   - The first CC-BY assets (Poly Pizza church, swing and barbecue); see `docs/assets/CREDITS.md`.
-- **v0.3, part 2: WP-16 "Day/night cycle"**, in progress on the integration branch **`v0.3-day-night`**. It merges into `main` only after the owner's approval.
+- **v0.3, part 2: WP-16 "Day/night cycle"**, built on the integration branch **`v0.3-day-night`**. It merges into `main` only after the owner's approval.
+  - Auto / Day / Night: the time button, `T` and the menu row.
+  - Lit windows, lamp pools, traffic lights, headlights, church windows, fireflies, fewer cars at night.
+  - `night-town` test state and hook `setTimeOfDay`.
   - The plan and contract are in `docs/plans/wp-16-day-night.md`.
   - Workers branch from `v0.3-day-night`, not `main`.
 - Status, decisions, open issues and the backlog are in `docs/progress.md`, the integrator's recovery point. Read it before planning anything.

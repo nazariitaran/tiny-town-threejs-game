@@ -15,17 +15,9 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
 - **WP-15 gates on `main` (`ea54bb5`, 2026-09-27 WP-16 preflight):**
   - `npm run verify` is green: 18 files, 336 unit tests, build OK.
   - `npm run test:e2e`: 70 passed, 12 skipped, 4 failed in one full run (19 min). The failures were browser-launch/test timeouts, texture-load errors under load, and a music-time check. All 4 passed when re-run in isolation (twice).
-- **In flight: WP-16 day/night** on `v0.3-day-night`: the contract commit, then worktrees `wp-16a` / `wp-16b` / `wp-16c` (ports 5215 / 5216 / 5217).
-  - Contract: `7aefe67`, plus `af576a1` (`DayClock.dayLengthS`, `?debug&day=N`).
-  - Running since 2026-09-27, all branched at `af576a1`:
-
-    | WP | Branch | Worktree | Port |
-    | --- | --- | --- | --- |
-    | 16a | `wp-16a-daylight` | `../ThreeJsGames-wt/wp-16a` | 5215 |
-    | 16b | `wp-16b-night-lights` | `../ThreeJsGames-wt/wp-16b` | 5216 |
-    | 16c | `wp-16c-controls` | `../ThreeJsGames-wt/wp-16c` | 5217 |
-
-  - 16b does its final tuning after 16a merges. 16c works in two phases; phase 2 (baselines, night QA, 20 s capture) runs after 16a and 16b merge.
+- **WP-16 day/night is built** on `v0.3-day-night` and awaits the owner's review before it merges into `main`. See "WP-16 as built" below.
+  - Gates on the branch after all merges (2026-09-27): `npm run verify` green (21 files, 387 unit tests, build OK); `npm run test:e2e` green: 114 tests, 100 passed, 14 skipped by design, 0 failed (6.1 min).
+  - Worktrees `wp-16a/b/c` removed after their evidence was copied to `artifacts/wp-16a/`, `wp-16b/`, `wp-16c/`.
 - **Where current facts live:**
   - grid, rules, save, modules, diagnostics and budgets: `docs/design/03-architecture.md`;
   - asset scales and footprints: `docs/assets/models.md`;
@@ -55,7 +47,7 @@ The SHA is the merge commit on `main`; the WP's own commit is in brackets. Every
 | WP-13 | Background music | ✅ | `1fab73f` (`e76d1a8`) | `src/audio/MusicPlayer.ts`; streamed after Start; music on/off + volume; −3 dB menu duck |
 | WP-12 | Scale & grid density | ✅ | `fbbef2a` (plan `2f6446d`, docs `cf4123b`) | see "WP-12 as built" below |
 | WP-15 | New building blocks & categories (v0.3) | ✅ | `ea54bb5` (`27add32`) | see "WP-15 as built" below |
-| WP-16 | Day/night cycle (v0.3) | 🔄 branch `v0.3-day-night` | — | plan `docs/plans/wp-16-day-night.md` (owner-approved and revised 2026-09-27); contract commit first, then 16a Daylight / 16b Night lights / 16c Controls & QA |
+| WP-16 | Day/night cycle (v0.3) | ✅ on `v0.3-day-night`, awaiting owner approval | contract `7aefe67`, `af576a1`; 16a `42f0590` (`a4965c9`); 16b `a849f35` (`d6f97e3`); 16c `1a0c360` (`eb2c2d8`) | see "WP-16 as built" below |
 
 **Integrator (WP-01) commits worth knowing:**
 
@@ -99,7 +91,29 @@ The plan was approved and implemented. The as-built facts are in `03-architectur
 **Timing**
 - WP-12 was merged after WP-13/14 (`9a8379f` merged main into the WP-12 branch).
 
-### WP-15 as built (v0.3, working tree)
+### WP-16 as built (v0.3, branch `v0.3-day-night`; vs `docs/plans/wp-16-day-night.md`)
+Current facts: `03-architecture.md` §Day/night, `02-interaction-and-ui.md` (time button, `T`, grid at night, brand badge ≤ 440 px), `models.md` (cars face +Z).
+- **Merges** (integration branch): contract `7aefe67` + `af576a1` → 16a `42f0590` → church glow `9348eaf` → reduced-motion snap `2224422` → 16b a849f35 → 16c 1a0c360.
+- **Deviations from the plan:**
+  - **16a night keyframe:** moon `#8aa2ff` ×0.95, hemisphere `#3c54b4`/`#1c2444` ×0.85, fog `#22325a`, env **0**; plus night fog near/far blending to 10/170. The plan's values read teal and too flat.
+  - **16a other keyframes:** midday key ×3.1; extra keyframes at pre-dawn, sunrise, sunset and blue hour.
+  - **Traffic lenses:** lit with `night` only (no day glow, to protect the baselines). All three lenses glow at once; there is no red → green → amber cycle.
+  - **Church windows (16b stretch):** a 2-quadrant mask with the door column excluded; they light with `night`, not the house stagger. **Fireflies** are in (+1 draw call, over open meadow). **Corner-shop windows** are skipped (no reliable glass cell). **Crickets** are deferred (no CC0 asset).
+  - **Cars drove backwards before v0.3:** `FRONT_ROTATION` π → 0 (16b, confirmed in the browser). The fix regenerated the sample-town / asset-gallery baselines, with changes only on the cars.
+  - **Top bar:** the brand turns into the icon badge at ≤ 440 px (was 380) to fit five 44 px actions.
+  - **Masked diff:** the 4 top-bar baselines were regenerated. Outside the bar, 0 px changed within 12 px padding, or with a threshold of 10. `title` is unchanged; `night-town` baselines are new.
+  - **Reduced motion:** mode switches also snap under OS `prefers-reduced-motion` (integrator), and turning reduced motion on finishes a running sweep.
+- **Measured (dev-server inspector, 2026-09-27):**
+  - `night-town`: 60 / 59 calls, 176.8k / 111.8k triangles, lamps 4, NightLights +4 / +3 calls (desktop / mobile).
+  - Stress town at night: 35 / 34 calls, 299.6k / 232.5k triangles, 40 lamps. By day it is unchanged at 32 / 32.
+  - Contrast: full-frame luminance 199 / 227; 3D-only p95−p5 24.7 / 25.4 at night against 66.8 / 73.8 by day. The plan's "≈ 48" reference came from a different measure.
+  - Textures by day +4 (glow masks): the stress town reports 14, the sample town 28, against a budget of 30.
+- **Evidence** (local, `artifacts/`):
+  - `wp-16a/`: t-sweep stills and the title at dusk/night;
+  - `wp-16b/`: car-front crops, the night close-ups and `final/`;
+  - `wp-16c/`: `masked-diff/`, `night-checks/` (ghost at night), and `day-cycle/` (a 20 s Auto-day video at `?debug&day=20`, `day-cycle-auto-20s.mp4`, a contact sheet and a timeline).
+
+### WP-15 as built (v0.3)
 Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02-interaction-and-ui.md`, `models.md` and `CREDITS.md`.
 
 **Catalog**
@@ -201,7 +215,9 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
 - The `events.ts`, `UiRoot.ts` and `types.ts` comments listed here before were fixed in `0e760b5`.
 
 **v0.3 before release**
-- Run `npm run test:e2e`, regenerate the visual baselines (the dock, sample town and asset gallery all changed) and run `npm run verify`.
+- The owner reviews `v0.3-day-night` and approves the merge into `main`.
+- Re-measure `docs/release.md` §Budgets on the production preview (v0.2 and v0.3 have only dev-server numbers).
+- `package.json` `version` → 0.3.0 at release.
 - `models.md`'s screenshots are from sourcing time (44 models); the `asset-gallery` state is the current visual record.
 
 ## Backlog (post-v1 from the M3 review, WP-11, and v0.2)
@@ -213,19 +229,20 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
   - lazy `lil-gui` import (−30 kB);
   - reuse the diagnostics object instead of rebuilding it every frame;
   - `compileAsync` warm-up for the first-placement hitch.
-- ~~Dusk mode (the WP-10 stretch goal).~~ Superseded by the full day/night cycle, planned as WP-16 (`docs/plans/wp-16-day-night.md`).
+- ~~Dusk mode (the WP-10 stretch goal).~~ Superseded by the WP-16 day/night cycle (v0.3).
+- Day/night follow-ups:
+  - night crickets ambience (needs an owner-supplied or CC0 sound);
+  - traffic-light colour cycling;
+  - corner-shop windows (hand-made mask);
+  - lamplight on walls and cars (a uniform array of lamp positions);
+  - tune the sunset/sunrise frames (t ≈ 0.70 / 0.05);
+  - maybe a lighter night grid boost (0.3–0.4 instead of 0.6).
 - A human ear pass on SFX and music.
 - Linux baselines, if CI is added.
 - Real-device testing.
 - Optional: expand the plot. `PLOT_WIDTH/DEPTH` keep this cheap.
 
 ## Next actions
-WP-15 (v0.3) is in the working tree:
-1. Finish the gates listed under "v0.3 before release" in Open issues, then commit v0.3 and fill in the WP-15 row above.
+1. **Owner review of `v0.3-day-night`** (WP-15 is on `main`; WP-16 is on the branch). On approval: `git checkout main && git merge --no-ff v0.3-day-night`, then `npm run verify && npm run test:e2e` on `main`.
 2. Before any release, re-measure `docs/release.md` §Budgets on the production preview. Use a fresh run id, and label the results with the date and version.
-3. For the next iteration after that, open a new WP section in `docs/PLAN.md`. Take ports from 5215 up and follow the `docs/HANDOVER.md` runbook.
-4. v0.3 also includes WP-16 day/night (`docs/plans/wp-16-day-night.md`), on the branch `v0.3-day-night`:
-   1. Land the contract commit (done on the branch; it compiles, with stubs).
-   2. Run 16a / 16b / 16c in worktrees on ports 5215 / 5216 / 5217, branched from `v0.3-day-night`.
-   3. Merge 16a → 16b → 16c into `v0.3-day-night`; 16c captures the new night baselines last.
-   4. Get the owner's approval, then merge `v0.3-day-night` into `main`.
+3. For the next iteration, open a new WP section in `docs/PLAN.md`. Take ports from 5218 up and follow the `docs/HANDOVER.md` runbook with an integration branch.

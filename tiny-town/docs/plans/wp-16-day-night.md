@@ -1,6 +1,6 @@
 # WP-16 — Day/night cycle (plan; owner-approved 2026-09-27, revised by the integrator the same day)
 
-> **Approved plan, being implemented on branch `v0.3-day-night`.** This is the pre-implementation contract. Day/night ships in **v0.3**, together with WP-15 (the owner's version naming; earlier drafts said v0.4). When it's built:
+> **Approved plan, now implemented on branch `v0.3-day-night`** (2026-09-27; awaiting the owner's approval to merge into `main`). This is the pre-implementation contract, not the as-built record. Day/night ships in **v0.3**, together with WP-15 (the owner's version naming; earlier drafts said v0.4). When it's built:
 > - As-built facts go to `docs/design/03-architecture.md` (new §Day/night).
 > - Deviations from this plan go to `docs/progress.md` under "WP-16 as built".
 > - `v0.3-day-night` is merged into `main` only after the owner's final approval.
