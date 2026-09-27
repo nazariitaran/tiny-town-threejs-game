@@ -12,13 +12,17 @@
  *    part per InstancedMesh pool in TownRenderer). Part matrices are therefore identity.
  *  - Triangle counts per model (`template.triangles`) for diagnostics/budgets.
  *  - Models with `sway: true` get their own material clone passed to applyWindSway() (WP-08).
+ *  - Models with `glow` (WP-16) get a private clone per (source material, glow kind) carrying the
+ *    kind's night glow mask (render/nightGlow.ts); `glow` (a GlowRegistry) drives their intensity.
+ *    All suburban houses share one "windows" clone, so pools and draw calls don't change.
  */
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { MODELS, type ModelId } from '../catalog/models';
+import { MODELS, type GlowKind, type ModelId } from '../catalog/models';
 import { assetUrl } from '../game/config';
 import { applyWindSway } from '../fx/windSway';
+import { GlowRegistry } from './nightGlow';
 
 export interface ModelPart {
   geometry: THREE.BufferGeometry;
@@ -48,6 +52,10 @@ export class ModelLibrary {
   private readonly textures = new Map<string, THREE.Texture>();
   /** Private per-model clones for swaying foliage. */
   private readonly swayMaterials = new Set<THREE.Material>();
+  /** Private night-glow clones keyed by `${source material uuid}|${kind}` (WP-16). */
+  private readonly glowMaterials = new Map<string, THREE.Material>();
+  /** Night glow (WP-16): masks, intensity updates and the window stagger uniforms. */
+  readonly glow = new GlowRegistry();
 
   async loadAll(onProgress?: (loaded: number, total: number, label: string) => void): Promise<void> {
     const ids = Object.keys(MODELS) as ModelId[];
@@ -75,9 +83,9 @@ export class ModelLibrary {
     return template;
   }
 
-  /** Distinct materials in use (shared + sway clones), for diagnostics. */
+  /** Distinct materials in use (shared + sway clones + glow clones), for diagnostics. */
   get materialCount(): number {
-    return this.materials.size + this.swayMaterials.size;
+    return this.materials.size + this.swayMaterials.size + this.glowMaterials.size;
   }
 
   /** Distinct textures in use, for diagnostics. */
@@ -104,10 +112,13 @@ export class ModelLibrary {
     for (const template of this.templates.values()) for (const part of template.parts) part.geometry.dispose();
     for (const material of this.materials.values()) material.dispose();
     for (const material of this.swayMaterials) material.dispose();
+    for (const material of this.glowMaterials.values()) material.dispose();
+    this.glow.dispose();
     for (const texture of this.textures.values()) texture.dispose();
     this.templates.clear();
     this.materials.clear();
     this.swayMaterials.clear();
+    this.glowMaterials.clear();
     this.textures.clear();
   }
 
@@ -155,6 +166,7 @@ export class ModelLibrary {
         applyWindSway(material);
         this.swayMaterials.add(material);
       }
+      if (spec.glow) material = this.glowMaterial(material, spec.glow);
       const geometry = mergeParts(id, geometries);
       geometry.computeBoundingBox();
       geometry.computeBoundingSphere();
@@ -162,6 +174,17 @@ export class ModelLibrary {
       parts.push({ geometry, material, matrix: new THREE.Matrix4() });
     }
     return { id, parts, bounds, triangles: Math.round(triangles) };
+  }
+
+  /** The private glow clone of `source` for `kind` (one per pair, shared by every model using it). */
+  private glowMaterial(source: THREE.Material, kind: GlowKind): THREE.Material {
+    const key = `${source.uuid}|${kind}`;
+    let material = this.glowMaterials.get(key);
+    if (!material) {
+      material = this.glow.createClone(source, kind);
+      this.glowMaterials.set(key, material);
+    }
+    return material;
   }
 
   /** Map a GLTF material onto a shared one (same atlas image + same parameters ⇒ same material). */

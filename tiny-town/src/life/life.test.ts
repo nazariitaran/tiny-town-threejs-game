@@ -6,7 +6,7 @@ import { DIR_X, DIR_Z, LANE_OFFSET, lanePath, manoeuvreKind, RING_RADIUS, ringPa
 import { createGameBus } from '../game/events';
 import { buildSampleTown } from '../town/sampleTown';
 import { TownEditor } from '../town/TownEditor';
-import { MAX_CARS, TrafficSim } from './TrafficSim';
+import { densityTarget, MAX_CARS, TrafficSim } from './TrafficSim';
 import { PLOT_DEPTH, PLOT_WIDTH, roadBlockCentreWorld, worldToCell } from '../game/config';
 
 /**
@@ -266,5 +266,79 @@ describe('traffic: roundabouts', () => {
     }
     expect(visited.has('1,1')).toBe(true);
     expect([...visited].filter((k) => k !== '1,1').length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('traffic: night density (WP-16b)', () => {
+  function sampleSim(seed = 4) {
+    const editor = new TownEditor(new TownState(PLOT_WIDTH, PLOT_DEPTH), createGameBus(), createSeededRandom(1));
+    buildSampleTown(editor);
+    const sim = new TrafficSim(editor.state, createSeededRandom(seed));
+    sim.onTownChanged([], 'load');
+    return sim;
+  }
+
+  it('densityTarget = max(1, round(base × f)) while the network has room, else 0', () => {
+    expect(densityTarget(6, 1)).toBe(6);
+    expect(densityTarget(6, 0.5)).toBe(3);
+    expect(densityTarget(6, 0.75)).toBe(5); // round(4.5)
+    expect(densityTarget(6, 0)).toBe(1);
+    expect(densityTarget(1, 0.5)).toBe(1);
+    expect(densityTarget(0, 1)).toBe(0);
+    expect(densityTarget(0, 0.5)).toBe(0);
+    expect(densityTarget(4, 2)).toBe(4); // never above the network's capacity
+  });
+
+  it('halves the cars at full night, newest first, and tops them back up at dawn', () => {
+    const sim = sampleSim();
+    expect(sim.cars.length).toBe(MAX_CARS);
+    const ids = sim.cars.map((c) => c.id);
+    const removed: number[] = [];
+    sim.onRemove = (car) => removed.push(car.id);
+    sim.setDensity(1 - 0.5 * 1);
+    expect(sim.stats.target).toBe(3);
+    expect(sim.cars.map((c) => c.id)).toEqual(ids.slice(0, 3));
+    expect(removed).toEqual(ids.slice(3).reverse());
+    expect(sim.stats.despawned).toBe(3);
+    // Unchanged target: no-op (no spawns, no stream draws).
+    const spawned = sim.stats.spawned;
+    sim.setDensity(0.52);
+    expect(sim.cars.length).toBe(3);
+    expect(sim.stats.spawned).toBe(spawned);
+    // Dawn: new cars pop in (not instant) until the full target.
+    sim.setDensity(1);
+    expect(sim.cars.length).toBe(MAX_CARS);
+    expect(sim.cars.slice(3).every((c) => !c.instant && c.id > Math.max(...ids))).toBe(true);
+    for (const car of sim.cars) expect(Number.isFinite(car.x) && Number.isFinite(car.z)).toBe(true);
+  });
+
+  it('density 1 changes nothing, and a reset/load always rebuilds at full density', () => {
+    const a = sampleSim(9);
+    const b = sampleSim(9);
+    b.setDensity(1);
+    expect(b.cars.map((c) => [c.id, c.x, c.z])).toEqual(a.cars.map((c) => [c.id, c.x, c.z]));
+    // Night, then a load: the town respawns at full density whatever the previous time of day was
+    // (so a test state never depends on the one before it); the owner then re-applies the night.
+    const d = sampleSim(9);
+    d.setDensity(0.5);
+    expect(d.density).toBe(0.5);
+    expect(d.cars.length).toBe(3);
+    d.onTownChanged([], 'load');
+    expect(d.density).toBe(1);
+    expect(d.cars.length).toBe(MAX_CARS);
+    d.setDensity(0.5);
+    expect(d.cars.length).toBe(3);
+  });
+
+  it('keeps one car on a small network and none without roads', () => {
+    const town = newTown();
+    const sim = new TrafficSim(town, createSeededRandom(2));
+    sim.setDensity(0.5);
+    expect(sim.cars.length).toBe(0);
+    sim.onTownChanged(paint(town, ringCells()), 'edit'); // 20 blocks ⇒ base 3
+    expect(sim.stats.target).toBe(densityTarget(3, 0.5));
+    expect(sim.cars.length).toBe(2);
+    sim.setDensity(0);
+    expect(sim.cars.length).toBe(1);
   });
 });
