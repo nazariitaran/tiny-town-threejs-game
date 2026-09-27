@@ -12,8 +12,8 @@ import { expect, test, type Page } from '@playwright/test';
 import { TIME_MODES, T_AFTERNOON, T_MORNING, T_NIGHT, type TimeMode } from '../src/world/dayCycle';
 import { applyState, byId, canvasPoint, diagnostics, gotoTitle, selectTool, startBuilding, trackErrors, UI_TEST_IDS, waitFrames } from './helpers';
 
-// TODO(WP-16c phase 2): flip to true after merging 16a + 16b; every NIGHT_LOOK test must pass then.
-const NIGHT_LOOK = false;
+// Enabled in WP-16c phase 2 (16a + 16b merged into v0.3-day-night).
+const NIGHT_LOOK = true;
 const NIGHT_LOOK_REASON = 'needs the real night look (WP-16a/16b), enabled in WP-16c phase 2';
 
 /** buildSampleTown places exactly 4 lampposts (src/town/sampleTown.ts, `for (const x of [8, 16, 27, 38])`). */

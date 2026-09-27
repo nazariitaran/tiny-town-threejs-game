@@ -1,6 +1,6 @@
 /**
- * WP-09b visual regression: screenshot baselines for `title`, `sample-town` and `asset-gallery`
- * on every project (desktop-chrome 1280×720, mobile-chrome Pixel 7).
+ * WP-09b visual regression: screenshot baselines for `title`, `sample-town`, `asset-gallery` and
+ * (WP-16c) `night-town` on every project (desktop-chrome 1280×720, mobile-chrome Pixel 7).
  *
  * Capture procedure (prepareDeterministicState in helpers.ts): load → reduced motion → pause →
  * seed(12345) → setState (acknowledged, built while already frozen) → hide debug UI → fonts →
@@ -33,6 +33,8 @@ const STATES = [
   { name: 'title', phase: 'title', minObjects: 0 },
   { name: 'sample-town', phase: 'building', minObjects: 1 },
   { name: 'asset-gallery', phase: 'building', minObjects: 1 },
+  // WP-16c: the sample town pinned at T_NIGHT (lit windows, lamp pools/halos, fireflies).
+  { name: 'night-town', phase: 'building', minObjects: 1 },
 ] as const;
 
 const SHOT = { animations: 'disabled', caret: 'hide', scale: 'css' } as const;
@@ -97,8 +99,16 @@ for (const state of STATES) {
 
     // Evidence copy (artifacts/ is gitignored) for hand-offs.
     await page.screenshot({ ...SHOT, path: `artifacts/wp-09b/visual-${state.name}-${testInfo.project.name}.png` });
+    // The top-bar rectangle (CSS px) for masked baseline diffs (tests/tools/maskedDiff.ts).
+    const topbar = await page.evaluate(() => {
+      const el = document.querySelector('.ui-topbar');
+      if (!el || (el as HTMLElement).hidden) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, width: r.width, height: r.height };
+    });
+    if (topbar) console.log(`${state.name} ${testInfo.project.name} topbar ${JSON.stringify(topbar)}`);
     await testInfo.attach(`${state.name}-${testInfo.project.name}-diagnostics`, {
-      body: JSON.stringify({ phase: b.phase, objects: b.objects, render: b.render, renderer: b.renderer, camera: b.camera, canvas: b.canvas, cars: b.life.cars }, null, 2),
+      body: JSON.stringify({ phase: b.phase, objects: b.objects, render: b.render, renderer: b.renderer, camera: b.camera, canvas: b.canvas, cars: b.life.cars, daytime: b.daytime, topbar }, null, 2),
       contentType: 'application/json',
     });
     errors.expectNone();

@@ -3,7 +3,12 @@
  * (`?debug&day=N`, an N-second day) over the sample town, as a video plus labelled stills.
  *
  *   PORT=5217 npm run dev            # in another shell
- *   node tests/tools/captureDayCycle.ts [--day 20] [--seconds 21] [--out artifacts/wp-16c/day-cycle] [--mobile]
+ *   node tests/tools/captureDayCycle.ts [--day 20] [--seconds 240] [--out artifacts/wp-16c/day-cycle] [--mobile]
+ *
+ * Runs until the clock has gone once round the day (back past the t it started at), or --seconds
+ * of wall time. Game time can lag wall time: the loop clamps delta (0.05 s), so a slow headless
+ * frame rate stretches an N-second day (each row records `fps`). The stills (one per wall second)
+ * can be assembled into a fixed-length video afterwards, e.g. with ffmpeg.
  *
  * Writes <out>/day-cycle.webm (Playwright recordVideo), <out>/still-<nn>-<phase>-t<t>.png every
  * second, named stills for each phase (dusk.png, night.png, dawn.png, day.png: the first frame
@@ -28,7 +33,7 @@ function parseArgs(argv: string[]): Args {
   const args: Args = {
     url: `http://127.0.0.1:${process.env.PORT ?? 5188}`,
     day: 20,
-    seconds: 21,
+    seconds: 240,
     out: 'artifacts/wp-16c/day-cycle',
     mobile: false,
   };
@@ -80,13 +85,23 @@ async function main(): Promise<void> {
     hooks.hideDebugUi(true);
   });
 
-  const timeline: Array<{ s: number; t: number; phase: string; night: number; lightsOn: number; lamps: number; calls: number }> = [];
+  const timeline: Array<{ s: number; t: number; phase: string; night: number; lightsOn: number; lamps: number; calls: number; fps: number }> = [];
   const named = new Set<string>();
   const start = Date.now();
-  for (let i = 0; (Date.now() - start) / 1000 < args.seconds; i += 1) {
+  let lastFrame = (await page.evaluate(() => window.__THREE_GAME_DIAGNOSTICS__!.frame)) ?? 0;
+  let lastTime = start;
+  let travelled = 0;
+  let previousT: number | null = null;
+  for (let i = 0; (Date.now() - start) / 1000 < args.seconds && travelled < 1; i += 1) {
     const d = await page.evaluate(() => window.__THREE_GAME_DIAGNOSTICS__!);
-    const s = Math.round((Date.now() - start) / 100) / 10;
-    const row = { s, t: +d.daytime.t.toFixed(4), phase: d.daytime.phase, night: +d.daytime.night.toFixed(3), lightsOn: +d.daytime.lightsOn.toFixed(3), lamps: d.daytime.lamps, calls: d.renderer.calls };
+    const now = Date.now();
+    const s = Math.round((now - start) / 100) / 10;
+    const fps = +(((d.frame - lastFrame) * 1000) / Math.max(1, now - lastTime)).toFixed(1);
+    lastFrame = d.frame;
+    lastTime = now;
+    if (previousT !== null) travelled += (d.daytime.t - previousT + 1) % 1;
+    previousT = d.daytime.t;
+    const row = { s, t: +d.daytime.t.toFixed(4), phase: d.daytime.phase, night: +d.daytime.night.toFixed(3), lightsOn: +d.daytime.lightsOn.toFixed(3), lamps: d.daytime.lamps, calls: d.renderer.calls, fps };
     timeline.push(row);
     const file = path.join(args.out, `still-${String(i).padStart(2, '0')}-${row.phase}-t${row.t.toFixed(3)}.png`);
     await page.screenshot({ path: file });
