@@ -51,7 +51,10 @@ interface ThreeGameTestHooks {
   setReducedMotion(enabled: boolean): void | Promise<void>;
   /** Hide debug UI (lil-gui) before capturing. */
   hideDebugUi(hidden: boolean): void | Promise<void>;
-  /** CSS client coordinates of a grid cell centre, so bots can click real cells with real input. */
+  /**
+   * CSS client coordinates of a grid cell centre, so bots can click real cells with real input.
+   * Cells are the 48 × 48 half-unit grid (WP-12); a road block is 2 × 2 cells, houses 3×3 / 2×3.
+   */
   cellToClient(x: number, z: number): { x: number; y: number };
 }
 

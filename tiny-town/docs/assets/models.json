@@ -22,8 +22,8 @@
     "front": "n/a — connects -X,+X",
     "suggestedScale": 1,
     "footprintCells": [
-      1,
-      1
+      2,
+      2
     ],
     "triangles": 44,
     "materials": 1,
@@ -56,8 +56,8 @@
     "front": "n/a — connects -X,+Z",
     "suggestedScale": 1,
     "footprintCells": [
-      1,
-      1
+      2,
+      2
     ],
     "triangles": 260,
     "materials": 1,
@@ -90,8 +90,8 @@
     "front": "n/a — connects -X,+Z",
     "suggestedScale": 1,
     "footprintCells": [
-      1,
-      1
+      2,
+      2
     ],
     "triangles": 220,
     "materials": 1,
@@ -124,8 +124,8 @@
     "front": "n/a — connects -X,+Z",
     "suggestedScale": 1,
     "footprintCells": [
-      1,
-      1
+      2,
+      2
     ],
     "triangles": 60,
     "materials": 1,
@@ -158,8 +158,8 @@
     "front": "n/a — connects -X,+X,+Z (closed -Z)",
     "suggestedScale": 1,
     "footprintCells": [
-      1,
-      1
+      2,
+      2
     ],
     "triangles": 84,
     "materials": 1,
@@ -192,8 +192,8 @@
     "front": "n/a — connects all four",
     "suggestedScale": 1,
     "footprintCells": [
-      1,
-      1
+      2,
+      2
     ],
     "triangles": 116,
     "materials": 1,
@@ -226,8 +226,8 @@
     "front": "n/a — connects +X only",
     "suggestedScale": 1,
     "footprintCells": [
-      1,
-      1
+      2,
+      2
     ],
     "triangles": 42,
     "materials": 1,
@@ -260,8 +260,8 @@
     "front": "n/a — connects +X only",
     "suggestedScale": 1,
     "footprintCells": [
-      1,
-      1
+      2,
+      2
     ],
     "triangles": 218,
     "materials": 1,
@@ -294,8 +294,8 @@
     "front": "n/a — no connections",
     "suggestedScale": 1,
     "footprintCells": [
-      1,
-      1
+      2,
+      2
     ],
     "triangles": 36,
     "materials": 1,
@@ -328,8 +328,8 @@
     "front": "n/a — connects -X,+X",
     "suggestedScale": 1,
     "footprintCells": [
-      1,
-      1
+      2,
+      2
     ],
     "triangles": 104,
     "materials": 1,
@@ -362,8 +362,8 @@
     "front": "n/a — connects -X,+X; driveway gap in +Z sidewalk",
     "suggestedScale": 1,
     "footprintCells": [
-      1,
-      1
+      2,
+      2
     ],
     "triangles": 60,
     "materials": 1,
@@ -394,7 +394,7 @@
     },
     "pivot": "centre-bottom",
     "front": "n/a",
-    "suggestedScale": 1,
+    "suggestedScale": 0.5,
     "footprintCells": [
       1,
       1
@@ -666,7 +666,7 @@
     },
     "pivot": "centre-bottom",
     "front": "n/a (symmetric)",
-    "suggestedScale": 0.36,
+    "suggestedScale": 0.45,
     "footprintCells": [
       1,
       1
@@ -700,7 +700,7 @@
     },
     "pivot": "centre-bottom",
     "front": "n/a (symmetric)",
-    "suggestedScale": 0.36,
+    "suggestedScale": 0.45,
     "footprintCells": [
       1,
       1
@@ -734,7 +734,7 @@
     },
     "pivot": "centre-bottom",
     "front": "n/a (symmetric)",
-    "suggestedScale": 1,
+    "suggestedScale": 1.15,
     "footprintCells": [
       1,
       1
@@ -768,7 +768,7 @@
     },
     "pivot": "centre-bottom",
     "front": "n/a (symmetric)",
-    "suggestedScale": 1,
+    "suggestedScale": 1.15,
     "footprintCells": [
       1,
       1
@@ -802,10 +802,10 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z (door + planters)",
-    "suggestedScale": 0.75,
+    "suggestedScale": 1,
     "footprintCells": [
-      1,
-      1
+      3,
+      3
     ],
     "triangles": 1174,
     "materials": 1,
@@ -836,10 +836,10 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z (door + planters)",
-    "suggestedScale": 0.75,
+    "suggestedScale": 1,
     "footprintCells": [
-      1,
-      1
+      2,
+      3
     ],
     "triangles": 1024,
     "materials": 1,
@@ -870,10 +870,10 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z (door, awning, planters)",
-    "suggestedScale": 0.75,
+    "suggestedScale": 1,
     "footprintCells": [
-      1,
-      1
+      3,
+      3
     ],
     "triangles": 1731,
     "materials": 1,
@@ -904,10 +904,10 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z (door)",
-    "suggestedScale": 0.75,
+    "suggestedScale": 1,
     "footprintCells": [
-      1,
-      1
+      2,
+      3
     ],
     "triangles": 1030,
     "materials": 1,
@@ -938,10 +938,10 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z (door + garage door)",
-    "suggestedScale": 0.75,
+    "suggestedScale": 1,
     "footprintCells": [
-      1,
-      1
+      3,
+      3
     ],
     "triangles": 1196,
     "materials": 1,
@@ -972,10 +972,10 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z (big garage door)",
-    "suggestedScale": 0.75,
+    "suggestedScale": 0.48,
     "footprintCells": [
       1,
-      1
+      2
     ],
     "triangles": 886,
     "materials": 2,
@@ -1040,9 +1040,9 @@
     },
     "pivot": "centre-bottom (bounds centre ≈ (0.02, -0.05))",
     "front": "-Z (open side, bench faces -Z; sign pole at +X/-Z)",
-    "suggestedScale": 1,
+    "suggestedScale": 0.8,
     "footprintCells": [
-      1,
+      2,
       1
     ],
     "triangles": 378,
@@ -1076,7 +1076,7 @@
     },
     "pivot": "edge-centre-bottom",
     "front": "n/a — runs along X (both faces finished)",
-    "suggestedScale": 1,
+    "suggestedScale": 0.5,
     "footprintCells": [
       1,
       0
@@ -1110,7 +1110,7 @@
     },
     "pivot": "edge-centre-bottom",
     "front": "n/a — runs along X",
-    "suggestedScale": 1,
+    "suggestedScale": 0.5,
     "footprintCells": [
       1,
       0
@@ -1178,7 +1178,7 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z (slot + plate)",
-    "suggestedScale": 1,
+    "suggestedScale": 1.4,
     "footprintCells": [
       1,
       1
@@ -1210,7 +1210,7 @@
     },
     "pivot": "pole at origin, base y=0 (bounds offset toward -Z by the arm)",
     "front": "-Z (lamp arm overhangs -Z by 0.2 native)",
-    "suggestedScale": 0.9,
+    "suggestedScale": 1,
     "footprintCells": [
       1,
       1
@@ -1278,7 +1278,7 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z (bonnet/headlights)",
-    "suggestedScale": 0.14,
+    "suggestedScale": 0.17,
     "footprintCells": [
       1,
       1
@@ -1312,7 +1312,7 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z",
-    "suggestedScale": 0.14,
+    "suggestedScale": 0.17,
     "footprintCells": [
       1,
       1
@@ -1346,7 +1346,7 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z",
-    "suggestedScale": 0.14,
+    "suggestedScale": 0.17,
     "footprintCells": [
       1,
       1
@@ -1380,7 +1380,7 @@
     },
     "pivot": "centre-bottom",
     "front": "-Z",
-    "suggestedScale": 0.14,
+    "suggestedScale": 0.17,
     "footprintCells": [
       1,
       1

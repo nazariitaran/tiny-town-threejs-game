@@ -35,23 +35,28 @@ The suburban houses can change roof colour. `suburban/Textures/variation-{a,b,c}
 
 ## Grid and scale
 
-**`CELL_SIZE = 1` world unit = one Kenney road tile.** All road and pavement pieces are exactly 1×1 at scale 1, centred, with their top at y = 0.02. The other kits use other native scales, so each model has its own scale factor, chosen so that everything sits sensibly on the 1-unit grid:
+**WP-12 (v0.2): `CELL_SIZE = 0.5` world units, a 48 × 48-cell plot, and one Kenney road tile (1 world unit, `ROAD_TILE_SIZE`) covers an aligned 2 × 2 road block.** Toy scale: 1 world unit ≈ 8 m, a cell ≈ 4 m. All road pieces are exactly 1 × 1 at scale 1, centred, with their top at y = 0.02. The scales below are the live values in `src/catalog/models.ts`; sizes are as drawn (including TownRenderer's `MODEL_STYLES` Y stretch), measured by `catalog.test.ts` › proportions (it logs this table):
 
-| Group | Scale | Resulting size (w × h × d) | Why |
-| --- | --- | --- | --- |
-| Roads, pavement | 1 | 1 × 0.02 × 1 | Defines the grid. Two lanes of ≈0.37 each between kerbs. |
-| Suburban houses, garage | **0.75** (one value for all) | 0.69–0.98 wide, 0.63–0.86 tall, ≈0.77 deep | The widest chosen house (1.3 native) fits one cell with a small front yard. One shared value keeps storeys and doors the same height across types. |
-| `garage-row` | 0.75 | 1.59 × 0.63 × 0.69 | 2×1 footprint |
-| Platformer trees | 0.36 | ≈0.4 wide, 0.70–0.72 tall | About house height |
-| Suburban `tree-large`/`-small` | 1 | 0.21 wide, 0.77/0.57 tall | Already at city scale |
-| Flowers / grass tufts | 0.35 | 0.1–0.27 clumps | Scatter several per cell |
-| Walkway paths | 1.25 | arm 0.25 × 0.5, hub 0.25 × 0.25 | An arm reaches exactly from the cell centre to an edge |
-| Composed items (bus stop, fences, postbox) | 1 | see the notes in `models.json` | Authored directly in world units |
-| Lamppost `light-curved` | 0.9 | 0.61 tall, arm reaches 0.18 | Lower than the eaves |
-| Cars | 0.14 | 0.21 × 0.18 × 0.36 | Fits one lane |
-| Bench | 0.26 | 0.29 × 0.19 × 0.16 | Matches the bench inside the bus stop |
+| Item | Footprint (cells) | Scale (v0.1) | Drawn size w × h × d | Why |
+| --- | --- | --- | --- | --- |
+| Roads | 2 × 2 block | 1 (1) | 1 × 0.02 × 1 | One tile per block. Two lanes of ≈0.37 between kerbs. |
+| Pavement `tile-low` | 1 × 1 | 0.5 (1), style Y × 2 | 0.5 × 0.02 × 0.5 | Kerb-height strip beside the road tile's own kerb. |
+| Cottage (type-a) | 3 × 3 | 1 (0.78), offset z −0.15 | 1.30 × 0.83 × 1.03 | ≈ 3× a car length, 3.5× a lane; front yard reads. |
+| Townhouse (type-k / type-r) | 2 × 3 | 1 (0.88 / 0.87), offset z −0.15 | 0.92–1.03 × 1.15 × 1.02 | Kit-native: storeys and doors match across types. |
+| Family home (type-e / type-c) | 3 × 3 | 1 (0.78), offset z −0.15 | 1.29–1.30 × 1.03–1.14 × 1.03 | |
+| Garage | 1 × 2 | 0.48 (0.78) | 0.49 × 0.41 × 0.62 | Single car garage, below the eaves. |
+| Bus stop | 2 × 1 | 0.8 (1) | 0.76 × 0.34 × 0.37 | |
+| Postbox | 1 × 1 | 1.4 (2) | 0.15 × 0.24 × 0.15 | ≈ car height, ~1.2× real so it stays readable. |
+| Lamppost `light-curved` | 1 × 1 | 1 (1.35), offset z 0.087, style 1.5 × 1 × 1.15 | 0.075 × 0.675 × 0.26 | Taller than garage and bus-stop bench, below the eaves. |
+| Oak / Pine (platformer) | 1 × 1 | 0.45 (0.36) | 0.49 × 0.87 / 0.43 × 0.90 | About cottage height, below townhouse ridges. |
+| Birch `tree-large` / `-small` | 1 × 1 | 1.15 (1) | 0.24 × 0.88 / 0.65 | |
+| Tall / low fence | cell edge (0.5) | 0.5 (1), style Y 1.8 / 1.4 | 0.5 long, 0.21 / 0.10 tall | ≈ 1.65 m / 0.8 m. |
+| Flowers / grass tufts | scatter | 0.35 (0.35) | 0.1–0.27 clumps | One clump per cell (same density per area as v0.1). |
+| Walkway | 1 × 1 | procedural | path 0.25 wide (half a cell) | Hub + arms per cell. The ghost uses `path-short` at 1.25 (0.25²). |
+| Cars (`LifeSystem.CAR_SCALE`) | road lane | 0.17 (0.14) | 0.22–0.26 × 0.19–0.26 × 0.43–0.49 | Fits one lane. |
+| Decor ring oak / pine | outside the plot | rendered at 0.36 (`DecorRing.TEMPLATE_RESCALE`) | unchanged | The ring stays exactly as in v0.1. |
 
-Small props (postbox, bench, lamppost) are roughly 1.5–2× their real size relative to the houses. That keeps them readable and clickable. If they look too big, scale them down, not the houses.
+Side-by-side evidence (same camera, v0.1 vs WP-12): `artifacts/wp-12/proportions-{before,after}.png`.
 
 ## Pivot and orientation conventions
 
