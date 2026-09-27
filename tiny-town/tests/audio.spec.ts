@@ -65,7 +65,7 @@ test('a 30-tile road drag is rate-limited to 10..30 sound starts', async ({ page
   const log = collectConsole(page);
   await startGame(page);
   await waitForAudio(page, 13);
-  await page.locator('#cat-paths').click();
+  await page.locator('#cat-streets').click();
   await page.locator('#tool-road').click();
   await expect.poll(async () => (await diag(page)).tool).toBe('road');
   await page.waitForTimeout(200);

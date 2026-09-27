@@ -55,18 +55,18 @@ Test hooks stay in production because the canvas inspector, the e2e suite and th
 - Never add hooks that run on load or change defaults.
 
 ## Budgets (targets in `docs/design/03-architecture.md`)
-Numbers are labelled with their version and source. **v0.2 has not been re-profiled on the production preview.** Before the next release, re-run the v0.1 method with a fresh run id.
+Numbers are labelled with their version and source. **Neither v0.2 nor v0.3 has been re-profiled on the production preview.** The v0.3 column is the working tree before release (evidence, local only: `artifacts/v03/stress-desk4/`, `artifacts/v03/stress-mobile4/`). Before the next release, re-run the v0.1 method with a fresh run id.
 
-| Metric | Budget (desktop / mobile) | v0.1 — WP-11, production preview, 2026-09-26 (desktop / Pixel 7 emu) | v0.2 — 2026-09-27 |
-| --- | --- | --- | --- |
-| Draw calls (stress-town) | 150 / 120 | 25 / 25 | 30 / 30 (WP-12 inspector, dev server) |
-| Triangles (stress-town) | 400k / 250k | 232k / 195k | 311k / 243.5k (same run; mobile headroom ~6.5k) |
-| Textures | ≤ 30 | 11–14 / 10–13 | 11 / 10 (stress-town, same run) |
-| Shadow map | 2048 / 1024 | 2048 (high tier) / 1024 (low tier) | unchanged |
-| DPR cap | 2 / 1.5 | 2 / 1.5 (canvas 618×1372 at 412 CSS px) | unchanged |
-| Frame time (stress-town, headless full Chromium, M2 Max) | ≤ 8 ms | 1.36 ms mean (738 fps uncapped) / 1.41 ms | not re-measured |
-| Initial download (JS+CSS+font+models+SFX+icons) | ≤ 8 MB | 3.14 MB over the network; 3.28 MB in `dist/` without maps | 3.29 MB in `dist/` without maps **and without the 4.68 MB music file**, which streams after Start. WP-13 measured on the dev server: 2.38 MB before Start with no music requests |
-| Main JS chunk | code-split if > 900 kB | 830 kB (221 kB gzip) → no split | 843 kB (225 kB gzip) → no split |
+| Metric | Budget (desktop / mobile) | v0.1 — WP-11, production preview, 2026-09-26 (desktop / Pixel 7 emu) | v0.2 — 2026-09-27 | v0.3 working tree — 2026-09-27 (not released) |
+| --- | --- | --- | --- | --- |
+| Draw calls (stress-town) | 150 / 120 | 25 / 25 | 30 / 30 (WP-12 inspector, dev server) | 32 / 32 (dev-server inspector) |
+| Triangles (stress-town) | 400k / 250k | 232k / 195k | 311k / 243.5k (same run; mobile headroom ~6.5k) | 306.1k / 239.1k (same run; mobile headroom ~10.9k) |
+| Textures | ≤ 30 | 11–14 / 10–13 | 11 / 10 (stress-town, same run) | 11 / 10 (same run) |
+| Shadow map | 2048 / 1024 | 2048 (high tier) / 1024 (low tier) | unchanged | unchanged |
+| DPR cap | 2 / 1.5 | 2 / 1.5 (canvas 618×1372 at 412 CSS px) | unchanged | unchanged |
+| Frame time (stress-town, headless full Chromium, M2 Max) | ≤ 8 ms | 1.36 ms mean (738 fps uncapped) / 1.41 ms | not re-measured | not measured |
+| Initial download (JS+CSS+font+models+SFX+icons) | ≤ 8 MB | 3.14 MB over the network; 3.28 MB in `dist/` without maps | 3.29 MB in `dist/` without maps **and without the 4.68 MB music file**, which streams after Start. WP-13 measured on the dev server: 2.38 MB before Start with no music requests | not measured (on disk: models 3.58 MB, icons 259 KB) |
+| Main JS chunk | code-split if > 900 kB | 830 kB (221 kB gzip) → no split | 843 kB (225 kB gzip) → no split | not measured |
 
 **Frame-time method (v0.1).**
 - Chromium runs with `--disable-gpu-vsync --disable-frame-rate-limit`, so frames aren't capped.

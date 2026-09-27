@@ -7,7 +7,17 @@ import type { SfxEvent } from '../audio/sfx';
 import type { BuildAction, Cell, Edge, EdgeKind, GroundKind, ObjectKind, Rotation } from '../town/types';
 
 export type ToolId = Exclude<GroundKind, 'field'> | ObjectKind | EdgeKind | 'bulldoze';
-export type ToolCategory = 'paths' | 'nature' | 'buildings' | 'other';
+/**
+ * Dock categories — each answers "what am I building?":
+ *   streets: the road network and everything that belongs to the kerb
+ *   homes:   where people live (and their garages)
+ *   town:    shops and civic places everyone shares
+ *   nature:  things that grow on their own (ground cover, trees, bushes)
+ *   garden:  things people build in a yard or park (paths, hedges, fences, furniture)
+ * Inside a category tools run surfaces → lines → objects (ground paint, then edges, then placed
+ * items); catalog.test.ts keeps that order. Each category holds at most 9 tools (digit shortcuts).
+ */
+export type ToolCategory = 'streets' | 'homes' | 'town' | 'nature' | 'garden';
 export type ToolLayer = 'ground' | 'object' | 'edge' | 'bulldoze';
 /** paint: every crossed cell · scatter: each new valid cell while dragging · single: click only · line: straight edge run. */
 export type DragMode = 'paint' | 'scatter' | 'single' | 'line';
@@ -18,7 +28,7 @@ export interface ToolDef {
   category: ToolCategory | 'mode';
   layer: ToolLayer;
   drag: DragMode;
-  /** Toolbar icon (Kenney preview render or UI svg), public URL. */
+  /** Toolbar icon (rendered from the in-game model by scripts/render-icons.mjs, or a UI svg), public URL. */
   icon: string;
   /** SFX played when this tool successfully places something. */
   sfx: SfxEvent;
@@ -26,39 +36,67 @@ export interface ToolDef {
   hint: string;
 }
 
-const icon = (id: string): string => `/assets/icons/${id}.png`;
+/** Tool icons are rendered per tool id (scripts/render-icons.mjs → public/assets/icons/tool-<id>.png). */
+const icon = (id: ToolId): string => `/assets/icons/tool-${id}.png`;
 
-export const TOOLS: readonly ToolDef[] = [
-  // Paths
-  { id: 'road', label: 'Road', category: 'paths', layer: 'ground', drag: 'paint', icon: icon('road-straight'), sfx: 'place-path', hint: 'Drag to lay road — it joins up automatically' },
-  { id: 'pavement', label: 'Pavement', category: 'paths', layer: 'ground', drag: 'paint', icon: icon('pavement-tile'), sfx: 'place-path', hint: 'Drag to lay pavement alongside roads' },
-  { id: 'walkway', label: 'Walkway', category: 'paths', layer: 'ground', drag: 'paint', icon: icon('walkway-path-long'), sfx: 'place-path', hint: 'Drag to lay a garden path' },
+type ToolRow = Omit<ToolDef, 'icon'>;
+const BUILD = 'Click to build · R to rotate';
+const PLACE = 'Click to place · R to rotate';
+const SCATTER = 'Click or drag to place · R to rotate';
+const PLANT = 'Click or drag to plant';
+const EDGE = 'Drag along cell edges';
+
+const ROWS: readonly ToolRow[] = [
+  // Streets
+  { id: 'road', label: 'Road', category: 'streets', layer: 'ground', drag: 'paint', sfx: 'place-path', hint: 'Drag to lay road — it joins up automatically' },
+  { id: 'pavement', label: 'Pavement', category: 'streets', layer: 'ground', drag: 'paint', sfx: 'place-path', hint: 'Drag to lay pavement alongside roads' },
+  { id: 'roundabout', label: 'Roundabout', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-path', hint: 'Click to build a roundabout — roads join its four arms' },
+  { id: 'traffic-light', label: 'Traffic light', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-prop-metal', hint: 'Place next to a road · R to rotate' },
+  { id: 'lamppost', label: 'Lamppost', category: 'streets', layer: 'object', drag: 'scatter', sfx: 'place-prop-metal', hint: SCATTER },
+  { id: 'bus-stop', label: 'Bus stop', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-building', hint: 'Place next to a road · R to rotate' },
+  { id: 'postbox', label: 'Postbox', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-prop-metal', hint: PLACE },
+  // Homes
+  { id: 'cottage', label: 'Cottage', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
+  { id: 'townhouse', label: 'Townhouse', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
+  { id: 'bungalow', label: 'Bungalow', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
+  { id: 'family-home', label: 'Family home', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
+  { id: 'garage-house', label: 'Suburban', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
+  { id: 'big-house', label: 'Big house', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
+  { id: 'garage', label: 'Garage', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
+  // Town
+  { id: 'fountain', label: 'Fountain', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: PLACE },
+  { id: 'corner-shop', label: 'Corner shop', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
+  { id: 'church', label: 'Church', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
+  { id: 'supermarket', label: 'Supermarket', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
+  { id: 'swimming-pool', label: 'Pool', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   // Nature
-  { id: 'grass', label: 'Grass', category: 'nature', layer: 'ground', drag: 'paint', icon: icon('grass-tuft'), sfx: 'place-nature', hint: 'Drag to paint lawn' },
-  { id: 'meadow', label: 'Wildflowers', category: 'nature', layer: 'ground', drag: 'paint', icon: icon('meadow-flowers'), sfx: 'place-nature', hint: 'Drag to sow a wildflower meadow' },
-  { id: 'tree-a', label: 'Oak', category: 'nature', layer: 'object', drag: 'scatter', icon: icon('tree-a'), sfx: 'place-nature', hint: 'Click or drag to plant trees' },
-  { id: 'tree-b', label: 'Pine', category: 'nature', layer: 'object', drag: 'scatter', icon: icon('tree-b'), sfx: 'place-nature', hint: 'Click or drag to plant trees' },
-  { id: 'tree-c', label: 'Birch', category: 'nature', layer: 'object', drag: 'scatter', icon: icon('tree-c'), sfx: 'place-nature', hint: 'Click or drag to plant trees' },
-  // Buildings
-  { id: 'townhouse-a', label: 'Cottage', category: 'buildings', layer: 'object', drag: 'single', icon: icon('townhouse-a'), sfx: 'place-building', hint: 'Click to build · R to rotate' },
-  { id: 'townhouse-b', label: 'Townhouse', category: 'buildings', layer: 'object', drag: 'single', icon: icon('townhouse-b'), sfx: 'place-building', hint: 'Click to build · R to rotate' },
-  { id: 'townhouse-c', label: 'Family home', category: 'buildings', layer: 'object', drag: 'single', icon: icon('townhouse-c'), sfx: 'place-building', hint: 'Click to build · R to rotate' },
-  { id: 'garage', label: 'Garage', category: 'buildings', layer: 'object', drag: 'single', icon: icon('garage'), sfx: 'place-building', hint: 'Click to build · R to rotate' },
-  { id: 'bus-stop', label: 'Bus stop', category: 'buildings', layer: 'object', drag: 'single', icon: icon('bus-stop'), sfx: 'place-building', hint: 'Place next to a road · R to rotate' },
-  { id: 'fence-tall', label: 'Tall fence', category: 'buildings', layer: 'edge', drag: 'line', icon: icon('fence-tall'), sfx: 'place-prop', hint: 'Drag along cell edges to build a fence' },
-  { id: 'fence-small', label: 'Low fence', category: 'buildings', layer: 'edge', drag: 'line', icon: icon('fence-small'), sfx: 'place-prop', hint: 'Drag along cell edges to build a fence' },
-  // Other
-  { id: 'postbox', label: 'Postbox', category: 'other', layer: 'object', drag: 'single', icon: icon('postbox'), sfx: 'place-prop-metal', hint: 'Click to place · R to rotate' },
-  { id: 'lamppost', label: 'Lamppost', category: 'other', layer: 'object', drag: 'scatter', icon: icon('lamppost'), sfx: 'place-prop-metal', hint: 'Click to place · R to rotate' },
+  { id: 'grass', label: 'Grass', category: 'nature', layer: 'ground', drag: 'paint', sfx: 'place-nature', hint: 'Drag to paint lawn' },
+  { id: 'meadow', label: 'Wildflowers', category: 'nature', layer: 'ground', drag: 'paint', sfx: 'place-nature', hint: 'Drag to sow a wildflower meadow' },
+  { id: 'bush', label: 'Bush', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT },
+  { id: 'oak', label: 'Oak', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT },
+  { id: 'pine', label: 'Pine', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT },
+  { id: 'birch', label: 'Birch', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT },
+  // Garden
+  { id: 'walkway', label: 'Garden path', category: 'garden', layer: 'ground', drag: 'paint', sfx: 'place-path', hint: 'Drag to lay a garden path' },
+  { id: 'hedge', label: 'Hedge', category: 'garden', layer: 'edge', drag: 'line', sfx: 'place-nature', hint: `${EDGE} to grow a hedge` },
+  { id: 'fence-low', label: 'Low fence', category: 'garden', layer: 'edge', drag: 'line', sfx: 'place-prop', hint: `${EDGE} to build a fence` },
+  { id: 'fence-tall', label: 'Tall fence', category: 'garden', layer: 'edge', drag: 'line', sfx: 'place-prop', hint: `${EDGE} to build a fence` },
+  { id: 'planter', label: 'Planter', category: 'garden', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: SCATTER },
+  { id: 'bench', label: 'Bench', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-prop', hint: PLACE },
+  { id: 'barbecue', label: 'Barbecue', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-prop-metal', hint: PLACE },
+  { id: 'swing', label: 'Swing', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-prop', hint: PLACE },
   // Modes
-  { id: 'bulldoze', label: 'Bulldoze', category: 'mode', layer: 'bulldoze', drag: 'paint', icon: '/assets/ui/bulldoze.svg', sfx: 'remove', hint: 'Click or drag to remove things' },
+  { id: 'bulldoze', label: 'Bulldoze', category: 'mode', layer: 'bulldoze', drag: 'paint', sfx: 'remove', hint: 'Click or drag to remove things' },
 ];
 
+export const TOOLS: readonly ToolDef[] = ROWS.map((row) => ({ ...row, icon: row.id === 'bulldoze' ? '/assets/ui/bulldoze.svg' : icon(row.id) }));
+
 export const TOOL_CATEGORIES: ReadonlyArray<{ id: ToolCategory; label: string }> = [
-  { id: 'paths', label: 'Paths' },
+  { id: 'streets', label: 'Streets' },
+  { id: 'homes', label: 'Homes' },
+  { id: 'town', label: 'Town' },
   { id: 'nature', label: 'Nature' },
-  { id: 'buildings', label: 'Buildings' },
-  { id: 'other', label: 'Other' },
+  { id: 'garden', label: 'Garden' },
 ];
 
 const byId = new Map<ToolId, ToolDef>(TOOLS.map((tool) => [tool.id, tool]));

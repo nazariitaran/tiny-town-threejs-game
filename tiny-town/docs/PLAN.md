@@ -1,10 +1,10 @@
 # Tiny Town — Implementation Plan (hand-off)
 
-This plan took the scaffold to a finished v1 of **Tiny Town**, a cosy sandbox city builder that runs in the browser, and then to v0.2. It is written for implementation agents working **in parallel**. Each work package (WP) has its own files, contracts, dependencies and **verifiable acceptance checks**.
+This plan took the scaffold to a finished v1 of **Tiny Town**, a cosy sandbox city builder that runs in the browser, then to v0.2, and now to v0.3 (WP-15, in progress). It is written for implementation agents working **in parallel**. Each work package (WP) has its own files, contracts, dependencies and **verifiable acceptance checks**.
 
 Read `CLAUDE.md` first (commands and hard rules), then `docs/progress.md` (current state), then the three design docs in `docs/design/`. To run the swarm (orchestrator prompt, worker template, branches, ports, merge runbook), see `docs/HANDOVER.md`.
 
-> **How to read this file (updated 2026-09-27, v0.2 on `main`).** Every WP here is **done and merged**; `docs/progress.md` has SHAs and status.
+> **How to read this file (updated 2026-09-27, v0.2 on `main`, v0.3 in the working tree).** Every WP here is **done and merged** except **WP-15 (v0.3), which is current and in progress**; `docs/progress.md` has SHAs and status.
 >
 > | Section | Status |
 > | --- | --- |
@@ -12,7 +12,7 @@ Read `CLAUDE.md` first (commands and hard rules), then `docs/progress.md` (curre
 > | §1 Scaffold state | **HISTORICAL** (the v0.1 starting point) |
 > | §2 How to run in parallel | current |
 > | §3 Dependency graph | historical v0.1 waves, plus the v0.2 iteration |
-> | §4 WP sections | **Owns** lists are current: use them for file ownership. **Tasks / Acceptance** are the contracts as they were delivered (historical); grid coordinates in v0.1 checks are on the old 24 × 24 grid |
+> | §4 WP sections | **Owns** lists are current: use them for file ownership. **Tasks / Acceptance** are the contracts as they were delivered (historical); grid coordinates in v0.1 checks are on the old 24 × 24 grid. **WP-15 is current** |
 > | §5 Checkpoints | historical; all passed |
 > | §6 Scorecard mapping | current |
 > | §7 Risks | current |
@@ -23,7 +23,7 @@ Read `CLAUDE.md` first (commands and hard rules), then `docs/progress.md` (curre
 
 ## 0. Definition of done (v1)
 
-> Current. Met at M3 (`3f9c6cf`) and still true in v0.2. v0.2 changed the grid to 48 × 48 half-unit cells with multi-cell buildings (WP-12), added streamed background music with settings (WP-13), and removed the stats pill (WP-14).
+> Current. Met at M3 (`3f9c6cf`) and still true in v0.2. v0.2 changed the grid to 48 × 48 half-unit cells with multi-cell buildings (WP-12), added streamed background music with settings (WP-13), and removed the stats pill (WP-14). v0.3 (WP-15) replaces item 1's tool list: 33 tools in **Streets / Homes / Town / Nature / Garden** (see §WP-15 and `02-interaction-and-ui.md`).
 
 A player opens the page, sees a sunny empty field under a sky, clicks **Start building**, and can:
 
@@ -102,7 +102,7 @@ Expect small calibration fixes (model `rotationOffset`s, lamppost centring, expo
 
 ## 3. Dependency graph
 
-> Historical v0.1 waves, all done. v0.2 ran WP-12, WP-13 and WP-14 in parallel (WP-13 and WP-14 merged first), and the integrator regenerated the baselines once all three were in.
+> Historical v0.1 waves, all done. v0.2 ran WP-12, WP-13 and WP-14 in parallel (WP-13 and WP-14 merged first), and the integrator regenerated the baselines once all three were in. v0.3 is one package, WP-15, built by the integrator on the `main` working tree.
 
 ```
 Wave 0 (done) ── scaffold, assets, contracts, walking skeleton
@@ -148,7 +148,7 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
 - **Acceptance:** every checkpoint's checks pass on the merged main branch, and `docs/progress.md` is up to date.
 
 ### WP-02 — Town logic & persistence
-- **Owns:** `src/town/TownState.ts`, `rules.ts`, `History.ts`, `TownEditor.ts`, `serialize.ts` (save format + v1→v2 migration), `sampleTown.ts`, `src/town/fixtures/**` (v0.1 saves), `src/persistence/**`, all `src/town/*.test.ts` (including `migration.test.ts`).
+- **Owns:** `src/town/TownState.ts`, `rules.ts`, `History.ts`, `TownEditor.ts`, `serialize.ts` (save format; v0.3 removed the v1→v2 migration), `sampleTown.ts`, `src/persistence/**`, all `src/town/*.test.ts`. (`src/town/fixtures/**` and `migration.test.ts` were deleted in v0.3.)
 - **Reads:** `town/types.ts`, `town/grid.ts`, `catalog/objects.ts`, `game/events.ts`.
 - **Depends on:** nothing. **Skills:** `threejs-gameplay-systems` (read "Design first" and "Build").
 - **Tasks:**
@@ -328,6 +328,27 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
   - `town:stats` and diagnostics `town` stay.
 - **Integrator follow-up:** regenerated the baselines (`51d074d`, then again after WP-12 in `30fe85b`); phone top inset set to 76 in `framing.ts`.
 
+### WP-15 — New building blocks & categories (v0.3)
+- **Status: current, in progress** in the `main` working tree (uncommitted, not yet released). As-built notes: `docs/progress.md` ("WP-15 as built").
+- **Owner:** the integrator (WP-01), with delegated helpers for tests and docs. It touches contract files (`catalog/*.ts`, `town/types.ts`, `town/grid.ts`, `vite-env.d.ts`), so it is not split across parallel WPs.
+- **Motivation:** the 2026-09-27 asset research (crossroad, roundabout, traffic light, pool, barbecue, swing, house with garage, bench, bush, church, supermarket), and a dock that answers "what am I building?".
+- **Scope:**
+  - Dock categories Streets / Homes / Town / Nature / Garden (Shift+1–5), ≤ 9 tools each, surfaces → lines → objects. Ids renamed to what a thing is (`oak`, `cottage`, `fence-low`, …); `ObjectDef.group` replaces `statGroup`; `TownStats.amenities`.
+  - New tools: Roundabout (road feature, 6 × 6, block-aligned), Traffic light (next to a road), Bungalow, Suburban, Big house, Fountain, Corner shop, Church, Supermarket, Pool, Bush, Hedge (edge), Planter, Bench, Barbecue, Swing. Crossroad tile with zebra crossings.
+  - Road features in rules, auto-tiling (arms only), rendering (model instead of tiles) and traffic (ring path round the island).
+  - Poly Pizza models through normalised recipes in `scripts/compose-models.mjs`; CC-BY credits in `CREDITS.md`, `composed/License.txt` and the in-game Credits panel.
+  - Tool icons `tool-<id>.png` for all 33 tools; old icons deleted.
+  - Save v3, no migrations (owner decision); `parseSave` drops bad road features.
+  - Test hook `setCameraPose`; sample town uses every placing tool; asset gallery shows every object kind.
+- **Owns:** the files listed in `git status` for v0.3 — `src/catalog/**`, `src/town/**`, `src/render/{roadTiles,TownRenderer,IconStudio}.ts`, `src/life/{TrafficSim,lanePaths}.ts`, `src/interaction/ToolController.ts`, `src/ui/**`, `src/fx/fxRecipes.ts`, `src/world/DecorRing.ts`, `src/game/Game.ts`, `src/vite-env.d.ts`, `scripts/{compose-models,render-icons}.mjs`, `public/assets/{icons,models}/**`, the affected `tests/*.spec.ts`, and the docs.
+- **Acceptance:**
+  - `npm run verify` green (typecheck, unit tests incl. `catalog.test.ts` category/icon/footprint/proportion checks, build).
+  - `npm run test:e2e` green; visual baselines regenerated and reviewed (dock, sample town, asset gallery).
+  - Sample town builds with 0 rejections using all 33 placing tools; asset gallery shows all 25 object kinds.
+  - Stress town within budget on the inspector: ≤ 150 calls / 400k triangles desktop, ≤ 120 / 250k mobile. Measured on the dev server: 32 / 306.1k and 32 / 239.1k.
+  - Cars circle a roundabout counter-clockwise and join only at its arms (unit tests in `life.test.ts`).
+  - Every new asset recorded in `models.md` / `models.json` and `CREDITS.md`; CC-BY lines visible in the in-game Credits panel.
+
 ## 5. Checkpoints (integrator runs these on merged main)
 
 > Historical: M1, M2 and M3 all passed on 2026-09-26 (`docs/checkpoints/m1.md`–`m3.md`). Reuse the procedure for future checkpoints.
@@ -358,6 +379,6 @@ Hero = the town's buildings as placed (silhouette, facing, pop-in). Obstacles = 
 | MP3 encoder padding (~25 ms) on very old browsers | Accept; documented in `audio.md` |
 | Fence-on-edge UX on touch (hard to target edges) | Done (WP-05): the bulldoze edge pick is 0.4 cell on coarse pointers vs 0.3 |
 | v0.2 half-unit cells are small on phones (~10.6 px at the default pose) | Documented: pinch-zoom for small props; framing side inset −260 (WP-12) |
-| Mobile stress-town triangle headroom is only ~6.5k (243.5k / 250k) | Check triangles on mobile for any new content (`inspect:canvas --state stress-town --mobile`) |
+| Mobile stress-town triangle headroom is small: ~10.9k (239.1k / 250k, v0.3 working tree, dev server; v0.2 was ~6.5k) | Check triangles on mobile for any new content (`inspect:canvas --state stress-town --mobile`) |
 | Agents editing `Game.ts` concurrently | Forbidden; contract requests only |
 | Open: should the plot grow (expand land) later? | Out of scope for v1; `PLOT_WIDTH/DEPTH` constants keep it cheap to add |

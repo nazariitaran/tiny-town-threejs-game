@@ -41,11 +41,15 @@ async function requireLife(page: Page): Promise<LifeDiagnostics> {
 
 /**
  * Car positions don't leave the published cells; the town's road cells come from the sample layout
- * (WP-12: main street rows 24–25, x 4–43; side street columns 22–23, z 8–41; 2×2 road blocks).
+ * (buildSampleTown: main street rows 24–25, x 4–43; side street columns 22–23, z 8–41; 2×2 road
+ * blocks; a roundabout on cells 20–25 × 22–27 where they cross, all of it road).
  */
+const onSampleRoundabout = (x: number, z: number) => x >= 20 && x <= 25 && z >= 22 && z <= 27;
 function sampleTownRoad(x: number, z: number): boolean {
-  return ((z === 24 || z === 25) && x >= 4 && x <= 43) || ((x === 22 || x === 23) && z >= 8 && z <= 41);
+  return ((z === 24 || z === 25) && x >= 4 && x <= 43) || ((x === 22 || x === 23) && z >= 8 && z <= 41) || onSampleRoundabout(x, z);
 }
+/** Road blocks in the sample town (TownStats.roadTiles): 20 + 8 + 8 street blocks + 9 roundabout − 5 shared. */
+const SAMPLE_ROAD_TILES = 40;
 
 /** Same 2×2 road block? */
 const sameBlock = (a: { x: number; z: number }, b: { x: number; z: number }) =>
@@ -69,7 +73,7 @@ test('cars drive the sample-town roads (10 s video)', async ({ browser }, testIn
   const page = await context.newPage();
   const errors = trackErrors(page);
   const start = await sampleTown(page);
-  expect(start.cars, 'sample town (36 drivable road cells) gets the full 6 cars').toBe(6);
+  expect(start.cars, 'sample town gets the full 6 cars').toBe(6);
   expect(start.target).toBe(6);
 
   // Zoom towards the crossroads with the real wheel so the cars read in the video.
@@ -119,11 +123,13 @@ test('bulldozing the road under a car removes that car cleanly', async ({ page }
   // Freeze cars (reduced motion) so the target car stays on its cell until the click lands.
   await page.evaluate(() => window.__THREE_GAME_TEST_HOOKS__!.setReducedMotion(true));
   const frozen = (await life(page))!;
-  // Pick the car nearest the middle of the view, well clear of the top bar and the dock.
-  const victim = [...frozen.carCells].sort((a, b) => Math.abs(a.x - 22) + Math.abs(a.z - 22) - (Math.abs(b.x - 22) + Math.abs(b.z - 22)))[0];
+  // Pick the car nearest the middle of the view, well clear of the top bar and the dock, on a plain
+  // road block (bulldozing a roundabout cell would remove the whole 3 × 3-block roundabout).
+  expect((await diagnostics(page)).town.roadTiles).toBe(SAMPLE_ROAD_TILES);
+  const victim = [...frozen.carCells].filter((c) => !onSampleRoundabout(c.x, c.z)).sort((a, b) => Math.abs(a.x - 22) + Math.abs(a.z - 22) - (Math.abs(b.x - 22) + Math.abs(b.z - 22)))[0];
   await selectTool(page, 'bulldoze');
   await clickCell(page, victim.x, victim.z);
-  await expect.poll(async () => (await diagnostics(page)).town.roadTiles, { message: 'road tile bulldozed' }).toBe(35);
+  await expect.poll(async () => (await diagnostics(page)).town.roadTiles, { message: 'road tile bulldozed' }).toBe(SAMPLE_ROAD_TILES - 1);
   const after = (await life(page))!;
   await waitFrames(page, 3);
   expect(after.carCells.find((c) => c.id === victim.id), `car ${victim.id} removed`).toBeUndefined();

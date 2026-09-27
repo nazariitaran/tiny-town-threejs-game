@@ -2,11 +2,17 @@
 
 A cosy browser city-builder sandbox (three.js + TypeScript + Vite). Start here. If you were given a work package (WP), read its section in `docs/PLAN.md` next.
 
-## Current state (v0.2)
+## Current state (v0.2 released, v0.3 in progress)
 - **v0.2 is merged on `main`**: v1 (checkpoint M3) plus WP-12, WP-13 and WP-14.
   - WP-12: 48 × 48 grid of 0.5-unit cells, roads in 2 × 2 blocks, multi-cell houses, save v2 with migration.
   - WP-13: streamed background music.
   - WP-14: stats pill removed; the top bar is one row.
+- **v0.3 is in progress in the working tree** (uncommitted, not yet released): WP-15 "New building blocks & categories".
+  - Five dock categories: Streets / Homes / Town / Nature / Garden (Shift+1–5); 33 placing tools plus Bulldoze.
+  - New items, among them the roundabout (a block-aligned "road feature" object), traffic lights, more homes, town buildings and garden items.
+  - Renamed ids (`oak`, `pine`, `birch`, `cottage`, `townhouse`, `family-home`, `fence-low`); tool icons are `public/assets/icons/tool-<id>.png`.
+  - Save v3 with **no migrations**: older saves are rejected and the game starts a fresh town.
+  - The first CC-BY assets (Poly Pizza church, swing and barbecue); see `docs/assets/CREDITS.md`.
 - Status, decisions, open issues and the backlog are in `docs/progress.md`, the integrator's recovery point. Read it before planning anything.
 - Current facts (grid, rules, save format, modules, diagnostics, budgets) are in `docs/design/03-architecture.md`.
 - Some docs are historical snapshots, and each says so in a banner at the top:
@@ -40,10 +46,10 @@ npm run build && npm run preview   # production build, served on PORT−1000 (de
 npm run inspect:canvas -- --state sample-town --run-id <id> --out artifacts/<id> [--mobile]   # needs a dev server; --mobile = 390×844
 npm run inspect:models # re-measure/verify the GLBs in public/assets/models (prints a report; add --three to load them via GLTFLoader)
 npm run gen:sfx        # regenerate src/audio/sfxTable.ts from docs/assets/audio.json
-node scripts/render-icons.mjs [--size 128]   # re-render the 17 tool icons from in-game models (needs a dev server on PORT)
-node scripts/compose-models.mjs              # rebuild public/assets/models/composed/*.glb (needs assets-src/)
+node scripts/render-icons.mjs [--size 128]   # re-render the 33 tool icons (tool-<id>.png) from in-game models (needs a dev server on PORT)
+node scripts/compose-models.mjs              # rebuild public/assets/models/composed/*.glb (needs assets-src/, incl. assets-src/polypizza/)
 ```
-- **`inspect:models` and `docs/assets/models.json`.** By default the script only prints; it doesn't touch `models.json`. **Never run it with `--json docs/assets/models.json`.** That flag writes the script's raw report, which has a different schema, and would clobber the hand-maintained manifest: ids, `suggestedScale`, `footprintCells` (hand-edited for WP-12), notes and icons. If a scale or footprint changes in `catalog/`, edit `models.json` and `models.md` by hand.
+- **`inspect:models` and `docs/assets/models.json`.** By default the script only prints; it doesn't touch `models.json`. **Never run it with `--json docs/assets/models.json`.** That flag writes the script's raw report, which has a different schema, and would clobber the hand-maintained manifest: ids, `suggestedScale`, `footprintCells` (hand-edited for WP-12 and v0.3), notes and icons. If a scale or footprint changes in `catalog/`, edit `models.json` and `models.md` by hand.
 - If `npm install` fails with EACCES on `~/.npm`, add `--cache ../.npm-cache`.
 - Browser checks (Playwright, `inspect:canvas`, `render-icons`) need a session where Chromium can launch. Inside a nono sandbox Chromium segfaults. If that happens, say so in your hand-off; don't skip the check.
 - **Ports.** The dev server, Playwright, the canvas inspector and `render-icons` all honour the `PORT` env var (default 5188, strict). `vite preview` uses `PORT − 1000`. Parallel agents each use their assigned port: `PORT=5203 npm run dev`, `PORT=5203 npm run test:e2e`, `PORT=5203 npm run inspect:canvas -- ...`. Never kill a dev server you didn't start.
@@ -60,7 +66,7 @@ node scripts/compose-models.mjs              # rebuild public/assets/models/comp
 - Keep `__THREE_GAME_TEST_HOOKS__` real; don't stub them to make a test pass. Installing the hooks must have no side effects (see `docs/release.md`).
 - **Assets.** Allowed sources:
   - CC0;
-  - CC-BY, with a `CREDITS.md` entry;
+  - CC-BY, with a `CREDITS.md` entry and a line in the in-game Credits panel (`src/ui/UiRoot.ts`);
   - assets owned and supplied by the project owner (e.g. the background music, which the owner made with ElevenLabs).
 
   Record every new asset in `docs/assets/*.json|md` and `docs/assets/CREDITS.md`. Agents must never call external generation services.

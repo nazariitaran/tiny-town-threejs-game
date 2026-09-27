@@ -1,7 +1,9 @@
 /**
  * Geometric proof that the road MODELS (catalog/models.ts rotationOffset + roadTiles rotation)
- * connect exactly the neighbours of every one of the 16 masks: a side is "open" when road-surface
- * vertices (y ≤ 0.012, below the 0.02 kerb) reach the middle of that cell edge.
+ * connect exactly the neighbours of every one of the 16 masks: a side is "open" when the road
+ * surface (y ≤ 0.012, below the 0.02 kerb) reaches that cell edge on both sides of its middle and
+ * nothing kerb-high stands in between. (v0.3: the zebra-crossing crossroad is one surface quad
+ * across each arm, so it has no vertex exactly at the edge middle.)
  * Loads the real GLBs through GLTFLoader in Node (same shims as catalog.test.ts).
  */
 import fs from 'node:fs';
@@ -59,18 +61,25 @@ beforeAll(async () => {
 function openMask(id: ModelId, rotation: number): number {
   const turn = new THREE.Matrix4().makeRotationY((rotation * Math.PI) / 2);
   const sides: Array<[number, number, number]> = [[1, 0, -1], [2, 1, 0], [4, 0, 1], [8, -1, 0]];
+  // Per side: highest vertex across the middle (|along| < 0.35), and whether low surface vertices
+  // reach the edge left and right of the middle.
   const maxY = new Map<number, number>();
+  const lowLeft = new Set<number>();
+  const lowRight = new Set<number>();
   const v = new THREE.Vector3();
   for (const p of points.get(id)!) {
     v.copy(p).applyMatrix4(turn);
     for (const [bit, dx, dz] of sides) {
       const across = dx ? v.x * dx : v.z * dz;
       const along = dx ? v.z : v.x;
-      if (across > 0.45 && Math.abs(along) < 0.2) maxY.set(bit, Math.max(maxY.get(bit) ?? -1, v.y));
+      if (across <= 0.45 || Math.abs(along) >= 0.35) continue;
+      maxY.set(bit, Math.max(maxY.get(bit) ?? -1, v.y));
+      if (v.y <= 0.012 && along <= 0) lowLeft.add(bit);
+      if (v.y <= 0.012 && along >= 0) lowRight.add(bit);
     }
   }
   let mask = 0;
-  for (const [bit, y] of maxY) if (y <= 0.012) mask |= bit;
+  for (const [bit, y] of maxY) if (y <= 0.012 && lowLeft.has(bit) && lowRight.has(bit)) mask |= bit;
   return mask;
 }
 

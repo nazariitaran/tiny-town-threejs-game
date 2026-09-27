@@ -3,7 +3,7 @@ import { PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
 import { createGameBus } from '../game/events';
 import { createSeededRandom } from '../utils/random';
 import { buildAssetGallery, buildSampleTown, buildStressTown } from './sampleTown';
-import { CURRENT_SAVE_VERSION, decodeGround, parseSave, serializeTown, type CameraPose } from './serialize';
+import { CURRENT_SAVE_VERSION, decodeGround, parseSave, SAVE_MIGRATIONS, serializeTown, type CameraPose } from './serialize';
 import { TownEditor } from './TownEditor';
 import { TownState } from './TownState';
 import type { SavedTown } from './types';
@@ -16,9 +16,9 @@ function ok(result: SavedTown | Error): SavedTown {
   return result;
 }
 
-/** A minimal valid current (v2) save for a w×d plot with all-field ground. */
+/** A minimal valid current (v3) save for a w×d plot with all-field ground. */
 function blank(w = PLOT_WIDTH, d = PLOT_DEPTH): SavedTown {
-  return { version: 2, width: w, depth: d, ground: [['field', w * d]], objects: [], edges: [], nextObjectId: 1 };
+  return { version: 3, width: w, depth: d, ground: [['field', w * d]], objects: [], edges: [], nextObjectId: 1 };
 }
 
 /** Ground with the 2 × 2 road block at (0, 0)..(1, 1) and field elsewhere. */
@@ -26,7 +26,28 @@ function roadBlockAtOrigin(): Array<[string, number]> {
   return [['road', 2], ['field', PLOT_WIDTH - 2], ['road', 2], ['field', PLOT_WIDTH * PLOT_DEPTH - PLOT_WIDTH - 2]];
 }
 
+/** RLE ground with road on the rectangle [x0, x0 + w) × [z0, z0 + d) and field elsewhere. */
+function groundWithRoad(x0: number, z0: number, w: number, d: number): Array<[string, number]> {
+  const runs: Array<[string, number]> = [];
+  for (let z = 0; z < PLOT_DEPTH; z += 1) {
+    for (let x = 0; x < PLOT_WIDTH; x += 1) {
+      const kind = x >= x0 && x < x0 + w && z >= z0 && z < z0 + d ? 'road' : 'field';
+      const last = runs[runs.length - 1];
+      if (last && last[0] === kind) last[1] += 1;
+      else runs.push([kind, 1]);
+    }
+  }
+  return runs;
+}
+
+const roundabout = (id: number, x: number, z: number) => ({ id, kind: 'roundabout', anchor: { x, z }, rotation: 0, variant: 0 });
+
 describe('serializeTown', () => {
+  it('writes save version 3', () => {
+    expect(CURRENT_SAVE_VERSION).toBe(3);
+    expect(serializeTown(new TownState(PLOT_WIDTH, PLOT_DEPTH)).version).toBe(3);
+  });
+
   it('encodes an empty plot as one RLE run', () => {
     expect(serializeTown(new TownState(PLOT_WIDTH, PLOT_DEPTH))).toEqual(blank());
   });
@@ -109,6 +130,8 @@ describe('parseSave rejects corrupted / foreign data without throwing', () => {
     ['fractional version', { ...blank(), version: 1.5 }],
     ['negative version', { ...blank(), version: -1 }],
     ['version 0 without a migration', { ...blank(), version: 0 }],
+    ['a v1 (v0.1) save', { ...blank(24, 24), version: 1 }],
+    ['a v2 (v0.2) save', { ...blank(), version: 2 }],
     ['future version', { ...blank(), version: CURRENT_SAVE_VERSION + 1 }],
     ['missing width', { ...blank(), width: undefined }],
     ['zero depth', { ...blank(), depth: 0 }],
@@ -128,6 +151,13 @@ describe('parseSave rejects corrupted / foreign data without throwing', () => {
       expect(result).toBeInstanceOf(Error);
     });
   }
+
+  it('rejects a v2 save with "No migration from save version 2" (no backward compatibility)', () => {
+    const v2 = { ...blank(), version: 2, objects: [{ id: 1, kind: 'tree-a', anchor: { x: 2, z: 2 }, rotation: 0, variant: 0 }], nextObjectId: 2 };
+    const result = parseSave(JSON.stringify(v2));
+    expect(result).toBeInstanceOf(Error);
+    expect((result as Error).message).toBe('No migration from save version 2');
+  });
 
   it('rejects hostile objects whose getters throw', () => {
     const hostile = Object.defineProperty({}, 'version', {
@@ -161,21 +191,21 @@ describe('parseSave sanitises and clamps', () => {
         ...blank(),
         objects: [
           { id: 1, kind: 'castle', anchor: { x: 1, z: 1 }, rotation: 0, variant: 0 },
-          { id: 2, kind: 'tree-a', anchor: { x: 2, z: 2 }, rotation: 0, variant: 0 },
+          { id: 2, kind: 'oak', anchor: { x: 2, z: 2 }, rotation: 0, variant: 0 },
           { id: 3, kind: 'toString', anchor: { x: 3, z: 3 }, rotation: 0, variant: 0 },
         ],
         edges: [
           { kind: 'brick-wall', edge: { x: 1, z: 1, side: 'n' } },
-          { kind: 'fence-small', edge: { x: 2, z: 2, side: 'w' } },
+          { kind: 'fence-low', edge: { x: 2, z: 2, side: 'w' } },
         ],
       }),
     );
-    expect(save.objects.map((o) => o.kind)).toEqual(['tree-a']);
-    expect(save.edges.map((e) => e.kind)).toEqual(['fence-small']);
+    expect(save.objects.map((o) => o.kind)).toEqual(['oak']);
+    expect(save.edges.map((e) => e.kind)).toEqual(['fence-low']);
   });
 
   it('drops malformed objects (bad id, anchor, rotation) and fixes out-of-range variants', () => {
-    const base = { kind: 'tree-c', rotation: 0, variant: 0 };
+    const base = { kind: 'birch', rotation: 0, variant: 0 };
     const save = ok(
       parseSave({
         ...blank(),
@@ -192,8 +222,8 @@ describe('parseSave sanitises and clamps', () => {
       }),
     );
     expect(save.objects).toEqual([
-      { id: 5, kind: 'tree-c', anchor: { x: 5, z: 0 }, rotation: 0, variant: 0 },
-      { id: 6, kind: 'tree-c', anchor: { x: 6, z: 0 }, rotation: 3, variant: 1 },
+      { id: 5, kind: 'birch', anchor: { x: 5, z: 0 }, rotation: 0, variant: 0 },
+      { id: 6, kind: 'birch', anchor: { x: 6, z: 0 }, rotation: 3, variant: 1 },
     ]);
   });
 
@@ -206,7 +236,7 @@ describe('parseSave sanitises and clamps', () => {
           { id: 1, kind: 'postbox', anchor: { x: 5, z: 5 }, rotation: 0, variant: 0 },
           { id: 1, kind: 'postbox', anchor: { x: 6, z: 5 }, rotation: 0, variant: 0 }, // duplicate id
           { id: 2, kind: 'lamppost', anchor: { x: 5, z: 5 }, rotation: 0, variant: 0 }, // overlaps id 1
-          { id: 3, kind: 'townhouse-a', anchor: { x: 0, z: 0 }, rotation: 0, variant: 0 }, // on road
+          { id: 3, kind: 'cottage', anchor: { x: 0, z: 0 }, rotation: 0, variant: 0 }, // on road
         ],
       }),
     );
@@ -219,8 +249,8 @@ describe('parseSave sanitises and clamps', () => {
         ...blank(),
         ground: roadBlockAtOrigin(),
         edges: [
-          { kind: 'fence-small', edge: { x: 1, z: 0, side: 'w' } }, // between road (0,0) and road (1,0)
-          { kind: 'fence-small', edge: { x: 0, z: 0, side: 'n' } }, // border next to road: fine
+          { kind: 'fence-low', edge: { x: 1, z: 0, side: 'w' } }, // between road (0,0) and road (1,0)
+          { kind: 'fence-low', edge: { x: 0, z: 0, side: 'n' } }, // border next to road: fine
           { kind: 'fence-tall', edge: { x: 0, z: 0, side: 'n' } }, // duplicate key
           { kind: 'fence-tall', edge: { x: 5, z: 5, side: 'e' } }, // bad side
           { kind: 'fence-tall', edge: { x: PLOT_WIDTH + 1, z: 0, side: 'w' } }, // out of plot
@@ -230,7 +260,7 @@ describe('parseSave sanitises and clamps', () => {
       }),
     );
     expect(save.edges).toEqual([
-      { kind: 'fence-small', edge: { x: 0, z: 0, side: 'n' } },
+      { kind: 'fence-low', edge: { x: 0, z: 0, side: 'n' } },
       { kind: 'fence-tall', edge: { x: PLOT_WIDTH, z: 3, side: 'w' } },
     ]);
   });
@@ -241,17 +271,17 @@ describe('parseSave sanitises and clamps', () => {
     const ground = Array.from({ length: d }, () => [['grass', w]] as Array<[string, number]>).flat();
     const save = ok(
       parseSave({
-        version: 2,
+        version: 3,
         width: w,
         depth: d,
         ground,
         objects: [
-          { id: 1, kind: 'tree-a', anchor: { x: 1, z: 1 }, rotation: 0, variant: 0 },
-          { id: 2, kind: 'tree-a', anchor: { x: PLOT_WIDTH + 2, z: 1 }, rotation: 0, variant: 0 },
+          { id: 1, kind: 'oak', anchor: { x: 1, z: 1 }, rotation: 0, variant: 0 },
+          { id: 2, kind: 'oak', anchor: { x: PLOT_WIDTH + 2, z: 1 }, rotation: 0, variant: 0 },
         ],
         edges: [
-          { kind: 'fence-small', edge: { x: 3, z: PLOT_DEPTH, side: 'n' } },
-          { kind: 'fence-small', edge: { x: 3, z: PLOT_DEPTH + 2, side: 'n' } },
+          { kind: 'fence-low', edge: { x: 3, z: PLOT_DEPTH, side: 'n' } },
+          { kind: 'fence-low', edge: { x: 3, z: PLOT_DEPTH + 2, side: 'n' } },
         ],
         nextObjectId: 3,
       }),
@@ -303,7 +333,7 @@ describe('parseSave sanitises and clamps', () => {
         { id: 3, kind: 'garage', anchor: { x: 1, z: 2 }, rotation: 1, variant: 0 },
         { id: 4, kind: 'garage', anchor: { x: 0, z: 1 }, rotation: 1, variant: 0 },
       ],
-      edges: [{ kind: 'fence-small', edge: { x: 3, z: 1, side: 'n' } }],
+      edges: [{ kind: 'fence-low', edge: { x: 3, z: 1, side: 'n' } }],
       nextObjectId: -5,
     };
     const save = ok(parseSave(messy));
@@ -311,11 +341,55 @@ describe('parseSave sanitises and clamps', () => {
   });
 });
 
+describe('parseSave and road features', () => {
+  it('a version 3 save with a roundabout on its road round-trips through JSON unchanged', () => {
+    const editor = makeEditor();
+    expect(editor.apply({ type: 'place-object', kind: 'roundabout', cell: { x: 10, z: 10 }, rotation: 0 }, 'roundabout').ok).toBe(true);
+    const saved = serializeTown(editor.state, camera);
+    expect(saved.version).toBe(3);
+    expect(saved.objects.map((o) => o.kind)).toEqual(['roundabout']);
+    const parsed = ok(parseSave(JSON.stringify(saved)));
+    expect(parsed).toEqual(saved);
+    const target = makeEditor(5);
+    target.load(parsed);
+    expect(target.state.stats()).toEqual(editor.state.stats());
+    expect(target.state.stats().roadTiles).toBe(9);
+  });
+
+  it('keeps a block-aligned roundabout that stands on road', () => {
+    const save = ok(parseSave({ ...blank(), ground: groundWithRoad(4, 4, 6, 6), objects: [roundabout(1, 4, 4)], nextObjectId: 2 }));
+    expect(save.objects.map((o) => o.kind)).toEqual(['roundabout']);
+  });
+
+  it('drops a roundabout whose anchor is not block aligned (its road stays)', () => {
+    const save = ok(parseSave({ ...blank(), ground: groundWithRoad(4, 4, 8, 6), objects: [roundabout(1, 5, 4)], nextObjectId: 2 }));
+    expect(save.objects).toEqual([]);
+    expect(decodeGround(save).filter((g) => g === 'road')).toHaveLength(48);
+  });
+
+  it('drops a roundabout standing on non-road ground (even partly)', () => {
+    const onField = ok(parseSave({ ...blank(), objects: [roundabout(1, 4, 4)], nextObjectId: 2 }));
+    expect(onField.objects).toEqual([]);
+    const partly = ok(parseSave({ ...blank(), ground: groundWithRoad(4, 4, 6, 4), objects: [roundabout(1, 4, 4)], nextObjectId: 2 }));
+    expect(partly.objects).toEqual([]);
+  });
+
+  it('non-feature objects still may not stand on road', () => {
+    const save = ok(parseSave({ ...blank(), ground: groundWithRoad(4, 4, 2, 2), objects: [{ id: 1, kind: 'fountain', anchor: { x: 4, z: 4 }, rotation: 0, variant: 0 }] }));
+    expect(save.objects).toEqual([]);
+  });
+});
+
 describe('migration hook', () => {
+  it('has no built-in migrations (v0.3 dropped v1/v2 support)', () => {
+    expect(SAVE_MIGRATIONS).toEqual({});
+  });
+
   it('runs migrations keyed on the version they upgrade from', () => {
     // Pretend version 0 stored ground as a flat list of kinds.
     const legacy = { version: 0, width: 2, depth: 1, cells: ['road', 'grass'], things: [] };
     const migrations = {
+      2: (raw: Record<string, unknown>) => ({ ...raw, version: 3 }),
       1: (raw: Record<string, unknown>) => ({ ...raw, version: 2 }),
       0: (raw: Record<string, unknown>) => ({
         version: 1,

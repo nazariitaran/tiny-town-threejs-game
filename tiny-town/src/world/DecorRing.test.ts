@@ -39,8 +39,8 @@ describe('planDecor', () => {
   });
 
   it('renders the ring at its v0.1 size although the plot trees grew (WP-12)', () => {
-    expect(MODELS['tree-a'].scale * TEMPLATE_RESCALE['tree-a']).toBeCloseTo(0.36, 6);
-    expect(MODELS['tree-b'].scale * TEMPLATE_RESCALE['tree-b']).toBeCloseTo(0.36, 6);
+    expect(MODELS['oak'].scale * TEMPLATE_RESCALE['oak']).toBeCloseTo(0.36, 6);
+    expect(MODELS['pine'].scale * TEMPLATE_RESCALE['pine']).toBeCloseTo(0.36, 6);
     expect(TEMPLATE_RESCALE['decor-rocks']).toBe(1);
   });
 });

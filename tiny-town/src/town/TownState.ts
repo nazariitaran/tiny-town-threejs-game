@@ -127,7 +127,7 @@ export class TownState implements TownStateReader {
   }
 
   stats(): TownStats {
-    const stats: TownStats = { homes: 0, residents: 0, trees: 0, roadTiles: 0, props: 0, fences: this.edgesByKey.size };
+    const stats: TownStats = { homes: 0, residents: 0, amenities: 0, trees: 0, roadTiles: 0, props: 0, fences: this.edgesByKey.size };
     // One road tile per aligned 2 × 2 road block (WP-12): count the blocks' min-corner cells.
     for (let z = 0; z < this.depth; z += ROAD_BLOCK) {
       for (let x = 0; x < this.width; x += ROAD_BLOCK) if (this.ground[z * this.width + x] === 'road') stats.roadTiles += 1;
@@ -138,8 +138,9 @@ export class TownState implements TownStateReader {
         stats.homes += 1;
         stats.residents += def.residents;
       }
-      if (def.statGroup === 'tree') stats.trees += 1;
-      if (def.statGroup === 'prop') stats.props += 1;
+      if (def.group === 'amenity') stats.amenities += 1;
+      if (def.group === 'tree') stats.trees += 1;
+      if (def.group === 'street' || def.group === 'garden' || def.group === 'plant') stats.props += 1;
     }
     return stats;
   }

@@ -3,7 +3,7 @@
 Only the integrator (WP-01) edits this file. Workers report in their hand-off. This is the recovery point: after any interruption, re-read it together with `docs/HANDOVER.md`.
 
 ## Current state (2026-09-27)
-- **Version: v0.2**, merged on `main`; the v0.2 integration commit is `30fe85b`.
+- **Version: v0.2**, merged on `main`; the v0.2 integration commit is `30fe85b`. **v0.3 (WP-15) is in progress in the working tree**, not yet committed or released.
 - **v0.1** is the M3 "v1" build at `3f9c6cf`. v0.2 adds three owner requests on top:
   - **WP-12**: 48 × 48 grid of 0.5-unit cells, roads as 2 × 2 blocks, multi-cell houses, save v2 with a v1 → v2 migration.
   - **WP-13**: streamed background music with settings.
@@ -12,7 +12,9 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
   - `npm run verify` is green: 19 test files, 294 unit tests, build OK.
   - `npm run test:e2e`: 82 tests, of which 70 pass and 12 are skipped by design (desktop-only or mobile-only).
   - The 6 visual baselines (darwin) were regenerated after WP-12 (`30fe85b`).
-- **In flight:** no WPs, worktrees or WP branches.
+- **In flight: v0.3, WP-15 "New building blocks & categories"**, implemented by the integrator in the `main` working tree (uncommitted, not yet released). See "WP-15 as built" below.
+  - Gates on the working tree (2026-09-27): `npm run typecheck` green; unit tests 18 files, 336 passing. `npm run test:e2e`, the visual baselines and the production build: to be measured.
+  - No worktrees or WP branches.
 - **Where current facts live:**
   - grid, rules, save, modules, diagnostics and budgets: `docs/design/03-architecture.md`;
   - asset scales and footprints: `docs/assets/models.md`;
@@ -41,6 +43,7 @@ The SHA is the merge commit on `main`; the WP's own commit is in brackets. Every
 | WP-14 | Remove stats pill | ✅ | `d0aa182` (`8d91b1b`) | `StatsHud` deleted; one-row top bar (48 px row desktop / 52 px phones); hint 10 px under it |
 | WP-13 | Background music | ✅ | `1fab73f` (`e76d1a8`) | `src/audio/MusicPlayer.ts`; streamed after Start; music on/off + volume; −3 dB menu duck |
 | WP-12 | Scale & grid density | ✅ | `fbbef2a` (plan `2f6446d`, docs `cf4123b`) | see "WP-12 as built" below |
+| WP-15 | New building blocks & categories (v0.3) | 🔄 working tree | — (uncommitted) | see "WP-15 as built" below |
 
 **Integrator (WP-01) commits worth knowing:**
 
@@ -60,7 +63,7 @@ The SHA is the merge commit on `main`; the WP's own commit is in brackets. Every
 ### WP-12 as built (vs `docs/plans/wp-12-scale.md`)
 The plan was approved and implemented. The as-built facts are in `03-architecture.md` §Grid / §Placement rules / §Save format and in `models.md` §Grid and scale. Where the build differs from the plan:
 
-**Migration**
+**Migration** (historical: v0.3 deleted the v1 → v2 migration, see WP-15)
 - One fallback was added: a house that fits neither as its own kind nor as a 2×3 townhouse tries a townhouse **turned a quarter** either way (3 × 2 fits dense 1-deep v1 rows) before it is dropped.
 - A malformed v1 save only has its version bumped, so `parseSave` rejects it with the normal message.
 - Results: v0.1 sample town, 0 drops; v0.1 stress town, 36 of 56 homes kept (120 → 100 objects).
@@ -84,6 +87,37 @@ The plan was approved and implemented. The as-built facts are in `03-architectur
 **Timing**
 - WP-12 was merged after WP-13/14 (`9a8379f` merged main into the WP-12 branch).
 
+### WP-15 as built (v0.3, working tree)
+Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02-interaction-and-ui.md`, `models.md` and `CREDITS.md`.
+
+**Catalog**
+- Dock categories **Streets / Homes / Town / Nature / Garden** (were Paths / Nature / Buildings / Other); Shift+1–5 switch. 33 placing tools (7 + 7 + 5 + 6 + 8) plus Bulldoze.
+- New tools: Roundabout, Traffic light; Bungalow, Suburban, Big house; Fountain, Corner shop, Church, Supermarket, Pool; Bush; Hedge, Planter, Bench, Barbecue, Swing.
+- Renamed ids: `tree-a/b/c` → `oak` / `pine` / `birch`, `townhouse-a/b/c` → `cottage` / `townhouse` / `family-home`, `fence-small` → `fence-low`. The family home's type-c variant moved to Suburban.
+- `ObjectDef.statGroup` became `group` (`road | street | home | outbuilding | amenity | tree | plant | garden`), which also drives FX classes and tree jitter. `TownStats` gained `amenities`.
+- Tool icons are `public/assets/icons/tool-<id>.png` (33, all rendered by `scripts/render-icons.mjs`). The 44 old icons were deleted.
+
+**Roads**
+- The roundabout is a road-feature object (see decisions). Cars circle its island counter-clockwise on `lanePaths.ringPath`.
+- The crossroad tile is `road-crossroad-path` (zebra crossings on all four arms).
+
+**Assets**
+- New Kenney pieces: roads roundabout, traffic lights and zebra crossroad; suburban type-d/-i/-m/-n/-o/-s/-u and planter; commercial `building-e` (new `models/commercial/` folder); platformer hedge; Fantasy Town fountains and commercial parasols (composed fountain and pool).
+- Poly Pizza models, normalised by the new "normalised recipes" in `scripts/compose-models.mjs` (sources in `assets-src/polypizza/`): church, swing and barbecue (CC-BY 3.0), corner shop (KayKit, CC0). The in-game Credits panel credits them.
+- Payload: 3.58 MB of models (64 GLBs) + 259 KB of icons (33 PNGs).
+
+**Save, tests, demo towns**
+- Save v3 with no migrations (see decisions). `parseSave` drops road features that are unaligned or not on road.
+- New test hook `setCameraPose(pose)`; `grid.anchorForPointer` has a `snap` parameter.
+- The sample town uses all 33 placing tools (stats: homes 8, residents 25, amenities 5, trees 5, roadTiles 40, props 15, fences 27). The asset gallery shows all 25 object kinds. The stress town places Suburban homes instead of family homes.
+
+**Budget (dev-server inspector, stress-town, v0.3 working tree, 2026-09-27)**
+- Desktop 32 draw calls, 306.1k triangles; mobile 32 calls, **239.1k** triangles (v0.2: 243.5k). Budget 250k mobile.
+- The crossroad now costs 276 triangles instead of 116, but the stress town's lots now hold Suburban homes (800–1 330 triangles) instead of family homes (1 731).
+- Evidence (local, gitignored): `artifacts/v03/stress-mobile4/`, `artifacts/v03/stress-desk4/`.
+
+**Rejected options** (from the 2026-09-27 asset research): Poly Pizza pools (heavy textures; the Kenney basin is used), `bbq-gas-grill`, `church-dark-roof` / `church-small-steeple`, `swing-set-sandpit` (anonymous author), the Kenney Mini Market / Survival / Graveyard kits (not needed), and the platformer `plant` as the bush (reads as birds from above).
+
 ## Decisions log
 - 2026-09-26 — **Sandbox**: no fail state and no economy, per the user's brief. The core loop is place → feedback → grow, and undo makes mistakes free.
 - 2026-09-26 — **Assets: Kenney CC0 kits** (City Roads/Suburban/Industrial, Platformer, Fantasy Town, Holiday, Car) for one consistent style.
@@ -94,7 +128,7 @@ The plan was approved and implemented. The as-built facts are in `03-architectur
 - 2026-09-26 — **No physics engine**; instanced rendering. Vitest for pure logic, Playwright (full Chromium, 1 worker) for the browser.
 - 2026-09-26 — **Two RNG streams**: gameplay (`Game.rng`) and cosmetic (`Game.fxRng`: audio, fx, cars), so a sound never changes the next house variant.
 - 2026-09-26 (M1) — A bus stop may stay after its road is repainted away. It's a sandbox, and the rule table doesn't cover the case.
-- 2026-09-26 (WP-03 fix2) — The 17 tool icons are rendered in-project from the in-game models: `scripts/render-icons.mjs` + `src/render/IconStudio.ts`, 128 px, CC0.
+- 2026-09-26 (WP-03 fix2) — The 17 tool icons (33 since v0.3, named `tool-<id>.png`) are rendered in-project from the in-game models: `scripts/render-icons.mjs` + `src/render/IconStudio.ts`, 128 px, CC0.
 - 2026-09-26 (WP-09b) — Visual baselines are committed for **darwin only**, and a missing baseline **fails**.
 - 2026-09-26 (WP-10) — The dusk toggle was skipped (optional; it needed hooks in WP-03/04/06 files).
 - 2026-09-26 (WP-11) — Release settings:
@@ -113,16 +147,21 @@ The plan was approved and implemented. The as-built facts are in `03-architectur
   - Events `intent:set-music`, `intent:set-music-volume`, `music:changed` are in `events.ts`; the temporary `musicEvents.ts` is gone.
 - 2026-09-27 — **Stats pill removed** as redundant. `TownState.stats()`, `town:stats` and diagnostics `town` remain for tests.
 - 2026-09-27 — **Owner-supplied assets are allowed.** The background music "Foundation of Gold" was created by the owner with ElevenLabs. Agents still never call generation services.
+- 2026-09-27 (v0.3) — **Dock categories answer "what am I building?"**: Streets (the road network and kerb furniture), Homes (where people live, plus garages), Town (shops and shared civic places), Nature (things that grow: ground cover, trees, bushes), Garden (things people build in a yard or park: paths, hedges, fences, furniture). Inside a category: surfaces → lines → objects. At most 9 tools per category, so every tool has a digit; Shift+1–5 switch category. Ids name what a thing is, not its model file.
+- 2026-09-27 (v0.3) — **Roundabouts are road-feature objects**, not a road-tile piece. Auto-tiling only picks straights, corners, tees, crossroads and ends, and a roundabout spans 3 × 3 blocks. So it is an object with `ObjectDef.roadFeature`: block-aligned anchor, placing paints its footprint to road, bulldozing turns it back to field, and its road can't be repainted while it stands. The renderer draws its model instead of the tiles; roads join it only at its four arms; cars use the arms and the centre (ring path), not the corners.
+- 2026-09-27 (v0.3) — **CC-BY models are allowed with credits**, and the first ones shipped: the Poly Pizza church, swing and barbecue (CC-BY 3.0). Each has an attribution line in `CREDITS.md`, `composed/License.txt` and the in-game Credits panel. Poly Pizza models are normalised to the Kenney look (game-unit scale, metalness 0, roughness 1).
+- 2026-09-27 (v0.3) — **Save v3 without migration.** The owner asked for no backward compatibility, so the v1 → v2 migration, its test and fixtures were deleted. A v1/v2 save is rejected and the game starts a fresh town. The `SAVE_MIGRATIONS` hook stays for later.
+- 2026-09-27 (v0.3) — **Crossroad tile markings done**: the crossroad uses `road-crossroad-path` (zebra crossings), checked against the mobile triangle budget. Removed from the backlog.
 
 ## Open issues
 **Mobile budget**
-- Stress-town triangle headroom on mobile is only about 6.5k (243.5k of 250k). Any new content with a large triangle count needs a budget check.
+- Stress-town triangle headroom on mobile is only about 10.9k (239.1k of 250k, v0.3 working tree, dev server; v0.2 was 243.5k). Any new content with a large triangle count needs a budget check.
 
 **Touch precision**
 - At the default phone pose a cell is about 10.6 px, so small props need a pinch-zoom on touch.
 
 **Measurements not redone for v0.2**
-- The budget table in `docs/release.md` was measured on the v0.1 production preview. v0.2 has only the WP-12 dev-server inspector numbers above.
+- The budget table in `docs/release.md` was measured on the v0.1 production preview. v0.2 and v0.3 have only dev-server inspector numbers (WP-12 and WP-15 above).
 - Frame time and download size were not re-measured on the preview for v0.2. The one exception is dist size, measured 2026-09-27: 3.29 MB excluding maps and music.
 
 **Audio**
@@ -140,14 +179,15 @@ The plan was approved and implemented. The as-built facts are in `03-architectur
 - `tests/helpers.ts` imports `UI_TEST_IDS` via `src/ui/UiRoot.ts` in Node. `UiRoot.ts` must stay free of CSS and asset side effects; the ids live in `src/ui/testIds.ts`.
 
 **Stale code comments** (owners, when they next touch these files)
-- `events.ts`: the `build:*` comment says the world position is the cell centre. It is the footprint or road-block centre.
-- `UiRoot.ts:117`: says "shim events".
-- `types.ts`: ends with an orphan `@deprecated` comment.
 - `package.json`: `version` is still `0.1.0`.
+- The `events.ts`, `UiRoot.ts` and `types.ts` comments listed here before were fixed in `0e760b5`.
+
+**v0.3 before release**
+- Run `npm run test:e2e`, regenerate the visual baselines (the dock, sample town and asset gallery all changed) and run `npm run verify`.
+- `models.md`'s screenshots are from sourcing time (44 models); the `asset-gallery` state is the current visual record.
 
 ## Backlog (post-v1 from the M3 review, WP-11, and v0.2)
 - Houses auto-face an adjacent road.
-- Crossroad tile markings.
 - Tall portrait screens leave dead space between the plot and the dock, and the mobile title crops the plot. Re-check both after the WP-12 framing change.
 - Fade the hint while zoomed in.
 - Optional performance work (budgets are already met):
@@ -162,6 +202,7 @@ The plan was approved and implemented. The as-built facts are in `03-architectur
 - Optional: expand the plot. `PLOT_WIDTH/DEPTH` keep this cheap.
 
 ## Next actions
-Nothing is in flight. When the owner asks for the next iteration:
-1. Open a new WP section in `docs/PLAN.md`. Take ports from 5215 up and follow the `docs/HANDOVER.md` runbook.
+WP-15 (v0.3) is in the working tree:
+1. Finish the gates listed under "v0.3 before release" in Open issues, then commit v0.3 and fill in the WP-15 row above.
 2. Before any release, re-measure `docs/release.md` §Budgets on the production preview. Use a fresh run id, and label the results with the date and version.
+3. For the next iteration after that, open a new WP section in `docs/PLAN.md`. Take ports from 5215 up and follow the `docs/HANDOVER.md` runbook.

@@ -521,7 +521,8 @@ export class ToolController {
     if (!this.toolId || toolDef(this.toolId).layer !== 'object') return pick.cell;
     const def = objectDef(this.toolId as PlacedObject['kind']);
     const state = this.editor.state;
-    return anchorForPointer(pick.grid.x, pick.grid.z, def.footprint, this.rotation, state.width, state.depth);
+    const snap = def.roadFeature ? ROAD_BLOCK : 1;
+    return anchorForPointer(pick.grid.x, pick.grid.z, def.footprint, this.rotation, state.width, state.depth, { x: 0, z: 0 }, snap);
   }
 
   /** Stroke de-duplication key: road strokes visit blocks, everything else cells. */

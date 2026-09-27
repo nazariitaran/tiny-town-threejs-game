@@ -19,9 +19,10 @@ describe('digit shortcuts', () => {
   });
 
   it('selects the Nth tool of the active category', () => {
-    expect(digitAction(key('Digit1'), 'paths', null)).toEqual({ type: 'tool', toolId: 'road' });
-    expect(digitAction(key('Digit3'), 'buildings', null)).toEqual({ type: 'tool', toolId: 'townhouse-c' });
-    expect(digitAction(key('Digit7'), 'buildings', null)).toEqual({ type: 'tool', toolId: 'fence-small' });
+    expect(digitAction(key('Digit1'), 'streets', null)).toEqual({ type: 'tool', toolId: 'road' });
+    expect(digitAction(key('Digit3'), 'homes', null)).toEqual({ type: 'tool', toolId: 'bungalow' });
+    expect(digitAction(key('Digit7'), 'homes', null)).toEqual({ type: 'tool', toolId: 'garage' });
+    expect(digitAction(key('Digit8'), 'garden', null)).toEqual({ type: 'tool', toolId: 'swing' });
   });
 
   it('deselects when the active tool digit is pressed again', () => {
@@ -29,19 +30,21 @@ describe('digit shortcuts', () => {
   });
 
   it('ignores digits beyond the category size', () => {
-    expect(digitAction(key('Digit4'), 'paths', null)).toBeNull();
-    expect(digitAction(key('Digit9'), 'other', null)).toBeNull();
+    expect(digitAction(key('Digit8'), 'streets', null)).toBeNull();
+    expect(digitAction(key('Digit6'), 'town', null)).toBeNull();
+    expect(digitAction(key('Digit9'), 'garden', null)).toBeNull();
   });
 
-  it('Shift+1–4 switches category', () => {
-    expect(digitAction(key('Digit1', { shiftKey: true }), 'other', null)).toEqual({ type: 'category', category: 'paths' });
-    expect(digitAction(key('Digit4', { shiftKey: true }), 'paths', null)).toEqual({ type: 'category', category: 'other' });
-    expect(digitAction(key('Digit5', { shiftKey: true }), 'paths', null)).toBeNull();
+  it('Shift+1–5 switches category', () => {
+    expect(digitAction(key('Digit1', { shiftKey: true }), 'garden', null)).toEqual({ type: 'category', category: 'streets' });
+    expect(digitAction(key('Digit3', { shiftKey: true }), 'streets', null)).toEqual({ type: 'category', category: 'town' });
+    expect(digitAction(key('Digit5', { shiftKey: true }), 'streets', null)).toEqual({ type: 'category', category: 'garden' });
+    expect(digitAction(key('Digit6', { shiftKey: true }), 'streets', null)).toBeNull();
   });
 
   it('leaves modified digits to the browser', () => {
-    expect(digitAction(key('Digit1', { ctrlKey: true }), 'paths', null)).toBeNull();
-    expect(digitAction(key('Digit1', { metaKey: true }), 'paths', null)).toBeNull();
-    expect(digitAction(key('Digit1', { altKey: true }), 'paths', null)).toBeNull();
+    expect(digitAction(key('Digit1', { ctrlKey: true }), 'streets', null)).toBeNull();
+    expect(digitAction(key('Digit1', { metaKey: true }), 'streets', null)).toBeNull();
+    expect(digitAction(key('Digit1', { altKey: true }), 'streets', null)).toBeNull();
   });
 });

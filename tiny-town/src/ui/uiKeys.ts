@@ -2,7 +2,7 @@
  * Pure digit-shortcut mapping (WP-06 owns digits; see 03-architecture.md "Keyboard ownership").
  *   1–9          select the Nth tool of the ACTIVE category (pressing the active tool's digit
  *                again deselects it, like clicking its card again)
- *   Shift + 1–4  switch category (Paths / Nature / Buildings / Other)
+ *   Shift + 1–5  switch category (Streets / Homes / Town / Nature / Garden)
  * Uses `event.code` (Digit1…/Numpad1…) so Shift and keyboard layouts don't change the mapping.
  * No DOM here so it can be unit-tested.
  */

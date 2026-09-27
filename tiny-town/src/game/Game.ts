@@ -260,6 +260,11 @@ export class Game {
       },
       hideDebugUi: (hidden: boolean) => this.debug.setHidden(hidden),
       cellToClient: (x: number, z: number) => this.picker.cellToClient({ x, z }),
+      setCameraPose: (pose) => {
+        this.cameraController.setPose(pose);
+        this.render();
+        this.publishDiagnostics();
+      },
     };
   }
 

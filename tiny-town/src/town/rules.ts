@@ -12,8 +12,11 @@
  *  - Road blocks (WP-12): roads come in aligned 2 × 2 blocks and a block is all road or has no road.
  *    Painting road on any cell converts its whole block; painting another kind on a road cell, or
  *    bulldozing it, converts the whole block. The CLICKED cell's ground change is last (primary).
+ *  - Road features (ObjectDef.roadFeature: the roundabout) are block-aligned objects that stand on
+ *    road. Placing one = [fence removals…, ground → road…, object add]; bulldozing it =
+ *    [ground → field…, object remove]. Its road can't be repainted while it stands.
  */
-import { edgeCells, edgeInBounds, edgeKey, edgeOfCellSide, footprintCells, NEIGHBOURS, roadBlockCells } from './grid';
+import { cellKey, edgeCells, edgeInBounds, edgeKey, edgeOfCellSide, footprintCells, NEIGHBOURS, ROAD_BLOCK, roadBlockCells } from './grid';
 import { objectDef, type ObjectDef } from '../catalog/objects';
 import type { BuildAction, Cell, GroundKind, InvalidReason, PlanResult, TownChange, TownStateReader } from './types';
 
@@ -40,6 +43,7 @@ export const RULE_MESSAGES = {
   occupied: 'Something is already here',
   fenceAcrossRoad: "Fences can't cross roads",
   busStopNeedsRoad: 'Bus stops need to be next to a road',
+  trafficLightNeedsRoad: 'Traffic lights need to be next to a road',
   nothingHere: 'Nothing to remove',
   noChange: '',
 } as const;
@@ -80,8 +84,12 @@ function planPaintGround(state: TownStateReader, action: Extract<BuildAction, { 
   const before = state.getGround(cell);
   if (before === action.kind) return fail('no-change', RULE_MESSAGES.noChange);
   if (action.kind === 'road') return planPaintRoadBlock(state, cell);
-  // Repainting a road cell turns its whole block (objects never stand on road, so no occupancy check).
-  if (before === 'road') return { ok: true, changes: blockGroundChanges(state, cell, action.kind) };
+  if (before === 'road') {
+    // Repainting a road cell turns its whole block. Only road features stand on road.
+    const feature = state.getObjectAt(cell);
+    if (feature) return fail('occupied', `Move the ${objectDef(feature.kind).label} first`);
+    return { ok: true, changes: blockGroundChanges(state, cell, action.kind) };
+  }
   const object = state.getObjectAt(cell);
   if (object) {
     const def = objectDef(object.kind);
@@ -100,14 +108,24 @@ function planPaintRoadBlock(state: TownStateReader, cell: Cell): PlanResult {
     const object = state.getObjectAt(c);
     if (object) return fail('occupied', `Move the ${objectDef(object.kind).label} first`);
   }
-  const inBlock = (c: Cell) => block.some((b) => b.x === c.x && b.z === c.z);
+  const changes = fenceRemovalsForRoad(state, block);
+  changes.push(...blockGroundChanges(state, cell, 'road'));
+  return { ok: true, changes };
+}
+
+/**
+ * Fence removals for turning `cells` into road: every fence on an edge between two of them, or
+ * between one of them and a cell that already is road.
+ */
+function fenceRemovalsForRoad(state: TownStateReader, cells: readonly Cell[]): TownChange[] {
+  const keys = new Set(cells.map(cellKey));
   const changes: TownChange[] = [];
   const removed = new Set<string>();
-  for (const c of block) {
+  for (const c of cells) {
     for (let side = 0; side < 4; side += 1) {
       const offset = NEIGHBOURS[side];
       const neighbour = { x: c.x + offset.x, z: c.z + offset.z };
-      if (!inBlock(neighbour) && !isRoad(state, neighbour)) continue;
+      if (!keys.has(cellKey(neighbour)) && !isRoad(state, neighbour)) continue;
       const placed = state.getEdge(edgeOfCellSide(c, side as 0 | 1 | 2 | 3));
       if (!placed) continue;
       const key = edgeKey(placed.edge);
@@ -116,8 +134,7 @@ function planPaintRoadBlock(state: TownStateReader, cell: Cell): PlanResult {
       changes.push({ layer: 'edge', op: 'remove', placed: { kind: placed.kind, edge: { ...placed.edge } } });
     }
   }
-  changes.push(...blockGroundChanges(state, cell, 'road'));
-  return { ok: true, changes };
+  return changes;
 }
 
 /** Ground changes turning the block around `cell` into `after`, the clicked cell's change last. */
@@ -141,6 +158,10 @@ function planPlaceObject(state: TownStateReader, action: Extract<BuildAction, { 
   const cells = footprintCells(action.cell, def.footprint, action.rotation);
   // Check in severity order across the whole footprint, so the message names the real blocker.
   if (cells.some((cell) => !state.inBounds(cell))) return fail('out-of-bounds', RULE_MESSAGES.outOfBounds);
+  if (def.roadFeature && (action.cell.x % ROAD_BLOCK !== 0 || action.cell.z % ROAD_BLOCK !== 0)) {
+    // ToolController snaps the anchor to the block grid; this only guards scripted actions.
+    return fail('out-of-bounds', `${def.label} must line up with the road grid`);
+  }
   if (cells.some((cell) => state.getObjectAt(cell))) return fail('occupied', RULE_MESSAGES.occupied);
   for (const cell of cells) {
     const ground = state.getGround(cell);
@@ -157,21 +178,31 @@ function planPlaceObject(state: TownStateReader, action: Extract<BuildAction, { 
       }),
     );
     if (!adjacent) {
-      const message = action.kind === 'bus-stop' ? RULE_MESSAGES.busStopNeedsRoad : `${def.label} needs to be next to ${GROUND_LABELS[needed]}`;
+      const message =
+        action.kind === 'bus-stop'
+          ? RULE_MESSAGES.busStopNeedsRoad
+          : action.kind === 'traffic-light'
+          ? RULE_MESSAGES.trafficLightNeedsRoad
+          : `${def.label} needs to be next to ${GROUND_LABELS[needed]}`;
       return fail('needs-ground', message);
     }
   }
+  // A road feature paints its footprint to road first (fences across it go), so the add is last.
+  const changes: TownChange[] = [];
+  if (def.roadFeature) {
+    changes.push(...fenceRemovalsForRoad(state, cells));
+    for (const cell of cells) {
+      const before = state.getGround(cell);
+      if (before !== 'road') changes.push({ layer: 'ground', cell: { x: cell.x, z: cell.z }, before, after: 'road' });
+    }
+  }
   const variant = def.variants > 1 ? Math.min(def.variants - 1, Math.floor(ctx.rng() * def.variants)) : 0;
-  return {
-    ok: true,
-    changes: [
-      {
-        layer: 'object',
-        op: 'add',
-        object: { id: ctx.nextId(), kind: action.kind, anchor: { x: action.cell.x, z: action.cell.z }, rotation: action.rotation, variant },
-      },
-    ],
-  };
+  changes.push({
+    layer: 'object',
+    op: 'add',
+    object: { id: ctx.nextId(), kind: action.kind, anchor: { x: action.cell.x, z: action.cell.z }, rotation: action.rotation, variant },
+  });
+  return { ok: true, changes };
 }
 
 function planPlaceEdge(state: TownStateReader, action: Extract<BuildAction, { type: 'place-edge' }>): PlanResult {
@@ -191,7 +222,18 @@ function planPlaceEdge(state: TownStateReader, action: Extract<BuildAction, { ty
 function planBulldoze(state: TownStateReader, action: Extract<BuildAction, { type: 'bulldoze' }>): PlanResult {
   // Priority: object > fence edge (as picked) > non-field ground.
   const object = state.getObjectAt(action.cell);
-  if (object) return { ok: true, changes: [{ layer: 'object', op: 'remove', object: { ...object, anchor: { ...object.anchor } } }] };
+  if (object) {
+    const changes: TownChange[] = [];
+    const def = objectDef(object.kind);
+    if (def.roadFeature) {
+      // The feature takes its road with it (the object removal stays last = primary).
+      for (const cell of footprintCells(object.anchor, def.footprint, object.rotation)) {
+        if (state.getGround(cell) === 'road') changes.push({ layer: 'ground', cell, before: 'road', after: 'field' });
+      }
+    }
+    changes.push({ layer: 'object', op: 'remove', object: { ...object, anchor: { ...object.anchor } } });
+    return { ok: true, changes };
+  }
   const placed = action.edge ? state.getEdge(action.edge) : undefined;
   if (placed) return { ok: true, changes: [{ layer: 'edge', op: 'remove', placed: { kind: placed.kind, edge: { ...placed.edge } } }] };
   if (state.inBounds(action.cell)) {

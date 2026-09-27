@@ -84,7 +84,7 @@ test.describe('desktop mouse + keyboard', () => {
     await startBuilding(page);
 
     // 1. Road drag (4,24) → (24,24): 11 road blocks (WP-12: 2×2 cells each), one undo entry.
-    await selectTool(page, 'paths', 'road');
+    await selectTool(page, 'streets', 'road');
     const before = await diag(page);
     await drag(page, await cellPoint(page, 4, 24), await cellPoint(page, 24, 24));
     await expect.poll(async () => (await diag(page)).town.roadTiles).toBe(11);
@@ -93,7 +93,7 @@ test.describe('desktop mouse + keyboard', () => {
     console.log(`[road] roadTiles=${afterRoad.town.roadTiles} undoDepth ${before.history.undoDepth}→${afterRoad.history.undoDepth}`);
 
     // 2. Townhouse on a valid cell, then on a road cell: rejected, invalidCount +1.
-    await selectTool(page, 'buildings', 'townhouse-a');
+    await selectTool(page, 'homes', 'cottage');
     const valid = await cellPoint(page, 12, 16);
     await page.mouse.move(valid.x, valid.y);
     await page.mouse.click(valid.x, valid.y);
@@ -133,7 +133,7 @@ test.describe('desktop mouse + keyboard', () => {
     console.log(`[rotate] rotation after R=${(await diag(page)).rotation}`);
 
     // Scatter stroke (trees): the cells it just filled don't read as invalid under the pointer.
-    await selectTool(page, 'nature', 'tree-a');
+    await selectTool(page, 'nature', 'oak');
     const objectsBeforeTrees = (await diag(page)).objects;
     await drag(page, await cellPoint(page, 6, 4), await cellPoint(page, 16, 4), 24);
     await expect.poll(async () => (await diag(page)).objects).toBeGreaterThan(objectsBeforeTrees + 2);
@@ -144,7 +144,7 @@ test.describe('desktop mouse + keyboard', () => {
     console.log(`[scatter] trees placed=${afterTrees.objects - objectsBeforeTrees}; hover at stroke end=${JSON.stringify(afterTrees.hover)}`);
 
     // 4. Fence drag along 4 edges (north edges of cells x = 10..13, z = 10).
-    await selectTool(page, 'buildings', 'fence-tall');
+    await selectTool(page, 'garden', 'fence-tall');
     const fenceFrom = await northEdgePoint(page, 10, 10);
     const fenceTo = await northEdgePoint(page, 13, 10);
     const beforeFence = await diag(page);
@@ -186,7 +186,7 @@ test.describe('desktop mouse + keyboard', () => {
   test('a release outside the window leaves no stuck stroke', async ({ page }) => {
     const errors = collectErrors(page);
     await startBuilding(page);
-    await selectTool(page, 'paths', 'road');
+    await selectTool(page, 'streets', 'road');
     const depth0 = (await diag(page)).history.undoDepth;
 
     // a) Drag, leave the window, release out there.
@@ -260,19 +260,19 @@ test.describe('desktop mouse + keyboard', () => {
       await page.waitForTimeout(150); // ghost lerp settles
       await page.screenshot({ path: testInfo.outputPath(`${name}.png`) });
     };
-    await selectTool(page, 'paths', 'road');
+    await selectTool(page, 'streets', 'road');
     await drag(page, await cellPoint(page, 18, 24), await cellPoint(page, 28, 24));
     let p = await cellPoint(page, 22, 20);
     await page.mouse.move(p.x, p.y, { steps: 3 });
     await shot('ghost-road-tile');
-    await selectTool(page, 'paths', 'walkway');
+    await selectTool(page, 'garden', 'walkway');
     await page.mouse.move(p.x + 2, p.y, { steps: 2 });
     await shot('ghost-walkway-tile');
     await selectTool(page, 'nature', 'meadow');
     await page.mouse.move(p.x, p.y, { steps: 2 });
     await shot('ghost-meadow-tile');
 
-    await selectTool(page, 'buildings', 'townhouse-b');
+    await selectTool(page, 'homes', 'townhouse');
     p = await cellPoint(page, 24, 20);
     await page.mouse.move(p.x, p.y, { steps: 3 });
     await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 24, z: 20 });
@@ -284,7 +284,7 @@ test.describe('desktop mouse + keyboard', () => {
     await page.waitForTimeout(40);
     await page.screenshot({ path: testInfo.outputPath('ghost-house-shake.png') });
 
-    await selectTool(page, 'buildings', 'fence-small');
+    await selectTool(page, 'garden', 'fence-low');
     await drag(page, await northEdgePoint(page, 20, 18), await northEdgePoint(page, 23, 18));
     p = await northEdgePoint(page, 22, 16);
     await page.mouse.move(p.x, p.y, { steps: 3 });
@@ -335,7 +335,7 @@ test.describe('mobile touch', () => {
   test('a tap places; a two-finger pan moves the camera without building', async ({ page }, testInfo) => {
     const errors = collectErrors(page);
     await startBuilding(page);
-    await selectTool(page, 'paths', 'road');
+    await selectTool(page, 'streets', 'road');
 
     const before = await diag(page);
     const target = await cellPoint(page, 24, 22);
@@ -417,17 +417,17 @@ test('valid ghost at default zoom: house, road tile, fence (screenshots)', async
     await page.screenshot({ path: testInfo.outputPath(`${project}-${name}-crop.png`), clip });
   };
 
-  await selectTool(page, 'buildings', 'townhouse-b');
+  await selectTool(page, 'homes', 'townhouse');
   const house = await cellPoint(page, 24, 20);
   await hoverAndShoot(house, 'ghost-valid-house');
   await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 24, z: 20, valid: true });
 
-  await selectTool(page, 'paths', 'road');
+  await selectTool(page, 'streets', 'road');
   const road = await cellPoint(page, 20, 24);
   await hoverAndShoot(road, 'ghost-valid-road');
   await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 20, z: 24, valid: true });
 
-  await selectTool(page, 'buildings', 'fence-tall');
+  await selectTool(page, 'garden', 'fence-tall');
   const fence = await northEdgePoint(page, 26, 24);
   await hoverAndShoot(fence, 'ghost-valid-fence');
   expect((await diag(page)).hover?.valid).toBe(true);

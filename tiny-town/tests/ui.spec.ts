@@ -68,8 +68,10 @@ test('every category shows its tools and selecting one sets diagnostics.tool', a
       await expect(button).toHaveAttribute('aria-pressed', 'true');
     }
   }
-  // Clicking the active item again puts the tool away.
-  const last = page.locator(id(UI_TEST_IDS.tool('lamppost')));
+  // Clicking the active item again puts the tool away (the last tool of the last category).
+  const lastCategory = TOOL_CATEGORIES[TOOL_CATEGORIES.length - 1].id;
+  const lastTools = toolsInCategory(lastCategory);
+  const last = page.locator(id(UI_TEST_IDS.tool(lastTools[lastTools.length - 1].id)));
   await last.click();
   await expect.poll(async () => (await diag(page)).tool).toBeNull();
   // Bulldoze mode button toggles.
@@ -80,21 +82,68 @@ test('every category shows its tools and selecting one sets diagnostics.tool', a
   expect(errors).toEqual([]);
 });
 
-test('digit shortcuts: 1–9 pick a tool in the active category, Shift+1–4 switch category', async ({ page }, info) => {
+test('the five category tabs render their tools in catalog order, each with a loaded tool icon', async ({ page }) => {
+  const errors = trackErrors(page);
+  await start(page);
+  expect(TOOL_CATEGORIES.map((c) => c.id)).toEqual(['streets', 'homes', 'town', 'nature', 'garden']);
+  await expect(page.locator(`#${UI_TEST_IDS.dock} [data-category]`)).toHaveCount(5);
+  // Streets is the category open on start.
+  await expect(page.locator(id(UI_TEST_IDS.category('streets')))).toHaveAttribute('aria-pressed', 'true');
+  const counts: Record<string, number> = {};
+  for (const category of TOOL_CATEGORIES) {
+    await page.locator(id(UI_TEST_IDS.category(category.id))).click();
+    const expected = toolsInCategory(category.id).map((t) => t.id);
+    const cards = page.locator(`#${UI_TEST_IDS.tray} [data-tool]`);
+    await expect(cards).toHaveCount(expected.length);
+    expect(await cards.evaluateAll((els) => els.map((el) => (el as HTMLElement).dataset.tool))).toEqual(expected);
+    // Every card's icon is /assets/icons/tool-<id>.png and actually decoded.
+    await expect
+      .poll(() =>
+        cards.evaluateAll((els) =>
+          els.map((el) => {
+            const img = el.querySelector('img')!;
+            return `${(el as HTMLElement).dataset.tool}:${new URL(img.src).pathname.endsWith(`/assets/icons/tool-${(el as HTMLElement).dataset.tool}.png`)}:${img.complete && img.naturalWidth > 0}`;
+          }),
+        ),
+      )
+      .toEqual(expected.map((tool) => `${tool}:true:true`));
+    counts[category.id] = expected.length;
+  }
+  expect(counts).toEqual({ streets: 7, homes: 7, town: 5, nature: 6, garden: 8 });
+  expect(errors).toEqual([]);
+});
+
+test('digit shortcuts: 1–9 pick a tool in the active category, Shift+1–5 switch category', async ({ page }, info) => {
   test.skip(info.project.name === 'mobile-chrome', 'keyboard shortcuts are a desktop affordance');
   await start(page);
+  // Streets is open by default: 1 = road, 3 = roundabout.
+  await expect(page.locator(id(UI_TEST_IDS.category('streets')))).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('Digit1');
   await expect.poll(async () => (await diag(page)).tool).toBe('road');
-  await page.keyboard.press('Shift+Digit3');
-  await expect(page.locator(id(UI_TEST_IDS.category('buildings')))).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('Digit3');
-  await expect.poll(async () => (await diag(page)).tool).toBe('townhouse-c');
-  await expect(page.locator(id(UI_TEST_IDS.tool('townhouse-c')))).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(async () => (await diag(page)).tool).toBe('roundabout');
+  // Shift+2 = Homes: 3 = bungalow.
+  await page.keyboard.press('Shift+Digit2');
+  await expect(page.locator(id(UI_TEST_IDS.category('homes')))).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('Digit3');
+  await expect.poll(async () => (await diag(page)).tool).toBe('bungalow');
+  await expect(page.locator(id(UI_TEST_IDS.tool('bungalow')))).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('Digit3'); // same digit again deselects
   await expect.poll(async () => (await diag(page)).tool).toBeNull();
-  await page.keyboard.press('Shift+Digit2');
-  await page.keyboard.press('Digit4');
-  await expect.poll(async () => (await diag(page)).tool).toBe('tree-b');
+  // Shift+3 = Town: 1 = fountain.
+  await page.keyboard.press('Shift+Digit3');
+  await expect(page.locator(id(UI_TEST_IDS.category('town')))).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('Digit1');
+  await expect.poll(async () => (await diag(page)).tool).toBe('fountain');
+  // Shift+4 = Nature: 5 = pine.
+  await page.keyboard.press('Shift+Digit4');
+  await page.keyboard.press('Digit5');
+  await expect.poll(async () => (await diag(page)).tool).toBe('pine');
+  // Shift+5 = Garden: 1 = garden path (walkway).
+  await page.keyboard.press('Shift+Digit5');
+  await expect(page.locator(id(UI_TEST_IDS.category('garden')))).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('Digit1');
+  await expect.poll(async () => (await diag(page)).tool).toBe('walkway');
 });
 
 test('undo/redo disabled states follow history', async ({ page }) => {
@@ -105,7 +154,7 @@ test('undo/redo disabled states follow history', async ({ page }) => {
   await expect(undo).toBeDisabled();
   await expect(redo).toBeDisabled();
 
-  await page.locator(id(UI_TEST_IDS.category('paths'))).click();
+  await page.locator(id(UI_TEST_IDS.category('streets'))).click();
   await page.locator(id(UI_TEST_IDS.tool('road'))).click();
   const from = await cellPoint(page, 16, 22);
   const to = await cellPoint(page, 26, 22);
@@ -133,8 +182,8 @@ test('refusal tooltip shows on an invalid click and is gone after the next succe
   const errors = trackErrors(page);
   await start(page);
   const tip = page.locator(id(UI_TEST_IDS.tooltip));
-  await page.locator(id(UI_TEST_IDS.category('buildings'))).click();
-  await page.locator(id(UI_TEST_IDS.tool('townhouse-a'))).click();
+  await page.locator(id(UI_TEST_IDS.category('homes'))).click();
+  await page.locator(id(UI_TEST_IDS.tool('cottage'))).click();
 
   await clickCell(page, 18, 18);
   await expect.poll(async () => (await diag(page)).town.homes).toBe(1);
@@ -161,8 +210,8 @@ test('refusal tooltip shows on an invalid click and is gone after the next succe
 test('refusal tooltip never overlaps the dock, top bar or hint (refusal right above the dock)', async ({ page }, info) => {
   const errors = trackErrors(page);
   await start(page);
-  await page.locator(id(UI_TEST_IDS.category('buildings'))).click();
-  await page.locator(id(UI_TEST_IDS.tool('townhouse-c'))).click();
+  await page.locator(id(UI_TEST_IDS.category('homes'))).click();
+  await page.locator(id(UI_TEST_IDS.tool('family-home'))).click();
   const target = await cellAboveDock(page);
   expect(target, 'a canvas cell above the dock').not.toBeNull();
   const tap = async () => {
@@ -257,7 +306,7 @@ test('menu opens and closes; New town asks for confirmation', async ({ page }, i
 test('keyboard only: Tab reaches every dock button with a visible focus ring', async ({ page }, info) => {
   test.skip(info.project.name === 'mobile-chrome', 'keyboard navigation is checked on desktop');
   await start(page);
-  await page.locator(id(UI_TEST_IDS.category('buildings'))).click();
+  await page.locator(id(UI_TEST_IDS.category('homes'))).click();
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   const dockIds = await page.$$eval(`#${UI_TEST_IDS.dock} button`, (els) => els.map((e) => e.id));
   expect(dockIds.length).toBeGreaterThanOrEqual(13);
@@ -284,7 +333,7 @@ test('keyboard only: Tab reaches every dock button with a visible focus ring', a
 test('dock is ≤ 150 px tall on desktop and clear of the plot centre', async ({ page }, info) => {
   test.skip(info.project.name === 'mobile-chrome', 'desktop budget');
   await start(page);
-  await page.locator(id(UI_TEST_IDS.category('buildings'))).click();
+  await page.locator(id(UI_TEST_IDS.category('homes'))).click();
   const dock = (await page.locator(id(UI_TEST_IDS.dock)).boundingBox())!;
   const a = await cellPoint(page, 23, 23);
   const b = await cellPoint(page, 24, 24);
@@ -314,8 +363,8 @@ test('stress-town screenshots: no overlap or clipping at 4 sizes (Buildings tray
     const errors = trackErrors(page);
     await start(page);
     await page.evaluate(() => window.__THREE_GAME_TEST_HOOKS__!.setState('stress-town'));
-    await page.locator(id(UI_TEST_IDS.category('buildings'))).click();
-    await page.locator(id(UI_TEST_IDS.tool('townhouse-c'))).click(); // shows the hint for 3.5 s
+    await page.locator(id(UI_TEST_IDS.category('homes'))).click();
+    await page.locator(id(UI_TEST_IDS.tool('family-home'))).click(); // shows the hint for 3.5 s
     await page.waitForTimeout(300); // tray slide settles
     // Provoke a refusal tooltip right above the dock (a free cell takes one tap to fill, then refuses).
     const target = await cellAboveDock(page);

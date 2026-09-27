@@ -133,7 +133,7 @@ describe('TownEditor strokes and history', () => {
   it('undo/redo reproduce placement variants exactly', () => {
     const { editor } = setup(42);
     editor.beginStroke();
-    for (let x = 0; x < 12; x += 1) editor.apply({ type: 'place-object', kind: 'tree-c', cell: { x, z: 3 }, rotation: 0 }, 'tree-c');
+    for (let x = 0; x < 12; x += 1) editor.apply({ type: 'place-object', kind: 'birch', cell: { x, z: 3 }, rotation: 0 }, 'birch');
     editor.endStroke();
     const variants = [...editor.state.objects()].map((o) => o.variant);
     expect(new Set(variants).size).toBe(2); // both birch variants appear with this seed
@@ -176,11 +176,11 @@ describe('TownEditor road paint removes the in-between fence', () => {
 
   it('multi-cell objects report their footprint centre in build:placed / build:removed', () => {
     const { editor, events } = setup();
-    editor.apply({ type: 'place-object', kind: 'townhouse-b', cell: { x: 10, z: 10 }, rotation: 1 }, 'townhouse-b');
+    editor.apply({ type: 'place-object', kind: 'townhouse', cell: { x: 10, z: 10 }, rotation: 1 }, 'townhouse');
     editor.apply({ type: 'bulldoze', cell: { x: 12, z: 11 }, edge: null }, 'bulldoze');
     const centre = footprintCentreWorld({ x: 10, z: 10 }, [2, 3], 1);
     expect(events.of('build:placed')[0]).toMatchObject({ cell: { x: 10, z: 10 }, worldX: centre.x, worldZ: centre.z });
-    expect(events.of('build:removed')[0]).toMatchObject({ layer: 'object', kind: 'townhouse-b', cell: { x: 12, z: 11 }, worldX: centre.x, worldZ: centre.z });
+    expect(events.of('build:removed')[0]).toMatchObject({ layer: 'object', kind: 'townhouse', cell: { x: 12, z: 11 }, worldX: centre.x, worldZ: centre.z });
   });
 });
 
@@ -188,7 +188,7 @@ describe('TownEditor build events derive from the primary (last) change', () => 
   it('fence replace emits one build:placed on the edge midpoint', () => {
     const { editor, events } = setup();
     const edge = { x: 4, z: 4, side: 'n' as const };
-    editor.apply({ type: 'place-edge', kind: 'fence-small', edge }, 'fence-small');
+    editor.apply({ type: 'place-edge', kind: 'fence-low', edge }, 'fence-low');
     events.clear();
     editor.apply({ type: 'place-edge', kind: 'fence-tall', edge }, 'fence-tall');
     const w = edgeToWorld(edge);
@@ -198,15 +198,15 @@ describe('TownEditor build events derive from the primary (last) change', () => 
   it('bulldoze emits build:removed with the removed kind for each layer', () => {
     const { editor, events } = setup();
     editor.apply({ type: 'paint-ground', kind: 'grass', cell: { x: 1, z: 1 } }, 'grass');
-    editor.apply({ type: 'place-object', kind: 'townhouse-a', cell: { x: 1, z: 1 }, rotation: 0 }, 'townhouse-a');
-    editor.apply({ type: 'place-edge', kind: 'fence-small', edge: { x: 1, z: 1, side: 'w' } }, 'fence-small');
+    editor.apply({ type: 'place-object', kind: 'cottage', cell: { x: 1, z: 1 }, rotation: 0 }, 'cottage');
+    editor.apply({ type: 'place-edge', kind: 'fence-low', edge: { x: 1, z: 1, side: 'w' } }, 'fence-low');
     events.clear();
     editor.beginStroke();
     for (let i = 0; i < 3; i += 1) editor.apply({ type: 'bulldoze', cell: { x: 1, z: 1 }, edge: { x: 1, z: 1, side: 'w' } }, 'bulldoze');
     editor.endStroke();
     expect(events.of('build:removed').map((e) => [e.layer, e.kind, e.strokeIndex])).toEqual([
-      ['object', 'townhouse-a', 0],
-      ['edge', 'fence-small', 1],
+      ['object', 'cottage', 0],
+      ['edge', 'fence-low', 1],
       ['ground', 'grass', 2],
     ]);
   });
@@ -273,7 +273,7 @@ describe('TownEditor.preview', () => {
       return v;
     });
     const nextId = editor.state.nextObjectId;
-    const result = editor.preview({ type: 'place-object', kind: 'tree-c', cell: { x: 3, z: 3 }, rotation: 1 });
+    const result = editor.preview({ type: 'place-object', kind: 'birch', cell: { x: 3, z: 3 }, rotation: 1 });
     expect(result.ok).toBe(true);
     expect(editor.state.nextObjectId).toBe(nextId);
     expect(rngCalls).toHaveLength(0);
@@ -341,7 +341,7 @@ describe('TownEditor.reset and load', () => {
     const save = snapshot(source);
     const { editor } = setup();
     editor.load(save);
-    const r = editor.apply({ type: 'place-object', kind: 'tree-a', cell: { x: 0, z: 23 }, rotation: 0 }, 'tree-a');
+    const r = editor.apply({ type: 'place-object', kind: 'oak', cell: { x: 0, z: 23 }, rotation: 0 }, 'oak');
     expect(r.ok && r.changes[0].layer === 'object' && r.changes[0].object.id).toBe(save.nextObjectId);
   });
 
@@ -356,10 +356,14 @@ describe('stats after the sample town', () => {
   it('match hand-computed values', () => {
     const { editor } = setup();
     buildSampleTown(editor);
-    // Homes: cottage ×2 (2 residents), townhouse ×2 (3), family home ×1 (4) → 5 homes, 14 residents.
-    // Trees: 5. Road blocks: main street x 4..43 (20) + side street z 8..23 (8) + z 26..41 (8) = 36.
-    // Props: bus stop + postbox + 4 lampposts = 6 (the garage is a 'building', not a prop).
-    // Fences: 14 low (x 6..19) + 8 tall (z 28..35) = 22.
-    expect(editor.state.stats()).toEqual({ homes: 5, residents: 14, trees: 5, roadTiles: 36, props: 6, fences: 22 });
+    // Homes: cottage ×2 (2 residents), townhouse ×2 (3), bungalow (2), family home (4), suburban home (4),
+    // big house (5) → 8 homes, 25 residents. Amenities: corner shop, supermarket, church, fountain, pool = 5.
+    // Trees: oak ×2, pine ×2, birch = 5 (bushes are plants, counted as props).
+    // Road blocks: main street x 4..43 (20) + side street z 8..23 (8) + z 26..41 (8) = 36, plus the
+    // roundabout's 3 × 3 blocks (x 20..25, z 22..27) that were not road yet: 2 north + 2 south = 40.
+    // Props: street (2 traffic lights, 4 lampposts, postbox, bus stop = 8) + garden (2 benches,
+    // barbecue, swing, planter = 5) + plants (2 bushes) = 15. The garage is an outbuilding, not a prop.
+    // Fences (edge layer): 14 low (x 6..19) + 5 hedge (z 15..19) + 8 tall (z 28..35) = 27.
+    expect(editor.state.stats()).toEqual({ homes: 8, residents: 25, amenities: 5, trees: 5, roadTiles: 40, props: 15, fences: 27 });
   });
 });

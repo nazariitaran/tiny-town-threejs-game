@@ -8,7 +8,7 @@
  * orthographic, transparent background, the game's sun/hemisphere colours and tone mapping.
  */
 import * as THREE from 'three';
-import { objectDef } from '../catalog/objects';
+import { OBJECTS, objectDef } from '../catalog/objects';
 import { TOOLS } from '../catalog/tools';
 import { CELL_SIZE, cellToWorld, footprintCentreWorld, PLOT_DEPTH, PLOT_WIDTH, ROAD_TILE_SIZE, roadBlockCentreWorld } from '../game/config';
 import type { GameBus } from '../game/events';
@@ -46,10 +46,15 @@ const roadLine = (): Array<[number, number, GroundKind]> => {
   return cells;
 };
 
-/** Fence icons share one frame, so the tall fence visibly towers over the low one. */
+/** Edge icons (hedge, fences) share one frame, so the tall fence visibly towers over the low one. */
 const FENCE_FRAME = new THREE.Box3(
   new THREE.Vector3(-0.5 * CELL_SIZE, 0, -0.05 * CELL_SIZE),
   new THREE.Vector3(0.5 * CELL_SIZE, 0.52 * CELL_SIZE, 0.05 * CELL_SIZE),
+);
+/** The hedge is much thicker than a fence: same height scale, room for its depth. */
+const HEDGE_FRAME = new THREE.Box3(
+  new THREE.Vector3(-0.5 * CELL_SIZE, 0, -0.18 * CELL_SIZE),
+  new THREE.Vector3(0.5 * CELL_SIZE, 0.52 * CELL_SIZE, 0.18 * CELL_SIZE),
 );
 
 function sceneForTool(toolId: string): IconScene | null {
@@ -62,19 +67,23 @@ function sceneForTool(toolId: string): IconScene | null {
     case 'grass':
     case 'meadow':
       return { ground: [[C, C, toolId]] };
+    case 'hedge':
+      return { edge: toolId, frame: HEDGE_FRAME };
+    case 'fence-low':
     case 'fence-tall':
-    case 'fence-small':
       return { edge: toolId, frame: FENCE_FRAME };
-    case 'bus-stop':
-      return { object: 'bus-stop' };
-    default:
-      return toolId in OBJECT_TOOLS ? { object: toolId as ObjectKind } : null;
+    default: {
+      if (!Object.prototype.hasOwnProperty.call(OBJECTS, toolId)) return null;
+      const kind = toolId as ObjectKind;
+      const def = objectDef(kind);
+      // A road feature stands on road: pave its footprint so the fake town is a valid one.
+      const ground = def.roadFeature
+        ? footprintCells({ x: C, z: C }, def.footprint, 0).map((c): [number, number, GroundKind] => [c.x, c.z, 'road'])
+        : undefined;
+      return { object: kind, ground };
+    }
   }
 }
-const OBJECT_TOOLS: Record<string, true> = {
-  'tree-a': true, 'tree-b': true, 'tree-c': true, 'townhouse-a': true, 'townhouse-b': true,
-  'townhouse-c': true, garage: true, postbox: true, lamppost: true,
-};
 
 class FakeTown implements TownStateReader {
   readonly width = PLOT_WIDTH;
@@ -112,13 +121,14 @@ class FakeTown implements TownStateReader {
     return this.edgeList;
   }
   stats(): TownStats {
-    return { homes: 0, residents: 0, trees: 0, roadTiles: 0, props: 0, fences: this.edgeList.length };
+    return { homes: 0, residents: 0, amenities: 0, trees: 0, roadTiles: 0, props: 0, fences: this.edgeList.length };
   }
 }
 
+const ABOVE_GROUND = new THREE.Box3(new THREE.Vector3(-100, 0, -100), new THREE.Vector3(100, 100, 100));
 const NO_BUS = { on: () => () => {} } as unknown as GameBus;
 
-/** Render every tool icon; returns { '/assets/icons/<id>.png': 'data:image/png;base64,…' }. */
+/** Render every tool icon; returns { '/assets/icons/tool-<id>.png': 'data:image/png;base64,…' }. */
 export async function renderToolIcons(size = 128, supersample = 2): Promise<Record<string, string>> {
   const library = new ModelLibrary();
   await library.loadAll();
@@ -165,16 +175,20 @@ export async function renderToolIcons(size = 128, supersample = 2): Promise<Reco
 
     const half = (spec.roadBlock ? ROAD_TILE_SIZE : CELL_SIZE) / 2;
     const clip = new THREE.Box3(new THREE.Vector3(-half, -1, -half), new THREE.Vector3(half, 3, half));
+    // Nothing below the ground shows in game (e.g. the bush's buried trunk), so clip it here too.
+    const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     renderer.clippingPlanes = spec.clipToCentre
       ? [
+          ground,
           new THREE.Plane(new THREE.Vector3(1, 0, 0), half),
           new THREE.Plane(new THREE.Vector3(-1, 0, 0), half),
           new THREE.Plane(new THREE.Vector3(0, 0, 1), half),
           new THREE.Plane(new THREE.Vector3(0, 0, -1), half),
         ]
-      : [];
+      : [ground];
     let bounds = spec.frame ?? instancedBounds(townRenderer.root);
     if (spec.clipToCentre) bounds = bounds.clone().intersect(clip);
+    else bounds = bounds.clone().intersect(ABOVE_GROUND);
 
     const camera = framedCamera(bounds);
     renderer.render(scene, camera);
