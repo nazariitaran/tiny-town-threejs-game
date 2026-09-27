@@ -195,7 +195,7 @@ FINAL MESSAGE (your hand-off to the integrator) — use exactly these headings:
 
 ## 3. Per-WP briefs
 
-> Rows for Waves 1–3 are **historical (v0.1)**. The v0.2 rows are at the bottom. All of these WPs are merged and their worktrees removed. Reuse the pattern: branch `wp-NN-<slug>`, worktree `../ThreeJsGames-wt/wp-NN`, and a unique PORT (next free: 5215).
+> Rows for Waves 1–3 are **historical (v0.1)**. The v0.2 rows are at the bottom. All of these WPs are merged and their worktrees removed. Reuse the pattern: branch `wp-NN-<slug>`, worktree `../ThreeJsGames-wt/wp-NN`, and a unique PORT (next free: 5218; WP-16 uses 5215–5217). WP-16 workers branch from and merge into the integration branch `v0.3-day-night`, not `main`.
 
 | Wave | WP | Title | Branch | Worktree | PORT |
 | --- | --- | --- | --- | --- | --- |
@@ -213,6 +213,9 @@ FINAL MESSAGE (your hand-off to the integrator) — use exactly these headings:
 | v0.2 | WP-12 | Scale, proportions & grid density | `wp-12-scale` | `../ThreeJsGames-wt/wp-12` | 5212 (reused after WP-11) |
 | v0.2 | WP-13 | Background music + settings | (not recorded) | `../ThreeJsGames-wt/wp-13` | 5213 |
 | v0.2 | WP-14 | Remove the stats pill | `wp-14-no-stats` | `../ThreeJsGames-wt/wp-14` | 5214 |
+| v0.3 | WP-16a | Daylight (clock, sky, lights) | `wp-16a-daylight` (from `v0.3-day-night`) | `../ThreeJsGames-wt/wp-16a` | 5215 |
+| v0.3 | WP-16b | Night lights (glow masks, lamp pools, cars) | `wp-16b-night-lights` (from `v0.3-day-night`) | `../ThreeJsGames-wt/wp-16b` | 5216 |
+| v0.3 | WP-16c | Day/night controls & QA | `wp-16c-controls` (from `v0.3-day-night`) | `../ThreeJsGames-wt/wp-16c` | 5217 |
 
 Fix-up rounds reused the WP's branch or a suffixed one (e.g. `wp-05-ghost-fix3`, `wp-06-ui-fix2`, `wp-08-fx-fix1`).
 
