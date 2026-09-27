@@ -114,7 +114,7 @@ export class UiRoot {
         this.volume = volume;
         this.renderAudio();
       }),
-      // WP-13: music settings rows (shim events until they join GameEvents).
+      // WP-13: music settings rows.
       bus.on('music:changed', ({ enabled, volume }) => {
         this.el<HTMLInputElement>(UI_TEST_IDS.music).checked = enabled;
         const range = this.el<HTMLInputElement>(UI_TEST_IDS.musicVolume);

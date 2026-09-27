@@ -48,8 +48,8 @@ export type GameEvents = {
 
   /**
    * Semantic build events for audio / fx / hud juice. One per placed/removed thing, only for
-   * interactive edits (not for load/reset/silent batches). worldX/Z = cell centre, or the edge
-   * midpoint for fences. strokeIndex = 0-based count of placements so far in the current stroke
+   * interactive edits (not for load/reset/silent batches). worldX/Z = centre of the object's footprint
+   * (road: its 2×2 block; other ground: the cell), or the edge midpoint for fences. strokeIndex = 0-based count of placements so far in the current stroke
    * (drives pitch rise in audio and FX scaling).
    */
   'build:placed': { toolId: ToolId; layer: 'ground' | 'object' | 'edge'; cell: Cell; worldX: number; worldZ: number; strokeIndex: number };

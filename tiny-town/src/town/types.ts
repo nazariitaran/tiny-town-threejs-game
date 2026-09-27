@@ -81,7 +81,6 @@ export type InvalidReason =
   | 'occupied'
   | 'blocked-by-road'
   | 'needs-ground'
-  | 'edge-occupied'
   | 'nothing-here'
   | 'no-change';
 
@@ -132,8 +131,3 @@ export interface SavedTownV2 {
 
 /** The current save format. */
 export type SavedTown = SavedTownV2;
-
-/**
- * @deprecated Old name, kept only so modules outside WP-12 (persistence/SaveStore.ts) compile
- * unchanged. It now means the CURRENT format (SavedTownV2); use `SavedTown`.
- */
