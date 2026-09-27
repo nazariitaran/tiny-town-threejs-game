@@ -15,6 +15,9 @@
  *
  * WP-08 (Feel & VFX).
  */
+import { OBJECTS } from '../catalog/objects';
+import { CELL_SIZE } from '../game/config';
+import type { ObjectKind } from '../town/types';
 import { Curve, type ParticlePool, type ParticleSpec } from './particlePool';
 
 export type FxClass = 'path' | 'road' | 'lawn' | 'meadow' | 'tree' | 'building' | 'small-building' | 'prop' | 'fence';
@@ -84,6 +87,16 @@ export function classify(id: string): FxClass {
   if (id === 'bus-stop') return 'small-building';
   if (id.startsWith('fence')) return 'fence';
   return 'prop';
+}
+
+/**
+ * WP-12: removal-poof ring radius for a (multi-cell) object: ≈ half its longer footprint side, so the
+ * ring hugs a 3×3 cottage as well as a 1×2 garage; never below `min`.
+ */
+export function footprintPoofRadius(kind: string, min: number): number {
+  const def = Object.prototype.hasOwnProperty.call(OBJECTS, kind) ? OBJECTS[kind as ObjectKind] : undefined;
+  if (!def) return min;
+  return Math.max(min, (Math.max(def.footprint[0], def.footprint[1]) * CELL_SIZE) / 2 - 0.05);
 }
 
 /** Fewer particles per cell once a drag stroke is under way (never below `min`). */
@@ -226,7 +239,7 @@ export function emitRemoved(
     case 'building':
     case 'small-building': {
       const big = fxClass === 'building';
-      emitBurst(pools.dust, rng, x, z, poof(big ? 12 : 9, big ? 0.46 : 0.4, big ? [0.13, 0.17] : [0.11, 0.14]));
+      emitBurst(pools.dust, rng, x, z, poof(big ? 12 : 9, footprintPoofRadius(kind, big ? 0.3 : 0.28), big ? [0.13, 0.17] : [0.11, 0.14]));
       emitBurst(pools.solid, rng, x, z, debris(big ? 5 : 3, PALETTES.debrisBuild, [0.15, 0.35], [0.022, 0.035]));
       return;
     }
