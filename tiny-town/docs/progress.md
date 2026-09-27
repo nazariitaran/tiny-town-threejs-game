@@ -62,10 +62,13 @@ Contract requests applied in commit after the Wave-1 merges: sfx `place-prop-met
 v0.1 = the M3 build (main @ 3f9c6cf). Owner requests:
 | WP | Status | Branch | Worktree | Port | Notes |
 | --- | --- | --- | --- | --- | --- |
-| WP-12 Scale, proportions & grid density | 🔄 implementing (plan: docs/plans/wp-12-scale.md) | `wp-12-scale` (after plan) | `wp-12` | 5212 | cross-cutting: config/catalog contracts, town, render, interaction, world, life, tests; the implementer gets broad ownership, and the integrator reviews the plan first |
+| WP-12 Scale, proportions & grid density | ✅ merged (cf4123b) | — | removed | 5212 | 48×48 @ 0.5; roads 2×2 blocks; footprints per plan; save v2 + v1 migration (sample 0 drops, stress 36/56 homes); stress mobile 243k/250k tris; cell pitch 12.6 / 10.6 px. Integrator: SavedTown rename, narrow top inset 76, icons re-rendered, baselines regenerated |
 | WP-13 Background music + settings | ✅ merged (e76d1a8) | — | removed | 5213 | streamed after Start (initial download unchanged); music on/off + volume; −3 dB duck in menu; events in contract; owner-created track (ElevenLabs) |
-| WP-14 Remove top-left stats pill | ✅ merged (8d91b1b) | — | removed | 5214 | one-row top bar (60 px desktop / 64 px mobile); baselines regenerated (51d074d). TODO after WP-12: framing SAFE_INSETS narrow top 88→76 |
+| WP-14 Remove top-left stats pill | ✅ merged (8d91b1b) | — | removed | 5214 | one-row top bar (60 px desktop / 64 px mobile); baselines regenerated (51d074d). narrow top inset → 76 applied |
 Coordination: WP-13 and WP-14 both touch UiRoot/ui.css in separate regions (menu rows vs HUD). WP-12 avoids src/ui. The integrator regenerates baselines once after all three merge.
+
+## v0.2 status
+All three owner requests are merged; main is green (294 unit tests; e2e 70 passed, 12 skipped). Open: the mobile stress-town triangle headroom is only ~6.5k; small props on touch need pinch-zoom; `inspect:models` would overwrite the hand-edited models.json fields.
 
 ## M3
 ✅ v1 passed 2026-09-26. See `docs/checkpoints/m3.md`. All worktrees removed; all WP branches merged and deleted.
