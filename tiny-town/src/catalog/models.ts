@@ -24,8 +24,8 @@ export interface ModelSpec {
   glow?: GlowKind;
 }
 
-/** What lights up at night (docs/plans/wp-16-day-night.md §3). 'church': its own 2-quadrant texture (WP-16b). */
-export type GlowKind = 'windows' | 'lamp' | 'traffic' | 'church';
+/** What lights up at night (docs/plans/wp-16-day-night.md §3). Shops and the church stay dark (WP-17b). */
+export type GlowKind = 'windows' | 'lamp' | 'traffic';
 
 const M = (url: string, scale = 1, rotationOffset: Rotation = 0, extra: Partial<ModelSpec> = {}): ModelSpec => ({
   url,

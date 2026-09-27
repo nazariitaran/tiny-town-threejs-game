@@ -29,30 +29,15 @@ import type { DaySample } from '../world/dayCycle';
 export const ATLAS_COLUMNS = 16;
 export const ATLAS_ROWS = 4;
 
-/**
- * The catalog kinds plus the car material's own mask (LifeSystem) and the church (stretch: its own
- * 256² texture, not a Kenney atlas; catalog `glow: 'church'`).
- */
-export type GlowMaskKind = GlowKind | 'headlights' | 'church';
+/** The catalog kinds plus the car material's own mask (LifeSystem). */
+export type GlowMaskKind = GlowKind | 'headlights';
 
-/** Mask resolution per kind: the Kenney atlases are 16 × 4 cells; the church mask is 128 × 2. */
+/** Mask resolution per kind: every glow source samples a 16 × 4-cell Kenney atlas. */
 export const MASK_GRID: Readonly<Record<GlowMaskKind, { columns: number; rows: number }>> = {
   windows: { columns: ATLAS_COLUMNS, rows: ATLAS_ROWS },
   lamp: { columns: ATLAS_COLUMNS, rows: ATLAS_ROWS },
   traffic: { columns: ATLAS_COLUMNS, rows: ATLAS_ROWS },
   headlights: { columns: ATLAS_COLUMNS, rows: ATLAS_ROWS },
-  church: { columns: 128, rows: 2 },
-};
-
-/** Church (Poly Pizza "1221 Church", own texture): windows + door share the dark-grey quadrant
- * u 0.5–1, v 0–0.5. In a 128-column mask the door's UVs (u 0.7230–0.7256) all fall in column 92 and
- * no window UV does (windows: columns 85–88 and 93–110, incl. the belfry), so the door stays dark. */
-export const CHURCH_DOOR_COLUMN = 92;
-const CHURCH_WINDOW_COLOR = 0xffd79a;
-const churchCells = (): GlowCell[] => {
-  const cells: GlowCell[] = [];
-  for (let col = 64; col < 128; col += 1) if (col !== CHURCH_DOOR_COLUMN) cells.push({ col, row: 0, color: CHURCH_WINDOW_COLOR });
-  return cells;
 };
 
 export interface GlowCell {
@@ -70,7 +55,7 @@ const scaled = (hex: number, k: number): number =>
 
 /** Measured cells (UV-triangle census on ea54bb5, re-checked for WP-16b). */
 export const GLOW_CELLS: Readonly<Record<GlowMaskKind, readonly GlowCell[]>> = {
-  // Suburban + commercial window glass (119,161,223)–(157,192,237): warm lamplight.
+  // Suburban window glass (119,161,223)–(157,192,237): warm lamplight.
   windows: [{ col: 11, row: 1, color: 0xffc873 }],
   // Roads atlas lamp face (white), under the lamppost's head.
   lamp: [{ col: 8, row: 2, color: 0xfff0c8 }],
@@ -85,7 +70,6 @@ export const GLOW_CELLS: Readonly<Record<GlowMaskKind, readonly GlowCell[]>> = {
     { col: 3, row: 3, color: 0xfff6d8 },
     { col: 5, row: 3, color: 0xff3a2a },
   ],
-  church: churchCells(),
 };
 
 /** RGBA bytes of a kind's mask (16 × 4 for the atlases); texel (col, row) at (row · columns + col) · 4. */
@@ -130,7 +114,6 @@ export interface GlowTuning {
   lamp: number;
   traffic: number;
   headlights: number;
-  church: number;
   /** Lamps switch on across this `night` range (the plan's "on when night > 0.3"). */
   lampOnFrom: number;
   lampOnTo: number;
@@ -141,7 +124,6 @@ export const DEFAULT_GLOW_TUNING: Readonly<GlowTuning> = {
   lamp: 2.4,
   traffic: 2.6,
   headlights: 2.8,
-  church: 1.1,
   lampOnFrom: 0.3,
   lampOnTo: 0.42,
 };
@@ -169,8 +151,6 @@ export function glowIntensity(kind: GlowMaskKind, night: number, tuning: Readonl
       return tuning.traffic * n;
     case 'headlights':
       return tuning.headlights * n;
-    case 'church':
-      return tuning.church * n;
   }
 }
 
