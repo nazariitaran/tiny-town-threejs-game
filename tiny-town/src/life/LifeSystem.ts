@@ -35,8 +35,12 @@ import { CAR_MODELS, MAX_CARS, TrafficSim, type Car } from './TrafficSim';
 export const CAR_FILES = ['sedan', 'hatchback-sports', 'van', 'taxi'] as const;
 /** Kenney Car Kit → world units (WP-12: 0.255 wide × 0.43–0.48 long, fits one 0.37 lane). */
 export const CAR_SCALE = 0.17;
-/** Car Kit models face −Z natively; a half turn makes the bonnet face +Z (our "forward"). */
-const FRONT_ROTATION = Math.PI;
+/**
+ * Car Kit models already face +Z natively (yellow headlights and the raked windscreen at +Z, red
+ * tail lights at −Z; re-measured from UVs for WP-16), which is our "forward": no turn. Until WP-16b
+ * this was π and every car drove backwards.
+ */
+const FRONT_ROTATION = 0;
 /** Road / pavement tile top (docs/PLAN.md §1). */
 export const ROAD_TOP_Y = 0.02;
 const POP_IN_S = 0.32;
