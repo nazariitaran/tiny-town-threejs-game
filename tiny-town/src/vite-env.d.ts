@@ -76,7 +76,7 @@ interface ThreeGameTestHooks {
   hideDebugUi(hidden: boolean): void | Promise<void>;
   /**
    * CSS client coordinates of a grid cell centre, so bots can click real cells with real input.
-   * Cells are the 48 × 48 half-unit grid (WP-12); a road block is 2 × 2 cells, houses 3×3 / 2×3.
+   * Cells are the 48 × 48 half-unit grid (WP-12); a road block is 2 × 2 cells, houses 4×4 / 3×4 / 5×4 (WP-17).
    */
   cellToClient(x: number, z: number): { x: number; y: number };
   /** Move the camera to a pose at once (screenshots of one spot, e.g. the asset gallery). */
