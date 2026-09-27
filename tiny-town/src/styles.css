@@ -36,6 +36,8 @@
   --fast: 140ms;
   --tray-slide: 180ms;
   --gutter: 12px;
+  /* Top bar row height (brand + action pills); ui.css raises it to 52px on phones via #ui-root. */
+  --topbar-h: 48px;
   --safe-top: max(var(--gutter), env(safe-area-inset-top));
   --safe-right: max(var(--gutter), env(safe-area-inset-right));
   --safe-bottom: max(var(--gutter), env(safe-area-inset-bottom));
