@@ -4,7 +4,7 @@ import { PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
 import { createGameBus } from '../game/events';
 import { roadMask } from '../render/roadTiles';
 import { createSeededRandom } from '../utils/random';
-import { buildAssetGallery, buildSampleTown, buildStressTown } from './sampleTown';
+import { buildAssetGallery, buildSampleTown, buildStressTown, galleryMaskBlock } from './sampleTown';
 import { TownEditor } from './TownEditor';
 import { TownState } from './TownState';
 
@@ -44,19 +44,44 @@ describe('demo towns', () => {
     }
   });
 
-  it('asset gallery places every kind and shows each of the 16 road masks exactly', () => {
+  it('asset gallery places every kind and shows each of the 16 road block masks exactly', () => {
     const editor = makeEditor();
     expect(buildAssetGallery(editor).rejected).toEqual([]);
+    const kinds = new Set([...editor.state.objects()].map((o) => o.kind));
+    expect(kinds.size).toBe(10);
     for (let mask = 0; mask < 16; mask += 1) {
-      const centre = { x: 1 + (mask % 6) * 4, z: 1 + Math.floor(mask / 6) * 4 };
+      const centre = galleryMaskBlock(mask);
+      expect(centre.x % 2 === 0 && centre.z % 2 === 0).toBe(true);
+      expect(editor.state.getGround(centre)).toBe('road');
+      // Any cell of the block reports the block's mask.
       expect(roadMask(editor.state, centre), `mask ${mask}`).toBe(mask);
+      expect(roadMask(editor.state, { x: centre.x + 1, z: centre.z + 1 }), `mask ${mask} (other cell)`).toBe(mask);
     }
   });
 
-  it('stress town fills the plot with zero rejections', () => {
+  it('stress town fills the plot with zero rejections (≈96 homes, 32 garages)', () => {
     const editor = makeEditor();
-    const { applied, rejected } = buildStressTown(editor);
+    const { rejected } = buildStressTown(editor);
     expect(rejected).toEqual([]);
-    expect(applied).toBeGreaterThan(PLOT_WIDTH * PLOT_DEPTH * 0.9);
+    const objects = [...editor.state.objects()];
+    expect(editor.state.stats().homes).toBe(96);
+    expect(objects.filter((o) => o.kind === 'garage')).toHaveLength(32);
+    // Nearly every cell is used: road, pavement, lawn or an object.
+    let used = 0;
+    for (let z = 0; z < PLOT_DEPTH; z += 1) for (let x = 0; x < PLOT_WIDTH; x += 1) if (editor.state.getGround({ x, z }) !== 'field' || editor.state.getObjectAt({ x, z })) used += 1;
+    expect(used).toBeGreaterThan(PLOT_WIDTH * PLOT_DEPTH * 0.95);
+  });
+
+  it('every demo town keeps roads in whole aligned 2 × 2 blocks', () => {
+    for (const build of [buildSampleTown, buildAssetGallery, buildStressTown]) {
+      const editor = makeEditor();
+      build(editor);
+      for (let z = 0; z < PLOT_DEPTH; z += 2) {
+        for (let x = 0; x < PLOT_WIDTH; x += 2) {
+          const roads = [editor.state.getGround({ x, z }), editor.state.getGround({ x: x + 1, z }), editor.state.getGround({ x, z: z + 1 }), editor.state.getGround({ x: x + 1, z: z + 1 })].filter((g) => g === 'road').length;
+          expect(roads === 0 || roads === 4, `block ${x},${z}`).toBe(true);
+        }
+      }
+    }
   });
 });

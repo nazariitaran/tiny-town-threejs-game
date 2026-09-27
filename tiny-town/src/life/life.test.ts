@@ -4,13 +4,28 @@ import type { GroundKind, TownChange } from '../town/types';
 import { createSeededRandom } from '../utils/random';
 import { DIR_X, DIR_Z, LANE_OFFSET, lanePath, manoeuvreKind, samplePath, type Dir } from './lanePaths';
 import { MAX_CARS, TrafficSim } from './TrafficSim';
-import { cellToWorld, worldToCell } from '../game/config';
+import { PLOT_DEPTH, PLOT_WIDTH, roadBlockCentreWorld, worldToCell } from '../game/config';
 
-function paint(town: TownState, cells: Array<[number, number]>, after: GroundKind = 'road'): TownChange[] {
-  const changes: TownChange[] = cells.map(([x, z]) => ({ layer: 'ground', cell: { x, z }, before: town.getGround({ x, z }), after }));
+/**
+ * The sim runs on road BLOCKS (2 × 2 cells, WP-12). Coordinates in these tests are block
+ * coordinates; paint() fills all 4 cells of each block.
+ */
+function paint(town: TownState, blocks: Array<[number, number]>, after: GroundKind = 'road'): TownChange[] {
+  const changes: TownChange[] = [];
+  for (const [bx, bz] of blocks) {
+    for (let dz = 0; dz < 2; dz += 1) {
+      for (let dx = 0; dx < 2; dx += 1) {
+        const cell = { x: bx * 2 + dx, z: bz * 2 + dz };
+        changes.push({ layer: 'ground', cell, before: town.getGround(cell), after });
+      }
+    }
+  }
   town.applyChanges(changes);
   return changes;
 }
+
+const newTown = () => new TownState(PLOT_WIDTH, PLOT_DEPTH);
+const blockCentre = (bx: number, bz: number, out = { x: 0, z: 0 }) => roadBlockCentreWorld({ x: bx * 2, z: bz * 2 }, out);
 
 /** A 6×6 ring road (20 cells) around (4..9, 4..9). */
 function ringCells(): Array<[number, number]> {
@@ -80,7 +95,7 @@ describe('lane paths', () => {
 
 describe('TrafficSim', () => {
   it('spawns nothing without roads and scales the car count with the road network (max 6)', () => {
-    const town = new TownState(24, 24);
+    const town = newTown();
     const sim = new TrafficSim(town, createSeededRandom(1));
     sim.onTownChanged([], 'reset');
     expect(sim.cars.length).toBe(0);
@@ -93,7 +108,7 @@ describe('TrafficSim', () => {
   });
 
   it('isolated single road tiles are not drivable', () => {
-    const town = new TownState(24, 24);
+    const town = newTown();
     const sim = new TrafficSim(town, createSeededRandom(1));
     const lone: Array<[number, number]> = [];
     for (let i = 0; i < 12; i += 1) lone.push([(i % 6) * 2, Math.floor(i / 6) * 2]);
@@ -104,7 +119,7 @@ describe('TrafficSim', () => {
 
   it('is deterministic for a seed and reseeds on reset', () => {
     const run = (seed: number) => {
-      const town = new TownState(24, 24);
+      const town = newTown();
       const sim = new TrafficSim(town, createSeededRandom(seed));
       sim.onTownChanged([], 'reset');
       sim.onTownChanged(paint(town, sampleTownRoads()), 'edit');
@@ -116,7 +131,7 @@ describe('TrafficSim', () => {
   });
 
   it('cars stay on road cells, in their lane, for a long drive (sample-town roads)', () => {
-    const town = new TownState(24, 24);
+    const town = newTown();
     const sim = new TrafficSim(town, createSeededRandom(3));
     sim.onTownChanged(paint(town, sampleTownRoads()), 'load');
     const visited = new Set<string>();
@@ -127,11 +142,11 @@ describe('TrafficSim', () => {
       sim.step(1 / 60);
       for (const car of sim.cars) {
         worldToCell(car.x, car.z, cell);
-        // Position is inside a road cell (the edge between two road cells belongs to either).
-        const onRoad = town.getGround(cell) === 'road' || town.getGround({ x: car.cx, z: car.cz }) === 'road';
+        // Position is inside a road block (the edge between two road blocks belongs to either).
+        const onRoad = town.getGround(cell) === 'road' || town.getGround({ x: car.cx * 2, z: car.cz * 2 }) === 'road';
         expect(onRoad).toBe(true);
-        expect(town.getGround({ x: car.cx, z: car.cz })).toBe('road');
-        cellToWorld({ x: car.cx, z: car.cz }, centre);
+        expect(town.getGround({ x: car.cx * 2, z: car.cz * 2 })).toBe('road');
+        blockCentre(car.cx, car.cz, centre);
         expect(Math.abs(car.x - centre.x)).toBeLessThanOrEqual(0.5 + 1e-4);
         expect(Math.abs(car.z - centre.z)).toBeLessThanOrEqual(0.5 + 1e-4);
         visited.add(`${car.cx},${car.cz}`);
@@ -145,7 +160,7 @@ describe('TrafficSim', () => {
   });
 
   it('cars never overlap for long (following distance + gridlock breaker)', () => {
-    const town = new TownState(24, 24);
+    const town = newTown();
     const sim = new TrafficSim(town, createSeededRandom(11));
     sim.onTownChanged(paint(town, ringCells()), 'load');
     expect(sim.cars.length).toBe(3); // 20 cells / 6
@@ -166,7 +181,7 @@ describe('TrafficSim', () => {
   });
 
   it('despawns a car when the road under it is bulldozed, and only that car', () => {
-    const town = new TownState(24, 24);
+    const town = newTown();
     const sim = new TrafficSim(town, createSeededRandom(5));
     sim.onTownChanged(paint(town, sampleTownRoads()), 'load');
     for (let i = 0; i < 30; i += 1) sim.step(1 / 60);
@@ -178,14 +193,14 @@ describe('TrafficSim', () => {
     expect(removed).toContain(victim.id);
     expect(sim.cars.find((c) => c.id === victim.id)).toBeUndefined();
     expect(sim.stats.despawned).toBeGreaterThanOrEqual(1);
-    for (const car of sim.cars) expect(town.getGround({ x: car.cx, z: car.cz })).toBe('road');
+    for (const car of sim.cars) expect(town.getGround({ x: car.cx * 2, z: car.cz * 2 })).toBe('road');
     // The count is topped back up to what the remaining network supports.
     expect(sim.cars.length).toBe(Math.min(count, sim.stats.target));
     expect(sim.stats.target).toBeGreaterThanOrEqual(count - 1);
   });
 
   it('removes every car when all roads go, and step(0) freezes cars', () => {
-    const town = new TownState(24, 24);
+    const town = newTown();
     const sim = new TrafficSim(town, createSeededRandom(5));
     const roads = sampleTownRoads();
     sim.onTownChanged(paint(town, roads), 'load');

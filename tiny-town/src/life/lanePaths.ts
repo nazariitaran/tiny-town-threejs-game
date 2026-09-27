@@ -1,7 +1,8 @@
 /**
  * WP-10 (Ambient life) — pure lane geometry. NO three.js, NO DOM (unit-tested in Node).
  *
- * A car crosses one road cell at a time along a "manoeuvre": it enters through the edge it
+ * A car crosses one road TILE at a time (WP-12: a 2 × 2 cell road block, ROAD_TILE_SIZE = 1 world
+ * unit; below "cell" means that tile) along a "manoeuvre": it enters through the edge it
  * is travelling across (`inDir`) and leaves through `outDir`. Traffic keeps to the RIGHT, so
  * every manoeuvre starts and ends on the right-hand lane centre (LANE_OFFSET from the middle
  * of the road; Kenney road tiles have two ≈0.37-wide lanes between the kerbs).
@@ -11,10 +12,10 @@
  *  - left turn  (out == in + 3): a wide quarter arc that crosses the oncoming lane.
  *  - U-turn     (out == in + 2): only at dead ends; drive to the middle, loop round, drive back.
  *
- * Paths are pre-sampled polylines in cell-local coordinates (cell centre = origin,
- * CELL_SIZE units), so sampling is allocation-free.
+ * Paths are pre-sampled polylines in tile-local coordinates (tile centre = origin,
+ * world units), so sampling is allocation-free.
  */
-import { CELL_SIZE } from '../game/config';
+import { ROAD_TILE_SIZE } from '../game/config';
 
 /** 0 = north (−z), 1 = east (+x), 2 = south (+z), 3 = west (−x). Clockwise seen from above. */
 export type Dir = 0 | 1 | 2 | 3;
@@ -23,7 +24,7 @@ export const DIR_X: readonly number[] = [0, 1, 0, -1];
 export const DIR_Z: readonly number[] = [-1, 0, 1, 0];
 
 /** Distance of the lane centre from the road's middle line, in world units. */
-export const LANE_OFFSET = 0.18 * CELL_SIZE;
+export const LANE_OFFSET = 0.18 * ROAD_TILE_SIZE;
 
 export const opposite = (dir: Dir): Dir => ((dir + 2) % 4) as Dir;
 
@@ -52,7 +53,7 @@ export interface PathSample {
 }
 
 const ARC_STEPS = 16;
-const HALF = CELL_SIZE / 2;
+const HALF = ROAD_TILE_SIZE / 2;
 
 function buildPath(inDir: Dir, outDir: Dir): LanePath {
   const kind = manoeuvreKind(inDir, outDir);

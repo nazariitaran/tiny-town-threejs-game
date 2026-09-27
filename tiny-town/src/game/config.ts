@@ -5,12 +5,15 @@
 import { ROAD_BLOCK, rotatedFootprint } from '../town/grid';
 import type { Cell, Edge, Rotation } from '../town/types';
 
-/** Plot size in cells. */
-export const PLOT_WIDTH = 24;
-export const PLOT_DEPTH = 24;
+/** Plot size in cells (WP-12: 48 × 48 half-unit cells; the plot stays 24 × 24 world units). */
+export const PLOT_WIDTH = 48;
+export const PLOT_DEPTH = 48;
 
-/** World units per grid cell. One Kenney road tile == one cell (see docs/assets/models.md). */
-export const CELL_SIZE = 1;
+/**
+ * World units per grid cell (WP-12: 0.5). Toy scale: 1 world unit ≈ 8 m, so a cell ≈ 4 m.
+ * One Kenney road tile (1 world unit) covers an aligned 2 × 2 road block (ROAD_TILE_SIZE).
+ */
+export const CELL_SIZE = 0.5;
 
 /** World-space centre of a cell (y = 0 ground plane). The plot is centred on the origin. */
 export function cellToWorld(cell: Cell, out: { x: number; z: number } = { x: 0, z: 0 }): { x: number; z: number } {

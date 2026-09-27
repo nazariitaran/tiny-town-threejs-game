@@ -6,19 +6,24 @@ import { buildAssetGallery, buildSampleTown, buildStressTown } from './sampleTow
 import { CURRENT_SAVE_VERSION, decodeGround, parseSave, serializeTown, type CameraPose } from './serialize';
 import { TownEditor } from './TownEditor';
 import { TownState } from './TownState';
-import type { SavedTownV1 } from './types';
+import type { SavedTown } from './types';
 
 const makeEditor = (seed = 1) => new TownEditor(new TownState(PLOT_WIDTH, PLOT_DEPTH), createGameBus(), createSeededRandom(seed));
 const camera: CameraPose = { targetX: 1.5, targetZ: -2, azimuth: 0.7, polar: 0.9, distance: 18 };
 
-function ok(result: SavedTownV1 | Error): SavedTownV1 {
+function ok(result: SavedTown | Error): SavedTown {
   if (result instanceof Error) throw result;
   return result;
 }
 
-/** A minimal valid v1 save for a w×d plot with all-field ground. */
-function blank(w = PLOT_WIDTH, d = PLOT_DEPTH): SavedTownV1 {
-  return { version: 1, width: w, depth: d, ground: [['field', w * d]], objects: [], edges: [], nextObjectId: 1 };
+/** A minimal valid current (v2) save for a w×d plot with all-field ground. */
+function blank(w = PLOT_WIDTH, d = PLOT_DEPTH): SavedTown {
+  return { version: 2, width: w, depth: d, ground: [['field', w * d]], objects: [], edges: [], nextObjectId: 1 };
+}
+
+/** Ground with the 2 × 2 road block at (0, 0)..(1, 1) and field elsewhere. */
+function roadBlockAtOrigin(): Array<[string, number]> {
+  return [['road', 2], ['field', PLOT_WIDTH - 2], ['road', 2], ['field', PLOT_WIDTH * PLOT_DEPTH - PLOT_WIDTH - 2]];
 }
 
 describe('serializeTown', () => {
@@ -118,7 +123,7 @@ describe('parseSave rejects corrupted / foreign data without throwing', () => {
   ];
   for (const [name, input] of bad) {
     it(`rejects ${name}`, () => {
-      let result: SavedTownV1 | Error | undefined;
+      let result: SavedTown | Error | undefined;
       expect(() => (result = parseSave(input))).not.toThrow();
       expect(result).toBeInstanceOf(Error);
     });
@@ -138,7 +143,8 @@ describe('parseSave sanitises and clamps', () => {
   it('maps unknown ground kinds to field and caps oversized runs', () => {
     const save = ok(parseSave({ ...blank(), ground: [['lava', 3], ['road', 1_000_000_000]] }));
     const ground = decodeGround(save);
-    expect(ground.slice(0, 4)).toEqual(['field', 'field', 'field', 'road']);
+    // (3, 0) is road but its block (2..3, 0..1) is not all road → demoted to field.
+    expect(ground.slice(0, 5)).toEqual(['field', 'field', 'field', 'field', 'road']);
     expect(ground).toHaveLength(PLOT_WIDTH * PLOT_DEPTH);
   });
 
@@ -195,7 +201,7 @@ describe('parseSave sanitises and clamps', () => {
     const save = ok(
       parseSave({
         ...blank(),
-        ground: [['road', 1], ['field', PLOT_WIDTH * PLOT_DEPTH - 1]],
+        ground: roadBlockAtOrigin(),
         objects: [
           { id: 1, kind: 'postbox', anchor: { x: 5, z: 5 }, rotation: 0, variant: 0 },
           { id: 1, kind: 'postbox', anchor: { x: 6, z: 5 }, rotation: 0, variant: 0 }, // duplicate id
@@ -211,7 +217,7 @@ describe('parseSave sanitises and clamps', () => {
     const save = ok(
       parseSave({
         ...blank(),
-        ground: [['road', 2], ['field', PLOT_WIDTH * PLOT_DEPTH - 2]],
+        ground: roadBlockAtOrigin(),
         edges: [
           { kind: 'fence-small', edge: { x: 1, z: 0, side: 'w' } }, // between road (0,0) and road (1,0)
           { kind: 'fence-small', edge: { x: 0, z: 0, side: 'n' } }, // border next to road: fine
@@ -235,7 +241,7 @@ describe('parseSave sanitises and clamps', () => {
     const ground = Array.from({ length: d }, () => [['grass', w]] as Array<[string, number]>).flat();
     const save = ok(
       parseSave({
-        version: 1,
+        version: 2,
         width: w,
         depth: d,
         ground,
@@ -310,6 +316,7 @@ describe('migration hook', () => {
     // Pretend version 0 stored ground as a flat list of kinds.
     const legacy = { version: 0, width: 2, depth: 1, cells: ['road', 'grass'], things: [] };
     const migrations = {
+      1: (raw: Record<string, unknown>) => ({ ...raw, version: 2 }),
       0: (raw: Record<string, unknown>) => ({
         version: 1,
         width: raw.width,
@@ -321,7 +328,8 @@ describe('migration hook', () => {
       }),
     };
     const save = ok(parseSave(legacy, { width: 2, depth: 1, migrations }));
-    expect(save.ground).toEqual([['road', 1], ['grass', 1]]);
+    // The lone road cell is a partial 2 × 2 block (the plot is 1 deep) → demoted to field.
+    expect(save.ground).toEqual([['field', 1], ['grass', 1]]);
   });
 
   it('fails cleanly when a migration produces the wrong version or throws', () => {
