@@ -59,9 +59,9 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
 | --- | --- | --- | --- |
 | Roundabout | 6 × 6 (3 × 3 road blocks) | any, even existing road | Snaps to the road-block grid. Placing it paints its footprint to road (fences across it go); bulldozing it turns the footprint back to field. Roads join it only at the middle of each side (its four arms). Cars go round the island counter-clockwise. |
 | Traffic light | 1 × 1 | field, grass, meadow, pavement, garden path | Must be next to a road ("Traffic lights need to be next to a road"). Two variants: pole and hanging arm. |
-| Bungalow / Suburban | 3 × 3 | field, grass, meadow | Homes (2 / 4 residents). |
-| Big house | 4 × 3 | field, grass, meadow | Home (5 residents). |
-| Corner shop / Church / Supermarket | 2 × 2 / 2 × 3 / 4 × 3 | field, grass, meadow, pavement | Town amenities. |
+| Bungalow / Suburban | 4 × 4 | field, grass, meadow | Homes (2 / 4 residents). |
+| Big house | 5 × 4 | field, grass, meadow | Home (5 residents). |
+| Corner shop / Church / Supermarket | 3 × 3 / 3 × 4 / 5 × 4 | field, grass, meadow, pavement | Town amenities. |
 | Fountain / Pool | 2 × 2 / 4 × 3 | field, grass, meadow, pavement, garden path | Town amenities. |
 | Bush | 1 × 1 | field, grass, meadow, pavement | Drag scatters, like trees. |
 | Hedge | cell edge | — | Edge tool, like the fences. |

@@ -45,8 +45,8 @@ Grid: 48 × 48 cells of 0.5 world units (v0.2, WP-12); roads paint in aligned 2 
 | Streets | Road (cars), Pavement | ground (road = 2 × 2 block) | click-drag paint |
 | Streets | Roundabout 6×6 (3 × 3 road blocks; roads join at its four arms) | object, road feature | click; snaps to the road-block grid |
 | Streets | Traffic light, Bus stop 2×1 (both next to a road), Lamppost, Postbox | object | click; Lamppost also drag-scatters |
-| Homes | Cottage 3×3, Townhouse 2×3, Bungalow 3×3, Family home 3×3, Suburban 3×3, Big house 4×3, Garage 1×2 | object (multi-cell footprint) | click; R rotates the footprint |
-| Town | Fountain 2×2, Corner shop 2×2, Church 2×3, Supermarket 4×3, Pool 4×3 | object (multi-cell footprint) | click; R rotates the footprint |
+| Homes | Cottage 4×4, Townhouse 3×4, Bungalow 4×4, Family home 4×4, Suburban 4×4, Big house 5×4, Garage 1×2 | object (multi-cell footprint) | click; R rotates the footprint |
+| Town | Fountain 2×2, Corner shop 3×3, Church 3×4, Supermarket 5×4, Pool 4×3 | object (multi-cell footprint) | click; R rotates the footprint |
 | Nature | Grass, Wildflowers (meadow) | ground | click-drag paint |
 | Nature | Bush, Oak, Pine, Birch | object 1×1 | click, drag scatters |
 | Garden | Garden path (walkway) | ground | click-drag paint |

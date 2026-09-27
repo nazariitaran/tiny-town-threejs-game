@@ -11,7 +11,7 @@ A cosy browser city-builder sandbox (three.js + TypeScript + Vite). Start here. 
   - Five dock categories: Streets / Homes / Town / Nature / Garden (Shift+1–5); 33 placing tools plus Bulldoze.
   - New items, among them the roundabout (a block-aligned "road feature" object), traffic lights, more homes, town buildings and garden items.
   - Renamed ids (`oak`, `pine`, `birch`, `cottage`, `townhouse`, `family-home`, `fence-low`); tool icons are `public/assets/icons/tool-<id>.png`.
-  - Save v3 with **no migrations**: older saves are rejected and the game starts a fresh town.
+  - Save v3 with **no migrations** (now v4 after WP-17): older saves are rejected and the game starts a fresh town.
   - The first CC-BY assets (Poly Pizza church, swing and barbecue); see `docs/assets/CREDITS.md`.
 - **v0.3, part 2: WP-16 "Day/night cycle"**, merged on `main` (owner-approved; built on the integration branch `v0.3-day-night`).
   - Auto / Day / Night: the time button, `T` and the menu row.
