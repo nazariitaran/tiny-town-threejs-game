@@ -2,7 +2,8 @@
  * CONTRACT FILE — world/grid constants and the ONLY cell↔world mapping.
  * Every module that converts between grid cells and world space must use these.
  */
-import type { Cell, Edge } from '../town/types';
+import { ROAD_BLOCK, rotatedFootprint } from '../town/grid';
+import type { Cell, Edge, Rotation } from '../town/types';
 
 /** Plot size in cells. */
 export const PLOT_WIDTH = 24;
@@ -15,6 +16,36 @@ export const CELL_SIZE = 1;
 export function cellToWorld(cell: Cell, out: { x: number; z: number } = { x: 0, z: 0 }): { x: number; z: number } {
   out.x = (cell.x - PLOT_WIDTH / 2 + 0.5) * CELL_SIZE;
   out.z = (cell.z - PLOT_DEPTH / 2 + 0.5) * CELL_SIZE;
+  return out;
+}
+
+/** Fractional grid coordinates of a world point: cell x covers [x, x + 1). For anchorForPointer. */
+export function worldToGridPoint(x: number, z: number, out: { x: number; z: number } = { x: 0, z: 0 }): { x: number; z: number } {
+  out.x = x / CELL_SIZE + PLOT_WIDTH / 2;
+  out.z = z / CELL_SIZE + PLOT_DEPTH / 2;
+  return out;
+}
+
+/** World size of one road tile (it covers a ROAD_BLOCK × ROAD_BLOCK block of cells). */
+export const ROAD_TILE_SIZE = CELL_SIZE * ROAD_BLOCK;
+
+/** World-space centre of a (rotated) footprint anchored at its min corner. */
+export function footprintCentreWorld(
+  anchor: Cell,
+  footprint: readonly [number, number],
+  rotation: Rotation,
+  out: { x: number; z: number } = { x: 0, z: 0 },
+): { x: number; z: number } {
+  const [w, d] = rotatedFootprint(footprint, rotation);
+  out.x = (anchor.x + w / 2 - PLOT_WIDTH / 2) * CELL_SIZE;
+  out.z = (anchor.z + d / 2 - PLOT_DEPTH / 2) * CELL_SIZE;
+  return out;
+}
+
+/** World-space centre of the road block containing `cell`. */
+export function roadBlockCentreWorld(cell: Cell, out: { x: number; z: number } = { x: 0, z: 0 }): { x: number; z: number } {
+  out.x = (Math.floor(cell.x / ROAD_BLOCK) * ROAD_BLOCK + ROAD_BLOCK / 2 - PLOT_WIDTH / 2) * CELL_SIZE;
+  out.z = (Math.floor(cell.z / ROAD_BLOCK) * ROAD_BLOCK + ROAD_BLOCK / 2 - PLOT_DEPTH / 2) * CELL_SIZE;
   return out;
 }
 

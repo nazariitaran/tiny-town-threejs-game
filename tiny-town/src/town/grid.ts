@@ -92,5 +92,48 @@ export function cellsOnLine(from: Cell, to: Cell): Cell[] {
   return cells;
 }
 
+/**
+ * Roads are laid in aligned ROAD_BLOCK × ROAD_BLOCK cell blocks (min corner at even x, z): one road
+ * tile covers a whole block, and a block is either all road or has no road at all (WP-12).
+ */
+export const ROAD_BLOCK = 2;
+
+/** Min-corner cell of the road block containing `cell`. */
+export function roadBlockAnchor(cell: Cell, out: Cell = { x: 0, z: 0 }): Cell {
+  out.x = Math.floor(cell.x / ROAD_BLOCK) * ROAD_BLOCK;
+  out.z = Math.floor(cell.z / ROAD_BLOCK) * ROAD_BLOCK;
+  return out;
+}
+
+/** The ROAD_BLOCK² cells of the block containing `cell`, row-major from the anchor. */
+export function roadBlockCells(cell: Cell): Cell[] {
+  const anchor = roadBlockAnchor(cell);
+  const cells: Cell[] = [];
+  for (let dz = 0; dz < ROAD_BLOCK; dz += 1) {
+    for (let dx = 0; dx < ROAD_BLOCK; dx += 1) cells.push({ x: anchor.x + dx, z: anchor.z + dz });
+  }
+  return cells;
+}
+
+/**
+ * Min-corner anchor that centres a (rotated) footprint on a pointer at fractional grid coordinates
+ * (gx, gz) (cell x covers [x, x + 1)), clamped so the whole footprint stays inside W × D.
+ * Odd sizes centre on the hovered cell; even sizes snap to the nearest cell corner.
+ */
+export function anchorForPointer(
+  gx: number,
+  gz: number,
+  footprint: readonly [number, number],
+  rotation: Rotation,
+  width: number,
+  depth: number,
+  out: Cell = { x: 0, z: 0 },
+): Cell {
+  const [w, d] = rotatedFootprint(footprint, rotation);
+  out.x = Math.min(Math.max(Math.floor(gx - w / 2 + 0.5), 0), Math.max(0, width - w));
+  out.z = Math.min(Math.max(Math.floor(gz - d / 2 + 0.5), 0), Math.max(0, depth - d));
+  return out;
+}
+
 export const nextRotation = (rotation: Rotation, direction: 1 | -1): Rotation =>
   (((rotation + direction) % 4) + 4) % 4 as Rotation;
