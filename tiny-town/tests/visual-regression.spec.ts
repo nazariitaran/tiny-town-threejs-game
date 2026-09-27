@@ -8,7 +8,8 @@
  *  - settled diagnostics (renderer matches TownState, no pop-in/dying, no particles, no autosave
  *    pending) and a frozen camera, town and car set across frames;
  *  - no hovered cell (the hover highlight fades on real time; the mouse never enters the canvas);
- *  - the stats HUD count-up (real-time rAF) finished: every HUD number equals diagnostics.town;
+ *  - the DOM UI settled: no CSS animation/transition still running under #ui-root (tray slide,
+ *    hint fade, phase fades run on real time, not the paused game clock);
  *  - two captures 400 ms apart are byte-identical, so nothing on screen is still moving.
  *
  * Baselines are committed under tests/visual-regression.spec.ts-snapshots/. A missing baseline
@@ -39,14 +40,16 @@ const SHOT = { animations: 'disabled', caret: 'hide', scale: 'css' } as const;
 const twoFrames = (page: Page) =>
   page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
 
-/** Numbers shown by the stats HUD (WP-06), keyed by data-stat. */
-const hudNumbers = (page: Page) =>
+/** CSS animations/transitions still running inside the DOM UI (real time, unaffected by pause). */
+const runningUiAnimations = (page: Page) =>
   page.evaluate(() => {
-    const out: Record<string, number> = {};
-    for (const el of document.querySelectorAll<HTMLElement>('#ui-stats [data-stat]')) {
-      out[el.dataset.stat!] = Number(el.querySelector('.ui-stat-num')?.textContent ?? NaN);
-    }
-    return out;
+    const root = document.getElementById('ui-root');
+    return document
+      .getAnimations()
+      .filter((a) => a.playState === 'running' || a.pending)
+      .map((a) => (a.effect as KeyframeEffect | null)?.target)
+      .filter((el): el is Element => !!el && !!root?.contains(el))
+      .map((el) => el.id || el.className);
   });
 
 for (const state of STATES) {
@@ -72,13 +75,8 @@ for (const state of STATES) {
       }, { message: `${state.name} settled before capture` })
       .toEqual({ phase: state.phase, matches: true, animating: 0, dying: 0, particles: 0, hover: null, hasObjects: true, savePending: false });
 
-    // Stats HUD count-up runs on real time: wait until it shows the final town stats.
-    if (state.phase === 'building') {
-      const town = (await diagnostics(page)).town;
-      await expect
-        .poll(() => hudNumbers(page), { message: 'stats HUD finished counting' })
-        .toEqual({ homes: town.homes, residents: town.residents, trees: town.trees, roadTiles: town.roadTiles });
-    }
+    // DOM UI transitions run on real time: wait until none is still in flight.
+    await expect.poll(() => runningUiAnimations(page), { message: 'UI animations settled' }).toEqual([]);
 
     // Paused means paused: frames still render, but camera, town and cars must not move.
     const a = await diagnostics(page);

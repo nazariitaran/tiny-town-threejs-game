@@ -30,6 +30,9 @@ export const UI_TEST_IDS = {
   credits: 'btn-credits',
   volume: 'range-volume',
   grid: 'chk-grid',
+  // --- added by WP-13 (menu music settings) ---
+  music: 'chk-music',
+  musicVolume: 'range-music',
   confirmPanel: 'ui-confirm',
   confirmClear: 'btn-confirm-clear',
   confirmCancel: 'btn-confirm-cancel',
@@ -40,7 +43,6 @@ export const UI_TEST_IDS = {
   retry: 'btn-retry',
   dock: 'ui-dock',
   tray: 'ui-tray',
-  stats: 'ui-stats',
   hint: 'ui-hint',
   tooltip: 'ui-tooltip',
 } as const;

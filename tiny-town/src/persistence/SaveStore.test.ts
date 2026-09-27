@@ -313,16 +313,16 @@ describe('SaveStore autosave', () => {
 describe('SaveStore settings', () => {
   it('defaults when nothing is stored', () => {
     const { store } = setup();
-    expect(store.getSettings()).toEqual({ muted: false, volume: 0.8, grid: true });
+    expect(store.getSettings()).toEqual({ muted: false, volume: 0.8, grid: true, music: true, musicVolume: 0.5 });
   });
 
   it('setSettings merges, clamps volume and persists under SETTINGS_STORAGE_KEY', () => {
     const { store, storage } = setup();
-    expect(store.setSettings({ muted: true })).toEqual({ muted: true, volume: 0.8, grid: true });
-    expect(store.setSettings({ volume: 7 })).toEqual({ muted: true, volume: 1, grid: true });
-    expect(store.setSettings({ volume: -2, grid: false })).toEqual({ muted: true, volume: 0, grid: false });
-    expect(JSON.parse((storage as MemoryStorage).data.get(SETTINGS_STORAGE_KEY)!)).toEqual({ muted: true, volume: 0, grid: false });
-    expect(store.getSettings()).toEqual({ muted: true, volume: 0, grid: false });
+    expect(store.setSettings({ muted: true })).toEqual({ muted: true, volume: 0.8, grid: true, music: true, musicVolume: 0.5 });
+    expect(store.setSettings({ volume: 7 })).toEqual({ muted: true, volume: 1, grid: true, music: true, musicVolume: 0.5 });
+    expect(store.setSettings({ volume: -2, grid: false })).toEqual({ muted: true, volume: 0, grid: false, music: true, musicVolume: 0.5 });
+    expect(JSON.parse((storage as MemoryStorage).data.get(SETTINGS_STORAGE_KEY)!)).toEqual({ muted: true, volume: 0, grid: false, music: true, musicVolume: 0.5 });
+    expect(store.getSettings()).toEqual({ muted: true, volume: 0, grid: false, music: true, musicVolume: 0.5 });
   });
 
   it('ignores invalid patch fields', () => {
@@ -338,6 +338,17 @@ describe('SaveStore settings', () => {
     storage.data.set(SETTINGS_STORAGE_KEY, JSON.stringify({ muted: true, volume: 'loud', grid: 0 }));
     expect(store.getSettings()).toEqual({ ...DEFAULT_SETTINGS, muted: true });
     storage.data.set(SETTINGS_STORAGE_KEY, '[1,2]');
+    expect(store.getSettings()).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('music settings (WP-13): persist, clamp, and old settings without them load with defaults', () => {
+    const storage = new MemoryStorage();
+    const { store } = setup(storage);
+    storage.data.set(SETTINGS_STORAGE_KEY, JSON.stringify({ muted: true, volume: 0.3, grid: false }));
+    expect(store.getSettings()).toEqual({ muted: true, volume: 0.3, grid: false, music: true, musicVolume: 0.5 });
+    expect(store.setSettings({ music: false, musicVolume: 3 })).toMatchObject({ music: false, musicVolume: 1, volume: 0.3 });
+    expect(store.setSettings({ musicVolume: 0.25, music: 'no' as unknown as boolean })).toMatchObject({ music: false, musicVolume: 0.25 });
+    storage.data.set(SETTINGS_STORAGE_KEY, JSON.stringify({ music: 1, musicVolume: 'x' }));
     expect(store.getSettings()).toEqual(DEFAULT_SETTINGS);
   });
 

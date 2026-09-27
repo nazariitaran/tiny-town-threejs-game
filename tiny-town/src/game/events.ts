@@ -28,6 +28,10 @@ export type GameEvents = {
   'intent:set-muted': { muted: boolean };
   'intent:set-volume': { volume: number };
   'intent:toggle-grid': { visible: boolean };
+  /** UI → audio: switch background music on/off (persisted). */
+  'intent:set-music': { enabled: boolean };
+  /** UI → audio: music volume 0..1 (persisted). */
+  'intent:set-music-volume': { volume: number };
   'intent:reset-camera': void;
 
   // ---- facts (game → everyone) ----------------------------------------
@@ -56,6 +60,8 @@ export type GameEvents = {
   'history:changed': { canUndo: boolean; canRedo: boolean };
   'save:written': { at: number };
   'audio:changed': { muted: boolean; volume: number };
+  /** audio → UI: current music settings. */
+  'music:changed': { enabled: boolean; volume: number };
 
   /** UI chrome feedback for audio (hover/click on DOM buttons). */
   'ui:sfx': { event: SfxEvent };

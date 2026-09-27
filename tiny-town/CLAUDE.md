@@ -32,7 +32,7 @@ Worktrees: `node_modules/` and `assets-src/` are gitignored, so they aren't in a
 - Only `TownEditor` mutates town state. UI emits `intent:*` events and renders facts. No three.js or DOM in runtime code under `src/town/**`, `src/catalog/**`, `src/render/roadTiles.ts` (tests may use three, e.g. `catalog.test.ts` loads GLBs in Node).
 - No `Math.random()` — use the seeded `rng` you're given.
 - Keep `__THREE_GAME_TEST_HOOKS__` real; don't stub them to make a test pass.
-- Assets: only CC0 (or CC-BY with a CREDITS.md entry). Record every new asset in `docs/assets/*.json|md` and `docs/assets/CREDITS.md`. Never call external generation services.
+- Assets: only CC0 (or CC-BY with a CREDITS.md entry), or assets owned and supplied by the project owner (e.g. the background music, created by the owner with ElevenLabs). Record every new asset in `docs/assets/*.json|md` and `docs/assets/CREDITS.md`. Never call external generation services.
 - Match surrounding style: strict TS, small classes, explicit `dispose()`, no per-frame allocations in hot paths.
 
 ## Hand-off checklist (put this in your final message / PR description)

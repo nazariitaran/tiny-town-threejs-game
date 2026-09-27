@@ -340,21 +340,17 @@
   top: var(--safe-top);
   left: var(--safe-left);
   right: var(--safe-right);
+  /* One row: brand pill left, action pill right, both var(--topbar-h) tall. */
+  height: var(--topbar-h);
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.ui-hud-left {
-  display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 0;
 }
 
 .ui-brand {
-  height: 48px;
+  height: var(--topbar-h);
+  min-width: 0;
   padding: 0 16px 0 8px;
   font-size: 1.05rem;
 }
@@ -363,54 +359,9 @@
   font-size: 1.1rem;
 }
 
-.ui-stats {
-  height: 48px;
-  gap: 16px;
-  padding: 0 16px;
-  white-space: nowrap;
-}
-
-.ui-stat {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.ui-stat .ui-glyph {
-  width: 18px;
-  height: 18px;
-  color: var(--green-dark);
-}
-
-.ui-stat-num {
-  display: inline-block;
-  min-width: 4ch;
-  font-weight: 900;
-  font-size: 1.05rem;
-  font-variant-numeric: tabular-nums;
-  text-align: left;
-  /* Fixed gap after the label that no animation frame can eat: punches grow rightwards only. */
-  margin-left: 3px;
-  transform-origin: 0 60%;
-}
-
-.ui-stat-label {
-  font-weight: 700;
-  font-size: 0.85rem;
-  color: var(--ink-soft);
-}
-
-.ui-stat.is-punch .ui-stat-num {
-  animation: ui-punch 380ms var(--ease);
-}
-
-.ui-stat.is-down .ui-stat-num {
-  animation-name: ui-punch-down;
-}
-
 .ui-actions {
   flex: none;
-  height: 48px;
+  height: var(--topbar-h);
   gap: 2px;
   padding: 0 4px;
 }
@@ -429,9 +380,9 @@
 }
 
 .ui-hint {
-  /* Top-centre under the top bar, so it never covers the build area above the dock. */
+  /* Top-centre just under the one-row top bar, so it never covers the build area above the dock. */
   position: absolute;
-  top: calc(var(--safe-top) + 58px);
+  top: calc(var(--safe-top) + var(--topbar-h) + 10px);
   /* Centred with left/right + auto margins (no `translate`: lightningcss drops it next to `transform`). */
   left: var(--gutter);
   right: var(--gutter);
@@ -849,6 +800,20 @@
   cursor: pointer;
 }
 
+/* WP-13: "Music volume" sits under the Music switch, its label aligned with the row labels above. */
+.ui-field-sub {
+  margin-top: -6px;
+  padding-left: 42px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+}
+
+.ui-field input[type='range']:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .ui-help-cols {
   display: grid;
   grid-template-columns: 1.3fr 1fr;
@@ -874,18 +839,6 @@
 }
 
 /* ------------------------------------------------------------------ motion */
-
-@keyframes ui-punch {
-  0% { transform: scale(1); }
-  35% { transform: scale(1.3); color: var(--green-dark); }
-  100% { transform: scale(1); }
-}
-
-@keyframes ui-punch-down {
-  0% { transform: scale(1); }
-  35% { transform: scale(0.8); color: var(--brick-dark); }
-  100% { transform: scale(1); }
-}
 
 @keyframes ui-shake {
   0%, 100% { transform: translateX(0); }
@@ -920,59 +873,13 @@
   }
 }
 
-/* ------------------------------------------------------------------ narrow desktop / tablet */
-
-@media (max-width: 1100px) {
-  .ui-stat-label {
-    display: none;
-  }
-}
-
 /* ------------------------------------------------------------------ mobile */
 
 @media (max-width: 760px), (pointer: coarse) {
-  .ui-topbar {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-areas:
-      'brand actions'
-      'stats stats';
-    row-gap: 6px;
-  }
-
-  .ui-hud-left {
-    display: contents;
-  }
-
-  .ui-brand {
-    grid-area: brand;
-    justify-self: start;
-    height: 48px;
-  }
-
-  .ui-stats {
-    grid-area: stats;
-    justify-self: start;
-    height: 36px;
-    padding: 0 12px;
-    gap: 10px;
-  }
-
-  .ui-stat {
-    gap: 3px;
-  }
-
-  .ui-stat-num {
-    font-size: 0.95rem;
-  }
-
-  .ui-stat-label {
-    display: none;
-  }
-
-  .ui-actions {
-    grid-area: actions;
-    height: 52px;
+  /* Still one row on phones: taller pills for 44 px touch targets. (#ui-root, not :root: this file
+     is imported before the :root tokens in styles.css, which would otherwise win.) */
+  #ui-root {
+    --topbar-h: 52px;
   }
 
   .ui-icon-btn {
@@ -988,7 +895,6 @@
   }
 
   .ui-hint {
-    top: calc(var(--safe-top) + 102px);
     font-size: 0.82rem;
   }
 
@@ -1091,7 +997,10 @@
     display: none;
   }
 
+  /* Icon-only brand: a round badge matching the action pill's height. */
   .ui-brand {
-    padding: 0 8px;
+    width: var(--topbar-h);
+    justify-content: center;
+    padding: 0;
   }
 }

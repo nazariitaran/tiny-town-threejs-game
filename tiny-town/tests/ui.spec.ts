@@ -38,6 +38,20 @@ async function start(page: Page): Promise<void> {
 const cellPoint = (page: Page, x: number, z: number) =>
   page.evaluate(([cx, cz]) => window.__THREE_GAME_TEST_HOOKS__!.cellToClient(cx, cz), [x, z] as const);
 
+/** The on-canvas cell closest above the dock: the worst case for a tooltip near the finger. */
+const cellAboveDock = (page: Page) =>
+  page.evaluate(() => {
+    const dockTop = document.querySelector('#ui-dock')!.getBoundingClientRect().top;
+    let best: { x: number; z: number; px: number; py: number } | null = null;
+    for (let z = 0; z < 48; z += 1)
+      for (let x = 0; x < 48; x += 1) {
+        const p = window.__THREE_GAME_TEST_HOOKS__!.cellToClient(x, z);
+        if (p.y > dockTop - 24 || document.elementFromPoint(p.x, p.y)?.id !== 'game-canvas') continue;
+        if (!best || p.y > best.py) best = { x, z, px: p.x, py: p.y };
+      }
+    return best;
+  });
+
 test('every category shows its tools and selecting one sets diagnostics.tool', async ({ page }) => {
   const errors = trackErrors(page);
   await start(page);
@@ -149,18 +163,7 @@ test('refusal tooltip never overlaps the dock, top bar or hint (refusal right ab
   await start(page);
   await page.locator(id(UI_TEST_IDS.category('buildings'))).click();
   await page.locator(id(UI_TEST_IDS.tool('townhouse-c'))).click();
-  // The on-canvas cell closest above the dock: the worst case for a tooltip near the finger.
-  const target = await page.evaluate(() => {
-    const dockTop = document.querySelector('#ui-dock')!.getBoundingClientRect().top;
-    let best: { x: number; z: number; px: number; py: number } | null = null;
-    for (let z = 0; z < 48; z += 1)
-      for (let x = 0; x < 48; x += 1) {
-        const p = window.__THREE_GAME_TEST_HOOKS__!.cellToClient(x, z);
-        if (p.y > dockTop - 24 || document.elementFromPoint(p.x, p.y)?.id !== 'game-canvas') continue;
-        if (!best || p.y > best.py) best = { x, z, px: p.x, py: p.y };
-      }
-    return best;
-  });
+  const target = await cellAboveDock(page);
   expect(target, 'a canvas cell above the dock').not.toBeNull();
   const tap = async () => {
     if (info.project.name === 'mobile-chrome') await page.touchscreen.tap(target!.px, target!.py);
@@ -181,48 +184,16 @@ test('refusal tooltip never overlaps the dock, top bar or hint (refusal right ab
       const b = el.getBoundingClientRect();
       return visible && b.width > 0 ? { left: b.left, top: b.top, right: b.right, bottom: b.bottom } : null;
     };
-    return { tip: r('#ui-tooltip')!, dock: r('#ui-dock')!, topbar: r('.ui-topbar')!, stats: r('#ui-stats')!, hint: r('#ui-hint') };
+    return { tip: r('#ui-tooltip')!, dock: r('#ui-dock')!, topbar: r('.ui-topbar')!, hint: r('#ui-hint') };
   });
   const hits = (a: typeof rects.tip, b: typeof rects.tip | null) =>
     !!b && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
   console.log(`${info.project.name} tooltip ${JSON.stringify(rects.tip)} dock top ${rects.dock.top}`);
   expect(hits(rects.tip, rects.dock), 'tooltip × dock').toBe(false);
   expect(hits(rects.tip, rects.topbar), 'tooltip × top bar').toBe(false);
-  expect(hits(rects.tip, rects.stats), 'tooltip × stats').toBe(false);
   expect(hits(rects.tip, rects.hint), 'tooltip × hint').toBe(false);
   await page.screenshot({ path: `${OUT}/tooltip-${info.project.name}.png` });
   expect(errors).toEqual([]);
-});
-
-test('stat label and number keep a gap in every frame of the count-up and punch', async ({ page }, info) => {
-  test.skip(info.project.name === 'mobile-chrome', 'labels are hidden on phones');
-  await start(page);
-  const setState = page.evaluate(() => window.__THREE_GAME_TEST_HOOKS__!.setState('stress-town'));
-  const result = await page.evaluate(
-    () =>
-      new Promise<{ frames: number; minGap: number; animatedFrames: number }>((resolve) => {
-        let frames = 0;
-        let animatedFrames = 0;
-        let minGap = Infinity;
-        const t0 = performance.now();
-        const tick = () => {
-          frames += 1;
-          for (const stat of document.querySelectorAll('.ui-stat')) {
-            const label = stat.querySelector('.ui-stat-label')!.getBoundingClientRect();
-            const num = stat.querySelector('.ui-stat-num')!;
-            if (stat.classList.contains('is-punch')) animatedFrames += 1;
-            minGap = Math.min(minGap, num.getBoundingClientRect().left - label.right);
-          }
-          if (performance.now() - t0 < 900) requestAnimationFrame(tick);
-          else resolve({ frames, minGap, animatedFrames });
-        };
-        requestAnimationFrame(tick);
-      }),
-  );
-  await setState;
-  console.log(`stat gap: ${JSON.stringify(result)}`);
-  expect(result.animatedFrames).toBeGreaterThan(0);
-  expect(result.minGap).toBeGreaterThanOrEqual(2);
 });
 
 test('mute toggle flips diagnostics audio.muted', async ({ page }) => {
@@ -332,7 +303,7 @@ const SIZES: ReadonlyArray<[number, number]> = [
   [360, 640],
 ];
 
-test('stress-town screenshots: no overlap or clipping at 4 sizes', async ({ browser }, info) => {
+test('stress-town screenshots: no overlap or clipping at 4 sizes (Buildings tray, hint and refusal tooltip up)', async ({ browser }, info) => {
   test.skip(info.project.name === 'mobile-chrome', 'runs its own viewports once');
   test.setTimeout(120_000);
   mkdirSync(OUT, { recursive: true });
@@ -344,8 +315,19 @@ test('stress-town screenshots: no overlap or clipping at 4 sizes', async ({ brow
     await start(page);
     await page.evaluate(() => window.__THREE_GAME_TEST_HOOKS__!.setState('stress-town'));
     await page.locator(id(UI_TEST_IDS.category('buildings'))).click();
-    await page.locator(id(UI_TEST_IDS.tool('townhouse-c'))).click();
-    await page.waitForTimeout(700); // stat count-up + tray slide settle
+    await page.locator(id(UI_TEST_IDS.tool('townhouse-c'))).click(); // shows the hint for 3.5 s
+    await page.waitForTimeout(300); // tray slide settles
+    // Provoke a refusal tooltip right above the dock (a free cell takes one tap to fill, then refuses).
+    const target = await cellAboveDock(page);
+    expect(target, `${width}x${height}: a canvas cell above the dock`).not.toBeNull();
+    const refusedBefore = (await diag(page)).invalidCount;
+    for (let i = 0; i < 3 && (await diag(page)).invalidCount === refusedBefore; i += 1) {
+      if (mobile) await page.touchscreen.tap(target!.px, target!.py);
+      else await page.mouse.click(target!.px, target!.py);
+      await page.waitForTimeout(450); // build:invalid is throttled per reason
+    }
+    await expect(page.locator(id(UI_TEST_IDS.tooltip)), `${width}x${height}: refusal tooltip`).toBeVisible();
+    await expect(page.locator(id(UI_TEST_IDS.hint)), `${width}x${height}: hint`).toHaveClass(/is-visible/);
 
     const report = await page.evaluate(() => {
       const rect = (el: Element) => el.getBoundingClientRect();
@@ -356,7 +338,12 @@ test('stress-town screenshots: no overlap or clipping at 4 sizes', async ({ brow
         const r = rect(el);
         return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden' && getComputedStyle(el).opacity !== '0';
       };
-      const blocks = ['.ui-brand', '#ui-stats', '.ui-actions', '#ui-dock', '#ui-hint'].map((s) => document.querySelector(s)!).filter(visible);
+      const blocks = ['.ui-brand', '.ui-actions', '#ui-dock', '#ui-hint', '#ui-tooltip'].map((s) => document.querySelector(s)!).filter(visible);
+      if (blocks.length !== 5) problems.push(`expected 5 visible blocks, got ${blocks.map((el) => el.className || el.id).join(', ')}`);
+      // The top bar is a single row: brand and actions share one line.
+      const brand = rect(document.querySelector('.ui-brand')!);
+      const actions = rect(document.querySelector('.ui-actions')!);
+      if (brand.bottom <= actions.top || actions.bottom <= brand.top) problems.push('top bar wraps to two rows');
       for (const el of blocks) {
         const r = rect(el);
         if (r.left < -0.5 || r.top < -0.5 || r.right > vw + 0.5 || r.bottom > vh + 0.5) problems.push(`${el.className || el.id} off-screen ${JSON.stringify(r)}`);
@@ -368,21 +355,9 @@ test('stress-town screenshots: no overlap or clipping at 4 sizes', async ({ brow
           if (p.left < q.right && q.left < p.right && p.top < q.bottom && q.top < p.bottom) problems.push(`overlap ${blocks[i].className || blocks[i].id} × ${blocks[j].className || blocks[j].id}`);
         }
       // Text that is visible must not be truncated.
-      for (const el of document.querySelectorAll<HTMLElement>('.ui-card-label, .ui-tab span, .ui-stat-num, .ui-mode-label, #ui-hint, .ui-brand .ui-mark-text')) {
+      for (const el of document.querySelectorAll<HTMLElement>('.ui-card-label, .ui-tab span, .ui-mode-label, #ui-hint, .ui-brand .ui-mark-text')) {
         if (!visible(el) || getComputedStyle(el).display === 'none') continue;
         if (el.scrollWidth > el.clientWidth + 1) problems.push(`clipped text "${el.textContent}" (${el.scrollWidth} > ${el.clientWidth})`);
-      }
-      // Stat numerals: tabular + ≥ 4ch reserved.
-      for (const el of document.querySelectorAll<HTMLElement>('.ui-stat-num')) {
-        const s = getComputedStyle(el);
-        if (!s.fontVariantNumeric.includes('tabular-nums')) problems.push('stat numerals not tabular');
-        // Probe: a clone of the numeral holding "0000", laid out in the same context.
-        const ch = el.cloneNode() as HTMLElement;
-        ch.style.cssText = 'position:absolute;visibility:hidden;min-width:0;animation:none';
-        ch.textContent = '0000';
-        el.parentElement!.append(ch);
-        if (el.getBoundingClientRect().width + 0.5 < ch.getBoundingClientRect().width) problems.push(`stat ${el.textContent} narrower than 4ch`);
-        ch.remove();
       }
       // Touch targets on phones.
       if (vw < 760) {
@@ -392,13 +367,13 @@ test('stress-town screenshots: no overlap or clipping at 4 sizes', async ({ brow
         }
       }
       const dock = rect(document.querySelector('#ui-dock')!);
-      const stats = [...document.querySelectorAll('.ui-stat-num')].map((e) => e.textContent).join('/');
-      return { problems, dockHeight: Math.round(dock.height), stats };
+      const topbar = rect(document.querySelector('.ui-topbar')!);
+      return { problems, dockHeight: Math.round(dock.height), topbarBottom: Math.round(topbar.bottom) };
     });
     const file = `${OUT}/stress-town-buildings-${width}x${height}.png`;
     await page.screenshot({ path: file });
     await info.attach(`stress-town-${width}x${height}`, { path: file, contentType: 'image/png' });
-    console.log(`${width}x${height}: dock ${report.dockHeight}px, stats ${report.stats}, problems ${JSON.stringify(report.problems)}`);
+    console.log(`${width}x${height}: dock ${report.dockHeight}px, top bar bottom ${report.topbarBottom}px, problems ${JSON.stringify(report.problems)}`);
     expect(report.problems, `${width}x${height}`).toEqual([]);
     expect(errors).toEqual([]);
 
@@ -414,4 +389,39 @@ test('stress-town screenshots: no overlap or clipping at 4 sizes', async ({ brow
     await page.screenshot({ path: `${OUT}/title-${width}x${height}.png` });
     await context.close();
   }
+});
+
+// ---- WP-13: music settings rows in the menu -----------------------------------------------------
+test('menu music rows: ≥ 44 px targets inside the panel, keyboard reachable, screenshot', async ({ page }, info) => {
+  const errors = trackErrors(page);
+  await start(page);
+  await page.locator(id(UI_TEST_IDS.menu)).click();
+  const panel = page.locator(id(UI_TEST_IDS.menuPanel));
+  await expect(panel).toBeVisible();
+  const box = (await panel.boundingBox())!;
+  for (const control of [UI_TEST_IDS.volume, UI_TEST_IDS.music, UI_TEST_IDS.musicVolume]) {
+    const row = page.locator(id(control)).locator('xpath=ancestor::*[contains(@class,"ui-field")][1]');
+    await row.scrollIntoViewIfNeeded();
+    const r = (await row.boundingBox())!;
+    expect(r.height, `${control} row height`).toBeGreaterThanOrEqual(44);
+    expect(r.x).toBeGreaterThanOrEqual(box.x);
+    expect(r.x + r.width).toBeLessThanOrEqual(box.x + box.width + 0.5);
+  }
+  // The Music label toggles the switch (whole row is the target).
+  await page.getByText('Music', { exact: true }).click();
+  await expect(page.locator(id(UI_TEST_IDS.music))).not.toBeChecked();
+  await expect(page.locator(id(UI_TEST_IDS.musicVolume))).toBeDisabled();
+  await page.locator(id(UI_TEST_IDS.music)).click();
+  await expect(page.locator(id(UI_TEST_IDS.musicVolume))).toBeEnabled();
+  if (info.project.name !== 'mobile-chrome') {
+    // Tab from the master volume slider reaches the music switch, then the music volume slider.
+    await page.locator(id(UI_TEST_IDS.volume)).focus();
+    await page.keyboard.press('Tab');
+    await expect(page.locator(id(UI_TEST_IDS.music))).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.locator(id(UI_TEST_IDS.musicVolume))).toBeFocused();
+  }
+  mkdirSync(OUT, { recursive: true });
+  await panel.screenshot({ path: `${OUT}/menu-music-${info.project.name}.png` });
+  expect(errors).toEqual([]);
 });

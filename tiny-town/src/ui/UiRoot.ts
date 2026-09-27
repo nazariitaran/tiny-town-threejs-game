@@ -4,7 +4,7 @@
  * and the error screen. Layout and states follow docs/design/02-interaction-and-ui.md §4–§7.
  *
  * Talks to the game ONLY via the bus: emits `intent:*` / `ui:sfx`, renders facts
- * (`phase:changed`, `tool:changed`, `town:stats`, `history:changed`, `audio:changed`, ...).
+ * (`phase:changed`, `tool:changed`, `history:changed`, `audio:changed`, ...).
  *
  * UI-owned state: the active dock category and the digit shortcuts (see uiKeys.ts).
  * Keep the element ids listed in UI_TEST_IDS stable — Playwright tests select by them.
@@ -14,9 +14,8 @@
 import { TOOL_CATEGORIES, toolDef, toolsInCategory, type ToolCategory, type ToolId } from '../catalog/tools';
 import { assetUrl } from '../game/config';
 import type { GameBus, GamePhase } from '../game/events';
-import type { Rotation, TownStats } from '../town/types';
+import type { Rotation } from '../town/types';
 import { GLYPHS } from './glyphs';
-import { StatsHud } from './StatsHud';
 import { UI_TEST_IDS } from './testIds';
 import { digitAction } from './uiKeys';
 
@@ -38,6 +37,9 @@ export function touchHint(hint: string): string {
     .replace(/^Click/, 'Tap');
 }
 const INVALID_TOOLTIP_MS = 1500;
+/** Music note for the menu's Music row (WP-13; same 24×24, 2 px stroke style as GLYPHS). */
+const MUSIC_GLYPH =
+  '<svg class="ui-glyph" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg>';
 
 const escapeHtml = (text: string): string =>
   text.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]!);
@@ -45,7 +47,6 @@ const escapeHtml = (text: string): string =>
 export class UiRoot {
   private readonly root: HTMLElement;
   private readonly unsubscribers: Array<() => void> = [];
-  private readonly stats = new StatsHud();
   private readonly coarse = window.matchMedia('(pointer: coarse)');
 
   private phase: GamePhase = 'loading';
@@ -66,7 +67,6 @@ export class UiRoot {
   private pointerTouch = false;
   private hoverKey: string | null = null;
   private quietHoverKey: string | null = null;
-  private statsSeen = false;
 
   constructor(
     host: HTMLElement,
@@ -75,7 +75,6 @@ export class UiRoot {
   ) {
     this.root = host;
     this.root.innerHTML = this.template();
-    this.root.querySelector('.ui-hud-left')!.append(this.stats.element);
 
     this.root.addEventListener('click', this.onClick);
     this.root.addEventListener('input', this.onInput);
@@ -106,7 +105,6 @@ export class UiRoot {
       }),
       bus.on('build:invalid', ({ reason }) => this.flashInvalid(reason)),
       bus.on('build:placed', () => this.clearTooltip(true)),
-      bus.on('town:stats', (stats) => this.renderStats(stats)),
       bus.on('history:changed', ({ canUndo, canRedo }) => {
         this.button(UI_TEST_IDS.undo).disabled = !canUndo;
         this.button(UI_TEST_IDS.redo).disabled = !canRedo;
@@ -115,6 +113,13 @@ export class UiRoot {
         this.muted = muted;
         this.volume = volume;
         this.renderAudio();
+      }),
+      // WP-13: music settings rows (shim events until they join GameEvents).
+      bus.on('music:changed', ({ enabled, volume }) => {
+        this.el<HTMLInputElement>(UI_TEST_IDS.music).checked = enabled;
+        const range = this.el<HTMLInputElement>(UI_TEST_IDS.musicVolume);
+        if (document.activeElement !== range) range.value = String(volume);
+        range.disabled = !enabled;
       }),
       bus.on('intent:toggle-grid', ({ visible }) => {
         this.el<HTMLInputElement>(UI_TEST_IDS.grid).checked = visible;
@@ -136,7 +141,6 @@ export class UiRoot {
     window.removeEventListener('resize', this.updateTrayCue);
     window.clearTimeout(this.hintTimer);
     window.clearTimeout(this.tooltipTimer);
-    this.stats.dispose();
     for (const off of this.unsubscribers) off();
     this.root.innerHTML = '';
     delete this.root.dataset.phase;
@@ -171,9 +175,7 @@ export class UiRoot {
       </section>
 
       <header class="ui-topbar ui-hud" data-phase="building menu">
-        <div class="ui-hud-left">
-          <div class="ui-brand ui-pill"><span class="ui-mark">${mark}</span></div>
-        </div>
+        <div class="ui-brand ui-pill"><span class="ui-mark">${mark}</span></div>
         <div class="ui-actions ui-pill" role="group" aria-label="Game controls">
           <button id="${id.undo}" type="button" class="ui-icon-btn" disabled aria-label="Undo" title="Undo (Ctrl+Z)">${GLYPHS.undo}</button>
           <button id="${id.redo}" type="button" class="ui-icon-btn" disabled aria-label="Redo" title="Redo (Ctrl+Shift+Z)">${GLYPHS.redo}</button>
@@ -216,6 +218,14 @@ export class UiRoot {
           <div class="ui-field">
             <label for="${id.volume}">${GLYPHS.soundOn}<span>Volume</span></label>
             <input type="range" id="${id.volume}" min="0" max="1" step="0.05" value="0.8" />
+          </div>
+          <label class="ui-field ui-check" for="${id.music}">
+            ${MUSIC_GLYPH}<span>Music</span>
+            <input type="checkbox" id="${id.music}" role="switch" checked />
+          </label>
+          <div class="ui-field ui-field-sub">
+            <label for="${id.musicVolume}"><span>Music volume</span></label>
+            <input type="range" id="${id.musicVolume}" min="0" max="1" step="0.05" value="0.5" />
           </div>
           <label class="ui-field ui-check" for="${id.grid}">
             ${GLYPHS.grid}<span>Show grid</span>
@@ -271,6 +281,7 @@ export class UiRoot {
         <section class="ui-panel" id="${id.creditsPanel}" data-view="credits" role="dialog" aria-modal="true" aria-labelledby="ui-credits-h">
           <h2 id="ui-credits-h">Credits</h2>
           <p>3D models, item icons and sounds by <strong>Kenney</strong> (kenney.nl), CC0.</p>
+          <p>Music: <strong>Foundation of Gold</strong>, created for Tiny Town by its author.</p>
           <p>Font: <strong>Nunito</strong> by Vernon Adams, Cyreal and Jacques Le Bailly, SIL Open Font License.</p>
           <p>Made with three.js.</p>
           <button type="button" class="ui-btn" id="${id.creditsClose}" data-back>Back</button>
@@ -321,6 +332,11 @@ export class UiRoot {
     const target = event.target as HTMLInputElement;
     if (target.id === UI_TEST_IDS.volume && event.type === 'input') {
       this.bus.emit('intent:set-volume', { volume: Number(target.value) });
+    } else if (target.id === UI_TEST_IDS.musicVolume && event.type === 'input') {
+      this.bus.emit('intent:set-music-volume', { volume: Number(target.value) });
+    } else if (target.id === UI_TEST_IDS.music && event.type === 'change') {
+      this.sfx('ui-click');
+      this.bus.emit('intent:set-music', { enabled: target.checked });
     } else if (target.id === UI_TEST_IDS.grid && event.type === 'change') {
       this.sfx('ui-click');
       this.bus.emit('intent:toggle-grid', { visible: target.checked });
@@ -536,12 +552,6 @@ export class UiRoot {
   private renderRotation(rotation: Rotation): void {
     const rot = this.root.querySelector<HTMLElement>('.ui-rot');
     if (rot) rot.style.transform = `rotate(${rotation * 90}deg)`;
-  }
-
-  private renderStats(stats: TownStats): void {
-    // The first stats (before the player has seen the HUD) snap instead of counting up.
-    this.stats.set(stats, this.statsSeen && this.phase === 'building');
-    this.statsSeen = true;
   }
 
   private renderAudio(): void {

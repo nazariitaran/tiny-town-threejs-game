@@ -20,6 +20,12 @@ The composed models (`public/assets/models/composed/`) are rearranged or re-cent
 
 The 17 tool icons in `public/assets/icons/` were rendered in this project from the CC0 Kenney models above with `scripts/render-icons.mjs` (CC0). The other icons in that folder (cars, bench, etc., currently unused) are Kenney's own CC0 preview renders.
 
+## Music
+
+| Track | File | Credit |
+|---|---|---|
+| Foundation of Gold | `public/assets/music/foundation-of-gold.mp3` | Foundation of Gold — background music created by the project owner (generated with ElevenLabs, owner's account); all rights held by the project owner. |
+
 ## Sound Effects
 
 All sound effects in `public/assets/audio/` are derived from **Kenney** audio packs (www.kenney.nl), licensed **CC0 1.0 Universal** (public domain, http://creativecommons.org/publicdomain/zero/1.0/). Attribution is not required; credited with thanks. Files were trimmed, mixed to mono, loudness-matched and transcoded to MP3 (see `docs/assets/audio.md`).
