@@ -392,7 +392,7 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
 - **Work split:** 17a Scale & layouts (port 5218) and 17b Shop lights (5219) run in parallel; then 17c QA (5221).
 
 ### WP-18 — Music resumes where it left off
-- **Status: built** on branch `wp-18-music-resume` (worktree `../ThreeJsGames-wt/wp-18`, port 5218) and awaiting the owner's approval. The version label is the owner's call.
+- **Status: merged** into `main` (`40822f8`, owner-approved 2026-09-28; no version label yet). Gates on the branch: `npm run verify` green (22 files, 427 unit tests); `npm run test:e2e` 110 passed, 14 skipped, 0 failed.
 - **Why:** each page load started the 9:45 track at 0:00, so short sessions only ever heard the intro.
 - **Scope:**
   - Save `{ track, time }` under `tiny-town:music:v1` when the page is hidden, on `pagehide`, and every 15 s of playback. Nothing is saved before `canplay` or while seeking.
