@@ -18,7 +18,6 @@ import { GridPicker } from '../interaction/GridPicker';
 import { ToolController } from '../interaction/ToolController';
 import { ModelLibrary } from '../render/ModelLibrary';
 import { captureView } from '../photo/capture';
-import { framePhoto } from '../photo/PhotoFrame';
 import { photoFileName } from '../photo/photoLayout';
 import { NightLights } from '../render/NightLights';
 import { TownRenderer } from '../render/TownRenderer';
@@ -246,7 +245,8 @@ export class Game {
   /**
    * Town photo (WP-19). Entering the menu phase (the UI shows the photo view, not the menu) hides
    * the ghost, the hover frame and the grid and pauses the clock; then one higher-resolution frame
-   * is captured in this same task. Framing and JPEG encoding finish asynchronously.
+   * is captured in this same task. Framing and JPEG encoding finish asynchronously; the framing
+   * code is loaded on the first photo (it keeps the main chunk under the 900 kB warning limit).
    */
   private takePhoto(): void {
     if (this.phase !== 'building' || this.photo.developing) return;
@@ -268,11 +268,13 @@ export class Game {
       return;
     }
     const date = new Date();
-    framePhoto(shot.canvas, phase, date).then(({ blob, width, height }) => {
-      this.photo.developing = false;
-      this.photo.last = { width, height, bytes: blob.size, pixelRatio: shot.pixelRatio, ms: Math.round(performance.now() - started) };
-      this.bus.emit('photo:ready', { blob, width, height, fileName: photoFileName(date) });
-    }, fail);
+    import('../photo/PhotoFrame')
+      .then(({ framePhoto }) => framePhoto(shot.canvas, phase, date))
+      .then(({ blob, width, height }) => {
+        this.photo.developing = false;
+        this.photo.last = { width, height, bytes: blob.size, pixelRatio: shot.pixelRatio, ms: Math.round(performance.now() - started) };
+        this.bus.emit('photo:ready', { blob, width, height, fileName: photoFileName(date) });
+      }, fail);
   }
 
   /** `?debug&day=N`: an N-second Auto day (evidence captures); lil-gui `Clock` folder. Debug only. */

@@ -59,6 +59,8 @@ src/
   life/**                     ambient cars: TrafficSim, lanePaths (incl.  WP-10
                               the roundabout ring), LifeSystem (BatchedMesh)
   fx/**                       placement VFX, wind sway                    WP-08
+  photo/**                    town photo: capture, Polaroid frame,        WP-19
+                              download/share; photoLayout.ts is pure
   debug/DebugTools.ts         lil-gui (?debug)                            shared: add folders only
   utils/                      seeded random, dispose helpers              shared
 tests/                        Playwright specs + helpers.ts               WP-09, except interaction (05), ui (06),
@@ -92,7 +94,7 @@ Rules of the road:
 3. **Pure logic stays pure**: `src/town/**`, `src/render/roadTiles.ts`, `src/catalog/**` import no three.js and no DOM, so they are unit-testable in Node.
 4. **All randomness goes through the seeded RNG** passed into constructors (`Game.rng`). Never `Math.random()` (it breaks screenshots and bot runs).
 5. **One cell↔world mapping**: `game/config.ts`. Nobody re-derives it. Likewise every runtime asset URL goes through `assetUrl()`.
-6. **Keyboard ownership**: digits 1–9 (tool in the active category), Shift+1–5 (category) and `?` (controls help) belong to the UI (`ui/uiKeys.ts`, `UiRoot`); everything else (R, B, Esc, F/Home, WASD/arrows, Q/E, +/−, undo/redo) belongs to `ToolController`/`CameraController`.
+6. **Keyboard ownership**: digits 1–9 (tool in the active category), Shift+1–5 (category), `?` (controls help) and `P` (take a photo, WP-19) belong to the UI (`ui/uiKeys.ts`, `UiRoot`); everything else (R, B, Esc, F/Home, WASD/arrows, Q/E, +/−, undo/redo) belongs to `ToolController`/`CameraController`.
 7. **Two RNG streams**: gameplay (`Game.rng`: variants) and cosmetic (`Game.fxRng`: audio/fx jitter, ambient cars), so a sound never changes the next house variant.
 
 ## Frame update order (Game.update)
@@ -176,6 +178,16 @@ Plan and rationale: `docs/plans/wp-16-day-night.md`. The as-built deviations are
   - fireflies over open meadow cells: +1.
 - **Life:** `LifeSystem.setNight(n)` → `TrafficSim.setDensity(1 − 0.5·n)`, so there are fewer cars at night. Car Kit cars face native +Z (`FRONT_ROTATION` 0 since v0.3).
 
+## Town photo (WP-19)
+- **Flow:** the top-bar camera button or `P` (no modifiers, building phase only) → `UiRoot` sets its pending view to `photo` and emits `intent:take-photo` → `Game.takePhoto()`:
+  1. enters the **menu** phase. The UI shows the photo view instead of the menu. As for the menu, the tools switch off (so the ghost, the footprint frame and the hover highlight go), the grid hides, the clock stops and the music ducks −3 dB;
+  2. `photo/capture.ts` renders **one frame to the game canvas** at a raised pixel ratio (`photoPixelRatio`: the long edge reaches 2400 px, never below the screen ratio, capped by `MAX_RENDERBUFFER_SIZE` / `MAX_VIEWPORT_DIMS` and 4096), copies it into a 2D canvas, then restores the ratio and renders again, all in the same task, so nothing flickers. Rendering to the canvas (not a render target) keeps the tone mapping and sRGB output, so the photo matches the screen. The copy must follow the render in the same task because the drawing buffer is not preserved;
+  3. `photo/PhotoFrame.ts` draws the Polaroid (layout in `photoLayout.ts`, scaled by the short edge: border 5 %, bottom strip 20 %) with the brick house badge, "Tiny Town", "28 Sep 2026 · Night" (Sunrise / Daytime / Sunset / Night) and a sun or moon. No town stats (owner decision). It is encoded as JPEG at 0.92 → `photo:ready {blob, width, height, fileName}` or `photo:error`.
+- **What the photo shows:** exactly the current view: camera, time of day, cars, lights, fireflies and placement dust. The DOM UI is never in it. On phones it includes the strip under the dock.
+- **Saving (UI):** Download = an object URL plus `a[download]` (`tiny-town-YYYY-MM-DD-HHMM.jpg`). Share (`navigator.share` with a file) appears only where `navigator.canShare({files})` is true, and leads on touch devices. Both run inside the button's click, which is why there's a preview step: the user activation is still fresh.
+- **Closing:** Esc or "Back to town" emits `intent:close-menu` (straight back to building, the tool still selected). A second photo is ignored while one is developing.
+- **Cost:** 60–90 ms per photo on an M-series laptop (capture + frame + encode). The JPEG is 0.2–0.4 MB at 2536 × 1688 (desktop) or 1188 × 2670 (Pixel 7).
+
 ## Budgets (full 64×64-cell town, desktop 1280×720; mobile 390×844)
 The `stress-town` state is the gate. "Measured" gives the latest number and says where it came from. v0.3 was re-measured on the production preview on 2026-09-27; `docs/release.md` §Budgets has the full table and method. The 64 × 64 plot (2026-09-28) was measured on the dev server with the WP-11 method's browser (full Chromium, real GPU; mobile = Pixel 7 emulation, which gets the low tier).
 The mobile triangle budget was raised from 250k to 320k with the 64 × 64 plot (owner decision, 2026-09-28): a full town holds 1.78× the area (100 homes instead of 64), with the same content per cell.
@@ -219,6 +231,7 @@ The `sample-town` state uses every placing tool (34) with zero rejections: stats
 | `fx` | `FxDiagnostics`: active, drawCalls, spawned, dropped, reducedMotion, windTime, windStrength |
 | `life` | `LifeDiagnostics`: loaded, cars, target, drivableCells, spawned, despawned, waiting, drawCalls, … |
 | `daytime` | v0.3: `{mode, t, phase, pinned, night, lightsOn, lamps, drawCalls}`. `drawCalls` = what NightLights adds (0 by day) |
+| `photo` | WP-19: `{taken, developing, last}`. `last` = `{width, height, bytes, pixelRatio, ms}` of the latest framed JPEG, or null |
 | `renderer` | three.js calls, triangles, geometries, textures; the canvas inspector reads this |
 | `canvas` | |
 
@@ -226,6 +239,6 @@ There are no other diagnostics globals; the `__THREE_GAME_FX_DIAGNOSTICS__` / `_
 
 Playwright projects are `desktop-chrome` (1280×720) and `mobile-chrome` (Pixel 7 emulation, touch). Both run full Chromium (`channel: 'chromium'`) with 1 worker. The canvas inspector's `--mobile` mode is a 390 × 844 touch viewport.
 
-Stable DOM ids for tests are `UI_TEST_IDS` in `src/ui/testIds.ts`, which has no side effects and is re-exported by `UiRoot.ts`. Examples: `btn-start`, `tool-<id>`, `cat-<category>`, `btn-undo`, `btn-redo`, `btn-mute`, `btn-rotate`, `tool-bulldoze`, the menu ids, and `chk-music` / `range-music`. A tool button exists only while its category is active.
+Stable DOM ids for tests are `UI_TEST_IDS` in `src/ui/testIds.ts`, which has no side effects and is re-exported by `UiRoot.ts`. Examples: `btn-start`, `tool-<id>`, `cat-<category>`, `btn-undo`, `btn-redo`, `btn-mute`, `btn-rotate`, `tool-bulldoze`, the menu ids, `chk-music` / `range-music`, and the photo ids (`btn-photo`, `ui-photo`, `ui-photo-img`, `btn-photo-download`, `btn-photo-share`, `btn-photo-close`). A tool button exists only while its category is active.
 
 Visual baselines live in `tests/visual-regression.spec.ts-snapshots/`: 6 PNGs covering title, sample-town and asset-gallery × desktop and mobile. They are **darwin only**, and a missing baseline fails.
