@@ -391,6 +391,21 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
   - The supermarket, corner shop and church don't light up at night.
 - **Work split:** 17a Scale & layouts (port 5218) and 17b Shop lights (5219) run in parallel; then 17c QA (5221).
 
+### WP-18 — Music resumes where it left off
+- **Status: merged** into `main` (`40822f8`, owner-approved 2026-09-28; no version label yet). Gates on the branch: `npm run verify` green (22 files, 427 unit tests); `npm run test:e2e` 110 passed, 14 skipped, 0 failed.
+- **Why:** each page load started the 9:45 track at 0:00, so short sessions only ever heard the intro.
+- **Scope:**
+  - Save `{ track, time }` under `tiny-town:music:v1` when the page is hidden, on `pagehide`, and every 15 s of playback. Nothing is saved before `canplay` or while seeking.
+  - On the first Start/Continue, seek to it on `loadedmetadata`. No media fragment.
+  - Start from 0 when nothing is saved, the record is invalid, it's another track, or the time is within 5 s of the real duration.
+  - Mute, music off, the menu and deleting the town leave the position alone.
+  - Diagnostics `audio.music.resumedFrom`.
+- **Files:** `src/audio/musicPosition.ts` (new, pure) + test, `MusicPlayer.ts`, `AudioManager.ts`; delegated for this change: `game/config.ts` (the key), `persistence/SaveStore.ts` (`get/setMusicPosition`) + test, `vite-env.d.ts` (diagnostics type); `tests/audio.spec.ts`.
+- **Acceptance:**
+  - Unit tests for the rules and SaveStore (valid, invalid, blocked or full storage).
+  - E2E (desktop + mobile): saved on hide and on unload, and resumed on the next visit; end guard; a resumed track still loops to 0:00; garbage or another track starts from 0 without warnings.
+  - Manual: Safari (macOS and iOS) resumes; the deploy host answers a range request with `206`; a human listens to the resume fade-in.
+
 ## 5. Checkpoints (integrator runs these on merged main)
 
 > Historical: M1, M2 and M3 all passed on 2026-09-26 (`docs/checkpoints/m1.md`–`m3.md`). Reuse the procedure for future checkpoints.

@@ -115,8 +115,14 @@ Credit: Foundation of Gold — background music created by the project owner (ge
 - Fades in over 2.5 s on start, on resume and after each loop wrap (`loop = true`). It starts fading out 1.2 s before the loop point, on top of the track's own ending fade, and fades out over 0.6 s when switched off, muted or hidden.
 - It ducks by −3 dB while the menu is open (`phase === 'menu'`, including Controls/Credits opened from it).
 - Master mute and a hidden page fade it out and **pause** the element. Unmuting or showing the page again resumes from the same position. Music off does the same and is persisted.
+- **Resume across visits (WP-18).** The position is saved as `{ track, time }` under `tiny-town:music:v1` (its own key, not in the settings). Rules are in `src/audio/musicPosition.ts`.
+  - It is saved when the page is hidden (tab close, app switch, minimise), on `pagehide` (bfcache, iOS), and every 15 s of playback. The periodic save also fires right after a loop wrap.
+  - Nothing is saved until the stream has played (`canplay`) or while it is seeking, so closing the tab while a resumed stream is still buffering can't overwrite a good position with 0.
+  - On the first Start/Continue, the player seeks to the saved time on `loadedmetadata`. That is before the first sample plays, so there's no audible jump, and the 2.5 s fade-in covers the mid-phrase start. No `#t=` media fragment is used.
+  - It starts from 0 instead when nothing is saved, the record is invalid, the saved track isn't the current `MUSIC_URL`, or the time is within 5 s of the real `duration` (the built-in fade-out).
+  - Mute, music off, the menu and deleting the town don't change the saved position.
 - Settings (SaveStore `tiny-town:settings:v1`): `music` (default `true`) and `musicVolume` 0..1 (default `0.5`). Older settings without these fields load with the defaults.
-- Diagnostics: `audio.music = { enabled, volume, playing, loaded, requested, ducked, time, loops }`.
+- Diagnostics: `audio.music = { enabled, volume, playing, loaded, requested, ducked, time, loops, resumedFrom }`. `resumedFrom` is the time this visit resumed from, or `null` when it started from 0.
 
 **Mix:** the trim was chosen so that music sits well under placement SFX at the default settings (master 0.8, music 0.5). Listen-proxy capture of the real Web Audio output (the WP-07 method: a tap on `destination`, a real-input playtest of three houses, three road tiles and two trees):
 

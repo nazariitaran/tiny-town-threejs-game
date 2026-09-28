@@ -1,6 +1,7 @@
 /**
  * localStorage persistence: the town save (SAVE_STORAGE_KEY) with a debounced autosave, and the
- * player settings (SETTINGS_STORAGE_KEY). WP-02 owns this file; tested in SaveStore.test.ts.
+ * player settings (SETTINGS_STORAGE_KEY), and the music position (MUSIC_POSITION_STORAGE_KEY, WP-18).
+ * WP-02 owns this file; tested in SaveStore.test.ts.
  *
  * Never throws: a missing/blocked localStorage (private mode, sandboxed iframe), quota errors
  * and corrupted JSON are absorbed; failures are reported via return values and `lastError`.
@@ -17,6 +18,7 @@
  *   });
  *   addEventListener('pagehide', () => saves.flush());     // don't lose the last second
  *   saves.getSettings() / saves.setSettings({ muted, volume, grid, music, musicVolume, timeMode })
+ *   saves.getMusicPosition() / saves.setMusicPosition({ track, time })   // MUSIC_POSITION_STORAGE_KEY (WP-18)
  *   // Test states (setState): saves.autosaveEnabled = false, so demo towns never overwrite a player's save.
  *
  * Autosave: 1 s (debounceMs) after the LAST 'town:changed' whose cause is 'edit' | 'undo' | 'redo',
@@ -24,7 +26,8 @@
  * cause 'load' never schedules a write. cause 'reset' (New town) cancels any pending write and
  * clears the stored save, so an empty plot is never offered as "Continue".
  */
-import { SAVE_STORAGE_KEY, SETTINGS_STORAGE_KEY } from '../game/config';
+import { parseMusicPosition, type MusicPosition } from '../audio/musicPosition';
+import { MUSIC_POSITION_STORAGE_KEY, SAVE_STORAGE_KEY, SETTINGS_STORAGE_KEY } from '../game/config';
 import type { GameBus } from '../game/events';
 import { parseSave, type ParseOptions } from '../town/serialize';
 import type { SavedTown } from '../town/types';
@@ -69,6 +72,7 @@ export interface SaveStoreOptions {
   storage?: StorageLike | null;
   saveKey?: string;
   settingsKey?: string;
+  musicPositionKey?: string;
   /** Plot the save is clamped to on read (default: game/config plot size). */
   plot?: ParseOptions;
   /** Timer functions (tests inject fakes). Default: globalThis.setTimeout/clearTimeout. */
@@ -106,6 +110,7 @@ export class SaveStore {
   private readonly storage: StorageLike | null;
   private readonly saveKey: string;
   private readonly settingsKey: string;
+  private readonly musicPositionKey: string;
   private readonly plot: ParseOptions;
   private readonly timers: TimerApi;
   private readonly now: () => number;
@@ -120,6 +125,7 @@ export class SaveStore {
     this.storage = options.storage === undefined ? detectLocalStorage() : options.storage;
     this.saveKey = options.saveKey ?? SAVE_STORAGE_KEY;
     this.settingsKey = options.settingsKey ?? SETTINGS_STORAGE_KEY;
+    this.musicPositionKey = options.musicPositionKey ?? MUSIC_POSITION_STORAGE_KEY;
     this.plot = options.plot ?? {};
     this.timers = options.timers ?? {
       setTimeout: (callback, ms) => globalThis.setTimeout(callback, ms),
@@ -262,6 +268,25 @@ export class SaveStore {
     if (isTimeMode(patch.timeMode)) next.timeMode = patch.timeMode;
     this.setItem(this.settingsKey, JSON.stringify(next));
     return next;
+  }
+
+  // ---- music position (WP-18) -----------------------------------------------------------------
+
+  /** Where the music stopped last visit, or null (nothing stored, invalid JSON or an invalid record). */
+  getMusicPosition(): MusicPosition | null {
+    const text = this.getItem(this.musicPositionKey);
+    if (text === null) return null;
+    try {
+      return parseMusicPosition(JSON.parse(text));
+    } catch {
+      return null;
+    }
+  }
+
+  /** Store the music position; an invalid one is ignored. Never throws. */
+  setMusicPosition(position: MusicPosition): void {
+    const valid = parseMusicPosition(position);
+    if (valid) this.setItem(this.musicPositionKey, JSON.stringify(valid));
   }
 
   dispose(): void {
