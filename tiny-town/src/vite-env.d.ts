@@ -48,6 +48,15 @@ interface ThreeGameDiagnostics {
     lamps: number;
     drawCalls: number;
   };
+  /**
+   * Photo (WP-19). taken = photos requested while building; developing = one is being framed/encoded.
+   * last = the latest framed photo: JPEG size in px and bytes, capture pixel ratio, capture + encode ms.
+   */
+  photo: {
+    taken: number;
+    developing: boolean;
+    last: { width: number; height: number; bytes: number; pixelRatio: number; ms: number } | null;
+  };
   renderer: {
     calls: number;
     triangles: number;

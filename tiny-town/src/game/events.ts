@@ -38,6 +38,8 @@ export type GameEvents = {
   'intent:set-time-mode': { mode: TimeMode };
   /** HUD time button / T key → game: next mode in TIME_MODES order (auto → day → night → auto). */
   'intent:cycle-time-mode': void;
+  /** HUD camera button / P key → game: photograph the town (WP-19; building phase only, opens the photo preview). */
+  'intent:take-photo': void;
 
   // ---- facts (game → everyone) ----------------------------------------
   'phase:changed': { phase: GamePhase; previous: GamePhase };
@@ -69,6 +71,14 @@ export type GameEvents = {
   'music:changed': { enabled: boolean; volume: number };
   /** Day/night (WP-16): emitted when the mode or the phase changes (and once at boot), never per frame. */
   'daytime:changed': { mode: TimeMode; phase: DayPhase };
+
+  /**
+   * Photo (WP-19): the framed JPEG is ready (the preview shows it; Download / Share save it).
+   * `blob` stays valid until the next photo; the UI owns any object URL it makes from it.
+   */
+  'photo:ready': { blob: Blob; width: number; height: number; fileName: string };
+  /** Photo (WP-19): capture or encoding failed; the preview says so. */
+  'photo:error': { message: string };
 
   /** UI chrome feedback for audio (hover/click on DOM buttons). */
   'ui:sfx': { event: SfxEvent };

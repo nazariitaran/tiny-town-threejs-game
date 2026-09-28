@@ -24,6 +24,10 @@ export const GLYPHS = {
   play: svg('<path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/>'),
   plus: svg('<path d="M12 5v14"/><path d="M5 12h14"/>'),
   retry: svg('<path d="M4 12a8 8 0 1 0 2.34-5.66"/><path d="M4 4v5h5"/>'),
+  // Town photo (WP-19): the top-bar camera, and the preview's Download / Share buttons.
+  photo: svg('<path d="M3 9a2 2 0 0 1 2-2h2.2l1.6-2.5h6.4L16.8 7H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13.2" r="3.6"/>'),
+  download: svg('<path d="M12 4v11"/><path d="m7 10.5 5 5 5-5"/><path d="M5 20h14"/>'),
+  share: svg('<path d="M12 15V4"/><path d="m7.5 8 4.5-4.5L16.5 8"/><path d="M8 11H6.5A1.5 1.5 0 0 0 5 12.5v6A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5v-6a1.5 1.5 0 0 0-1.5-1.5H16"/>'),
   // Day/night modes (WP-16c): the top-bar time button and the menu's "Time of day" row.
   /** Auto: a sun whose core is a crescent moon (the cycle runs by itself). */
   timeAuto: svg(

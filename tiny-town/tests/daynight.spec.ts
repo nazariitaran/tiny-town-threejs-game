@@ -66,7 +66,8 @@ test.describe('time button (top bar)', () => {
     const layout = await topBarLayout(page);
     expect(layout.parent).toBe(true);
     expect(layout.next).toBe(UI_TEST_IDS.mute);
-    expect(layout.order).toEqual([UI_TEST_IDS.undo, UI_TEST_IDS.redo, UI_TEST_IDS.timeMode, UI_TEST_IDS.mute, UI_TEST_IDS.menu]);
+    // WP-19 added the photo camera left of the time button.
+    expect(layout.order).toEqual([UI_TEST_IDS.undo, UI_TEST_IDS.redo, UI_TEST_IDS.photo, UI_TEST_IDS.timeMode, UI_TEST_IDS.mute, UI_TEST_IDS.menu]);
     expect(layout.oneRow, 'top bar is one row').toBe(true);
     expect(layout.inViewport).toBe(true);
     expect(layout.overlap, 'brand × actions').toBe(false);
