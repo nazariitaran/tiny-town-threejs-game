@@ -26,7 +26,8 @@ const ROAD_FROM: [number, number] = [16, 24];
 const ROAD_TO: [number, number] = [31, 24];
 const HOUSE = { x: 22, z: 20 } as const;
 const SECOND_HOUSE = { x: 27, z: 20 } as const;
-const TREE: [number, number] = [26, 22];
+// The oak covers 2 × 2 cells: open ground north of the two houses (the gap between them is one cell wide).
+const TREE: [number, number] = [26, 17];
 /** An empty cell to park the pointer on so the ghost/tooltip don't cover the effects. */
 const PARK: [number, number] = [36, 16];
 
