@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PLOT_DEPTH, PLOT_WIDTH, SAVE_STORAGE_KEY, SETTINGS_STORAGE_KEY } from '../game/config';
+import { MUSIC_POSITION_STORAGE_KEY, PLOT_DEPTH, PLOT_WIDTH, SAVE_STORAGE_KEY, SETTINGS_STORAGE_KEY } from '../game/config';
 import { createGameBus } from '../game/events';
 import { buildSampleTown } from '../town/sampleTown';
 import { serializeTown } from '../town/serialize';
@@ -382,5 +382,51 @@ describe('SaveStore settings', () => {
     store.setSettings({ muted: true });
     store.clear();
     expect(store.getSettings().muted).toBe(true);
+  });
+});
+
+describe('SaveStore — music position (WP-18)', () => {
+  const TRACK = '/assets/music/foundation-of-gold.mp3';
+
+  it('round-trips under its own key and leaves the settings alone', () => {
+    const storage = new MemoryStorage();
+    const store = new SaveStore({ storage });
+    expect(store.getMusicPosition()).toBeNull();
+    store.setMusicPosition({ track: TRACK, time: 212.5 });
+    expect(JSON.parse(storage.data.get(MUSIC_POSITION_STORAGE_KEY)!)).toEqual({ track: TRACK, time: 212.5 });
+    expect(storage.data.has(SETTINGS_STORAGE_KEY)).toBe(false);
+    expect(new SaveStore({ storage }).getMusicPosition()).toEqual({ track: TRACK, time: 212.5 });
+  });
+
+  it('is kept when the town save is cleared', () => {
+    const storage = new MemoryStorage();
+    const store = new SaveStore({ storage });
+    store.setMusicPosition({ track: TRACK, time: 40 });
+    store.clear();
+    expect(store.getMusicPosition()).toEqual({ track: TRACK, time: 40 });
+  });
+
+  it('reads invalid JSON or an invalid record as null', () => {
+    const storage = new MemoryStorage();
+    const store = new SaveStore({ storage });
+    storage.data.set(MUSIC_POSITION_STORAGE_KEY, '{not json');
+    expect(store.getMusicPosition()).toBeNull();
+    storage.data.set(MUSIC_POSITION_STORAGE_KEY, JSON.stringify({ track: TRACK, time: -3 }));
+    expect(store.getMusicPosition()).toBeNull();
+  });
+
+  it('ignores an invalid position on write', () => {
+    const storage = new MemoryStorage();
+    const store = new SaveStore({ storage });
+    store.setMusicPosition({ track: TRACK, time: Number.NaN });
+    expect(storage.writes).toBe(0);
+  });
+
+  it('never throws with blocked, full or missing storage', () => {
+    for (const storage of [new BlockedStorage(), new QuotaStorage(), null]) {
+      const store = new SaveStore({ storage });
+      expect(() => store.setMusicPosition({ track: TRACK, time: 10 })).not.toThrow();
+      expect(store.getMusicPosition()).toBeNull();
+    }
   });
 });

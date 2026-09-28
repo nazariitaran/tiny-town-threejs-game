@@ -96,3 +96,5 @@ export const MAX_DPR: Readonly<Record<QualityTier, number>> = { high: 2, low: 1.
 
 export const SAVE_STORAGE_KEY = 'tiny-town:save:v1';
 export const SETTINGS_STORAGE_KEY = 'tiny-town:settings:v1';
+/** Where the background music resumes on the next visit (WP-18): `{ track, time }`. */
+export const MUSIC_POSITION_STORAGE_KEY = 'tiny-town:music:v1';
