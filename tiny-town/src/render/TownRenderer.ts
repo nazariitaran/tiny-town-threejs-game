@@ -18,8 +18,8 @@
  *    Object ids are reused after reset/load (TownState.clear): removes free the old visual before
  *    the add with the same id, and addObject() defensively frees any visual under that id.
  *  - Variants: PlacedObject.variant picks from ObjectDef.models; trees get a stable scale/yaw
- *    jitter from hash(id) (never the RNG, so it survives reloads). PlacedObject.height (a tier of
- *    ObjectDef.heights) stretches a tree's Y on top of that; the crown width is unchanged.
+ *    jitter from hash(id) (never the RNG, so it survives reloads). ObjectDef.height stretches a
+ *    tree's Y on top of that (oak ×1.7, pine ×2); the crown width is unchanged.
  *  - Ground: road auto-tiles per 2 × 2 road BLOCK (WP-12: one tile per block, owned by the block's
  *    anchor cell and drawn at the block centre; the other 3 cells draw nothing; roadTiles.ts; a lone
  *    tile = two squashed round caps); pavement = kit
@@ -522,11 +522,11 @@ export class TownRenderer {
     const first = cellToWorld(cells[0]);
     const origin = new THREE.Matrix4().makeRotationY(placed.rotation * QUARTER);
     if (def.group === 'tree' || def.group === 'plant') {
-      // Stable per-tree jitter (survives reloads): any yaw, ±12% size. The player's height tier
-      // stretches Y only, so a tall tree keeps its crown inside its one cell.
+      // Stable per-tree jitter (survives reloads): any yaw, ±12% size. ObjectDef.height stretches Y
+      // only, so a tall tree keeps its crown inside its one cell.
       const yaw = hash01(placed.id, 11) * Math.PI * 2;
       const scale = 0.88 + hash01(placed.id, 12) * 0.24;
-      origin.makeRotationY(yaw).scale(new THREE.Vector3(scale, scale * heightScale(def, placed.height), scale));
+      origin.makeRotationY(yaw).scale(new THREE.Vector3(scale, scale * heightScale(def), scale));
     }
     origin.setPosition(first.x + ((w - 1) * CELL_SIZE) / 2, 0, first.z + ((d - 1) * CELL_SIZE) / 2);
     const style = MODEL_STYLES[model]?.scale;

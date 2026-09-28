@@ -20,7 +20,7 @@
  * The result is always loadable by TownEditor.load without throwing.
  */
 import { PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
-import { clampHeightTier, OBJECTS } from '../catalog/objects';
+import { OBJECTS } from '../catalog/objects';
 import { cellKey, edgeCells, edgeInBounds, edgeKey, footprintCells, ROAD_BLOCK } from './grid';
 import type { EdgeKind, GroundKind, ObjectKind, PlacedEdge, PlacedObject, Rotation, SavedTown, TownStateReader } from './types';
 
@@ -64,15 +64,7 @@ export function serializeTown(state: SerializableTown, camera?: CameraPose): Sav
     }
   }
   const objects = [...state.objects()]
-    .map((o): PlacedObject => ({
-      id: o.id,
-      kind: o.kind,
-      anchor: { x: o.anchor.x, z: o.anchor.z },
-      rotation: o.rotation,
-      variant: o.variant,
-      // Tier 0 is the default: only taller trees carry the field, so v4 saves stay byte-compatible.
-      ...(o.height ? { height: o.height } : {}),
-    }))
+    .map((o): PlacedObject => ({ id: o.id, kind: o.kind, anchor: { x: o.anchor.x, z: o.anchor.z }, rotation: o.rotation, variant: o.variant }))
     .sort((a, b) => a.id - b.id);
   const edges = [...state.edges()]
     .map((e): PlacedEdge => ({ kind: e.kind, edge: { x: e.edge.x, z: e.edge.z, side: e.edge.side } }))
@@ -278,7 +270,7 @@ function encodeGround(cells: readonly GroundKind[]): Array<[GroundKind, number]>
 
 function parseObject(entry: unknown, ox: number, oz: number): PlacedObject | null {
   if (!isRecord(entry)) return null;
-  const { id, kind, anchor, rotation, variant, height } = entry;
+  const { id, kind, anchor, rotation, variant } = entry;
   if (!isInt(id) || id < 1) return null;
   if (typeof kind !== 'string' || !Object.prototype.hasOwnProperty.call(OBJECTS, kind)) return null;
   if (!isRecord(anchor) || !isInt(anchor.x) || !isInt(anchor.z)) return null;
@@ -286,11 +278,7 @@ function parseObject(entry: unknown, ox: number, oz: number): PlacedObject | nul
   const def = OBJECTS[kind as ObjectKind];
   // An out-of-range variant (e.g. the catalog lost a model) falls back to the first one.
   const safeVariant = isInt(variant) && variant >= 0 && variant < def.variants ? variant : 0;
-  const object: PlacedObject = { id, kind: kind as ObjectKind, anchor: { x: anchor.x + ox, z: anchor.z + oz }, rotation: rotation as Rotation, variant: safeVariant };
-  // Optional (added after v4 shipped): a missing or out-of-range tier means the natural height.
-  const safeHeight = isInt(height) ? clampHeightTier(def, height) : 0;
-  if (safeHeight > 0) object.height = safeHeight;
-  return object;
+  return { id, kind: kind as ObjectKind, anchor: { x: anchor.x + ox, z: anchor.z + oz }, rotation: rotation as Rotation, variant: safeVariant };
 }
 
 function parseEdge(entry: unknown, ox: number, oz: number): PlacedEdge | null {

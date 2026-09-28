@@ -40,10 +40,10 @@ export interface ObjectDef {
   /** Residents counted in stats (>0 means it's a home). */
   residents: number;
   /**
-   * Height tiers (trees): vertical scale per tier, index 0 = the natural height (1). The crown never
-   * widens, so a taller tree still fits its footprint; PlacedObject.height indexes into this list.
+   * Vertical stretch of the drawn model (default 1). Trees stand taller than their kit models but keep
+   * their width, so the crown stays inside its one cell. Drawing only: never changes the footprint.
    */
-  heights?: readonly number[];
+  height?: number;
   /** Visual variants; PlacedObject.variant indexes into this list. */
   models: readonly ModelId[];
   /** Number of variants the rules pick from (== models.length). */
@@ -55,10 +55,13 @@ const PAVED_OK: readonly GroundKind[] = [...OPEN_GROUND, 'pavement'];
 const PROP_GROUND: readonly GroundKind[] = [...OPEN_GROUND, 'pavement', 'walkway'];
 const ANY_GROUND: readonly GroundKind[] = [...PROP_GROUND, 'road'];
 
-/** Vertical scale of the three tree tiers: natural, tall, towering (the church is ~2.7× a natural tree). */
-const TREE_HEIGHTS: readonly number[] = [1, 1.5, 2];
-/** The oak's round crown turns into a tall blob when stretched, so its top tier is lower. */
-const OAK_HEIGHTS: readonly number[] = [1, 1.35, 1.7];
+/**
+ * Trees are taller than their kit models (which sit at cottage height). Y only: the oak's round crown
+ * already fills its cell, so it stays squarish (×1.7 is as far as it stretches before it turns blobby);
+ * the columnar pine takes ×2, which is still under the church (2.33). The birch keeps its natural height.
+ */
+const OAK_HEIGHT = 1.7;
+const PINE_HEIGHT = 2;
 
 const def = (d: Omit<ObjectDef, 'variants'>): ObjectDef => ({ ...d, variants: d.models.length });
 
@@ -86,9 +89,9 @@ export const OBJECTS: Readonly<Record<ObjectKind, ObjectDef>> = {
   'swimming-pool': def({ kind: 'swimming-pool', label: 'Pool', group: 'amenity', footprint: [4, 3], allowedGround: PROP_GROUND, residents: 0, models: ['swimming-pool'] }),
   fountain: def({ kind: 'fountain', label: 'Fountain', group: 'amenity', footprint: [2, 2], allowedGround: PROP_GROUND, residents: 0, models: ['fountain'] }),
   // Nature
-  oak: def({ kind: 'oak', label: 'Oak', group: 'tree', footprint: [1, 1], allowedGround: PAVED_OK, heights: OAK_HEIGHTS, residents: 0, models: ['oak'] }),
-  pine: def({ kind: 'pine', label: 'Pine', group: 'tree', footprint: [1, 1], allowedGround: PAVED_OK, heights: TREE_HEIGHTS, residents: 0, models: ['pine'] }),
-  birch: def({ kind: 'birch', label: 'Birch', group: 'tree', footprint: [1, 1], allowedGround: PAVED_OK, heights: TREE_HEIGHTS, residents: 0, models: ['birch', 'birch-small'] }),
+  oak: def({ kind: 'oak', label: 'Oak', group: 'tree', footprint: [1, 1], allowedGround: PAVED_OK, height: OAK_HEIGHT, residents: 0, models: ['oak'] }),
+  pine: def({ kind: 'pine', label: 'Pine', group: 'tree', footprint: [1, 1], allowedGround: PAVED_OK, height: PINE_HEIGHT, residents: 0, models: ['pine'] }),
+  birch: def({ kind: 'birch', label: 'Birch', group: 'tree', footprint: [1, 1], allowedGround: PAVED_OK, residents: 0, models: ['birch', 'birch-small'] }),
   bush: def({ kind: 'bush', label: 'Bush', group: 'plant', footprint: [1, 1], allowedGround: PAVED_OK, residents: 0, models: ['bush'] }),
   // Garden
   planter: def({ kind: 'planter', label: 'Planter', group: 'garden', footprint: [1, 1], allowedGround: PROP_GROUND, residents: 0, models: ['planter'] }),
@@ -101,12 +104,5 @@ export const objectDef = (kind: ObjectKind): ObjectDef => OBJECTS[kind];
 
 export const OBJECT_KINDS = Object.keys(OBJECTS) as ObjectKind[];
 
-/** Number of height tiers an object offers (1 = the player can't change its height). */
-export const heightTierCount = (def: ObjectDef): number => def.heights?.length ?? 1;
-
-/** Clamp a requested tier to what `def` offers. */
-export const clampHeightTier = (def: ObjectDef, tier: number | undefined): number =>
-  Math.max(0, Math.min(heightTierCount(def) - 1, Math.trunc(tier ?? 0) || 0));
-
-/** Vertical scale of a placed object's tier (1 for anything without tiers). */
-export const heightScale = (def: ObjectDef, tier: number | undefined): number => def.heights?.[clampHeightTier(def, tier)] ?? 1;
+/** Vertical stretch of a placed object's drawn model (1 for anything without one). */
+export const heightScale = (def: ObjectDef): number => def.height ?? 1;

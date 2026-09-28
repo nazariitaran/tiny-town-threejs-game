@@ -54,7 +54,7 @@ export interface GhostPart {
   z?: number;
   quarterTurns?: number;
   scale?: number;
-  /** Extra vertical stretch (a taller tree; its footprint and width stay). */
+  /** Extra vertical stretch (a tree taller than its kit model; footprint and width stay). */
   scaleY?: number;
 }
 

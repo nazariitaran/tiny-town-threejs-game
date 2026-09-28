@@ -47,7 +47,7 @@ Constraints (tunable in `?debug`):
 | None (pointer) | Subtle cell highlight | Left-drag pans | — | — |
 
 - **Rotate**: `R` (clockwise) / `Shift+R` (counter-clockwise), or the on-screen Rotate button (`intent:rotate` direction 1 = clockwise). A rotation swaps the footprint's width and depth (e.g. a 2×3 townhouse covers 3×2 at rotation 1), and the ghost re-centres on the pointer. Rotation persists until changed. The ghost animates the turn (100 ms).
-- **Tree height**: `H` (next tier) / `Shift+H` (previous), or the Height button, which takes Rotate's slot in the dock while a tree tool is active (trees get a random yaw and ignore Rotate, and the dock keeps its width). Oak, pine and birch have three tiers (normal · tall · towering: ×1, ×1.5, ×2; the oak tops out at ×1.7 because its round crown turns blobby when stretched). The ghost shows the chosen tier and the tree still covers one cell. The tier persists like rotation, applies to scatter drags, and is ignored (H does nothing, Rotate is shown) for every tool without tiers. Only the height changes, never the width, so tall trees can't crowd their neighbours; but a tall tree hides more of the view behind it (about 1.3 × its height at the default camera), which is why the top tier is capped below the church.
+- **Tree heights are fixed, not chosen:** pine stands ×2 and oak ×1.7 of its kit model, birch keeps its natural height (`ObjectDef.height`). They stretch in height only, so every tree still covers one cell and the ghost shows the same shape. A tall tree hides about 1.3 × its height of the view behind it at the default camera.
 - **Esc**: deselect the tool (back to pointer); with no tool, it opens the menu. Right-click never places; a right click (no drag, under 5 px) also deselects the tool, while a right drag still pans the camera.
 - **Tool selection** (UI-owned, `src/ui/uiKeys.ts`): `1`–`9` pick the Nth tool of the **active** category, and pressing the active tool's digit again deselects it. `Shift+1`–`5` switch category (Streets / Homes / Town / Nature / Garden). Uses `event.code`, so layouts and Shift don't change the mapping. `B` = bulldoze, `?` = controls help, `T` = cycle the time of day (Auto → Day → Night; `ToolController`, building phase only).
 - **Undo/Redo**: `Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z` / `Ctrl+Y`. Every stroke is one history entry.
@@ -83,7 +83,7 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
 │   ┌──────────────────────────────────────────────────────────────┐   │
 │   │ [img][img][img][img]  … item tray for the active category …  │   │  item tray (cards: rendered icon + label + key)
 │   ├──────────────────────────────────────────────────────────────┤   │
-│   │ (Streets) (Homes) (Town) (Nature) (Garden) │ [⟲ Rotate | ↕ Height] [⌫ Bulldoze] │  category tabs + mode buttons
+│   │ (Streets) (Homes) (Town) (Nature) (Garden) │ [⟲ Rotate] [⌫ Bulldoze] │  category tabs + mode buttons
 │   └──────────────────────────────────────────────────────────────┘   │
 └──────────────────────────────────────────────────────────────────────┘
 ```
@@ -100,7 +100,7 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
   | Garden (5) | things people build in a yard or park | Garden path, Hedge, Low fence, Tall fence, Planter, Bench, Barbecue, Swing |
 
   Inside a category the tools run **surfaces → lines → objects** (ground paint, then edges, then placed items). A category holds at most 9 tools, so every tool has a digit. `catalog.test.ts` checks both. An item card is a 44 px icon (the in-project render of the in-game model, `scripts/render-icons.mjs`), a short label and a number-key badge. The selected card is raised with an accent outline. Clicking the active item again deselects it.
-- **Mode buttons** (right end of the dock): Rotate (shows the current rotation arrow) or, while a tree tool is active, Height in the same slot (a small badge shows the tier 1–3), and Bulldoze (toggles; red accent when active).
+- **Mode buttons** (right end of the dock): Rotate (shows the current rotation arrow) and Bulldoze (toggles; red accent when active).
 - **Top bar**: one row. The row is 48 px tall (`--topbar-h`; 52 px on phones), so it ends 60 / 64 px below the safe-area top.
   - Left: the title mark only. v0.2 (WP-14) removed the live stats pill as redundant; `TownState.stats()` and diagnostics `town` remain for tests.
   - Right: Undo and Redo (disabled when unavailable), then the **time-of-day button** (v0.3, WP-16), the sound toggle (mute), and Menu. Volume and music settings are in the menu.
@@ -134,7 +134,7 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
 - Panels: warm off-white `#FFF9EF` at ~92% opacity, 16 px radius, soft drop shadow, 1 px `rgba(60,40,20,.08)` border; text `#3B3A36`.
 - Accents: grass green `#5DB36A` (selected/valid), sky blue `#4A9BE8` (focus/info), brick `#E0674F` (bulldoze/invalid), sun yellow `#F4C44E` (highlights). Invalid is never conveyed by colour alone — add ✕ icon / shake.
 - Font: a rounded sans (e.g. Nunito via `@fontsource-variable/nunito`, OFL, bundled — no runtime CDN).
-- Icons: item icons are rendered in-project from the in-game models (128 px PNG, `tool-<id>.png`, `scripts/render-icons.mjs` + `src/render/IconStudio.ts`). UI glyphs (undo, redo, sound, menu, rotate, height, bulldoze, music) are inline SVG.
+- Icons: item icons are rendered in-project from the in-game models (128 px PNG, `tool-<id>.png`, `scripts/render-icons.mjs` + `src/render/IconStudio.ts`). UI glyphs (undo, redo, sound, menu, rotate, bulldoze, music) are inline SVG.
 - Motion: 120–200 ms ease-out for hovers/presses; tray slide 180 ms; respects `prefers-reduced-motion`.
 - All interactive elements: hover, pressed, focus-visible, disabled states. Tabbable in a sensible order; toolbar buttons have `aria-label`s.
 

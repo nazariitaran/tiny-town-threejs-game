@@ -353,7 +353,6 @@ export class Game {
       phase: this.phase,
       tool: this.tools.activeTool,
       rotation: this.tools.activeRotation,
-      height: this.tools.activeHeight,
       hover: this.tools.hovered,
       town: this.town.stats(),
       objects: [...this.town.objects()].length,

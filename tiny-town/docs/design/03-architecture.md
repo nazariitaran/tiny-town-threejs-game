@@ -132,14 +132,12 @@ Only road features stand on road; every other object's `allowedGround` excludes 
 
 Variant choice (e.g. tree shape, house model, traffic-light style) uses the seeded RNG at placement time and is stored in `PlacedObject.variant`, so undo/redo/save reproduce it exactly.
 
-**Tree height tiers (tall-trees).** Oak, pine and birch carry `ObjectDef.heights`, a vertical scale per tier (pine and birch `[1, 1.5, 2]`, oak `[1, 1.35, 1.7]`; tier 0 is the natural height). The player picks the tier (H / Shift+H or the Height button; `ToolController.height`, published as `diagnostics.height` and `tool:changed.height`), the action carries `height`, and `planPlaceObject` clamps it to the tiers the kind has and stores it in `PlacedObject.height` only when it is above 0. The tier is a player choice, so it uses no RNG. It changes nothing but the drawing: the footprint stays 1 × 1, so every rule, the stats and the bulldozer treat a tall tree like any other. `TownRenderer` stretches only Y (`origin = R(yaw) · S(j, j·h, j)`, `j` = the ±12 % per-tree jitter), so the crown stays inside its cell; the ghost stretches the same way (`GhostPart.scaleY`). Bush and everything else ignore the tier.
+**Tall trees.** `ObjectDef.height` is a fixed vertical stretch of the drawn model (default 1): pine ×2, oak ×1.7, birch none (`catalog/objects.ts`). It is drawing only: the footprint stays 1 × 1, so rules, stats, saves and the bulldozer never see it, and the player has no control over it. `TownRenderer` stretches only Y (`origin = R(yaw) · S(j, j·h, j)`, `j` = the ±12 % per-tree jitter), so the crown stays inside its cell; the ghost stretches the same way (`GhostPart.scaleY`). Bush and everything else are unchanged. The wind shader measures a leaf's height along the model's own Y axis and bends at half rate above 1 unit, so tall trees sway more but don't lean into the next cell.
 
 ## Save format
 `SavedTownV4` (= `SavedTown`) in `town/types.ts`: versioned, 64 × 64 (width/depth are stored; a smaller save, e.g. a 48 × 48 town, is centred on the plot by a whole number of road blocks, so it keeps its world position), RLE ground, objects, edges, next id, optional camera pose. `serialize.ts` validates unknown input (never trusts localStorage), demotes partial road blocks to field, drops road features that are not block-aligned or not standing on road, and round-trips (tested). Autosave: debounced 1 s after `town:changed` (never on cause `'load'`; off after any test-hook `setState`), key `tiny-town:save:v1` (a slot name; it did not change with the format). Code uses `SavedTown`.
 
 **v4 (WP-17: bigger building footprints) has no migrations**, like v3: a v3 save would overlap under the new footprints, so it is rejected ("No migration from save version 3") and the game starts a fresh town. **v3 (v0.3) had no migrations either.** v0.3 renamed object and edge kinds (e.g. `tree-a` → `oak`, `townhouse-a` → `cottage`, `fence-small` → `fence-low`) and added road features. The owner asked for no backward compatibility, so `SAVE_MIGRATIONS` is empty: a v1 or v2 save is rejected ("No migration from save version 2"), `SaveStore.load()` returns null with `lastError` set, and the game starts a fresh town. The v1 → v2 migration, `migration.test.ts` and the `town/fixtures/v1-*.json` saves were deleted on purpose. The migration hook stays: to keep old saves loadable after a future change, add `SAVE_MIGRATIONS[4]`.
-
-**Optional `height` on saved objects (tall trees).** `PlacedObject.height` is written only for tiers above 0, and a missing, non-integer or out-of-range value loads as the natural height (`clampHeightTier`). Because the field is additive and optional, the save stays **v4** and needs no migration: every existing v4 save loads unchanged.
 
 Settings (`muted`, `volume`, `grid`, `music`, `musicVolume`; defaults false / 0.8 / true / true / 0.5) under `tiny-town:settings:v1`; older settings without the music fields load with the defaults.
 
@@ -206,7 +204,7 @@ The `sample-town` state uses every placing tool (34) with zero rejections: stats
 
 | Field | Contents |
 | --- | --- |
-| `frame`, `phase`, `tool`, `rotation`, `height` | `height` = the active tool's height tier (0 for tools without tiers) |
+| `frame`, `phase`, `tool`, `rotation` | |
 | `hover` | `{x, z, valid, reason}` or null, mirroring `hover:changed`; a just-placed cell reports valid |
 | `town` | `TownState.stats()`: homes, residents, amenities (v0.3: Town-category buildings), trees, roadTiles (= road blocks), props (street, garden and plant objects), fences (every edge: fences and hedges) |
 | `objects` | TownState object count |

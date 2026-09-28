@@ -95,8 +95,8 @@ This section is **current**. It matches `src/catalog/models.ts` and `objects.ts`
 | Lamppost `light-curved` | 1 × 1 | 1 (1.35), offset z 0.087, style 1.5 × 1 × 1.15 | 0.075 × 0.675 × 0.26 | Taller than garage and bus-stop bench, below the eaves. |
 | Oak / Pine (platformer) | 1 × 1 | 0.45 (0.36) | 0.49 × 0.87 / 0.43 × 0.90 | About 80 % of the cottage since WP-17, below townhouse ridges. |
 | Bush (platformer `tree`) | 1 × 1 | 0.3 (new), offset y −0.26, style Y × 0.58 | ≈ 0.33 wide, a low round canopy | The trunk is sunk out of sight. Trees and bushes also get ±12 % size jitter. |
-| Birch `tree-large` / `-small` | 1 × 1 | 1.15 (1) | 0.24 × 0.88 / 0.65 | |
-| Tall trees (oak / pine / birch) | 1 × 1 | Y × `ObjectDef.heights`: pine, birch 1 / 1.5 / 2; oak 1 / 1.35 / 1.7 | pine 0.43 × 0.90 → 1.80 at the top tier | Player-chosen (H); Y only, so the crown stays inside its cell. The top tier stays under the church (2.33) with the ±12 % jitter. |
+| Birch `tree-large` / `-small` | 1 × 1 | 1.15 (1) | 0.24 × 0.88 / 0.65 | Natural height. |
+| Tall trees | 1 × 1 | Y × `ObjectDef.height`: pine 2, oak 1.7 (birch none) | pine 0.43 × 1.80, oak 0.49 × 1.48 (before the ±12 % jitter) | Y only, so the crown stays inside its cell; the oak's crown fills the cell, so it stretches less and stays squarish. Both stay under the church (2.33). |
 | Tall / low fence | cell edge (0.5) | 0.5 (1), style Y 1.8 / 1.4 | 0.5 long, 0.21 / 0.10 tall | ≈ 1.65 m / 0.8 m. |
 | Hedge (platformer) | cell edge (0.5) | 0.5 (new), style X 1.12 | 0.56 × 0.20 × 0.15 | A little longer than the edge so runs close up at corners. |
 | Planter (suburban) | 1 × 1 | 1 (new) | 0.40 × 0.18 × 0.30 | |

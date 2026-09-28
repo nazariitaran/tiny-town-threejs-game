@@ -19,12 +19,12 @@
  * Input: mouse/pen left button = tool (right/middle/Alt+left = camera; a right click without a drag deselects the tool). Touch: one finger = tool
  * (committed after 150 ms or 10 px so a second finger can still turn it into a camera gesture),
  * two fingers = camera. pointercancel, lostpointercapture, window blur and visibilitychange all end
- * strokes. Keys: B bulldoze · R / Shift+R rotate · H / Shift+H tree height · Esc deselect (no tool → intent:open-menu) ·
+ * strokes. Keys: B bulldoze · R / Shift+R rotate · Esc deselect (no tool → intent:open-menu) ·
  * F / Home reset camera · Ctrl/Cmd+Z undo · Shift+Ctrl/Cmd+Z / Ctrl+Y redo. Digits belong to WP-06.
  */
 import * as THREE from 'three';
 import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS, ZEBRA_PIECE_MODELS } from '../catalog/models';
-import { clampHeightTier, heightScale, heightTierCount, objectDef } from '../catalog/objects';
+import { heightScale, objectDef } from '../catalog/objects';
 import { actionForTool, toolDef, type DragMode, type ToolId } from '../catalog/tools';
 import type { DebugTools } from '../debug/DebugTools';
 import {
@@ -116,8 +116,6 @@ export class ToolController {
   /** Right button press awaiting release: a click without a drag deselects the tool. */
   private rightPress: { pointerId: number; clientX: number; clientY: number } | null = null;
   private rotation: Rotation = 0;
-  /** Height tier picked with H; each tool clamps it to the tiers it has (heightTierFor). */
-  private height = 0;
   private enabled = false;
   private stroke: Stroke | null = null;
   private pendingTouch: PendingTouch | null = null;
@@ -165,7 +163,6 @@ export class ToolController {
     this.unsubscribers.push(
       bus.on('intent:select-tool', ({ toolId }) => this.selectTool(toolId)),
       bus.on('intent:rotate', ({ direction }) => this.rotate(direction)),
-      bus.on('intent:cycle-height', ({ direction }) => this.cycleHeight(direction)),
       bus.on('intent:undo', () => {
         this.cancelGesture();
         this.justPlaced.clear();
@@ -199,11 +196,6 @@ export class ToolController {
     return this.rotation;
   }
 
-  /** Height tier the active tool would place with (0 for tools without tiers). */
-  get activeHeight(): number {
-    return this.toolId ? this.heightTierFor(this.toolId) : 0;
-  }
-
   /** Hovered cell plus its validity (diagnostics `hover`); null off-plot. */
   get hovered(): HoverInfo | null {
     return this.hoverInfo;
@@ -232,7 +224,7 @@ export class ToolController {
     this.justPlaced.clear();
     this.cameraController.setToolActive(this.toolId !== null);
     this.hoverDirty = true;
-    this.bus.emit('tool:changed', { toolId: this.toolId, rotation: this.rotation, height: this.activeHeight });
+    this.bus.emit('tool:changed', { toolId: this.toolId, rotation: this.rotation });
   }
 
   /** direction 1 = clockwise from above. Rotation values count CCW quarter turns, hence the minus. */
@@ -240,28 +232,7 @@ export class ToolController {
     this.rotation = nextRotation(this.rotation, direction === 1 ? -1 : 1);
     this.hoverDirty = true;
     this.bus.emit('build:rotated', { rotation: this.rotation });
-    this.bus.emit('tool:changed', { toolId: this.toolId, rotation: this.rotation, height: this.activeHeight });
-  }
-
-  /** Step the active tool's height tier (wraps). Only trees have tiers; anything else ignores it. */
-  cycleHeight(direction: 1 | -1): void {
-    const def = this.toolId ? this.objectDefOf(this.toolId) : null;
-    const count = def ? heightTierCount(def) : 1;
-    if (!def || count < 2) return;
-    this.height = (this.heightTierFor(this.toolId!) + direction + count) % count;
-    this.hoverDirty = true;
-    this.bus.emit('build:height-changed', { height: this.height });
-    this.bus.emit('tool:changed', { toolId: this.toolId, rotation: this.rotation, height: this.activeHeight });
-  }
-
-  private objectDefOf(toolId: ToolId): ReturnType<typeof objectDef> | null {
-    return toolDef(toolId).layer === 'object' ? objectDef(toolId as PlacedObject['kind']) : null;
-  }
-
-  /** The picked height tier, clamped to what `toolId` offers (0 for anything that isn't a tree). */
-  private heightTierFor(toolId: ToolId): number {
-    const def = this.objectDefOf(toolId);
-    return def ? clampHeightTier(def, this.height) : 0;
+    this.bus.emit('tool:changed', { toolId: this.toolId, rotation: this.rotation });
   }
 
   update(delta: number): void {
@@ -426,7 +397,7 @@ export class ToolController {
     const target = this.targetCell(pick);
     if (mode === 'single') {
       this.editor.beginStroke();
-      this.applyAction(actionForTool(this.toolId, target, pick.edge, this.rotation, this.heightTierFor(this.toolId)), target, true);
+      this.applyAction(actionForTool(this.toolId, target, pick.edge, this.rotation), target, true);
       this.editor.endStroke();
       return;
     }
@@ -453,7 +424,7 @@ export class ToolController {
 
     if (mode === 'paint' || mode === 'scatter') {
       stroke.visited.add(this.strokeKey(target));
-      this.applyAction(actionForTool(this.toolId, target, pick.edge, this.rotation, this.heightTierFor(this.toolId)), target, true);
+      this.applyAction(actionForTool(this.toolId, target, pick.edge, this.rotation), target, true);
     } else if (mode === 'bulldoze') {
       this.bulldozeAt(pick.grid, true);
     }
@@ -476,7 +447,7 @@ export class ToolController {
             if (stroke.visited.has(key)) continue;
             stroke.visited.add(key);
           }
-          this.applyAction(actionForTool(this.toolId, cell, pick.edge, this.rotation, this.heightTierFor(this.toolId)), cell, false);
+          this.applyAction(actionForTool(this.toolId, cell, pick.edge, this.rotation), cell, false);
         }
         stroke.lastCell = target;
         return;
@@ -487,7 +458,7 @@ export class ToolController {
         const key = this.strokeKey(cell);
         if (stroke.visited.has(key)) return;
         stroke.visited.add(key);
-        this.applyAction(actionForTool(this.toolId, cell, pick.edge, this.rotation, this.heightTierFor(this.toolId)), cell, false);
+        this.applyAction(actionForTool(this.toolId, cell, pick.edge, this.rotation), cell, false);
         return;
       }
       case 'bulldoze': {
@@ -544,7 +515,7 @@ export class ToolController {
   private applyEdge(edge: Edge, fromPress: boolean): void {
     if (!this.toolId) return;
     const cell = { x: Math.min(edge.x, this.editor.state.width - 1), z: Math.min(edge.z, this.editor.state.depth - 1) };
-    this.applyAction(actionForTool(this.toolId, cell, edge, this.rotation, this.heightTierFor(this.toolId)), cell, fromPress);
+    this.applyAction(actionForTool(this.toolId, cell, edge, this.rotation), cell, fromPress);
   }
 
   private applyAction(action: BuildAction, cell: Cell, fromPress: boolean): PlanResult {
@@ -663,7 +634,7 @@ export class ToolController {
     }
     if (!this.stroke) this.justPlaced.clear();
 
-    const preview = this.editor.preview(actionForTool(toolId, target, edge ?? pick.edge, this.rotation, this.heightTierFor(toolId)));
+    const preview = this.editor.preview(actionForTool(toolId, target, edge ?? pick.edge, this.rotation));
     const valid = preview.ok || preview.reason === 'no-change';
     const reason = preview.ok || preview.reason === 'no-change' ? null : preview.message;
     const ghostState: GhostState = !valid ? 'invalid' : preview.ok ? 'valid' : 'neutral';
@@ -695,7 +666,7 @@ export class ToolController {
         z: centre.z,
         quarterTurns: marking ? 0 : this.rotation,
         state: ghostState,
-        parts: [marking ?? { model: objectDefinition.models[0], scaleY: heightScale(objectDefinition, this.heightTierFor(toolId)) }],
+        parts: [marking ?? { model: objectDefinition.models[0], scaleY: heightScale(objectDefinition) }],
         tileScale: rotatedFootprint(objectDefinition.footprint, this.rotation),
       });
     } else if (edge) {
@@ -731,7 +702,7 @@ export class ToolController {
         z: centre.z,
         quarterTurns: marking ? 0 : object.rotation,
         state: 'remove',
-        parts: [marking ?? { model: def.models[object.variant % def.models.length], scaleY: heightScale(def, object.height) }],
+        parts: [marking ?? { model: def.models[object.variant % def.models.length], scaleY: heightScale(def) }],
         tileScale: rotatedFootprint(def.footprint, object.rotation),
         snap: true,
       });
@@ -838,9 +809,6 @@ export class ToolController {
     switch (event.code) {
       case 'KeyR':
         this.rotate(event.shiftKey ? -1 : 1);
-        break;
-      case 'KeyH':
-        this.cycleHeight(event.shiftKey ? -1 : 1);
         break;
       case 'KeyB':
         if (!event.repeat) this.selectTool('bulldoze');

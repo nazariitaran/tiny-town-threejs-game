@@ -21,8 +21,6 @@ export type GameEvents = {
   'intent:select-tool': { toolId: ToolId | null };
   /** direction 1 = clockwise seen from above (the R key), -1 = counter-clockwise (Shift+R). */
   'intent:rotate': { direction: 1 | -1 };
-  /** Next (1, the H key) or previous (-1, Shift+H) height tier of the active tool; ignored when it has none. */
-  'intent:cycle-height': { direction: 1 | -1 };
   'intent:undo': void;
   'intent:redo': void;
   'intent:new-town': void;
@@ -46,8 +44,7 @@ export type GameEvents = {
   'load:progress': { loaded: number; total: number; label: string };
   'load:error': { message: string };
 
-  /** height = the active tool's height tier (0 when it has none, see ObjectDef.heights). */
-  'tool:changed': { toolId: ToolId | null; rotation: Rotation; height: number };
+  'tool:changed': { toolId: ToolId | null; rotation: Rotation };
   'hover:changed': { cell: Cell | null; edge: Edge | null; valid: boolean; reason: string | null };
 
   /** Applied town mutations (after placement, bulldoze, undo, redo, load). Renderer consumes this. */
@@ -64,8 +61,6 @@ export type GameEvents = {
   'build:removed': { layer: 'ground' | 'object' | 'edge'; kind: string; cell: Cell; worldX: number; worldZ: number; strokeIndex: number };
   'build:invalid': { toolId: ToolId | null; cell: Cell | null; reason: string };
   'build:rotated': { rotation: Rotation };
-  /** The player picked another height tier for the active tool (trees). */
-  'build:height-changed': { height: number };
 
   'history:changed': { canUndo: boolean; canRedo: boolean };
   'save:written': { at: number };

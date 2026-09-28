@@ -19,7 +19,7 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
   - Gates on the branch after all merges (2026-09-27): `npm run verify` green (21 files, 387 unit tests, build OK); `npm run test:e2e` green: 114 tests, 100 passed, 14 skipped by design, 0 failed (6.1 min).
   - Worktrees `wp-16a/b/c` removed after their evidence was copied to `artifacts/wp-16a/`, `wp-16b/`, `wp-16c/`.
 - **WP-17 is built** on the integration branch `building-sizes` and awaits the owner's review (bigger buildings, smaller swing, dark shops at night). See "WP-17 as built".
-- **Tall trees are built** on the branch `tall-trees` (from `main` at `545c86c`) and await the owner's review: oak, pine and birch get three player-picked height tiers (H / the Height button), still 1 × 1. See "Tall trees as built".
+- **Tall trees are built** on the branch `tall-trees` and await the owner's review: pine ×2 and oak ×1.7 taller than before, birch unchanged, all still 1 × 1 (fixed per species, no player control). See "Tall trees as built".
 - **Where current facts live:**
   - grid, rules, save, modules, diagnostics and budgets: `docs/design/03-architecture.md`;
   - asset scales and footprints: `docs/assets/models.md`;
@@ -281,10 +281,8 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
 2. For the next iteration, open a new WP section in `docs/PLAN.md`. Take ports from 5218 up and follow the `docs/HANDOVER.md` runbook with an integration branch.
 
 ### Tall trees as built (branch `tall-trees`)
-An owner request: trees the player can make taller while still taking one tile. Not a numbered WP; done directly by the integrator.
-- **Model:** `ObjectDef.heights` (catalog): pine and birch `[1, 1.5, 2]`, oak `[1, 1.35, 1.7]`. `PlacedObject.height` (tier index) is optional and stored only above 0; `BuildAction` place-object carries `height`; `planPlaceObject` clamps it. No RNG. Bush and everything else ignore it.
-- **Save stays v4:** the field is additive and optional, so no migration and no version bump (an existing v4 save loads unchanged; `parseSave` clamps a bad value to 0). This replaced the "save v5 + migration" idea in the assessment.
-- **Input/UI:** `H` / `Shift+H` and a Height button (badge 1–3) that takes Rotate's slot while a tree tool is active, because trees ignore Rotate; a third always-on button made "Bulldoze" truncate on a 390 px phone, so the dock keeps its two-button width. New events `intent:cycle-height`, `build:height-changed` (plays the rotate sound); `tool:changed` gained `height`; diagnostics gained `height`. Tree hints end in "· H for height" (touch: "· tap Height to grow it").
-- **Drawing:** `TownRenderer` stretches Y only (`R(yaw)·S(j, j·h, j)`), so the crown never leaves its cell; the ghost stretches the same way (`GhostPart.scaleY`), including the bulldoze highlight. Wind sway now measures height along the model's Y axis, and the bend grows at half rate above 1 unit so towering trees don't lean into the next cell (natural trees, < 1 unit, are unchanged; the bush's bend is now a little smaller because its Y is squashed).
-- **Tests:** unit +11 (tiers in rules, save, catalog proportions, shader); `tests/tall-trees.spec.ts` (button and H key, tier lands in the autosave, bush ignores it). Evidence: `artifacts/tall-trees/`.
-- **Known trade-offs:** a tall tree hides about 1.3 × its height of the view behind it; stretched oaks read as tall round-crowned trees rather than a new species; the tiers are one line each in `catalog/objects.ts` to tune.
+An owner request: taller trees that still take one tile. Done directly by the integrator, not a numbered WP.
+- **Design history:** the first cut gave oak, pine and birch three player-picked height tiers (H key, Height button, an optional `PlacedObject.height`). The owner reviewed it and simplified: **no player choice, one fixed height per species.** That machinery was removed again.
+- **Result:** `ObjectDef.height`: pine ×2, oak ×1.7 (the "third tier" of the first cut, so it stays squarish: its crown already fills the cell), birch natural. Nothing in rules, `PlacedObject`, save (still v4, unchanged) or UI changed; existing towns just show taller pines and oaks.
+- **Drawing:** `TownRenderer` and the ghost stretch Y only. `windSway.ts` measures height along the model's Y axis and bends at half rate above 1 unit (natural trees unchanged; the bush's bend gets a little smaller because its Y is squashed). Tool icons for oak and pine were re-rendered, and the sample-town, asset-gallery and night-town baselines regenerated.
+- **Known trade-offs:** a tall tree hides about 1.3 × its height of the view behind it; the heights are one constant each in `catalog/objects.ts` (`OAK_HEIGHT`, `PINE_HEIGHT`).

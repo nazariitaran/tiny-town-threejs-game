@@ -309,8 +309,7 @@ test('keyboard only: Tab reaches every dock button with a visible focus ring', a
   await start(page);
   await page.locator(id(UI_TEST_IDS.category('homes'))).click();
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-  // Height shares Rotate's slot and is hidden unless a tree tool is active, so it can't take focus.
-  const dockIds = await page.$$eval(`#${UI_TEST_IDS.dock} button`, (els) => els.filter((e) => !(e as HTMLElement).hidden).map((e) => e.id));
+  const dockIds = await page.$$eval(`#${UI_TEST_IDS.dock} button`, (els) => els.map((e) => e.id));
   expect(dockIds.length).toBeGreaterThanOrEqual(13);
   const seen = new Map<string, string>();
   for (let i = 0; i < 40 && seen.size < dockIds.length; i += 1) {
