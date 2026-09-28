@@ -16,6 +16,7 @@ export const UI_TEST_IDS = {
   redo: 'btn-redo',
   mute: 'btn-mute',
   rotate: 'btn-rotate',
+  height: 'btn-height',
   bulldoze: 'tool-bulldoze',
   category: (id: ToolCategory) => `cat-${id}`,
   tool: (id: ToolId) => `tool-${id}`,

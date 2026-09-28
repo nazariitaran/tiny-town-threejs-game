@@ -244,6 +244,9 @@ describe('windSway', () => {
     expect(shader.vertexShader).toContain('uniform float uWindTime;');
     expect(shader.vertexShader).toContain('#ifdef USE_INSTANCING');
     expect(shader.vertexShader).toContain('modelMatrix * instanceMatrix');
+    // Height is measured along the model's own Y axis, so a stretched (taller) tree bends by its real height.
+    expect(shader.vertexShader).toContain('length(swayModel[1].xyz)');
+    expect(shader.vertexShader).toContain('swayH -= 0.5 * max(swayH - 1.0, 0.0);');
     expect(shader.vertexShader.indexOf('#include <begin_vertex>')).toBeLessThan(shader.vertexShader.indexOf('swayBend'));
   });
 

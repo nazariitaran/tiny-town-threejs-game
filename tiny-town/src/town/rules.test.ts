@@ -824,3 +824,57 @@ describe('row 7 — bulldoze: object > picked fence edge > non-field ground', ()
     expectFail(plan(state, bulldoze(W, D)), 'nothing-here');
   });
 });
+
+describe('tree height tiers (ObjectDef.heights)', () => {
+  const placeTall = (kind: ObjectKind, x: number, z: number, height?: number): BuildAction => ({ type: 'place-object', kind, cell: { x, z }, rotation: 0, height });
+  const added = (changes: TownChange[]) => {
+    const change = changes[changes.length - 1];
+    if (change.layer !== 'object' || change.op !== 'add') throw new Error('expected an object add');
+    return change.object;
+  };
+
+  it('stores the chosen tier on the placed tree', () => {
+    for (const kind of ['oak', 'pine', 'birch'] as const) {
+      for (const tier of [1, 2]) expect(added(expectOk(plan(makeState(), placeTall(kind, 2, 2, tier)))).height, `${kind} ${tier}`).toBe(tier);
+    }
+  });
+
+  it('tier 0 (or none) leaves the field off, so the object equals a plain placement', () => {
+    const plain = added(expectOk(plan(makeState(), placeObj('pine', 2, 2))));
+    expect(plain).not.toHaveProperty('height');
+    expect(added(expectOk(plan(makeState(), placeTall('pine', 2, 2, 0))))).toEqual(plain);
+  });
+
+  it('clamps a tier the tree does not have', () => {
+    expect(added(expectOk(plan(makeState(), placeTall('oak', 2, 2, 7)))).height).toBe(2);
+    expect(added(expectOk(plan(makeState(), placeTall('oak', 2, 2, -1))))).not.toHaveProperty('height');
+  });
+
+  it('ignores a tier on things that are not trees', () => {
+    for (const kind of ['bush', 'cottage', 'lamppost'] as const) {
+      const state = makeState();
+      ground(state, 'grass', ...[0, 1, 2, 3, 4].flatMap((x) => [0, 1, 2, 3, 4].map((z): [number, number] => [x, z])));
+      expect(added(expectOk(plan(state, placeTall(kind, 0, 0, 2)))), kind).not.toHaveProperty('height');
+    }
+  });
+
+  it('a taller tree still covers exactly one cell: same validity, same RNG use', () => {
+    const state = makeState();
+    object(state, 'oak', 3, 3);
+    expectFail(plan(state, placeTall('pine', 3, 3, 2)), 'occupied', RULE_MESSAGES.occupied);
+    const a = ctx();
+    const b = ctx();
+    expectOk(plan(makeState(), placeObj('birch', 1, 1), a));
+    expectOk(plan(makeState(), placeTall('birch', 1, 1, 2), b));
+    expect([b.ids, b.draws]).toEqual([a.ids, a.draws]);
+  });
+
+  it('bulldozing a tall tree removes it whole, height included (so undo can restore it)', () => {
+    const state = makeState();
+    state.applyChanges(expectOk(plan(state, placeTall('pine', 2, 2, 2))));
+    const changes = expectOk(plan(state, bulldoze(2, 2)));
+    expect(changes).toHaveLength(1);
+    const change = changes[0];
+    expect(change.layer === 'object' && change.op === 'remove' && change.object.height).toBe(2);
+  });
+});

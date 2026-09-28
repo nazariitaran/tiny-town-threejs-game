@@ -658,6 +658,33 @@
   opacity: 0.55;
 }
 
+/* Height and Rotate share one slot: the dock shows Height while a tree tool is active. */
+.ui-mode[hidden] {
+  display: none;
+}
+
+/* Tree height button: a small pill with the tier (1–3); on phones it rides the glyph's corner. */
+#btn-height {
+  position: relative;
+}
+
+.ui-tier {
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--ink-faint);
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 800;
+  line-height: 15px;
+  text-align: center;
+}
+
+.ui-mode:not(.is-idle) .ui-tier {
+  background: var(--green-dark);
+}
+
 .ui-rot {
   display: inline-block;
   transition: transform 120ms var(--ease);
@@ -1016,6 +1043,12 @@
     gap: 1px;
     padding: 0 2px;
     font-size: 0.72rem;
+  }
+
+  .ui-tier {
+    position: absolute;
+    top: 2px;
+    left: calc(50% + 4px);
   }
 
   .ui-tab span,

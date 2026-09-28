@@ -7,6 +7,8 @@ interface ThreeGameDiagnostics {
   phase: import('./game/events').GamePhase;
   tool: import('./catalog/tools').ToolId | null;
   rotation: number;
+  /** Height tier the active tool places with (0 = natural; trees have 3 tiers). */
+  height: number;
   /** Hovered cell; valid/reason mirror hover:changed (a just-placed cell reports valid). */
   hover: { x: number; z: number; valid: boolean; reason: string | null } | null;
   town: import('./town/types').TownStats;

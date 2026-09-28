@@ -195,6 +195,42 @@ describe('parseSave rejects corrupted / foreign data without throwing', () => {
   });
 });
 
+describe('tree height tiers in saves', () => {
+  const tree = (id: number, x: number, extra: Record<string, unknown> = {}) => ({ id, kind: 'pine', anchor: { x, z: 4 }, rotation: 0, variant: 0, ...extra });
+
+  it('round-trips a tall tree, and writes the field only for tiers above 0', () => {
+    const editor = makeEditor(3);
+    for (const [x, height] of [[2, 0], [4, 1], [6, 2]] as const) {
+      expect(editor.apply({ type: 'place-object', kind: 'pine', cell: { x, z: 4 }, rotation: 0, height }, 'pine').ok).toBe(true);
+    }
+    const saved = serializeTown(editor.state);
+    expect(saved.objects.map((o) => o.height)).toEqual([undefined, 1, 2]);
+    expect(JSON.stringify(saved.objects[0])).not.toContain('height');
+    const parsed = ok(parseSave(JSON.stringify(saved)));
+    expect(parsed).toEqual(saved);
+    const target = makeEditor(9);
+    target.load(parsed);
+    expect(serializeTown(target.state)).toEqual(saved);
+  });
+
+  it('a v4 save without the field loads as natural height, with no version bump', () => {
+    expect(CURRENT_SAVE_VERSION).toBe(4);
+    const save = ok(parseSave({ ...blank(), objects: [tree(1, 2)], nextObjectId: 2 }));
+    expect(save.objects[0]).not.toHaveProperty('height');
+  });
+
+  it('clamps or drops a bad tier and ignores it on non-trees', () => {
+    const save = ok(
+      parseSave({
+        ...blank(),
+        objects: [tree(1, 2, { height: 99 }), tree(2, 4, { height: -2 }), tree(3, 6, { height: 'tall' }), tree(4, 8, { height: 1.5 }), { id: 5, kind: 'postbox', anchor: { x: 10, z: 4 }, rotation: 0, variant: 0, height: 2 }],
+        nextObjectId: 6,
+      }),
+    );
+    expect(save.objects.map((o) => o.height)).toEqual([2, undefined, undefined, undefined, undefined]);
+  });
+});
+
 describe('parseSave sanitises and clamps', () => {
   it('maps unknown ground kinds to field and caps oversized runs', () => {
     const save = ok(parseSave({ ...blank(), ground: [['lava', 3], ['road', 1_000_000_000]] }));

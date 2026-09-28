@@ -82,6 +82,11 @@ export interface PlacedObject {
   rotation: Rotation;
   /** Visual variant index (e.g. colour/tree shape) chosen via the seeded RNG at placement time. */
   variant: number;
+  /**
+   * Height tier the player chose (index into ObjectDef.heights; trees only). Absent = tier 0, the
+   * natural height, so older saves and every non-tree object need nothing. Never changes the footprint.
+   */
+  height?: number;
 }
 
 export interface PlacedEdge {
@@ -101,7 +106,7 @@ export type TownChange =
 /** What the player asked for at one cell/edge. Produced by ToolController, consumed by TownEditor. */
 export type BuildAction =
   | { type: 'paint-ground'; kind: Exclude<GroundKind, 'field'>; cell: Cell }
-  | { type: 'place-object'; kind: ObjectKind; cell: Cell; rotation: Rotation }
+  | { type: 'place-object'; kind: ObjectKind; cell: Cell; rotation: Rotation; height?: number }
   | { type: 'place-edge'; kind: EdgeKind; edge: Edge }
   | { type: 'bulldoze'; cell: Cell; edge: Edge | null };
 

@@ -44,6 +44,7 @@ const BUILD = 'Click to build · R to rotate';
 const PLACE = 'Click to place · R to rotate';
 const SCATTER = 'Click or drag to place · R to rotate';
 const PLANT = 'Click or drag to plant';
+const PLANT_TREE = 'Click or drag to plant · H for height';
 const EDGE = 'Drag along cell edges';
 
 const ROWS: readonly ToolRow[] = [
@@ -74,9 +75,9 @@ const ROWS: readonly ToolRow[] = [
   { id: 'grass', label: 'Grass', category: 'nature', layer: 'ground', drag: 'paint', sfx: 'place-nature', hint: 'Drag to paint lawn' },
   { id: 'meadow', label: 'Wildflowers', category: 'nature', layer: 'ground', drag: 'paint', sfx: 'place-nature', hint: 'Drag to sow a wildflower meadow' },
   { id: 'bush', label: 'Bush', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT },
-  { id: 'oak', label: 'Oak', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT },
-  { id: 'pine', label: 'Pine', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT },
-  { id: 'birch', label: 'Birch', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT },
+  { id: 'oak', label: 'Oak', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT_TREE },
+  { id: 'pine', label: 'Pine', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT_TREE },
+  { id: 'birch', label: 'Birch', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT_TREE },
   // Garden
   { id: 'walkway', label: 'Garden path', category: 'garden', layer: 'ground', drag: 'paint', sfx: 'place-path', hint: 'Drag to lay a garden path' },
   { id: 'hedge', label: 'Hedge', category: 'garden', layer: 'edge', drag: 'line', sfx: 'place-nature', hint: `${EDGE} to grow a hedge` },
@@ -112,13 +113,13 @@ export const toolsInCategory = (category: ToolCategory): ToolDef[] =>
   TOOLS.filter((tool) => tool.category === category);
 
 /** Translate "tool used at this cell/edge" into a BuildAction for TownEditor. */
-export function actionForTool(toolId: ToolId, cell: Cell, edge: Edge, rotation: Rotation): BuildAction {
+export function actionForTool(toolId: ToolId, cell: Cell, edge: Edge, rotation: Rotation, height = 0): BuildAction {
   const def = toolDef(toolId);
   switch (def.layer) {
     case 'ground':
       return { type: 'paint-ground', kind: toolId as Exclude<GroundKind, 'field'>, cell };
     case 'object':
-      return { type: 'place-object', kind: toolId as ObjectKind, cell, rotation };
+      return { type: 'place-object', kind: toolId as ObjectKind, cell, rotation, height };
     case 'edge':
       return { type: 'place-edge', kind: toolId as EdgeKind, edge };
     case 'bulldoze':

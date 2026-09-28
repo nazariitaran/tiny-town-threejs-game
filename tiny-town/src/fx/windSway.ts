@@ -13,7 +13,8 @@
  *    then mapped back to object space with the inverse of (model × instance) (rotation × uniform
  *    scale ⇒ inverse = Mᵀ / s²). Works for InstancedMesh and for plain meshes (createObject).
  *  - Per-instance phase = world translation of the instance, so neighbours ripple, not march.
- *  - Bend grows with height (linear + quadratic): the base stays planted, crowns move most.
+ *  - Bend grows with height (linear + quadratic): the base stays planted, crowns move most. Height
+ *    is measured along the model's own Y axis, so player-stretched (taller) trees bend by their real height.
  *  - All materials share ONE uniform object, so a frame update is two float writes.
  *  - Shadows use three's internal depth material and do not sway; the motion is a few cm on a
  *    0.7-unit tree, so the mismatch is invisible.
@@ -50,7 +51,11 @@ const VERTEX_SWAY = /* glsl */ `#include <begin_vertex>
   #endif
   vec3 swayOrigin = swayModel[3].xyz;
   float swayScale = max(length(swayModel[0].xyz), 1e-4);
-  float swayH = max(position.y, 0.0) * swayScale;
+  // Height above the base in world units: a tree stretched taller (Y only) bends by its real height.
+  float swayH = max(position.y, 0.0) * max(length(swayModel[1].xyz), 1e-4);
+  // Past 1 unit (only towering trees get there) the bend grows at half rate: a taller tree sways
+  // more, but not so much that it leans into the next cell. Natural trees (< 1 unit) are untouched.
+  swayH -= 0.5 * max(swayH - 1.0, 0.0);
   float swayPhase = swayOrigin.x * 0.37 + swayOrigin.z * 0.23;
   float swayGust = sin(uWindTime * 0.9 + swayPhase) * 0.65 + sin(uWindTime * 0.41 + swayPhase * 0.5 + 1.3) * 0.35;
   float swayFlutter = sin(uWindTime * 3.3 + swayPhase * 2.1 + position.x * 5.0 + position.z * 3.0) * 0.22;

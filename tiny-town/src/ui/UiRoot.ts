@@ -11,10 +11,11 @@
  */
 // Styles (ui.css + bundled Nunito) are imported from src/styles.css, NOT here: tests import
 // UI_TEST_IDS through this module in Node, so it must stay free of CSS/asset side effects.
+import { heightTierCount, objectDef } from '../catalog/objects';
 import { TOOL_CATEGORIES, toolDef, toolsInCategory, type ToolCategory, type ToolId } from '../catalog/tools';
 import { assetUrl } from '../game/config';
 import type { GameBus, GamePhase } from '../game/events';
-import type { Rotation } from '../town/types';
+import type { ObjectKind, Rotation } from '../town/types';
 import { TIME_MODES, type DayPhase, type TimeMode } from '../world/dayCycle';
 import { GLYPHS } from './glyphs';
 import { UI_TEST_IDS } from './testIds';
@@ -26,6 +27,8 @@ type ModalView = 'menu' | 'confirm' | 'help' | 'credits';
 type UiSfx = 'ui-hover' | 'ui-click' | 'ui-open' | 'ui-close';
 
 const HINT_MAX_USES = 3;
+/** Names of the three tree height tiers (ObjectDef.heights), for the Height button's tooltip. */
+const TREE_HEIGHT_NAMES = ['normal', 'tall', 'towering'];
 const HINT_MS = 3500;
 const PICK_HINT_MOUSE = 'Pick something below, then click the map to build';
 const PICK_HINT_TOUCH = 'Pick an item below · two fingers move the view';
@@ -34,6 +37,7 @@ const PICK_HINT_TOUCH = 'Pick an item below · two fingers move the view';
 export function touchHint(hint: string): string {
   return hint
     .replace(/ · R to rotate$/, ' · tap Rotate to turn it')
+    .replace(/ · H for height$/, ' · tap Height to grow it')
     .replace(/^Click or drag/, 'Tap or drag')
     .replace(/^Click/, 'Tap');
 }
@@ -104,7 +108,7 @@ export class UiRoot {
       bus.on('load:error', ({ message }) => {
         this.el('ui-error-message').textContent = message;
       }),
-      bus.on('tool:changed', ({ toolId, rotation }) => this.onToolChanged(toolId, rotation)),
+      bus.on('tool:changed', ({ toolId, rotation, height }) => this.onToolChanged(toolId, rotation, height)),
       bus.on('build:rotated', ({ rotation }) => this.renderRotation(rotation)),
       bus.on('hover:changed', ({ cell, edge, valid, reason }) => {
         const key = cell ? `${cell.x},${cell.z}` + (edge ? `,${edge.x},${edge.z},${edge.side}` : '') : null;
@@ -146,6 +150,7 @@ export class UiRoot {
     this.renderAudio();
     this.renderTimeMode();
     this.renderRotation(0);
+    this.renderHeight(0);
     this.showPhase('loading');
   }
 
@@ -218,6 +223,7 @@ export class UiRoot {
             <span class="ui-sep" aria-hidden="true"></span>
             <div class="ui-modes" role="group" aria-label="Modes">
               <button type="button" class="ui-mode" id="${id.rotate}" aria-label="Rotate" title="Rotate (R)"><span class="ui-rot">${GLYPHS.rotate}</span><span class="ui-mode-label">Rotate</span></button>
+              <button type="button" class="ui-mode" id="${id.height}" hidden aria-label="Height" title="Tree height (H)">${GLYPHS.height}<span class="ui-tier" aria-hidden="true">1</span><span class="ui-mode-label">Height</span></button>
               <button type="button" class="ui-mode ui-mode-danger" id="${id.bulldoze}" data-tool="bulldoze" aria-label="Bulldoze" aria-pressed="false" title="Bulldoze (B)">${GLYPHS.bulldoze}<span class="ui-mode-label">Bulldoze</span></button>
             </div>
           </div>
@@ -285,6 +291,7 @@ export class UiRoot {
                 <dt>1–9</dt><dd>Pick an item in the open tray</dd>
                 <dt>Shift + 1–5</dt><dd>Switch category</dd>
                 <dt>R · Shift+R</dt><dd>Rotate</dd>
+                <dt>H · Shift+H</dt><dd>Tree height (normal · tall · towering)</dd>
                 <dt>B</dt><dd>Bulldoze</dd>
                 <dt>Ctrl+Z · Ctrl+Shift+Z</dt><dd>Undo · redo</dd>
                 <dt>F · Home</dt><dd>Reset view</dd>
@@ -347,6 +354,7 @@ export class UiRoot {
     else if (target.id === id.mute) this.bus.emit('intent:set-muted', { muted: !this.muted });
     else if (target.id === id.menu) this.bus.emit('intent:open-menu');
     else if (target.id === id.rotate) this.bus.emit('intent:rotate', { direction: 1 });
+    else if (target.id === id.height) this.bus.emit('intent:cycle-height', { direction: 1 });
     else if (target.id === id.resume) this.bus.emit('intent:close-menu');
     else if (target.id === id.help) this.openModal('help');
     else if (target.id === id.newTown) this.openModal('confirm');
@@ -518,7 +526,7 @@ export class UiRoot {
     this.el('ui-load-label').textContent = label ? `Loading ${label}…` : `Loading… ${pct}%`;
   }
 
-  private onToolChanged(toolId: ToolId | null, rotation: Rotation): void {
+  private onToolChanged(toolId: ToolId | null, rotation: Rotation, height: number): void {
     const previous = this.activeTool;
     this.activeTool = toolId;
     if (toolId) {
@@ -528,6 +536,7 @@ export class UiRoot {
     }
     this.renderTray(false);
     this.renderRotation(rotation);
+    this.renderHeight(height);
     if (toolId !== previous) this.clearTooltip();
     if (toolId && toolId !== previous) {
       const uses = (this.toolUses.get(toolId) ?? 0) + 1;
@@ -572,6 +581,10 @@ export class UiRoot {
     this.button(UI_TEST_IDS.bulldoze).setAttribute('aria-pressed', String(this.activeTool === 'bulldoze'));
     const rotatable = this.activeTool !== null && toolDef(this.activeTool).layer === 'object';
     this.button(UI_TEST_IDS.rotate).classList.toggle('is-idle', !rotatable);
+    const tall = this.activeTool !== null && toolDef(this.activeTool).layer === 'object' && heightTierCount(objectDef(this.activeTool as ObjectKind)) > 1;
+    // Trees ignore Rotate (each gets a random yaw), so Height takes Rotate's slot: the dock keeps its width.
+    this.button(UI_TEST_IDS.height).hidden = !tall;
+    this.button(UI_TEST_IDS.rotate).hidden = tall;
   }
 
   /** Edge fades on the tray frame when more items are scrolled off either side. */
@@ -587,6 +600,16 @@ export class UiRoot {
   private renderRotation(rotation: Rotation): void {
     const rot = this.root.querySelector<HTMLElement>('.ui-rot');
     if (rot) rot.style.transform = `rotate(${rotation * 90}deg)`;
+  }
+
+  /** The Height button shows the tier (1–3) of the active tree tool. */
+  private renderHeight(height: number): void {
+    const label = TREE_HEIGHT_NAMES[height] ?? TREE_HEIGHT_NAMES[0];
+    const button = this.button(UI_TEST_IDS.height);
+    button.querySelector<HTMLElement>('.ui-tier')!.textContent = String(height + 1);
+    button.dataset.tier = String(height);
+    button.title = `Tree height: ${label} (H)`;
+    button.setAttribute('aria-label', `Height: ${label}`);
   }
 
   private renderAudio(): void {

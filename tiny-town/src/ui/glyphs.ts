@@ -13,6 +13,8 @@ export const GLYPHS = {
   soundOff: svg('<path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/><path d="m16 9 5 6"/><path d="m21 9-5 6"/>'),
   menu: svg('<path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>'),
   rotate: svg('<path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/>'),
+  /** Tree height: a vertical double arrow. */
+  height: svg('<path d="M12 4v16"/><path d="m8 8 4-4 4 4"/><path d="m8 16 4 4 4-4"/>'),
   bulldoze: svg(
     '<rect x="2.5" y="15" width="12" height="5" rx="2.5"/><path d="M4.5 15v-5h4.5l2 5"/><path d="m13 13 4-2"/><path d="M17 7.5 21 9v9l-4-1.5z" fill="currentColor"/>',
   ),

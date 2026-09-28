@@ -11,7 +11,7 @@ import { CELL_SIZE, ROAD_TILE_SIZE } from '../game/config';
 import { CAR_FILES, CAR_SCALE } from '../life/LifeSystem';
 import { MODEL_STYLES } from '../render/TownRenderer';
 import { EDGE_MODELS, GROUND_MODELS, MODELS, ROAD_PIECE_MODELS, type ModelId } from './models';
-import { OBJECT_KINDS, OBJECTS } from './objects';
+import { clampHeightTier, heightScale, OBJECT_KINDS, OBJECTS } from './objects';
 import { TOOL_CATEGORIES, TOOLS, toolsInCategory, type ToolLayer } from './tools';
 
 const PUBLIC = path.resolve(__dirname, '../../public');
@@ -250,6 +250,32 @@ describe('proportions', () => {
   const LANE = 0.37;
   const h = (id: ModelId) => drawn(id).y;
   const cars = () => [...carSizes.values()];
+
+  it('tree height tiers: only trees have them, natural first, rising, and the tallest stays under the church', () => {
+    const TREE_JITTER = 1.12; // TownRenderer: ±12% per-tree size
+    for (const kind of OBJECT_KINDS) {
+      const def = OBJECTS[kind];
+      if (def.group !== 'tree') {
+        expect(def.heights, kind).toBeUndefined();
+        continue;
+      }
+      expect(def.heights?.length, kind).toBe(3);
+      expect(def.heights![0], kind).toBe(1);
+      expect([...def.heights!], kind).toEqual([...def.heights!].sort((a, b) => a - b));
+      for (const model of def.models) {
+        expect(h(model) * heightScale(def, 2) * TREE_JITTER, `${kind}/${model}`).toBeLessThan(h('church'));
+      }
+    }
+  });
+
+  it('heightScale / clampHeightTier clamp to the tiers an object has', () => {
+    expect(heightScale(OBJECTS.pine, 2)).toBe(2);
+    expect(heightScale(OBJECTS.pine, 9)).toBe(2);
+    expect(heightScale(OBJECTS.pine, -3)).toBe(1);
+    expect(heightScale(OBJECTS.pine, undefined)).toBe(1);
+    expect(clampHeightTier(OBJECTS.cottage, 2)).toBe(0);
+    expect(heightScale(OBJECTS.cottage, 2)).toBe(1);
+  });
 
   it('logs the bounding-box table', () => {
     const rows = (Object.keys(MODELS) as ModelId[])

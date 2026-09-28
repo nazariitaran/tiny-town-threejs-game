@@ -21,9 +21,9 @@
  */
 import { cellKey, edgeCells, edgeInBounds, edgeKey, edgeOfCellSide, footprintCells, NEIGHBOURS, ROAD_BLOCK, roadBlockCells } from './grid';
 import { ZEBRA_PIECE_MODELS } from '../catalog/models';
-import { objectDef, type ObjectDef } from '../catalog/objects';
+import { clampHeightTier, objectDef, type ObjectDef } from '../catalog/objects';
 import { roadMask, roadTileFor } from '../render/roadTiles';
-import type { BuildAction, Cell, GroundKind, InvalidReason, PlanResult, TownChange, TownStateReader } from './types';
+import type { BuildAction, Cell, GroundKind, InvalidReason, PlacedObject, PlanResult, TownChange, TownStateReader } from './types';
 
 export interface PlanContext {
   /** Reserve an object id for an add (TownState.allocateObjectId). Called only on success. */
@@ -206,11 +206,10 @@ function planPlaceObject(state: TownStateReader, action: Extract<BuildAction, { 
     }
   }
   const variant = def.variants > 1 ? Math.min(def.variants - 1, Math.floor(ctx.rng() * def.variants)) : 0;
-  changes.push({
-    layer: 'object',
-    op: 'add',
-    object: { id: ctx.nextId(), kind: action.kind, anchor: { x: action.cell.x, z: action.cell.z }, rotation: action.rotation, variant },
-  });
+  const height = clampHeightTier(def, action.height);
+  const object: PlacedObject = { id: ctx.nextId(), kind: action.kind, anchor: { x: action.cell.x, z: action.cell.z }, rotation: action.rotation, variant };
+  if (height > 0) object.height = height;
+  changes.push({ layer: 'object', op: 'add', object });
   return { ok: true, changes };
 }
 

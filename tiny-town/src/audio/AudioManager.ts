@@ -111,6 +111,7 @@ export class AudioManager {
       on('build:removed', ({ layer }) => this.playBuild('remove', REMOVE_RATE[layer])),
       on('build:invalid', () => this.play('invalid')),
       on('build:rotated', () => this.play('rotate')),
+      on('build:height-changed', () => this.play('rotate')),
       on('intent:undo', () => this.play('undo')),
       on('intent:redo', () => this.play('redo')),
       on('intent:set-muted', ({ muted }) => this.setMuted(muted)),
