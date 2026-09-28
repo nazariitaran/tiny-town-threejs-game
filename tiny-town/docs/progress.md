@@ -2,8 +2,15 @@
 
 Only the integrator (WP-01) edits this file. Workers report in their hand-off. This is the recovery point: after any interruption, re-read it together with `docs/HANDOVER.md`.
 
-## Current state (2026-09-27)
-- **Version: v0.3 complete on `main`** (not yet released). v0.3 = WP-15 (new building blocks, `ea54bb5`) + WP-16 (day/night, integration branch `v0.3-day-night`, owner-approved and merged into `main` 2026-09-27). v0.2's integration commit is `30fe85b`.
+## Current state (2026-09-28)
+- **Version: v0.4 cut on `main`** (2026-09-28, package 0.4.0, tag `v0.4`; not deployed). v0.4 = everything after `v0.3`:
+  - **WP-17**: bigger homes and town buildings, smaller swing, only homes glow at night, save v4;
+  - **the 64 × 64 plot** (`545c86c`), with the night-grid colours, plain junction centre lines, the Zebra crossing tool and right-click deselect;
+  - **WP-18**: music resumes where it left off;
+  - **tall trees**: taller pine, big 2 × 2 oak;
+  - **WP-19**: the town photo.
+  - Gates on `main` after the WP-19 merge (`0b83a88`): `npm run verify` green (23 files, 442 unit tests, build OK); `npm run test:e2e` 134 tests, 116 passed, 18 skipped by design, 0 failed (7.5 min). Production-preview measurements and release checks: `docs/release.md` (v0.4 column).
+- **v0.3** (tag `v0.3`). v0.3 = WP-15 (new building blocks, `ea54bb5`) + WP-16 (day/night, integration branch `v0.3-day-night`, owner-approved and merged into `main` 2026-09-27). v0.2's integration commit is `30fe85b`.
 - **v0.1** is the M3 "v1" build at `3f9c6cf`. v0.2 adds three owner requests on top:
   - **WP-12**: 48 × 48 grid of 0.5-unit cells, roads as 2 × 2 blocks, multi-cell houses, save v2 with a v1 → v2 migration.
   - **WP-13**: streamed background music with settings.
@@ -18,7 +25,7 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
 - **WP-16 day/night is complete:** the owner approved it on 2026-09-27 and `v0.3-day-night` is merged into `main`. See "WP-16 as built" below.
   - Gates on the branch after all merges (2026-09-27): `npm run verify` green (21 files, 387 unit tests, build OK); `npm run test:e2e` green: 114 tests, 100 passed, 14 skipped by design, 0 failed (6.1 min).
   - Worktrees `wp-16a/b/c` removed after their evidence was copied to `artifacts/wp-16a/`, `wp-16b/`, `wp-16c/`.
-- **WP-17 is built** on the integration branch `building-sizes` and awaits the owner's review (bigger buildings, smaller swing, dark shops at night). See "WP-17 as built".
+- **WP-17 is merged into `main`** (owner-approved; integration branch `building-sizes`; part of v0.4): bigger buildings, smaller swing, dark shops at night. See "WP-17 as built".
 - **Tall trees are merged into `main`** (owner-approved, no version tag; built on the branch `tall-trees`): pine ×2 taller (still 1 × 1), birch unchanged, and the oak now a big 2 × 2 tree at natural proportions (fixed per species, no player control). See "Tall trees as built".
 - **WP-19 Town photo is merged into `main`** (owner-approved 2026-09-28, after two amendments; built on the branch `wp-19-photo`, branched from `691dfd8`): a top-bar camera / `P` saves the current view as a Polaroid JPEG, via a preview with Download. See "WP-19 as built".
 - **Where current facts live:**

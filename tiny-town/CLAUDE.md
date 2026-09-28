@@ -2,7 +2,8 @@
 
 A cosy browser city-builder sandbox (three.js + TypeScript + Vite). Start here. If you were given a work package (WP), read its section in `docs/PLAN.md` next.
 
-## Current state (v0.2 released; v0.3 = WP-15 + WP-16, complete on `main`, not yet released)
+## Current state (v0.4 cut on `main`, package 0.4.0, tag `v0.4`; v0.2 released)
+- **v0.4** (2026-09-28): WP-17 (bigger buildings, save v4), the 64 × 64 plot (with the Zebra crossing tool and right-click deselect), WP-18 (music resumes where it left off), tall trees (taller pine, big 2 × 2 oak) and **WP-19 town photo** (top-bar camera / `P` → a Polaroid JPEG via a preview with Download; `src/photo/**`, `03-architecture.md` §Town photo). Release measurements: `docs/release.md`.
 - **v0.2**: v1 (checkpoint M3) plus WP-12, WP-13 and WP-14.
   - WP-12: 48 × 48 grid of 0.5-unit cells, roads in 2 × 2 blocks, multi-cell houses, save v2 with migration. (The plot is **64 × 64** cells since 2026-09-28; see `docs/design/03-architecture.md` §Grid.)
   - WP-13: streamed background music.

@@ -191,18 +191,18 @@ Plan and rationale: `docs/plans/wp-16-day-night.md`. The as-built deviations are
 - **Cost:** 60–90 ms per photo on an M-series laptop (capture + frame + encode). The JPEG is 0.2–0.4 MB at 2536 × 1688 (desktop) or 1188 × 2670 (Pixel 7).
 
 ## Budgets (full 64×64-cell town, desktop 1280×720; mobile 390×844)
-The `stress-town` state is the gate. "Measured" gives the latest number and says where it came from. v0.3 was re-measured on the production preview on 2026-09-27; `docs/release.md` §Budgets has the full table and method. The 64 × 64 plot (2026-09-28) was measured on the dev server with the WP-11 method's browser (full Chromium, real GPU; mobile = Pixel 7 emulation, which gets the low tier).
+The `stress-town` state is the gate. "Measured" gives the latest number and says where it came from. **v0.4 (64 × 64 plot, tall trees, WP-19) was measured on the production preview on 2026-09-28**; `docs/release.md` §Budgets has the full table, the earlier versions and the method (full Chromium, real GPU; mobile = Pixel 7 emulation, which gets the low tier: check `quality` in each mobile profile, the emulation is flaky).
 The mobile triangle budget was raised from 250k to 320k with the 64 × 64 plot (owner decision, 2026-09-28): a full town holds 1.78× the area (100 homes instead of 64), with the same content per cell.
 
 | Metric | Budget desktop | Budget mobile | Measured (desktop / mobile) |
 | --- | --- | --- | --- |
-| Draw calls | ≤ 150 | ≤ 120 | 64 × 64: day 31 / 31; night (t 0.82) 34 / 33 (dev server, 2026-09-28). v0.3 (48 × 48, production preview): day 32 / 32, night 35 / 34 |
-| Triangles | ≤ 400k | ≤ 320k (250k until the 64 × 64 plot) | 64 × 64: day 362.4k / 291.3k; night 356.5k / 289.3k (dev server, 2026-09-28; mobile headroom ~29k; the town itself is ~236k). v0.3 (48 × 48): day 306.1k / 237.0k |
-| Textures | ≤ 30 | ≤ 30 | Stress town 14 / 13, sample town 28 / 27 (v0.3 production preview; includes the 4 day/night glow masks) |
+| Draw calls | ≤ 150 | ≤ 120 | v0.4 (production preview): day 31 / 31; night (t 0.82) 34 / 33. v0.3 (48 × 48): day 32 / 32, night 35 / 34 |
+| Triangles | ≤ 400k | ≤ 320k (250k until the 64 × 64 plot) | v0.4 (production preview): day 358.2k / 293.2k; night 354.3k / 289.2k (mobile headroom ~27k). v0.3 (48 × 48): day 306.1k / 237.0k |
+| Textures | ≤ 30 | ≤ 30 | Stress town 14 / 13, sample town 27 / 26 (v0.4 production preview; includes the day/night glow masks) |
 | Shadow maps | 1 × 2048 | 1 × 1024 | as budgeted (`Environment.setQuality`: high 2048, low 1024) |
 | DPR cap | 2 | 1.5 | `MAX_DPR` in `config.ts` |
-| Frame time (M-series laptop, headless full Chromium) | ≤ 8 ms | — | 1.38 ms day / 1.37 ms night on the stress town (v0.3 production preview, uncapped); v0.1: 1.36 ms |
-| Initial download (JS + CSS + font + models + SFX + icons) | ≤ 8 MB | ≤ 8 MB | 4.70 MB over the network before the title (v0.3 production preview); `dist/` 4.94 MB without maps or music. The 4.68 MB music track is streamed after Start and isn't part of the initial download |
+| Frame time (M-series laptop, headless full Chromium) | ≤ 8 ms | — | 1.46 ms day / 1.51 ms night on the stress town (v0.4 production preview, uncapped); v0.3: 1.38 / 1.37 ms; v0.1: 1.36 ms |
+| Initial download (JS + CSS + font + models + SFX + icons) | ≤ 8 MB | ≤ 8 MB | 4.78 MB over the network before the title (v0.4 production preview); `dist/` 4.99 MB without maps or music. The 4.68 MB music track is streamed after Start and isn't part of the initial download |
 
 ## Test hooks and diagnostics
 `window.__THREE_GAME_TEST_HOOKS__` (installed in production too; policy in `docs/release.md`):
