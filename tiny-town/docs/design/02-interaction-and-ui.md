@@ -49,7 +49,7 @@ Constraints (tunable in `?debug`):
 - **Rotate**: `R` (clockwise) / `Shift+R` (counter-clockwise), or the on-screen Rotate button (`intent:rotate` direction 1 = clockwise). A rotation swaps the footprint's width and depth (e.g. a 2×3 townhouse covers 3×2 at rotation 1), and the ghost re-centres on the pointer. Rotation persists until changed. The ghost animates the turn (100 ms).
 - **Tree heights are fixed, not chosen:** pine stands ×2 of its kit model, birch keeps its natural height (`ObjectDef.height`); pine and birch stretch in height only, so they still cover one cell. The **oak** is a big round tree on a 2 × 2 cell lot (a road block's size), drawn at natural proportions; its ghost frame covers the whole lot and a drag scatters oaks two cells apart. A tall tree hides about 1.3 × its height of the view behind it at the default camera.
 - **Esc**: deselect the tool (back to pointer); with no tool, it opens the menu. Right-click never places; a right click (no drag, under 5 px) also deselects the tool, while a right drag still pans the camera.
-- **Tool selection** (UI-owned, `src/ui/uiKeys.ts`): `1`–`9` pick the Nth tool of the **active** category, and pressing the active tool's digit again deselects it. `Shift+1`–`5` switch category (Streets / Homes / Town / Nature / Garden). Uses `event.code`, so layouts and Shift don't change the mapping. `B` = bulldoze, `?` = controls help, `T` = cycle the time of day (Auto → Day → Night; `ToolController`, building phase only).
+- **Tool selection** (UI-owned, `src/ui/uiKeys.ts`): `1`–`9` pick the Nth tool of the **active** category, and pressing the active tool's digit again deselects it. `Shift+1`–`5` switch category (Streets / Homes / Town / Nature / Garden). Uses `event.code`, so layouts and Shift don't change the mapping. `B` = bulldoze, `?` = controls help, `T` = cycle the time of day (Auto → Day → Night; `ToolController`, building phase only), `P` = take a photo (WP-19; UI-owned, building phase only, no modifiers, so Ctrl/Cmd+P still prints).
 - **Undo/Redo**: `Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z` / `Ctrl+Y`. Every stroke is one history entry.
 - Placement feedback (same frame): pop-in scale tween (easeOutBack, ~220 ms), small dust puff, SFX by category. Removal: shrink-out (~150 ms) + poof + crunch SFX.
 - Invalid click: ghost shakes (±0.05, 150 ms), soft "nope" SFX, tooltip near cursor with the reason for ~1.5 s (throttled).
@@ -75,7 +75,7 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│ [🏡 Tiny Town]                                   [↶][↷] │ [🔊][☰]   │  top bar: ONE row (brand pill · action pill)
+│ [🏡 Tiny Town]                          [↶][↷] │ [📷][☀][🔊][☰]   │  top bar: ONE row (brand pill · action pill)
 │            "Drag to lay road — it joins up automatically"            │  hint pill, 10 px under the top bar (fades)
 │                                                                      │
 │                          3D  TOWN  VIEW                              │
@@ -103,7 +103,7 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
 - **Mode buttons** (right end of the dock): Rotate (shows the current rotation arrow) and Bulldoze (toggles; red accent when active).
 - **Top bar**: one row. The row is 48 px tall (`--topbar-h`; 52 px on phones), so it ends 60 / 64 px below the safe-area top.
   - Left: the title mark only. v0.2 (WP-14) removed the live stats pill as redundant; `TownState.stats()` and diagnostics `town` remain for tests.
-  - Right: Undo and Redo (disabled when unavailable), then the **time-of-day button** (v0.3, WP-16), the sound toggle (mute), and Menu. Volume and music settings are in the menu.
+  - Right: Undo and Redo (disabled when unavailable), then the **photo camera** (WP-19, key `P`), the **time-of-day button** (v0.3, WP-16), the sound toggle (mute), and Menu. Volume and music settings are in the menu.
   - The time button cycles Auto → Day → Night (`intent:cycle-time-mode`; key `T`). Its glyph is sun + moon, sun or moon, and its label reads "Time of day: Auto". It renders from `daytime:changed`. The mode is a saved setting; the time of day is not.
 - **Hint line**: a contextual one-liner for the active tool's gesture. It sits top-centre, 10 px under the top bar, fades after about 3.5 s, and stops appearing after 3 uses of that tool.
 - **Cursor tooltip**: the invalid-placement reason, anchored near the pointer but never under it, and never over the dock or top bar.
@@ -113,7 +113,7 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
 
 ### Mobile (≤ 760 px wide or `pointer: coarse`)
 - The dock is full-width at the bottom (safe-area padded). The item tray scrolls horizontally with scroll-snap. Cards are 80 × 78 px with 50 px icons; at ≤ 380 px wide they shrink to 64 px and the labels are hidden.
-- The top bar stays one row: the title mark (an icon-only badge at **≤ 440 px** since v0.3: five 44 px actions need about 245 px) plus the actions; every top-bar action stays a ≥ 44 px target. The hint pill sits 10 px under the top bar.
+- The top bar stays one row: the title mark (an icon-only badge at **≤ 440 px** since v0.3: five 44 px actions need about 245 px; six since WP-19's photo camera, about 290 px, which still fits one row at 360 px) plus the actions; every top-bar action stays a ≥ 44 px target. The hint pill sits 10 px under the top bar.
 - One finger = tool action (tap place / drag paint); two fingers = camera. With no tool selected, one finger pans.
 - Hint line mentions "two fingers to move the camera".
 
@@ -125,6 +125,7 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
 | **Title** | Big "Tiny Town" mark over the live, slowly orbiting scene. Buttons: **Start building** (primary), which reads **Continue** when a save exists; **New town**, shown only when a save exists; a small Credits link | Assets ready → user clicks. This click also unlocks audio and starts the streamed music |
 | **Building** | Dock, top bar, hint line | Main state |
 | **Menu** (overlay; the sim keeps rendering; music ducks −3 dB; the day clock pauses) | Resume · Controls · Reset view · Volume · **Music** on/off · **Music volume** · Show grid · **Time of day** (Auto / Day / Night segmented control) · New town (confirm) · Credits | ☰, or Esc when no tool is selected |
+| **Photo** (WP-19; the menu phase with the photo view instead of the menu: same pause, duck and dim) | A white flash (none under reduced motion), then the photo as a slightly tilted Polaroid with a strip of washi tape: "Developing…" on a warm grey print, then the picture fades up from pale sepia. **Download** and **Back to town** (no Share button, owner decision) | Camera button or `P` while building → Esc / Back to town returns to building (the tool stays selected) |
 | **Confirm dialog** | "Start a new town? Your current town will be cleared." Cancel / Clear | From menu |
 | **Controls help** | Two-column gesture list (mouse+keys / touch) | From menu, `?` key |
 | **Error** | Friendly message if WebGL or asset loading fails, with retry | Fatal load error |

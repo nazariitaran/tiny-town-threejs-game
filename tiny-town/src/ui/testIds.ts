@@ -40,6 +40,14 @@ export const UI_TEST_IDS = {
   /** Menu "Time of day" radio group and its three radios. */
   timeModeGroup: 'ui-time-mode',
   timeModeOption: (mode: TimeMode) => `radio-time-${mode}`,
+  // --- added by WP-19 (town photo) ---
+  /** Top-bar camera button (key P): takes a photo and opens the preview. */
+  photo: 'btn-photo',
+  photoPanel: 'ui-photo',
+  /** The framed photo in the preview (src set once the photo is ready; data-state on its figure). */
+  photoImage: 'ui-photo-img',
+  photoDownload: 'btn-photo-download',
+  photoClose: 'btn-photo-close',
   confirmPanel: 'ui-confirm',
   confirmClear: 'btn-confirm-clear',
   confirmCancel: 'btn-confirm-cancel',

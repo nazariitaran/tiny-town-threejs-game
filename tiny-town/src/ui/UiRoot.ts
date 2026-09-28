@@ -1,7 +1,7 @@
 /**
  * DOM UI (WP-06): loading, title, build HUD (top bar + dock with category tabs, item tray and
- * mode buttons), hint line, cursor tooltip, menu / confirm / controls help / credits overlays
- * and the error screen. Layout and states follow docs/design/02-interaction-and-ui.md §4–§7.
+ * mode buttons), hint line, cursor tooltip, menu / confirm / controls help / credits / photo
+ * overlays and the error screen. Layout and states follow docs/design/02-interaction-and-ui.md §4–§7.
  *
  * Talks to the game ONLY via the bus: emits `intent:*` / `ui:sfx`, renders facts
  * (`phase:changed`, `tool:changed`, `history:changed`, `audio:changed`, ...).
@@ -14,15 +14,17 @@
 import { TOOL_CATEGORIES, toolDef, toolsInCategory, type ToolCategory, type ToolId } from '../catalog/tools';
 import { assetUrl } from '../game/config';
 import type { GameBus, GamePhase } from '../game/events';
+import { photoFrameLayout } from '../photo/photoLayout';
+import { downloadPhoto } from '../photo/savePhoto';
 import type { Rotation } from '../town/types';
 import { TIME_MODES, type DayPhase, type TimeMode } from '../world/dayCycle';
 import { GLYPHS } from './glyphs';
 import { UI_TEST_IDS } from './testIds';
-import { digitAction } from './uiKeys';
+import { digitAction, isPhotoKey } from './uiKeys';
 
 export { UI_TEST_IDS };
 
-type ModalView = 'menu' | 'confirm' | 'help' | 'credits';
+type ModalView = 'menu' | 'confirm' | 'help' | 'credits' | 'photo';
 type UiSfx = 'ui-hover' | 'ui-click' | 'ui-open' | 'ui-close';
 
 const HINT_MAX_USES = 3;
@@ -38,6 +40,7 @@ export function touchHint(hint: string): string {
     .replace(/^Click/, 'Tap');
 }
 const INVALID_TOOLTIP_MS = 1500;
+const PHOTO_DEVELOPING = 'Developing…';
 /** Music note for the menu's Music row (WP-13; same 24×24, 2 px stroke style as GLYPHS). */
 const MUSIC_GLYPH =
   '<svg class="ui-glyph" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg>';
@@ -78,6 +81,8 @@ export class UiRoot {
   private pointerTouch = false;
   private hoverKey: string | null = null;
   private quietHoverKey: string | null = null;
+  /** The latest framed photo (WP-19) and the object URL the preview shows it through. */
+  private photo: { blob: Blob; fileName: string; url: string } | null = null;
 
   constructor(
     host: HTMLElement,
@@ -141,6 +146,9 @@ export class UiRoot {
         this.dayPhase = phase;
         this.renderTimeMode();
       }),
+      // WP-19: the photo preview fills in when the framed photo is ready.
+      bus.on('photo:ready', (photo) => this.showPhoto(photo)),
+      bus.on('photo:error', () => this.renderPhotoState('error', "The photo didn't come out. Close this and try again.")),
     );
     this.renderTray();
     this.renderAudio();
@@ -159,6 +167,7 @@ export class UiRoot {
     window.removeEventListener('resize', this.updateTrayCue);
     window.clearTimeout(this.hintTimer);
     window.clearTimeout(this.tooltipTimer);
+    if (this.photo) URL.revokeObjectURL(this.photo.url);
     for (const off of this.unsubscribers) off();
     this.root.innerHTML = '';
     delete this.root.dataset.phase;
@@ -198,6 +207,7 @@ export class UiRoot {
           <button id="${id.undo}" type="button" class="ui-icon-btn" disabled aria-label="Undo" title="Undo (Ctrl+Z)">${GLYPHS.undo}</button>
           <button id="${id.redo}" type="button" class="ui-icon-btn" disabled aria-label="Redo" title="Redo (Ctrl+Shift+Z)">${GLYPHS.redo}</button>
           <span class="ui-sep" aria-hidden="true"></span>
+          <button id="${id.photo}" type="button" class="ui-icon-btn" aria-label="Take a photo" aria-keyshortcuts="P" title="Take a photo (P)">${GLYPHS.photo}</button>
           <button id="${id.timeMode}" type="button" class="ui-icon-btn ui-time-btn" aria-keyshortcuts="T"></button>
           <button id="${id.mute}" type="button" class="ui-icon-btn" aria-label="Mute sound" aria-pressed="false"></button>
           <button id="${id.menu}" type="button" class="ui-icon-btn" aria-label="Menu" title="Menu (Esc)">${GLYPHS.menu}</button>
@@ -289,6 +299,7 @@ export class UiRoot {
                 <dt>Ctrl+Z · Ctrl+Shift+Z</dt><dd>Undo · redo</dd>
                 <dt>F · Home</dt><dd>Reset view</dd>
                 <dt>T</dt><dd>Time of day (auto · day · night)</dd>
+                <dt>P</dt><dd>Take a photo</dd>
                 <dt>Esc</dt><dd>Put the tool away · menu</dd>
                 <dt>?</dt><dd>This help</dd>
               </dl>
@@ -302,10 +313,24 @@ export class UiRoot {
                 <dt>Pinch</dt><dd>Zoom</dd>
                 <dt>No tool + drag</dt><dd>Move the camera</dd>
                 <dt>Sun · moon</dt><dd>Time of day</dd>
+                <dt>Camera</dt><dd>Take a photo</dd>
               </dl>
             </div>
           </div>
           <button type="button" class="ui-btn ui-btn-primary" id="${id.helpClose}" data-back>Got it</button>
+        </section>
+
+        <section class="ui-panel ui-photo-panel" id="${id.photoPanel}" data-view="photo" role="dialog" aria-modal="true" aria-labelledby="ui-photo-h">
+          <h2 id="ui-photo-h">Town photo</h2>
+          <figure class="ui-print" data-state="developing">
+            <span class="ui-print-tape" aria-hidden="true"></span>
+            <img id="${id.photoImage}" alt="A photo of your town in a Polaroid frame" hidden />
+          </figure>
+          <p class="ui-photo-status" aria-live="polite">${PHOTO_DEVELOPING}</p>
+          <div class="ui-photo-actions">
+            <button type="button" class="ui-btn ui-btn-primary" id="${id.photoDownload}" disabled>${GLYPHS.download}<span>Download</span></button>
+          </div>
+          <button type="button" class="ui-link" id="${id.photoClose}" data-back>Back to town</button>
         </section>
 
         <section class="ui-panel" id="${id.creditsPanel}" data-view="credits" role="dialog" aria-modal="true" aria-labelledby="ui-credits-h">
@@ -318,6 +343,8 @@ export class UiRoot {
           <button type="button" class="ui-btn" id="${id.creditsClose}" data-back>Back</button>
         </section>
       </div>
+
+      <div class="ui-flash" aria-hidden="true"></div>
 
       <section class="ui-screen ui-error" data-phase="error" aria-label="Error">
         <div class="ui-panel" role="alertdialog" aria-labelledby="ui-error-h">
@@ -344,6 +371,8 @@ export class UiRoot {
     else if (target.id === id.undo) this.bus.emit('intent:undo');
     else if (target.id === id.redo) this.bus.emit('intent:redo');
     else if (target.id === id.timeMode) this.bus.emit('intent:cycle-time-mode');
+    else if (target.id === id.photo) this.takePhoto();
+    else if (target.id === id.photoDownload) this.downloadPhoto();
     else if (target.id === id.mute) this.bus.emit('intent:set-muted', { muted: !this.muted });
     else if (target.id === id.menu) this.bus.emit('intent:open-menu');
     else if (target.id === id.rotate) this.bus.emit('intent:rotate', { direction: 1 });
@@ -416,6 +445,11 @@ export class UiRoot {
       return;
     }
     if (this.phase !== 'building' || event.repeat) return;
+    if (isPhotoKey(event)) {
+      event.preventDefault();
+      this.takePhoto();
+      return;
+    }
     const action = digitAction(event, this.category, this.activeTool);
     if (!action) return;
     event.preventDefault();
@@ -437,6 +471,20 @@ export class UiRoot {
     this.bus.emit('intent:select-tool', { toolId: toolId === this.activeTool ? null : toolId });
   }
 
+  /** Camera button / P: the game captures and enters the menu phase, which opens the photo view. */
+  private takePhoto(): void {
+    if (this.phase !== 'building') return;
+    this.pendingView = 'photo';
+    this.bus.emit('intent:take-photo');
+    this.pendingView = null;
+  }
+
+  private downloadPhoto(): void {
+    if (!this.photo) return;
+    downloadPhoto(this.photo.blob, this.photo.fileName);
+    this.renderPhotoState('ready', `Saved as ${this.photo.fileName}`);
+  }
+
   private confirmNewTown(): void {
     if (this.phase === 'title') {
       this.closeModal();
@@ -451,7 +499,8 @@ export class UiRoot {
   private back(): void {
     if (!this.modal) return;
     if (this.phase === 'menu') {
-      if (this.modal === 'menu') this.bus.emit('intent:close-menu');
+      // The photo view opens straight from the build view, so it closes straight back to it.
+      if (this.modal === 'menu' || this.modal === 'photo') this.bus.emit('intent:close-menu');
       else this.openModal('menu');
     } else this.closeModal();
   }
@@ -464,8 +513,9 @@ export class UiRoot {
     for (const panel of modal.querySelectorAll<HTMLElement>('[data-view]')) panel.hidden = panel.dataset.view !== view;
     this.setHudInert(true);
     if (!wasOpen) this.sfx('ui-open');
+    if (view === 'photo') this.startPhotoView();
     const panel = modal.querySelector<HTMLElement>(`[data-view="${view}"]`)!;
-    panel.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
+    panel.querySelector<HTMLElement>('button:not(:disabled)')?.focus({ preventScroll: true });
   }
 
   private closeModal(): void {
@@ -502,6 +552,45 @@ export class UiRoot {
     }
     if (phase !== 'building') this.hideTransient();
     else this.clearTooltip();
+  }
+
+  // ---------------------------------------------------------------- photo (WP-19)
+
+  /** Flash, then an empty print in the shape the photo will have while it develops. */
+  private startPhotoView(): void {
+    const flash = this.root.querySelector<HTMLElement>('.ui-flash')!;
+    flash.classList.remove('is-on');
+    void flash.offsetWidth; // restart the animation
+    flash.classList.add('is-on');
+    const layout = photoFrameLayout(window.innerWidth, window.innerHeight);
+    this.printFigure().style.setProperty('--print-ar', String(layout.width / layout.height));
+    const image = this.el<HTMLImageElement>(UI_TEST_IDS.photoImage);
+    image.hidden = true;
+    image.removeAttribute('src');
+    this.renderPhotoState('developing', PHOTO_DEVELOPING);
+  }
+
+  private showPhoto({ blob, width, height, fileName }: { blob: Blob; width: number; height: number; fileName: string }): void {
+    if (this.photo) URL.revokeObjectURL(this.photo.url);
+    this.photo = { blob, fileName, url: URL.createObjectURL(blob) };
+    const image = this.el<HTMLImageElement>(UI_TEST_IDS.photoImage);
+    image.width = width;
+    image.height = height;
+    image.src = this.photo.url;
+    image.hidden = false;
+    this.printFigure().style.setProperty('--print-ar', String(width / height));
+    this.renderPhotoState('ready', '');
+    if (this.modal === 'photo') this.button(UI_TEST_IDS.photoDownload).focus({ preventScroll: true });
+  }
+
+  private renderPhotoState(state: 'developing' | 'ready' | 'error', status: string): void {
+    this.printFigure().dataset.state = state;
+    this.root.querySelector('.ui-photo-status')!.textContent = status;
+    this.button(UI_TEST_IDS.photoDownload).disabled = state !== 'ready';
+  }
+
+  private printFigure(): HTMLElement {
+    return this.root.querySelector<HTMLElement>('.ui-print')!;
   }
 
   private renderTitle(): void {

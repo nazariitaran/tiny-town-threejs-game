@@ -17,6 +17,8 @@ import { CameraController } from '../interaction/CameraController';
 import { GridPicker } from '../interaction/GridPicker';
 import { ToolController } from '../interaction/ToolController';
 import { ModelLibrary } from '../render/ModelLibrary';
+import { captureView } from '../photo/capture';
+import { photoFileName } from '../photo/photoLayout';
 import { NightLights } from '../render/NightLights';
 import { TownRenderer } from '../render/TownRenderer';
 import { TownEditor } from '../town/TownEditor';
@@ -78,6 +80,8 @@ export class Game {
   private ready: Promise<void>;
   private frame = 0;
   private pausedForScreenshot = false;
+  /** Photos (WP-19): diagnostics only; the framed blob travels on `photo:ready`. */
+  private readonly photo: ThreeGameDiagnostics['photo'] = { taken: 0, developing: false, last: null };
   private reducedMotion = false;
   /** OS "reduce motion": the day cycle still runs, but mode switches snap instead of sweeping. */
   private readonly prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
@@ -136,6 +140,7 @@ export class Game {
       if (this.phase === 'menu') this.setPhase('building');
     });
     this.bus.on('intent:reset-camera', () => this.cameraController.reset());
+    this.bus.on('intent:take-photo', () => this.takePhoto());
     this.bus.on('intent:toggle-grid', ({ visible }) => {
       this.gridPreferred = visible;
       this.saves.setSettings({ grid: visible });
@@ -235,6 +240,41 @@ export class Game {
 
   private render(): void {
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /**
+   * Town photo (WP-19). Entering the menu phase (the UI shows the photo view, not the menu) hides
+   * the ghost, the hover frame and the grid and pauses the clock; then one higher-resolution frame
+   * is captured in this same task. Framing and JPEG encoding finish asynchronously; the framing
+   * code is loaded on the first photo (it keeps the main chunk under the 900 kB warning limit).
+   */
+  private takePhoto(): void {
+    if (this.phase !== 'building' || this.photo.developing) return;
+    const started = performance.now();
+    const phase = this.daySample.phase;
+    this.photo.taken += 1;
+    this.photo.developing = true;
+    this.setPhase('menu');
+    const fail = (error: unknown): void => {
+      console.error(error);
+      this.photo.developing = false;
+      this.bus.emit('photo:error', { message: error instanceof Error ? error.message : String(error) });
+    };
+    let shot: ReturnType<typeof captureView>;
+    try {
+      shot = captureView(this.renderer, this.scene, this.camera);
+    } catch (error) {
+      fail(error);
+      return;
+    }
+    const date = new Date();
+    import('../photo/PhotoFrame')
+      .then(({ framePhoto }) => framePhoto(shot.canvas, phase, date))
+      .then(({ blob, width, height }) => {
+        this.photo.developing = false;
+        this.photo.last = { width, height, bytes: blob.size, pixelRatio: shot.pixelRatio, ms: Math.round(performance.now() - started) };
+        this.bus.emit('photo:ready', { blob, width, height, fileName: photoFileName(date) });
+      }, fail);
   }
 
   /** `?debug&day=N`: an N-second Auto day (evidence captures); lil-gui `Clock` folder. Debug only. */
@@ -379,6 +419,7 @@ export class Game {
         lightsOn: this.daySample.lightsOn,
         ...this.nightLights.getDiagnostics(),
       },
+      photo: { ...this.photo },
       renderer: {
         calls: info.render.calls,
         triangles: info.render.triangles,

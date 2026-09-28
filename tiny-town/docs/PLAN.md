@@ -406,6 +406,32 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
   - E2E (desktop + mobile): saved on hide and on unload, and resumed on the next visit; end guard; a resumed track still loops to 0:00; garbage or another track starts from 0 without warnings.
   - Manual: Safari (macOS and iOS) resumes; the deploy host answers a range request with `206`; a human listens to the resume fade-in.
 
+### WP-19 — Town photo
+- **Status: merged** into `main` (owner-approved 2026-09-28 after two amendments: no Share button, no time-of-day word in the caption). Built on the branch `wp-19-photo` (port 5225; tests on 5226). As built: `docs/progress.md` "WP-19 as built".
+- **Why:** owner request (2026-09-28): a camera icon at the top right takes a photo of the town, frames it in something cute and downloads it.
+- **Owner decisions:**
+  - The photo is **what's on screen** (the player composes it with the camera), without the grid, ghost or UI.
+  - The frame is a cream **Polaroid** with "Tiny Town", the date and a sun or moon. **No homes/residents line**, and no time-of-day words (the icon says it; owner amendment after review).
+  - A **preview first** with Download and Back to town. The Share button that was built first was removed at the owner's request after review.
+  - No new sound asset; a real shutter sound would need an owner-supplied or approved CC0 asset.
+- **Design:** `03-architecture.md` §Town photo. In short: `intent:take-photo` → Game enters the menu phase (tools, ghost and grid off) → one frame at a raised pixel ratio (long edge 2400 px) copied from the game canvas in the same task → `PhotoFrame` draws the Polaroid → JPEG 0.92 → `photo:ready` → the photo view (flash, developing print, Download / Back to town).
+- **Files:**
+  - new: `src/photo/{photoLayout.ts (pure) + test, capture.ts, PhotoFrame.ts, savePhoto.ts}`, `tests/photo.spec.ts`;
+  - contract (integrator): `game/events.ts` (`intent:take-photo`, `photo:ready`, `photo:error`), `vite-env.d.ts` (diagnostics `photo`), `game/Game.ts`;
+  - UI: `UiRoot.ts`, `glyphs.ts` (photo, download, share), `testIds.ts`, `uiKeys.ts` (`isPhotoKey`) + test, `ui.css`;
+  - `tests/daynight.spec.ts` (top-bar order now includes the camera); regenerated top-bar baselines.
+- **Acceptance:**
+  - `npm run verify` green, with unit tests for the pixel ratio, frame layout, caption, file name and the `P` key.
+  - `tests/photo.spec.ts` (desktop + mobile):
+    - the real button gives a preview and a JPEG download named `tiny-town-YYYY-MM-DD-HHMM.jpg`, whose size matches diagnostics, with a long edge > 2400 px;
+    - photos with and without a hovered supermarket ghost are identical in the photo area, and a control shows the same measure sees the ghost on screen;
+    - `P` works; Ctrl/Cmd+P, P on the title, and P while the preview is open don't;
+    - Esc returns to building with the tool and camera unchanged;
+    - a night photo; no console errors.
+  - Full `npm run test:e2e` green; the top bar stays one row with ≥ 44 px targets at 360 and 390 px.
+  - Photos looked at by a person: day and night on desktop, and a Pixel 7 portrait photo (`artifacts/wp-19/`).
+  - Manual, not automatable here: what Download does on iOS Safari (Files) and Android Chrome; long-press "Save to Photos" on the iOS preview.
+
 ## 5. Checkpoints (integrator runs these on merged main)
 
 > Historical: M1, M2 and M3 all passed on 2026-09-26 (`docs/checkpoints/m1.md`–`m3.md`). Reuse the procedure for future checkpoints.
