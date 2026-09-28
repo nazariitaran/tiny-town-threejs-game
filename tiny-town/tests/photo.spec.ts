@@ -6,7 +6,7 @@
 import { mkdirSync, readFileSync } from 'node:fs';
 import { expect, test, type Download, type Page } from '@playwright/test';
 import { PHOTO_LONG_EDGE } from '../src/photo/photoLayout';
-import { applyState, byId, canvasPoint, diagnostics, gotoTitle, selectTool, trackErrors, UI_TEST_IDS } from './helpers';
+import { applyState, byId, canvasPoint, diagnostics, gotoTitle, selectTool, trackErrors, UI_TEST_IDS, waitFrames } from './helpers';
 
 const OUT = 'artifacts/wp-19';
 const FILE_NAME = /^tiny-town-\d{4}-\d{2}-\d{2}-\d{4}\.jpg$/;
@@ -68,6 +68,8 @@ async function waitForPrint(page: Page): Promise<void> {
   await expect(print(page)).toHaveAttribute('data-state', 'ready', { timeout: 15_000 });
   await expect(byId(page, UI_TEST_IDS.photoImage)).toBeVisible();
   await expect.poll(() => byId(page, UI_TEST_IDS.photoImage).evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+  // Diagnostics are republished each frame, so they can trail the photo:ready fact by one frame.
+  await expect.poll(async () => (await photo(page)).developing).toBe(false);
 }
 
 async function download(page: Page): Promise<Download> {
@@ -176,11 +178,13 @@ test.describe('town photo', () => {
     const errors = trackErrors(page);
     await gotoTitle(page);
     await page.keyboard.press('KeyP');
+    await waitFrames(page);
     expect((await photo(page)).taken, 'no photo from the title screen').toBe(0);
 
     await applyState(page, 'sample-town');
     await page.keyboard.press('Control+KeyP').catch(() => undefined);
     await page.keyboard.press('Meta+KeyP').catch(() => undefined);
+    await waitFrames(page);
     expect((await photo(page)).taken, 'modified P is not the photo key').toBe(0);
 
     await page.keyboard.press('KeyP');
@@ -188,6 +192,7 @@ test.describe('town photo', () => {
     expect((await photo(page)).taken).toBe(1);
     // P again while the preview is open does nothing (the build view is paused).
     await page.keyboard.press('KeyP');
+    await waitFrames(page);
     expect((await photo(page)).taken).toBe(1);
 
     await byId(page, UI_TEST_IDS.photoClose).click();
