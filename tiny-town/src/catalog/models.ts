@@ -49,10 +49,14 @@ export const MODELS = {
   // Roads: one tile = one aligned 2 × 2 cell road block (ROAD_TILE_SIZE = 1 world unit), lanes ≈ 0.37.
   'road-straight': M('/assets/models/roads/road-straight.glb', 1, 1),
   'road-corner': M('/assets/models/roads/road-bend-square.glb', 1, 1),
-  'road-tee': M('/assets/models/roads/road-intersection.glb', 1, 0),
-  // v0.3: the crossroad has zebra crossings on its four arms (road-crossroad-path, 276 tris; the
-  // plain crossroad was 116). Budget-checked on the mobile stress town.
-  'road-cross': M('/assets/models/roads/road-crossroad-path.glb', 1, 0),
+  // Junctions draw their centre lines meeting (the "-line" pieces; the plain road-intersection /
+  // road-crossroad left a blank patch in the middle). Zebras are the player's Zebra crossing tool.
+  'road-tee': M('/assets/models/roads/road-intersection-line.glb', 1, 0),
+  'road-cross': M('/assets/models/roads/road-crossroad-line.glb', 1, 0),
+  // Zebra crossing variants of a road block (ZEBRA_PIECE_MODELS): straight, tee (three arms), cross.
+  'road-crossing': M('/assets/models/roads/road-crossing.glb', 1, 1),
+  'road-tee-zebra': M('/assets/models/roads/road-intersection-path.glb', 1, 0),
+  'road-cross-zebra': M('/assets/models/roads/road-crossroad-path.glb', 1, 0),
   'road-end': M('/assets/models/roads/road-end-round.glb', 1, 3),
   'road-single': M('/assets/models/roads/road-square.glb', 1, 0),
   // WP-12: one pavement tile per 0.5 cell (TownRenderer doubles its height so the kerb stays 0.02).
@@ -153,6 +157,16 @@ export const ROAD_PIECE_MODELS: Readonly<Record<RoadPiece, ModelId>> = {
   cross: 'road-cross',
   end: 'road-end',
   single: 'road-single',
+};
+
+/**
+ * A road block under a Zebra crossing (ObjectDef.roadMarking) draws these instead of
+ * ROAD_PIECE_MODELS; other pieces (corner, end, single) have no zebra and draw plain.
+ */
+export const ZEBRA_PIECE_MODELS: Readonly<Partial<Record<RoadPiece, ModelId>>> = {
+  straight: 'road-crossing',
+  tee: 'road-tee-zebra',
+  cross: 'road-cross-zebra',
 };
 
 /** How non-road ground kinds are drawn: a model tile, or a procedural flat tile. */

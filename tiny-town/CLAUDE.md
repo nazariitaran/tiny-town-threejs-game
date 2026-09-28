@@ -4,11 +4,11 @@ A cosy browser city-builder sandbox (three.js + TypeScript + Vite). Start here. 
 
 ## Current state (v0.2 released; v0.3 = WP-15 + WP-16, complete on `main`, not yet released)
 - **v0.2**: v1 (checkpoint M3) plus WP-12, WP-13 and WP-14.
-  - WP-12: 48 × 48 grid of 0.5-unit cells, roads in 2 × 2 blocks, multi-cell houses, save v2 with migration.
+  - WP-12: 48 × 48 grid of 0.5-unit cells, roads in 2 × 2 blocks, multi-cell houses, save v2 with migration. (The plot is **64 × 64** cells since 2026-09-28; see `docs/design/03-architecture.md` §Grid.)
   - WP-13: streamed background music.
   - WP-14: stats pill removed; the top bar is one row.
 - **v0.3, part 1: WP-15 "New building blocks & categories"**, merged on `main` (`ea54bb5`).
-  - Five dock categories: Streets / Homes / Town / Nature / Garden (Shift+1–5); 33 placing tools plus Bulldoze.
+  - Five dock categories: Streets / Homes / Town / Nature / Garden (Shift+1–5); 33 placing tools plus Bulldoze (34 with the Zebra crossing, 2026-09-28: a road marking drawn by the road tile under it; see `03-architecture.md` §Grid).
   - New items, among them the roundabout (a block-aligned "road feature" object), traffic lights, more homes, town buildings and garden items.
   - Renamed ids (`oak`, `pine`, `birch`, `cottage`, `townhouse`, `family-home`, `fence-low`); tool icons are `public/assets/icons/tool-<id>.png`.
   - Save v3 with **no migrations** (now v4 after WP-17): older saves are rejected and the game starts a fresh town.
@@ -51,7 +51,7 @@ npm run build && npm run preview   # production build, served on PORT−1000 (de
 npm run inspect:canvas -- --state sample-town --run-id <id> --out artifacts/<id> [--mobile]   # needs a dev server; --mobile = 390×844
 npm run inspect:models # re-measure/verify the GLBs in public/assets/models (prints a report; add --three to load them via GLTFLoader)
 npm run gen:sfx        # regenerate src/audio/sfxTable.ts from docs/assets/audio.json
-node scripts/render-icons.mjs [--size 128]   # re-render the 33 tool icons (tool-<id>.png) from in-game models (needs a dev server on PORT)
+node scripts/render-icons.mjs [--size 128]   # re-render the 34 tool icons (tool-<id>.png) from in-game models (needs a dev server on PORT)
 node scripts/compose-models.mjs              # rebuild public/assets/models/composed/*.glb (needs assets-src/, incl. assets-src/polypizza/)
 ```
 - **`inspect:models` and `docs/assets/models.json`.** By default the script only prints; it doesn't touch `models.json`. **Never run it with `--json docs/assets/models.json`.** That flag writes the script's raw report, which has a different schema, and would clobber the hand-maintained manifest: ids, `suggestedScale`, `footprintCells` (hand-edited for WP-12 and v0.3), notes and icons. If a scale or footprint changes in `catalog/`, edit `models.json` and `models.md` by hand.

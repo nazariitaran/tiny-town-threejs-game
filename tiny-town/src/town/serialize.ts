@@ -10,11 +10,12 @@
  *    width/depth, and non-array ground/objects/edges;
  *  - migrates older versions through SAVE_MIGRATIONS (keyed on the version they upgrade FROM);
  *  - clamps to the plot size (cells/objects/edges outside it are dropped, a smaller save is
- *    padded with field), maps unknown ground kinds to field, and drops unknown object/fence
+ *    centred on the plot, shifted by a whole number of road blocks, and padded with field), maps unknown ground kinds to field, and drops unknown object/fence
  *    kinds, malformed entries, duplicate ids, overlapping objects, objects on ground they are
  *    not allowed on, duplicate edges and fences between two road cells;
  *  - demotes road cells of partial 2 × 2 road blocks to field (roads come in aligned blocks);
- *  - drops road features (roundabouts) that are not block-aligned or not standing on road;
+ *  - drops road features (roundabouts) and road markings (zebra crossings) that are not
+ *    block-aligned or not standing on road;
  *  - repairs nextObjectId (≥ highest id + 1) and drops a malformed camera pose.
  * The result is always loadable by TownEditor.load without throwing.
  */
@@ -36,7 +37,7 @@ export interface SerializableTown extends TownStateReader {
 
 const GROUND_KINDS: readonly GroundKind[] = ['field', 'grass', 'meadow', 'road', 'pavement', 'walkway'];
 const EDGE_KINDS: readonly EdgeKind[] = ['hedge', 'fence-low', 'fence-tall'];
-/** Guard against absurd dimensions in foreign data (the real plot is 48×48). */
+/** Guard against absurd dimensions in foreign data (the real plot is 64×64). */
 const MAX_SAVE_DIMENSION = 512;
 
 /**
@@ -169,9 +170,15 @@ function parseSaveUnsafe(input: unknown, options: ParseOptions): SavedTown | Err
   }
   while (saveGround.length < saveTotal) saveGround.push('field');
 
+  // A smaller save (e.g. a 48 × 48 town on the 64 × 64 plot) is centred, so it keeps its world
+  // position (the plot is centred on the origin) and its road blocks stay aligned.
+  const centreOffset = (plot: number, size: number): number =>
+    size < plot ? Math.floor((plot - size) / 2 / ROAD_BLOCK) * ROAD_BLOCK : 0;
+  const ox = centreOffset(plotW, width);
+  const oz = centreOffset(plotD, depth);
   const plotGround: GroundKind[] = new Array<GroundKind>(plotW * plotD).fill('field');
   for (let z = 0; z < Math.min(depth, plotD); z += 1) {
-    for (let x = 0; x < Math.min(width, plotW); x += 1) plotGround[z * plotW + x] = saveGround[z * width + x];
+    for (let x = 0; x < Math.min(width, plotW); x += 1) plotGround[(z + oz) * plotW + x + ox] = saveGround[z * width + x];
   }
   // Roads come in aligned 2 × 2 blocks: a partial block (hand-edited or clipped save) is demoted to field.
   for (let bz = 0; bz < plotD; bz += ROAD_BLOCK) {
@@ -198,10 +205,10 @@ function parseSaveUnsafe(input: unknown, options: ParseOptions): SavedTown | Err
   const ids = new Set<number>();
   const occupied = new Set<string>();
   for (const entry of raw.objects) {
-    const object = parseObject(entry);
+    const object = parseObject(entry, ox, oz);
     if (!object || ids.has(object.id)) continue;
     const def = OBJECTS[object.kind];
-    if (def.roadFeature && (object.anchor.x % ROAD_BLOCK !== 0 || object.anchor.z % ROAD_BLOCK !== 0)) continue;
+    if ((def.roadFeature || def.roadMarking) && (object.anchor.x % ROAD_BLOCK !== 0 || object.anchor.z % ROAD_BLOCK !== 0)) continue;
     const cells = footprintCells(object.anchor, def.footprint, object.rotation);
     // A road feature stands on road only; everything else on its allowed ground.
     const fits = cells.every((c) => {
@@ -221,7 +228,7 @@ function parseSaveUnsafe(input: unknown, options: ParseOptions): SavedTown | Err
   const edges: PlacedEdge[] = [];
   const edgeKeys = new Set<string>();
   for (const entry of raw.edges) {
-    const placed = parseEdge(entry);
+    const placed = parseEdge(entry, ox, oz);
     if (!placed || !edgeInBounds(placed.edge, plotW, plotD)) continue;
     const key = edgeKey(placed.edge);
     if (edgeKeys.has(key)) continue;
@@ -261,7 +268,7 @@ function encodeGround(cells: readonly GroundKind[]): Array<[GroundKind, number]>
   return out;
 }
 
-function parseObject(entry: unknown): PlacedObject | null {
+function parseObject(entry: unknown, ox: number, oz: number): PlacedObject | null {
   if (!isRecord(entry)) return null;
   const { id, kind, anchor, rotation, variant } = entry;
   if (!isInt(id) || id < 1) return null;
@@ -271,15 +278,15 @@ function parseObject(entry: unknown): PlacedObject | null {
   const def = OBJECTS[kind as ObjectKind];
   // An out-of-range variant (e.g. the catalog lost a model) falls back to the first one.
   const safeVariant = isInt(variant) && variant >= 0 && variant < def.variants ? variant : 0;
-  return { id, kind: kind as ObjectKind, anchor: { x: anchor.x, z: anchor.z }, rotation: rotation as Rotation, variant: safeVariant };
+  return { id, kind: kind as ObjectKind, anchor: { x: anchor.x + ox, z: anchor.z + oz }, rotation: rotation as Rotation, variant: safeVariant };
 }
 
-function parseEdge(entry: unknown): PlacedEdge | null {
+function parseEdge(entry: unknown, ox: number, oz: number): PlacedEdge | null {
   if (!isRecord(entry)) return null;
   const { kind, edge } = entry;
   if (typeof kind !== 'string' || !(EDGE_KINDS as readonly string[]).includes(kind)) return null;
   if (!isRecord(edge) || !isInt(edge.x) || !isInt(edge.z) || (edge.side !== 'n' && edge.side !== 'w')) return null;
-  return { kind: kind as EdgeKind, edge: { x: edge.x, z: edge.z, side: edge.side } };
+  return { kind: kind as EdgeKind, edge: { x: edge.x + ox, z: edge.z + oz, side: edge.side } };
 }
 
 function parseCamera(value: unknown): CameraPose | undefined {

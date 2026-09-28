@@ -421,6 +421,6 @@ Hero = the town's buildings as placed (silhouette, facing, pop-in). Obstacles = 
 | MP3 encoder padding (~25 ms) on very old browsers | Accept; documented in `audio.md` |
 | Fence-on-edge UX on touch (hard to target edges) | Done (WP-05): the bulldoze edge pick is 0.4 cell on coarse pointers vs 0.3 |
 | v0.2 half-unit cells are small on phones (~10.6 px at the default pose) | Documented: pinch-zoom for small props; framing side inset −260 (WP-12) |
-| Mobile stress-town triangle headroom is small: ~10.9k (239.1k / 250k, v0.3 working tree, dev server; v0.2 was ~6.5k) | Check triangles on mobile for any new content (`inspect:canvas --state stress-town --mobile`) |
+| Mobile stress-town triangle headroom: ~29k (291.3k / 320k on the 64 × 64 plot, dev server, 2026-09-28; the budget was 250k on 48 × 48) | Check triangles on mobile for any new content (`inspect:canvas --state stress-town --mobile`) |
 | Agents editing `Game.ts` concurrently | Forbidden; contract requests only |
-| Open: should the plot grow (expand land) later? | Out of scope for v1; `PLOT_WIDTH/DEPTH` constants keep it cheap to add |
+| Should the plot grow (expand land) later? | Done 2026-09-28: 64 × 64 cells (`PLOT_WIDTH/DEPTH`) |

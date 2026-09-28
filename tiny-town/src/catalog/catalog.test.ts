@@ -162,7 +162,7 @@ describe('catalog', () => {
 
   it('objects fit inside their footprint (× CELL_SIZE), including their authored offset', () => {
     for (const def of Object.values(OBJECTS)) {
-      if (def.roadFeature) continue; // flat road pieces: checked below
+      if (def.roadFeature || def.roadMarking) continue; // flat road pieces: checked below
       for (const id of def.models) {
         const size = drawn(id);
         const [ox, , oz] = MODELS[id].offset ?? [0, 0, 0];
@@ -177,7 +177,7 @@ describe('catalog', () => {
   it('WP-17 footprints: homes and town buildings grew one cell each way; everything else is unchanged', () => {
     const footprints = Object.fromEntries(Object.values(OBJECTS).map((def) => [def.kind, def.footprint]));
     expect(footprints).toEqual({
-      roundabout: [6, 6], 'traffic-light': [1, 1], lamppost: [1, 1], 'bus-stop': [2, 1], postbox: [1, 1],
+      roundabout: [6, 6], 'zebra-crossing': [2, 2], 'traffic-light': [1, 1], lamppost: [1, 1], 'bus-stop': [2, 1], postbox: [1, 1],
       cottage: [4, 4], townhouse: [3, 4], bungalow: [4, 4], 'family-home': [4, 4], 'garage-house': [4, 4], 'big-house': [5, 4],
       garage: [1, 2], 'corner-shop': [3, 3], supermarket: [5, 4], church: [3, 4], 'swimming-pool': [4, 3], fountain: [2, 2],
       oak: [1, 1], pine: [1, 1], birch: [1, 1], bush: [1, 1],

@@ -282,7 +282,7 @@ describe('row 4 — place-object: footprint in bounds, unoccupied, ground ∈ al
   it('valid: every kind on its allowed ground, at every rotation', () => {
     for (const kind of Object.keys(OBJECTS) as ObjectKind[]) {
       const def = OBJECTS[kind];
-      if (def.roadFeature) continue; // road features paint their footprint too: see 'road features'
+      if (def.roadFeature || def.roadMarking) continue; // road features paint their footprint too: see 'road features'; markings: 'road markings'
       for (const g of def.allowedGround) {
         for (const rotation of [0, 1, 2, 3] as const) {
           const state = makeState();
@@ -327,7 +327,7 @@ describe('row 4 — place-object: footprint in bounds, unoccupied, ground ∈ al
 
   it('invalid: road ground → blocked-by-road "{label} can\'t go on a road" for every kind but road features', () => {
     for (const kind of Object.keys(OBJECTS) as ObjectKind[]) {
-      if (OBJECTS[kind].roadFeature) continue;
+      if (OBJECTS[kind].roadFeature || OBJECTS[kind].roadMarking) continue;
       const state = makeState();
       ground(state, 'road', [2, 2], [2, 1]);
       const context = ctx();
@@ -435,6 +435,57 @@ describe('row 5b — place-object traffic-light: 4-adjacent to a road', () => {
 });
 
 // ---------------------------------------------------------------------------------------------
+describe('road markings — the zebra crossing (one 2 × 2 road block, block aligned, on existing road)', () => {
+  /** Road on whole blocks, given by their anchor cells. */
+  const roadBlocks = (state: TownState, ...anchors: Array<[number, number]>) => {
+    for (const [x, z] of anchors) ground(state, 'road', [x, z], [x + 1, z], [x, z + 1], [x + 1, z + 1]);
+  };
+
+  it('valid on a straight, a tee and a cross: just the object add (the road stays)', () => {
+    const layouts: Array<Array<[number, number]>> = [
+      [[0, 2], [2, 2], [4, 2]], // straight east–west
+      [[0, 2], [2, 2], [4, 2], [2, 4]], // tee
+      [[0, 2], [2, 2], [4, 2], [2, 0], [2, 4]], // cross
+    ];
+    for (const blocks of layouts) {
+      const state = makeState();
+      roadBlocks(state, ...blocks);
+      const context = ctx();
+      const changes = expectOk(plan(state, placeObj('zebra-crossing', 2, 2), context));
+      expect(changes).toEqual([{ layer: 'object', op: 'add', object: { id: 1001, kind: 'zebra-crossing', anchor: { x: 2, z: 2 }, rotation: 0, variant: 0 } }]);
+      expect([context.ids, context.draws]).toEqual([1, 0]);
+    }
+  });
+
+  it('invalid on a corner, a dead end or a lone block', () => {
+    const layouts: Array<Array<[number, number]>> = [[[2, 2], [4, 2], [2, 4]], [[2, 2], [4, 2]], [[2, 2]]];
+    for (const blocks of layouts) {
+      const state = makeState();
+      roadBlocks(state, ...blocks);
+      const context = ctx();
+      expectFail(plan(state, placeObj('zebra-crossing', 2, 2), context), 'needs-ground', RULE_MESSAGES.zebraNeedsStraight);
+      expect(context.ids + context.draws).toBe(0);
+    }
+  });
+
+  it('invalid off road ("needs road") and off the block grid', () => {
+    const state = makeState();
+    expectFail(plan(state, placeObj('zebra-crossing', 2, 2)), 'needs-ground', 'Zebra crossing needs road');
+    roadBlocks(state, [0, 2], [2, 2], [4, 2]);
+    expectFail(plan(state, placeObj('zebra-crossing', 3, 2)), 'out-of-bounds', 'Zebra crossing must line up with the road grid');
+  });
+
+  it('bulldozing it removes only the marking; its road cannot be repainted while it stands', () => {
+    const state = makeState();
+    roadBlocks(state, [0, 2], [2, 2], [4, 2]);
+    object(state, 'zebra-crossing', 2, 2);
+    const changes = expectOk(plan(state, bulldoze(3, 3)));
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({ layer: 'object', op: 'remove', object: { kind: 'zebra-crossing' } });
+    expectFail(plan(state, paint('pavement', 2, 2)), 'occupied', 'Move the Zebra crossing first');
+  });
+});
+
 describe('road features — the roundabout (6×6 cells = 3×3 road blocks, block aligned)', () => {
   const footprint = (x0: number, z0: number): string[] => {
     const keys: string[] = [];

@@ -30,7 +30,7 @@ describe('digit shortcuts', () => {
   });
 
   it('ignores digits beyond the category size', () => {
-    expect(digitAction(key('Digit8'), 'streets', null)).toBeNull();
+    expect(digitAction(key('Digit9'), 'streets', null)).toBeNull();
     expect(digitAction(key('Digit6'), 'town', null)).toBeNull();
     expect(digitAction(key('Digit9'), 'garden', null)).toBeNull();
   });

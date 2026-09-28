@@ -15,9 +15,14 @@
  *  - Road features (ObjectDef.roadFeature: the roundabout) are block-aligned objects that stand on
  *    road. Placing one = [fence removals…, ground → road…, object add]; bulldozing it =
  *    [ground → field…, object remove]. Its road can't be repainted while it stands.
+ *  - Road markings (ObjectDef.roadMarking: the zebra crossing) are block-aligned objects on one road
+ *    block that already is a straight or a junction. Placing / bulldozing one = just the object add /
+ *    remove (the road stays). Its road can't be repainted while it stands.
  */
 import { cellKey, edgeCells, edgeInBounds, edgeKey, edgeOfCellSide, footprintCells, NEIGHBOURS, ROAD_BLOCK, roadBlockCells } from './grid';
+import { ZEBRA_PIECE_MODELS } from '../catalog/models';
 import { objectDef, type ObjectDef } from '../catalog/objects';
+import { roadMask, roadTileFor } from '../render/roadTiles';
 import type { BuildAction, Cell, GroundKind, InvalidReason, PlanResult, TownChange, TownStateReader } from './types';
 
 export interface PlanContext {
@@ -44,6 +49,7 @@ export const RULE_MESSAGES = {
   fenceAcrossRoad: "Fences can't cross roads",
   busStopNeedsRoad: 'Bus stops need to be next to a road',
   trafficLightNeedsRoad: 'Traffic lights need to be next to a road',
+  zebraNeedsStraight: 'Zebra crossings go on a straight road or a junction',
   nothingHere: 'Nothing to remove',
   noChange: '',
 } as const;
@@ -59,7 +65,7 @@ function orList(items: readonly string[]): string {
 /** Human description of the ground an object may stand on ("grass, meadow or open field"). */
 export function allowedGroundText(def: ObjectDef): string {
   // Friendlier order: soft ground first, then paved, then the bare field.
-  const order: GroundKind[] = ['grass', 'meadow', 'pavement', 'walkway', 'field'];
+  const order: GroundKind[] = ['grass', 'meadow', 'pavement', 'walkway', 'field', 'road'];
   return orList(order.filter((kind) => def.allowedGround.includes(kind)).map((kind) => GROUND_LABELS[kind]));
 }
 
@@ -158,7 +164,7 @@ function planPlaceObject(state: TownStateReader, action: Extract<BuildAction, { 
   const cells = footprintCells(action.cell, def.footprint, action.rotation);
   // Check in severity order across the whole footprint, so the message names the real blocker.
   if (cells.some((cell) => !state.inBounds(cell))) return fail('out-of-bounds', RULE_MESSAGES.outOfBounds);
-  if (def.roadFeature && (action.cell.x % ROAD_BLOCK !== 0 || action.cell.z % ROAD_BLOCK !== 0)) {
+  if ((def.roadFeature || def.roadMarking) && (action.cell.x % ROAD_BLOCK !== 0 || action.cell.z % ROAD_BLOCK !== 0)) {
     // ToolController snaps the anchor to the block grid; this only guards scripted actions.
     return fail('out-of-bounds', `${def.label} must line up with the road grid`);
   }
@@ -168,6 +174,9 @@ function planPlaceObject(state: TownStateReader, action: Extract<BuildAction, { 
     if (def.allowedGround.includes(ground)) continue;
     if (ground === 'road') return fail('blocked-by-road', `${def.label} can't go on a road`);
     return fail('needs-ground', `${def.label} needs ${allowedGroundText(def)}`);
+  }
+  if (def.roadMarking && !ZEBRA_PIECE_MODELS[roadTileFor(roadMask(state, action.cell)).piece]) {
+    return fail('needs-ground', RULE_MESSAGES.zebraNeedsStraight);
   }
   if (def.requiresAdjacent) {
     const needed = def.requiresAdjacent;

@@ -51,6 +51,7 @@ const ROWS: readonly ToolRow[] = [
   { id: 'road', label: 'Road', category: 'streets', layer: 'ground', drag: 'paint', sfx: 'place-path', hint: 'Drag to lay road — it joins up automatically' },
   { id: 'pavement', label: 'Pavement', category: 'streets', layer: 'ground', drag: 'paint', sfx: 'place-path', hint: 'Drag to lay pavement alongside roads' },
   { id: 'roundabout', label: 'Roundabout', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-path', hint: 'Click to build a roundabout — roads join its four arms' },
+  { id: 'zebra-crossing', label: 'Zebra', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-path', hint: 'Click a straight road or a junction to paint a zebra crossing' },
   { id: 'traffic-light', label: 'Traffic light', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-prop-metal', hint: 'Place next to a road · R to rotate' },
   { id: 'lamppost', label: 'Lamppost', category: 'streets', layer: 'object', drag: 'scatter', sfx: 'place-prop-metal', hint: SCATTER },
   { id: 'bus-stop', label: 'Bus stop', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-building', hint: 'Place next to a road · R to rotate' },

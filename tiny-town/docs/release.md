@@ -67,7 +67,7 @@ Numbers are labelled with their version and source.
 | Metric | Budget (desktop / mobile) | v0.1 — WP-11, production preview, 2026-09-26 (desktop / Pixel 7 emu) | v0.2 — 2026-09-27 | **v0.3 — production preview, 2026-09-27** (desktop / Pixel 7 emu) |
 | --- | --- | --- | --- | --- |
 | Draw calls (stress-town) | 150 / 120 | 25 / 25 | 30 / 30 (WP-12 inspector, dev server) | Day 32 / 32; night (t 0.82) 35 / 34 |
-| Triangles (stress-town) | 400k / 250k | 232k / 195k | 311k / 243.5k (same run; mobile headroom ~6.5k) | Day 306.1k / 237.0k (mobile headroom ~13k); night 300.0k / 232.9k (3 cars instead of 6) |
+| Triangles (stress-town) | 400k / 320k (250k before the 64 × 64 plot) | 232k / 195k | 311k / 243.5k (same run; mobile headroom ~6.5k) | Day 306.1k / 237.0k (mobile headroom ~13k); night 300.0k / 232.9k (3 cars instead of 6) |
 | Draw calls / triangles (sample-town; night-town) | — | — | — | Day 56 / 56, 182.8k / 117.9k; night-town 60 / 59, 176.8k / 111.8k |
 | Textures | ≤ 30 | 11–14 / 10–13 | 11 / 10 (stress-town, same run) | Stress-town 14 / 13. Sample-town 28 / 27 (the composed models' own textures plus the 4 glow masks) |
 | Shadow map | 2048 / 1024 | 2048 (high tier) / 1024 (low tier) | unchanged | unchanged (quality high / low; mobile canvas 618×1372) |
@@ -75,6 +75,8 @@ Numbers are labelled with their version and source.
 | Frame time (stress-town, headless full Chromium, M2 Max, uncapped) | ≤ 8 ms | 1.36 ms mean (738 fps uncapped) / 1.41 ms | not re-measured | Day 1.38 ms mean (p95 2.7) / 1.39 ms. Night 1.37 / 1.38 ms. Sample-town 1.49 / 1.45 ms; night-town 1.50 / 1.47 ms |
 | Initial download before the title (network) | ≤ 8 MB | 3.14 MB over the network; 3.28 MB in `dist/` without maps | 3.29 MB in `dist/` without maps **and without the 4.68 MB music file**, which streams after Start. WP-13 measured on the dev server: 2.38 MB before Start with no music requests | **4.70 MB** over the network before the title (170 requests, 0.3–0.37 s to the title); 4.98 MB after Start with every dock category opened. The music streams after Start and is not counted. `dist/` without maps or music: 4.94 MB (models 3.59, JS/CSS/HTML 0.91, icons 0.26, fonts 0.14, SFX 0.05) |
 | Main JS chunk | code-split if > 900 kB | 830 kB (221 kB gzip) → no split | 843 kB (225 kB gzip) → no split | **887 kB** (240 kB gzip) → no split yet, but only 13 kB under the threshold |
+
+**64 × 64 plot (2026-09-28, dev server, full Chromium on the real GPU; mobile = Pixel 7 emulation, low tier).** Stress town: day 31 calls / 362.4k triangles desktop, 31 / 291.3k mobile; night (t 0.82) 34 / 356.5k and 33 / 289.3k. The town itself is ~236k (100 homes on the bigger plot). The mobile triangle budget was raised to 320k for the bigger plot (owner decision). Not yet re-measured on the production preview.
 
 **v0.3 release checks (production preview and a sub-path static host, 2026-09-27).**
 - **Network:** 0 failed requests, 0 console or page errors, and no request outside the base path. This holds both on `vite preview` and with `dist/` served from `/tiny-town/` by a plain static server.

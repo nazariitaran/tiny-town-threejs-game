@@ -139,7 +139,7 @@
     "id": "road-tee",
     "category": "streets",
     "tool": "road",
-    "file": "/assets/models/roads/road-intersection.glb",
+    "file": "/assets/models/roads/road-intersection-line.glb",
     "icon": "/assets/icons/tool-road.png",
     "source": "Kenney City Kit (Roads) 2.1 — https://kenney.nl/assets/city-kit-roads",
     "license": "CC0 1.0",
@@ -161,13 +161,47 @@
       2,
       2
     ],
-    "triangles": 84,
+    "triangles": 76,
     "materials": 1,
     "textures": [
       "Textures/colormap.png"
     ],
-    "fileBytes": 7900,
-    "notes": "T-junction."
+    "fileBytes": 7492,
+    "notes": "T-junction; centre lines meet (road-intersection-line, 2026-09-28). The plain road-intersection.glb (84 tris, blank centre) is shipped but unused. Zebras: road-tee-zebra via the Zebra crossing tool."
+  },
+  {
+    "id": "road-tee-zebra",
+    "category": "streets",
+    "tool": "zebra-crossing",
+    "file": "/assets/models/roads/road-intersection-path.glb",
+    "icon": "/assets/icons/tool-road.png",
+    "source": "Kenney City Kit (Roads) 2.1 — https://kenney.nl/assets/city-kit-roads",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1,
+      "y": 0.02,
+      "z": 1
+    },
+    "boundsMinNative": {
+      "x": -0.5,
+      "y": 0,
+      "z": -0.5
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a — connects -X,+X,+Z (closed -Z)",
+    "suggestedScale": 1,
+    "footprintCells": [
+      2,
+      2
+    ],
+    "triangles": 204,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 13736,
+    "notes": "Tee under a Zebra crossing: zebras on its three arms (ZEBRA_PIECE_MODELS.tee)."
   },
   {
     "id": "road-crossroad",
@@ -201,7 +235,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 10084,
-    "notes": "Plain crossroad. Unused since v0.3: the crossroad tile is road-cross (road-crossroad-path, zebra crossings)."
+    "notes": "Plain crossroad (blank centre). Unused: the crossroad tile is road-cross (road-crossroad-line)."
   },
   {
     "id": "road-end",
@@ -308,7 +342,7 @@
   {
     "id": "road-crossing",
     "category": "streets",
-    "tool": "extra",
+    "tool": "zebra-crossing",
     "file": "/assets/models/roads/road-crossing.glb",
     "icon": null,
     "source": "Kenney City Kit (Roads) 2.1 — https://kenney.nl/assets/city-kit-roads",
@@ -337,7 +371,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 8700,
-    "notes": "Zebra-crossing variant of road-straight (optional)."
+    "notes": "Zebra-crossing variant of road-straight: drawn for a straight road block under a Zebra crossing (ZEBRA_PIECE_MODELS.straight); also the tool ghost."
   },
   {
     "id": "road-driveway",
@@ -547,6 +581,40 @@
     "id": "road-cross",
     "category": "streets",
     "tool": "road",
+    "file": "/assets/models/roads/road-crossroad-line.glb",
+    "icon": "/assets/icons/tool-road.png",
+    "source": "Kenney City Kit (Roads) 2.1 — https://kenney.nl/assets/city-kit-roads",
+    "license": "CC0 1.0",
+    "author": "Kenney (www.kenney.nl)",
+    "boundsNative": {
+      "x": 1.0,
+      "y": 0.02,
+      "z": 1.0
+    },
+    "boundsMinNative": {
+      "x": -0.5,
+      "y": 0.0,
+      "z": -0.5
+    },
+    "pivot": "centre-bottom",
+    "front": "n/a — connects all four",
+    "suggestedScale": 1,
+    "footprintCells": [
+      2,
+      2
+    ],
+    "triangles": 108,
+    "materials": 1,
+    "textures": [
+      "Textures/colormap.png"
+    ],
+    "fileBytes": 9692,
+    "notes": "Crossroad; centre lines meet (road-crossroad-line, 2026-09-28; v0.3 drew road-crossroad-path with zebras on every crossroad). Zebras: road-cross-zebra via the Zebra crossing tool."
+  },
+  {
+    "id": "road-cross-zebra",
+    "category": "streets",
+    "tool": "zebra-crossing",
     "file": "/assets/models/roads/road-crossroad-path.glb",
     "icon": "/assets/icons/tool-road.png",
     "source": "Kenney City Kit (Roads) 2.1 — https://kenney.nl/assets/city-kit-roads",
@@ -575,7 +643,7 @@
       "Textures/colormap.png"
     ],
     "fileBytes": 18708,
-    "notes": "v0.3 crossroad tile: zebra crossings on all four arms (276 tris; the plain road-crossroad has 116). Budget-checked on the mobile stress town. Closes the \"crossroad tile markings\" backlog item."
+    "notes": "Crossroad under a Zebra crossing: zebras on all four arms (ZEBRA_PIECE_MODELS.cross). Was the default crossroad in v0.3."
   },
   {
     "id": "roundabout",

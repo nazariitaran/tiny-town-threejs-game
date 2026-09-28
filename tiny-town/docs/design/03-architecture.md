@@ -98,9 +98,10 @@ Rules of the road:
 `resizeRenderer` → `ToolController.update` → `CameraController.update` → `TownRenderer.update(animDelta)` → `LifeSystem.update(animDelta)` → `DayClock.advance(animDelta)` (building phase only) → `Game.applyDaylight()` (`Environment.applyDaylight`, `NightLights.update`, `LifeSystem.setNight`, `daytime:changed` on a mode/phase change) → `Environment.update(animDelta, animElapsed)` → `PlacementFx.update(animDelta)` → diagnostics → render. With `setReducedMotion(true)`, `animDelta`/`animElapsed` are 0. With `setPausedForScreenshot(true)`, nothing updates but rendering continues.
 
 ## Grid
-- Plot `48 × 48` cells (`PLOT_WIDTH/DEPTH`), `CELL_SIZE = 0.5` world units per cell (WP-12; v0.1 was 24 × 24 one-unit cells), centred on the origin, so the plot is still 24 × 24 world units. Toy scale: 1 world unit ≈ 8 m, a cell ≈ 4 m. Cell `{x, z}` centre = `cellToWorld`; a footprint's centre = `footprintCentreWorld`; `worldToGridPoint` gives fractional grid coordinates.
-- **Road blocks:** roads come in aligned `ROAD_BLOCK × ROAD_BLOCK` (2 × 2) cell blocks whose min corner is at even `x, z` (`grid.roadBlockAnchor` / `roadBlockCells`). A block is either all road or has no road. One Kenney road tile (`ROAD_TILE_SIZE` = 1 world unit) covers a block; auto-tiling (`roadTiles.roadMask`) reads the 4 neighbouring blocks (±2 cells) and the tile is drawn once per block at its centre (`roadBlockCentreWorld`). Ambient cars drive on the 24 × 24 block grid. `stats.roadTiles` counts road blocks (a roundabout counts its 9).
+- Plot `64 × 64` cells (`PLOT_WIDTH/DEPTH`), `CELL_SIZE = 0.5` world units per cell, centred on the origin, so the plot is 32 × 32 world units (2026-09-28; WP-12 had 48 × 48 cells = 24 × 24 units, v0.1 24 × 24 one-unit cells). World-space tunables were scaled with it: grid fade 30 → 75, title orbit 44, decor belt 60–120, night fog 13 / 225, framing side insets −42 desktop / −412 phone (same zoom as on 48 × 48, so the plot's side corners start just off-screen). Toy scale: 1 world unit ≈ 8 m, a cell ≈ 4 m. Cell `{x, z}` centre = `cellToWorld`; a footprint's centre = `footprintCentreWorld`; `worldToGridPoint` gives fractional grid coordinates.
+- **Road blocks:** roads come in aligned `ROAD_BLOCK × ROAD_BLOCK` (2 × 2) cell blocks whose min corner is at even `x, z` (`grid.roadBlockAnchor` / `roadBlockCells`). A block is either all road or has no road. One Kenney road tile (`ROAD_TILE_SIZE` = 1 world unit) covers a block; auto-tiling (`roadTiles.roadMask`) reads the 4 neighbouring blocks (±2 cells) and the tile is drawn once per block at its centre (`roadBlockCentreWorld`). Ambient cars drive on the 32 × 32 block grid. `stats.roadTiles` counts road blocks (a roundabout counts its 9).
 - **Road features (v0.3):** an object whose `ObjectDef.roadFeature` is set (only the roundabout) stands on road. Its anchor is block-aligned and its footprint is whole road blocks (the roundabout: 6 × 6 cells = 3 × 3 blocks). The renderer draws the feature's model instead of the road tiles under it (`roadTiles.underRoadFeature`). A neighbouring road block joins a feature only at the middle block of the feature's facing side, its **arm** (`roadTiles.isFeatureArm`), so a road running past a roundabout doesn't tee into its kerb. Inside a roundabout only the 4 arm blocks and the centre block carry traffic (the corners are kerb); cars cross the centre on a ring path round the island, counter-clockwise from above (right-hand traffic; `lanePaths.ringPath`, radius 0.5).
+- **Road markings (2026-09-28):** an object whose `ObjectDef.roadMarking` is set (only the zebra crossing) covers one road block (2 × 2 cells, block-aligned) that already is road and tiles as a straight, tee or cross (`rules`: "Zebra crossings go on a straight road or a junction"). It has no model of its own: the road tile under it draws its marked variant (`catalog/models.ts` `ZEBRA_PIECE_MODELS`: `road-crossing`, `road-tee-zebra`, `road-cross-zebra`); if the road around it later becomes a corner or end, the block draws plain. Placing / bulldozing it is just the object add / remove (the road stays); its road can't be repainted while it stands. Road connectivity and traffic ignore it. Junctions without a zebra draw their centre lines meeting (`road-intersection-line`, `road-crossroad-line`).
 - **Footprints** (`catalog/objects.ts`, cells at rotation 0):
   - roundabout 6×6;
   - cottage, bungalow, family home and suburban home 4×4; big house and supermarket 5×4; townhouse and church 3×4; corner shop 3×3 (WP-17: homes and town buildings grew one cell each way);
@@ -132,7 +133,7 @@ Only road features stand on road; every other object's `allowedGround` excludes 
 Variant choice (e.g. tree shape, house model, traffic-light style) uses the seeded RNG at placement time and is stored in `PlacedObject.variant`, so undo/redo/save reproduce it exactly.
 
 ## Save format
-`SavedTownV4` (= `SavedTown`) in `town/types.ts`: versioned, 48 × 48, RLE ground, objects, edges, next id, optional camera pose. `serialize.ts` validates unknown input (never trusts localStorage), demotes partial road blocks to field, drops road features that are not block-aligned or not standing on road, and round-trips (tested). Autosave: debounced 1 s after `town:changed` (never on cause `'load'`; off after any test-hook `setState`), key `tiny-town:save:v1` (a slot name; it did not change with the format). Code uses `SavedTown`.
+`SavedTownV4` (= `SavedTown`) in `town/types.ts`: versioned, 64 × 64 (width/depth are stored; a smaller save, e.g. a 48 × 48 town, is centred on the plot by a whole number of road blocks, so it keeps its world position), RLE ground, objects, edges, next id, optional camera pose. `serialize.ts` validates unknown input (never trusts localStorage), demotes partial road blocks to field, drops road features that are not block-aligned or not standing on road, and round-trips (tested). Autosave: debounced 1 s after `town:changed` (never on cause `'load'`; off after any test-hook `setState`), key `tiny-town:save:v1` (a slot name; it did not change with the format). Code uses `SavedTown`.
 
 **v4 (WP-17: bigger building footprints) has no migrations**, like v3: a v3 save would overlap under the new footprints, so it is rejected ("No migration from save version 3") and the game starts a fresh town. **v3 (v0.3) had no migrations either.** v0.3 renamed object and edge kinds (e.g. `tree-a` → `oak`, `townhouse-a` → `cottage`, `fence-small` → `fence-low`) and added road features. The owner asked for no backward compatibility, so `SAVE_MIGRATIONS` is empty: a v1 or v2 save is rejected ("No migration from save version 2"), `SaveStore.load()` returns null with `lastError` set, and the game starts a fresh town. The v1 → v2 migration, `migration.test.ts` and the `town/fixtures/v1-*.json` saves were deleted on purpose. The migration hook stays: to keep old saves loadable after a future change, add `SAVE_MIGRATIONS[4]`.
 
@@ -160,7 +161,7 @@ Plan and rationale: `docs/plans/wp-16-day-night.md`. The as-built deviations are
   - One DirectionalLight is both sun and moon; it swaps direction where its intensity is 0.
   - Hemisphere, fog colour and near/far, `environmentIntensity`, and sky uniforms (stars, moon, cloud shade, sun visibility) follow the sample.
   - The shadow camera is refit only after the key moves > 0.2°.
-  - The grid gets stronger at night.
+  - The grid gets stronger at night (`GRID_NIGHT.boost` 0.25), its lines blend from white to a dim moon blue (`GRID_NIGHT.color` `#7896c4`), and it takes the scene fog like the ground, so it reads as subtly at night as by day.
 - **Light sources** (`render/nightGlow.ts`): emissive masks on private material clones (`ModelSpec.glow`).
   - Masks are 16 × 4 swatch-cell `DataTexture`s on the Kenney atlases (window glass (11,1), lamp (8,2), lenses (9,1)/(11,3)/(15,3), car head (3,3) / tail (5,3)). Only homes glow: the supermarket, corner shop and church stay dark at night (WP-17, owner request).
   - Houses switch on one by one through a per-instance hash shader patch (`uLightsOn`/`uLightsOff`).
@@ -172,13 +173,14 @@ Plan and rationale: `docs/plans/wp-16-day-night.md`. The as-built deviations are
   - fireflies over open meadow cells: +1.
 - **Life:** `LifeSystem.setNight(n)` → `TrafficSim.setDensity(1 − 0.5·n)`, so there are fewer cars at night. Car Kit cars face native +Z (`FRONT_ROTATION` 0 since v0.3).
 
-## Budgets (full 48×48-cell town, desktop 1280×720; mobile 390×844)
-The `stress-town` state is the gate. "Measured" gives the latest number and says where it came from. v0.3 was re-measured on the production preview on 2026-09-27; `docs/release.md` §Budgets has the full table and method.
+## Budgets (full 64×64-cell town, desktop 1280×720; mobile 390×844)
+The `stress-town` state is the gate. "Measured" gives the latest number and says where it came from. v0.3 was re-measured on the production preview on 2026-09-27; `docs/release.md` §Budgets has the full table and method. The 64 × 64 plot (2026-09-28) was measured on the dev server with the WP-11 method's browser (full Chromium, real GPU; mobile = Pixel 7 emulation, which gets the low tier).
+The mobile triangle budget was raised from 250k to 320k with the 64 × 64 plot (owner decision, 2026-09-28): a full town holds 1.78× the area (100 homes instead of 64), with the same content per cell.
 
 | Metric | Budget desktop | Budget mobile | Measured (desktop / mobile) |
 | --- | --- | --- | --- |
-| Draw calls | ≤ 150 | ≤ 120 | Day 32 / 32; night (t 0.82) 35 / 34 (v0.3 production preview, 2026-09-27; `docs/release.md`); v0.2: 30 / 30 (WP-12 inspector) |
-| Triangles | ≤ 400k | ≤ 250k | Day 306.1k / 237.0k (v0.3 production preview; mobile headroom ~13k); night 300.0k / 232.9k (fewer cars); v0.2: 311k / 243.5k |
+| Draw calls | ≤ 150 | ≤ 120 | 64 × 64: day 31 / 31; night (t 0.82) 34 / 33 (dev server, 2026-09-28). v0.3 (48 × 48, production preview): day 32 / 32, night 35 / 34 |
+| Triangles | ≤ 400k | ≤ 320k (250k until the 64 × 64 plot) | 64 × 64: day 362.4k / 291.3k; night 356.5k / 289.3k (dev server, 2026-09-28; mobile headroom ~29k; the town itself is ~236k). v0.3 (48 × 48): day 306.1k / 237.0k |
 | Textures | ≤ 30 | ≤ 30 | Stress town 14 / 13, sample town 28 / 27 (v0.3 production preview; includes the 4 day/night glow masks) |
 | Shadow maps | 1 × 2048 | 1 × 1024 | as budgeted (`Environment.setQuality`: high 2048, low 1024) |
 | DPR cap | 2 | 1.5 | `MAX_DPR` in `config.ts` |
@@ -190,11 +192,11 @@ The `stress-town` state is the gate. "Measured" gives the latest number and says
 - `seed`;
 - `setState(name)` for `title | empty-build | sample-town | active-play | asset-gallery | stress-town | night-town` (`night-town` = the sample town at t = 0.82). Every state reseeds, rebuilds deterministically and turns autosave off until reload. Unknown names throw.
 - `setPausedForScreenshot`, `setReducedMotion`, `hideDebugUi`;
-- `cellToClient(x, z)`, which takes 48 × 48 cell coordinates so bots click real cells with real input;
+- `cellToClient(x, z)`, which takes 64 × 64 cell coordinates so bots click real cells with real input;
 - `setCameraPose(pose)` (v0.3): moves the camera to `{targetX, targetZ, azimuth, polar, distance}` at once and renders, for screenshots of one spot (e.g. the asset gallery).
 - `setTimeOfDay(t | null)` (v0.3, WP-16): pins the time of day (0..1) and applies the look at once, even while paused for a screenshot; `null` releases the pin. Every test state pins afternoon (0.55) except `night-town` (0.82).
 
-The `sample-town` state uses every placing tool (33) with zero rejections: stats homes 8, residents 25, amenities 5, trees 5, roadTiles 40, props 15, fences 27. `asset-gallery` places all 25 object kinds at rotation 0, every edge kind, the ground swatches and the 16 road masks.
+The `sample-town` state uses every placing tool (34) with zero rejections: stats homes 8, residents 25, amenities 5, trees 5, roadTiles 40, props 15, fences 27 (the zebra crossing is on the main street). `asset-gallery` places all 26 object kinds (the zebra on the north–south straight of mask 5) at rotation 0, every edge kind, the ground swatches and the 16 road masks.
 
 `window.__THREE_GAME_DIAGNOSTICS__` is typed in `src/vite-env.d.ts` and rebuilt every frame by `Game.publishDiagnostics`. Its fields:
 

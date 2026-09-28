@@ -319,15 +319,35 @@ describe('parseSave sanitises and clamps', () => {
     makeEditor().load(save); // loadable
   });
 
-  it('pads a smaller save with field', () => {
-    const save = ok(parseSave({ ...blank(10, 10), ground: [['meadow', 100]] }));
-    expect([save.width, save.depth]).toEqual([PLOT_WIDTH, PLOT_DEPTH]);
+  it('centres a smaller save on the plot (whole road blocks) and pads it with field', () => {
+    const save = ok(parseSave({ ...blank(10, 10), ground: [['meadow', 100]] }, { width: 20, depth: 20 }));
+    expect([save.width, save.depth]).toEqual([20, 20]);
     const ground = decodeGround(save);
-    expect(ground[0]).toBe('meadow');
-    expect(ground[9]).toBe('meadow');
-    expect(ground[10]).toBe('field');
-    expect(ground[PLOT_WIDTH * 9 + 9]).toBe('meadow');
-    expect(ground[PLOT_WIDTH * 10]).toBe('field');
+    const at = (x: number, z: number): string => ground[z * 20 + x];
+    // Offset floor(5 / 2) · 2 = 4 (not 5), so road blocks stay aligned: meadow covers 4..13.
+    expect(at(3, 3)).toBe('field');
+    expect(at(4, 4)).toBe('meadow');
+    expect(at(13, 13)).toBe('meadow');
+    expect(at(14, 13)).toBe('field');
+    expect(at(13, 14)).toBe('field');
+  });
+
+  it('shifts a 48 × 48 save by 8 cells onto the 64 × 64 plot (same world position)', () => {
+    const save = ok(
+      parseSave({
+        ...blank(48, 48),
+        ground: [['road', 2], ['field', 46], ['road', 2], ['field', 48 * 48 - 50]],
+        objects: [{ id: 1, kind: 'postbox', anchor: { x: 3, z: 5 }, rotation: 0, variant: 0 }],
+        edges: [{ kind: 'hedge', edge: { x: 10, z: 11, side: 'n' } }],
+        nextObjectId: 2,
+      }, { width: 64, depth: 64 }),
+    );
+    const ground = decodeGround(save);
+    expect(ground[8 * 64 + 8]).toBe('road');
+    expect(ground[9 * 64 + 9]).toBe('road');
+    expect(ground[0]).toBe('field');
+    expect(save.objects[0].anchor).toEqual({ x: 11, z: 13 });
+    expect(save.edges[0].edge).toEqual({ x: 18, z: 19, side: 'n' });
   });
 
   it('honours an explicit plot size option', () => {

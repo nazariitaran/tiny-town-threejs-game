@@ -19,12 +19,31 @@ export interface DemoTownResult {
   rejected: string[];
 }
 
-/** Collects actions, then applies them as one silent batch. */
-function demoBuilder(editor: TownEditor, describe: (item: BatchItem) => string) {
+/** The sample town and the asset gallery are laid out on this many cells (the v0.2 plot). */
+export const DEMO_LAYOUT_SIZE = 48;
+
+/**
+ * Cells the 48 × 48 demo layouts are shifted by so they sit centred on the plot (8 on the 64 × 64
+ * plot); a whole number of road blocks, so roads stay aligned.
+ */
+export function demoOffset(plotSize: number): number {
+  return Math.max(0, Math.floor((plotSize - DEMO_LAYOUT_SIZE) / 2 / ROAD_BLOCK) * ROAD_BLOCK);
+}
+
+function shiftAction(action: BuildAction, dx: number, dz: number): BuildAction {
+  if (dx === 0 && dz === 0) return action;
+  if (action.type === 'place-edge') return { ...action, edge: { ...action.edge, x: action.edge.x + dx, z: action.edge.z + dz } };
+  return { ...action, cell: { x: action.cell.x + dx, z: action.cell.z + dz } };
+}
+
+/** Collects actions, then applies them as one silent batch. `centred`: shift a 48 × 48 layout to the plot centre. */
+function demoBuilder(editor: TownEditor, describe: (item: BatchItem) => string, centred = false) {
   const items: BatchItem[] = [];
+  const dx = centred ? demoOffset(editor.state.width) : 0;
+  const dz = centred ? demoOffset(editor.state.depth) : 0;
   return {
     run: (toolId: ToolId, action: BuildAction): void => {
-      items.push({ toolId, action });
+      items.push({ toolId, action: shiftAction(action, dx, dz) });
     },
     commit: (): DemoTownResult => {
       const result = editor.applyBatch(items, { silent: true });
@@ -48,7 +67,8 @@ function roadRect(run: (toolId: ToolId, action: BuildAction) => void, x0: number
 }
 
 /**
- * The sample town (48 × 48 half-unit cells): a main street (rows 24–25) and a side street
+ * The sample town (laid out on 48 × 48 half-unit cells, shifted by demoOffset() to the centre of the
+ * 64 × 64 plot; the coordinates below are layout coordinates): a main street (rows 24–25) and a side street
  * (columns 22–23) meeting at a roundabout (cells 20–25 × 22–27), 1-cell pavements on rows 23 and 26
  * with street furniture. WP-17 (bigger lots: homes 4 × 4, townhouse 3 × 4, big house 5 × 4):
  *  - north of the main street, homes on rows 19–22 face south onto the pavement;
@@ -60,7 +80,7 @@ function roadRect(run: (toolId: ToolId, action: BuildAction) => void, x0: number
  * Uses every placing tool.
  */
 export function buildSampleTown(editor: TownEditor): DemoTownResult {
-  const { run, commit } = demoBuilder(editor, (item) => `${item.toolId}@${JSON.stringify(item.action)}`);
+  const { run, commit } = demoBuilder(editor, (item) => `${item.toolId}@${JSON.stringify(item.action)}`, true);
   const paint = (kind: 'pavement' | 'walkway' | 'grass' | 'meadow', x0: number, z0: number, x1: number, z1: number) => {
     for (let z = z0; z <= z1; z += 1) for (let x = x0; x <= x1; x += 1) run(kind, { type: 'paint-ground', kind, cell: { x, z } });
   };
@@ -87,6 +107,7 @@ export function buildSampleTown(editor: TownEditor): DemoTownResult {
   for (const x of [9, 14, 31, 37]) place('lamppost', x, 23);
   place('postbox', 36, 23);
   place('bus-stop', 16, 26, 2);
+  place('zebra-crossing', 12, 24); // across the main street, between the west lampposts
 
   // Nature and garden ground.
   paint('grass', 6, 13, 19, 22);
@@ -150,17 +171,19 @@ export const GALLERY_OBJECTS: ReadonlyArray<readonly [ObjectKind, number, number
   ['postbox', 19, 26], ['lamppost', 21, 26], ['oak', 23, 26], ['pine', 25, 26], ['birch', 27, 26],
   ['bush', 29, 26], ['bus-stop', 32, 28], ['traffic-light', 35, 28],
   ['townhouse', 37, 26], ['garage', 41, 26], ['corner-shop', 43, 26],
+  // The zebra crossing marks the road cluster of mask 5 (a north–south straight, galleryMaskBlock(5)).
+  ['zebra-crossing', 42, 2],
 ];
 
 /**
  * Every road connection mask (16) as isolated little clusters of road blocks (4-block spacing so arms
  * never touch), plus every object kind at rotation 0 (front should face the default camera, i.e. +z),
  * ground kinds and every edge kind, for visual verification of tiling/orientation/proportions.
- * Layout (cells, 48 × 48): mask centres at block coords (1 + 4c, 1 + 4r), mask = r * 6 + c;
+ * Layout (cells, 48 × 48, shifted by demoOffset() like the sample town): mask centres at block coords (1 + 4c, 1 + 4r), mask = r * 6 + c;
  * objects per GALLERY_OBJECTS on rows 22–29; ground swatches + edge runs on rows 42–43.
  */
 export function buildAssetGallery(editor: TownEditor): DemoTownResult {
-  const { run, commit } = demoBuilder(editor, (item) => item.toolId);
+  const { run, commit } = demoBuilder(editor, (item) => item.toolId, true);
   const road = (x: number, z: number) => run('road', { type: 'paint-ground', kind: 'road', cell: { x, z } });
   for (let mask = 0; mask < 16; mask += 1) {
     const { x: cx, z: cz } = galleryMaskBlock(mask);
@@ -186,7 +209,7 @@ export function buildAssetGallery(editor: TownEditor): DemoTownResult {
 
 /**
  * A dense, fully built plot for performance budgets. Deterministic. A 12 × 12 cell repeat (WP-17:
- * 4-deep lots): road rows at z 0/12/24/36 and road columns at x 0/12/24/36 (2 × 2 blocks), a pavement
+ * 4-deep lots): road rows at z 0/12/…/60 and road columns at x 0/12/…/60 (2 × 2 blocks), a pavement
  * row either side of each block of lots, and between them two rows of 4-deep lots facing opposite
  * ways. Each lot is 10 cells wide: the north-facing row holds a cottage, a suburban home, a garage and
  * trees; the south-facing row a townhouse, a tree column, a suburban home, a garage and trees (mostly
@@ -211,8 +234,9 @@ export function buildStressTown(editor: TownEditor): DemoTownResult {
     }
   }
   for (let z0 = 0; z0 + PERIOD_Z <= depth; z0 += PERIOD_Z) {
-    for (let x0 = ROAD_BLOCK; x0 < width; x0 += PERIOD_X) {
-      const x1 = Math.min(x0 + PERIOD_X - ROAD_BLOCK, width) - 1; // last lot column
+    // Whole lot blocks only (64 × 64: the last road column at x 60 leaves a 2-cell strip of field).
+    for (let x0 = ROAD_BLOCK; x0 + PERIOD_X - ROAD_BLOCK <= width; x0 += PERIOD_X) {
+      const x1 = x0 + PERIOD_X - ROAD_BLOCK - 1; // last lot column
       // Pavement below this road row, and above the next one.
       for (const z of [z0 + 2, z0 + PERIOD_Z - 1]) {
         for (let x = x0; x <= x1; x += 1) run('pavement', { type: 'paint-ground', kind: 'pavement', cell: { x, z } });

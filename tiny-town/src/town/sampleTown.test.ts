@@ -5,9 +5,12 @@ import { createGameBus } from '../game/events';
 import { roadMask } from '../render/roadTiles';
 import { createSeededRandom } from '../utils/random';
 import { OBJECT_KINDS } from '../catalog/objects';
-import { buildAssetGallery, buildSampleTown, buildStressTown, GALLERY_OBJECTS, galleryMaskBlock } from './sampleTown';
+import { buildAssetGallery, buildSampleTown, buildStressTown, demoOffset, GALLERY_OBJECTS, galleryMaskBlock } from './sampleTown';
 import { TownEditor } from './TownEditor';
 import { TownState } from './TownState';
+
+/** The 48 × 48 demo layouts sit centred on the plot. */
+const O = demoOffset(PLOT_WIDTH);
 
 const makeEditor = () => new TownEditor(new TownState(PLOT_WIDTH, PLOT_DEPTH), createGameBus(), createSeededRandom(1));
 
@@ -30,7 +33,7 @@ describe('demo towns', () => {
     buildSampleTown(editor);
     const used = new Set(spy.mock.calls.flatMap(([items]) => items.map((item) => item.toolId)));
     const placing = TOOLS.map((t) => t.id).filter((id) => id !== 'bulldoze');
-    expect(placing).toHaveLength(33);
+    expect(placing).toHaveLength(34);
     expect(placing.filter((id) => !used.has(id))).toEqual([]);
   });
 
@@ -53,10 +56,11 @@ describe('demo towns', () => {
     expect(buildAssetGallery(editor).rejected).toEqual([]);
     const kinds = new Set([...editor.state.objects()].map((o) => o.kind));
     expect(kinds).toEqual(new Set(OBJECT_KINDS));
-    expect(kinds.size).toBe(25);
+    expect(kinds.size).toBe(26);
     expect(GALLERY_OBJECTS).toHaveLength(OBJECT_KINDS.length);
     for (let mask = 0; mask < 16; mask += 1) {
-      const centre = galleryMaskBlock(mask);
+      const block = galleryMaskBlock(mask);
+      const centre = { x: block.x + O, z: block.z + O };
       expect(centre.x % 2 === 0 && centre.z % 2 === 0).toBe(true);
       expect(editor.state.getGround(centre)).toBe('road');
       // Any cell of the block reports the block's mask.
@@ -65,31 +69,32 @@ describe('demo towns', () => {
     }
   });
 
-  it('stress town fills the plot with zero rejections (64 homes on WP-17 lots, 32 garages)', () => {
+  it('stress town fills the plot with zero rejections (100 homes on WP-17 lots, 50 garages)', () => {
     const editor = makeEditor();
     const { rejected } = buildStressTown(editor);
     expect(rejected).toEqual([]);
     const objects = [...editor.state.objects()];
     const count = (kind: string) => objects.filter((o) => o.kind === kind).length;
-    expect(editor.state.stats().homes).toBe(64);
-    expect(count('garage')).toBe(32);
-    expect(count('garage-house')).toBe(32);
-    expect(count('cottage')).toBe(16);
-    expect(count('townhouse')).toBe(16);
+    // 64 × 64: 5 × 5 lot blocks (the leftover 4-cell strips east and south hold a road and field).
+    expect(editor.state.stats().homes).toBe(100);
+    expect(count('garage')).toBe(50);
+    expect(count('garage-house')).toBe(50);
+    expect(count('cottage')).toBe(25);
+    expect(count('townhouse')).toBe(25);
     expect(count('family-home')).toBe(0);
     // Nearly every cell is used: road, pavement, lawn or an object.
     let used = 0;
     for (let z = 0; z < PLOT_DEPTH; z += 1) for (let x = 0; x < PLOT_WIDTH; x += 1) if (editor.state.getGround({ x, z }) !== 'field' || editor.state.getObjectAt({ x, z })) used += 1;
-    expect(used).toBeGreaterThan(PLOT_WIDTH * PLOT_DEPTH * 0.95);
+    expect(used).toBeGreaterThan(PLOT_WIDTH * PLOT_DEPTH * 0.9);
   });
 
   it('sample town has a roundabout where the main and side streets meet', () => {
     const editor = makeEditor();
     buildSampleTown(editor);
     const roundabouts = [...editor.state.objects()].filter((o) => o.kind === 'roundabout');
-    expect(roundabouts.map((o) => o.anchor)).toEqual([{ x: 20, z: 22 }]);
+    expect(roundabouts.map((o) => o.anchor)).toEqual([{ x: 20 + O, z: 22 + O }]);
     // Streets arrive at all four arms (middle block of each side).
-    for (const cell of [{ x: 22, z: 20 }, { x: 26, z: 24 }, { x: 22, z: 28 }, { x: 18, z: 24 }]) expect(editor.state.getGround(cell)).toBe('road');
+    for (const [x, z] of [[22, 20], [26, 24], [22, 28], [18, 24]]) expect(editor.state.getGround({ x: x + O, z: z + O })).toBe('road');
   });
 
   it('every demo town keeps roads in whole aligned 2 × 2 blocks', () => {

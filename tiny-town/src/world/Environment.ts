@@ -60,8 +60,8 @@ const DAYLIGHT_TUNING = {
    * Fog pulled in at night (blended by `night`; the day values are LIGHTING's). The navy horizon
    * colour then washes over the plot a little, which is what turns green grass into "blue hour".
    */
-  nightFogNear: 10,
-  nightFogFar: 170,
+  nightFogNear: 13, // 10 / 170 on the 24-unit plot; scaled with the camera distance (64 × 64 plot)
+  nightFogFar: 225,
 };
 
 export class Environment {
@@ -294,6 +294,7 @@ export class Environment {
       this.daylightDirty = true;
     };
     folder.add(GRID_NIGHT, 'boost', 0, 2, 0.05).name('grid night boost').onChange(dirty);
+    folder.addColor(GRID_NIGHT, 'color').name('grid night colour').onChange(dirty);
     folder.add(DAY_TUNING, 'minKeyElevationDeg', 0, 40, 1).name('min key elevation°').onChange(dirty);
     folder.add(DAYLIGHT_TUNING, 'shadowRefitDeg', 0, 2, 0.05).name('shadow refit°');
     folder.add(DAYLIGHT_TUNING, 'nightFogNear', 0, 120, 1).name('night fog near').onChange(dirty);

@@ -19,7 +19,9 @@ import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
+import { PLOT_WIDTH } from '../src/game/config';
 import type { LifeDiagnostics } from '../src/life/LifeSystem';
+import { demoOffset } from '../src/town/sampleTown';
 import { applyState, attachJson, clickCell, diagnostics, gotoTitle, selectTool, trackErrors, waitFrames } from './helpers';
 
 const ARTIFACTS = resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/wp-10');
@@ -42,11 +44,14 @@ async function requireLife(page: Page): Promise<LifeDiagnostics> {
 /**
  * Car positions don't leave the published cells; the town's road cells come from the sample layout
  * (buildSampleTown: main street rows 24–25, x 4–43; side street columns 22–23, z 8–41; 2×2 road
- * blocks; a roundabout on cells 20–25 × 22–27 where they cross, all of it road).
+ * blocks; a roundabout on cells 20–25 × 22–27 where they cross, all of it road). Those are layout
+ * cells: the town sits shifted by O = demoOffset() (8 on the 64 × 64 plot).
  */
-const onSampleRoundabout = (x: number, z: number) => x >= 20 && x <= 25 && z >= 22 && z <= 27;
+const O = demoOffset(PLOT_WIDTH);
+const onSampleRoundabout = (x: number, z: number) => x - O >= 20 && x - O <= 25 && z - O >= 22 && z - O <= 27;
 function sampleTownRoad(x: number, z: number): boolean {
-  return ((z === 24 || z === 25) && x >= 4 && x <= 43) || ((x === 22 || x === 23) && z >= 8 && z <= 41) || onSampleRoundabout(x, z);
+  const [lx, lz] = [x - O, z - O];
+  return ((lz === 24 || lz === 25) && lx >= 4 && lx <= 43) || ((lx === 22 || lx === 23) && lz >= 8 && lz <= 41) || onSampleRoundabout(x, z);
 }
 /** Road blocks in the sample town (TownStats.roadTiles): 20 + 8 + 8 street blocks + 9 roundabout − 5 shared. */
 const SAMPLE_ROAD_TILES = 40;
@@ -77,7 +82,7 @@ test('cars drive the sample-town roads (10 s video)', async ({ browser }, testIn
   expect(start.target).toBe(6);
 
   // Zoom towards the crossroads with the real wheel so the cars read in the video.
-  const centre = await page.evaluate(() => window.__THREE_GAME_TEST_HOOKS__!.cellToClient(22, 24));
+  const centre = await page.evaluate(([x, z]) => window.__THREE_GAME_TEST_HOOKS__!.cellToClient(x, z), [22 + O, 24 + O] as const);
   await page.mouse.move(centre.x, centre.y);
   for (let i = 0; i < 12; i += 1) {
     await page.mouse.wheel(0, -300);
@@ -126,7 +131,7 @@ test('bulldozing the road under a car removes that car cleanly', async ({ page }
   // Pick the car nearest the middle of the view, well clear of the top bar and the dock, on a plain
   // road block (bulldozing a roundabout cell would remove the whole 3 × 3-block roundabout).
   expect((await diagnostics(page)).town.roadTiles).toBe(SAMPLE_ROAD_TILES);
-  const victim = [...frozen.carCells].filter((c) => !onSampleRoundabout(c.x, c.z)).sort((a, b) => Math.abs(a.x - 22) + Math.abs(a.z - 22) - (Math.abs(b.x - 22) + Math.abs(b.z - 22)))[0];
+  const victim = [...frozen.carCells].filter((c) => !onSampleRoundabout(c.x, c.z)).sort((a, b) => Math.abs(a.x - 22 - O) + Math.abs(a.z - 22 - O) - (Math.abs(b.x - 22 - O) + Math.abs(b.z - 22 - O)))[0];
   await selectTool(page, 'bulldoze');
   await clickCell(page, victim.x, victim.z);
   await expect.poll(async () => (await diagnostics(page)).town.roadTiles, { message: 'road tile bulldozed' }).toBe(SAMPLE_ROAD_TILES - 1);

@@ -1,6 +1,6 @@
 # Tiny Town — Interaction & UI Design
 
-> Status: current for v0.2 (48 × 48 grid, multi-cell footprints, music settings, one-row top bar), updated for v0.3: the WP-15 catalog (five dock categories, 33 tools, roundabouts) and the WP-16 day/night controls (time button, menu row, `T`). v0.3 is not yet released. Code references: `src/interaction/*` (WP-05), `src/ui/*` (WP-06), `src/catalog/tools.ts`.
+> Status: current for v0.2 (48 × 48 grid, 64 × 64 since 2026-09-28, multi-cell footprints, music settings, one-row top bar), updated for v0.3: the WP-15 catalog (five dock categories, 33 tools, roundabouts; 34 with the zebra crossing, 2026-09-28) and the WP-16 day/night controls (time button, menu row, `T`). v0.3 is not yet released. Code references: `src/interaction/*` (WP-05), `src/ui/*` (WP-06), `src/catalog/tools.ts`.
 
 ## 1. Camera
 
@@ -16,20 +16,21 @@ Isometric-feeling **perspective** camera (FOV ~35°) orbiting a target on the gr
 
 Constraints (tunable in `?debug`):
 - Polar angle clamped **30°–70°** from vertical (never flat-on-ground, never top-down-only).
-- Distance clamped **6 → 60** world units. WP-12 left these unchanged, because the plot is still 24 × 24 world units.
+- Distance clamped **6 → 60** world units (at least 1.2× the fitted home distance). The 64 × 64 plot (32 × 32 world units) keeps the old default zoom, so these didn't change.
 - Target clamped to the plot bounds + 2 cells margin; damping on (`enableDamping`, factor ~0.12).
 - Build start / reset pose: `defaultPoseFor(width, height)` (`framing.ts`), 45° yaw, 52° polar (58° in portrait).
   - It fits the plot's width inside side insets, with the plot centre between the top bar and the dock.
-  - Desktop 1280×720 gives `DEFAULT_POSE` (distance ≈ 35.8).
-  - Phones use a side inset of −260, so the plot is wider than the screen and a cell is about 10.6 px. Small props on touch need a pinch-zoom.
+  - Desktop 1280×720 gives `DEFAULT_POSE` (distance ≈ 35.8). Since the 64 × 64 plot the side inset is −42, so the plot is slightly wider than the screen (corners reachable by panning) and a cell stays about 12.5 px.
+  - Phones use a side inset of −412 (−260 on 48 × 48), so the plot is ~3× the screen width and a cell is about 10.6 px. Small props on touch need a pinch-zoom.
 - Title pose `TITLE_POSE`: 78° polar, a low hero angle that shows the horizon, sky and sun (the build polar range never can at FOV 35°), with a slow auto-orbit and input disabled. Portrait screens use `titlePoseFor`, which pulls the camera in so the diorama fills the width.
 
 ## 2. Pointer → grid
 
 - A single invisible ground plane (y = 0) is raycast on `pointermove`. The hit becomes fractional grid coordinates (`worldToGridPoint`), then:
-  - a **cell** (`{x, z}`, 48 × 48 half-unit cells);
+  - a **cell** (`{x, z}`, 64 × 64 half-unit cells);
   - for edge tools, the **nearest cell edge** (`{x, z, side: 'n' | 'w'}`);
   - for multi-cell objects, a footprint **anchor** from `grid.anchorForPointer`, so the footprint is centred on the pointer: odd sizes on the hovered cell, even sizes on the nearest cell corner, clamped into the plot.
+  - for the **zebra crossing** (a road marking, one 2 × 2 road block), the same call with `snap = ROAD_BLOCK`; its ghost shows the zebra variant of the road piece under it, turned like the road (R does nothing);
   - for the **roundabout** (a road feature), the same call with `snap = ROAD_BLOCK`, so the anchor stays on the road-block grid (even x, z) and the 6 × 6 footprint covers 3 × 3 whole road blocks.
 - Road tools and bulldozing a road work on the pointer's aligned 2 × 2 **road block**.
 - Raycast only on pointer move / camera change (not every frame when idle).
@@ -46,7 +47,7 @@ Constraints (tunable in `?debug`):
 | None (pointer) | Subtle cell highlight | Left-drag pans | — | — |
 
 - **Rotate**: `R` (clockwise) / `Shift+R` (counter-clockwise), or the on-screen Rotate button (`intent:rotate` direction 1 = clockwise). A rotation swaps the footprint's width and depth (e.g. a 2×3 townhouse covers 3×2 at rotation 1), and the ghost re-centres on the pointer. Rotation persists until changed. The ghost animates the turn (100 ms).
-- **Esc**: deselect the tool (back to pointer); with no tool, it opens the menu. Right-click never places.
+- **Esc**: deselect the tool (back to pointer); with no tool, it opens the menu. Right-click never places; a right click (no drag, under 5 px) also deselects the tool, while a right drag still pans the camera.
 - **Tool selection** (UI-owned, `src/ui/uiKeys.ts`): `1`–`9` pick the Nth tool of the **active** category, and pressing the active tool's digit again deselects it. `Shift+1`–`5` switch category (Streets / Homes / Town / Nature / Garden). Uses `event.code`, so layouts and Shift don't change the mapping. `B` = bulldoze, `?` = controls help, `T` = cycle the time of day (Auto → Day → Night; `ToolController`, building phase only).
 - **Undo/Redo**: `Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z` / `Ctrl+Y`. Every stroke is one history entry.
 - Placement feedback (same frame): pop-in scale tween (easeOutBack, ~220 ms), small dust puff, SFX by category. Removal: shrink-out (~150 ms) + poof + crunch SFX.
@@ -57,6 +58,7 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
 
 | Item | Footprint | Ground | Notes |
 | --- | --- | --- | --- |
+| Zebra crossing | 2 × 2 (one road block) | existing road: a straight, tee or crossroad | Snaps to the road-block grid. The tile under it draws zebras across a straight, or on every arm of a tee or crossroad. Bulldozing it leaves the road. Cars ignore it. |
 | Roundabout | 6 × 6 (3 × 3 road blocks) | any, even existing road | Snaps to the road-block grid. Placing it paints its footprint to road (fences across it go); bulldozing it turns the footprint back to field. Roads join it only at the middle of each side (its four arms). Cars go round the island counter-clockwise. |
 | Traffic light | 1 × 1 | field, grass, meadow, pavement, garden path | Must be next to a road ("Traffic lights need to be next to a road"). Two variants: pole and hanging arm. |
 | Bungalow / Suburban | 4 × 4 | field, grass, meadow | Homes (2 / 4 residents). |
@@ -90,7 +92,7 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
 
   | Tab (Shift+) | Holds | Tools, in tray order (digit 1–9) |
   | --- | --- | --- |
-  | Streets (1) | the road network and everything at the kerb | Road, Pavement, Roundabout, Traffic light, Lamppost, Bus stop, Postbox |
+  | Streets (1) | the road network and everything at the kerb | Road, Pavement, Roundabout, Zebra (Zebra crossing), Traffic light, Lamppost, Bus stop, Postbox |
   | Homes (2) | where people live, and their garages | Cottage, Townhouse, Bungalow, Family home, Suburban, Big house, Garage |
   | Town (3) | shops and civic places everyone shares | Fountain, Corner shop, Church, Supermarket, Pool |
   | Nature (4) | things that grow on their own | Grass, Wildflowers, Bush, Oak, Pine, Birch |

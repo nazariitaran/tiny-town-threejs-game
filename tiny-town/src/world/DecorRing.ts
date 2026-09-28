@@ -52,16 +52,17 @@ export const HEDGE_OFFSET = KERB_WIDTH + 1.9;
 /** Nothing may sit closer to the plot edge than this. */
 export const DECOR_CLEAR_MARGIN = 1.2;
 /**
- * Inner radius of the forest belt. The title camera orbits at ~33 units from the centre, so the
+ * Inner radius of the forest belt. The title camera orbits at ~43 units from the centre, so the
  * band between the hedgerow frame and the belt stays open meadow (no trees filling the lens).
+ * (46 / 105 on the 24-unit plot; scaled for the 32-unit, 64 × 64 plot.)
  */
-const BELT_INNER = 46;
+const BELT_INNER = 60;
 /**
  * Low tier draws this nearest-first share of each decor mesh (WP-12: 0.6 → 0.25, so a fully built
- * 48 × 48 plot stays inside the 250k mobile triangle budget; the hedgerow frame is nearest, so it stays).
+ * plot stays inside the mobile triangle budget, 320k on 64 × 64; the hedgerow frame is nearest, so it stays).
  */
 export const LOW_TIER_SHARE = 0.25;
-const BELT_OUTER = 105;
+const BELT_OUTER = 120;
 /** Build-camera vertical FOV (Game.ts creates PerspectiveCamera(35, …)). */
 const BUILD_FOV = 35;
 /** Screen band (CSS px from the top) that the top bar covers at the default pose. */

@@ -4,7 +4,7 @@ import type { GroundKind, TownChange } from '../town/types';
 import { createSeededRandom } from '../utils/random';
 import { DIR_X, DIR_Z, LANE_OFFSET, lanePath, manoeuvreKind, RING_RADIUS, ringPath, samplePath, type Dir } from './lanePaths';
 import { createGameBus } from '../game/events';
-import { buildSampleTown } from '../town/sampleTown';
+import { buildSampleTown, demoOffset } from '../town/sampleTown';
 import { TownEditor } from '../town/TownEditor';
 import { densityTarget, MAX_CARS, TrafficSim } from './TrafficSim';
 import { PLOT_DEPTH, PLOT_WIDTH, roadBlockCentreWorld, worldToCell } from '../game/config';
@@ -256,8 +256,9 @@ describe('traffic: roundabouts', () => {
     for (let i = 0; i < 6000; i += 1) {
       sim.step(1 / 30);
       for (const car of sim.cars) {
-        const rx = car.cx - 10;
-        const rz = car.cz - 11;
+        // The sample roundabout's min block (layout cell (20, 22), shifted to the plot centre).
+        const rx = car.cx - 10 - demoOffset(PLOT_WIDTH) / 2;
+        const rz = car.cz - 11 - demoOffset(PLOT_DEPTH) / 2;
         if (rx < 0 || rx > 2 || rz < 0 || rz > 2) continue;
         visited.add(`${rx},${rz}`);
         expect(rx === 1 || rz === 1, `car ${car.id} on corner block ${rx},${rz}`).toBe(true);

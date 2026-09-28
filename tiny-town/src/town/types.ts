@@ -26,6 +26,7 @@ export type GroundKind = 'field' | 'grass' | 'meadow' | 'road' | 'pavement' | 'w
 export type ObjectKind =
   // Streets
   | 'roundabout'
+  | 'zebra-crossing'
   | 'traffic-light'
   | 'lamppost'
   | 'bus-stop'
@@ -150,6 +151,7 @@ export interface TownStateReader {
  * would overlap; v3 saves are rejected ("No migration from save version 3") and the game starts fresh.
  * V3 (v0.3): the catalog re-organised (object/edge kinds renamed, roundabouts). Older saves are
  * rejected, so the game starts a fresh town; v0.3 dropped the v1/v2 migrations on purpose.
+ * The plot is now 64 × 64; parseSave centres a smaller (48 × 48) v4 save on it.
  * V2 (WP-12): 48 × 48 half-unit cells, roads in aligned 2 × 2 blocks, multi-cell houses.
  */
 export interface SavedTownV4 {

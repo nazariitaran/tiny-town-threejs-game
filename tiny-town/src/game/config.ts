@@ -5,9 +5,9 @@
 import { ROAD_BLOCK, rotatedFootprint } from '../town/grid';
 import type { Cell, Edge, Rotation } from '../town/types';
 
-/** Plot size in cells (WP-12: 48 × 48 half-unit cells; the plot stays 24 × 24 world units). */
-export const PLOT_WIDTH = 48;
-export const PLOT_DEPTH = 48;
+/** Plot size in cells: 64 × 64 half-unit cells = 32 × 32 world units (WP-12 had 48 × 48 = 24 × 24). */
+export const PLOT_WIDTH = 64;
+export const PLOT_DEPTH = 64;
 
 /**
  * World units per grid cell (WP-12: 0.5). Toy scale: 1 world unit ≈ 8 m, so a cell ≈ 4 m.

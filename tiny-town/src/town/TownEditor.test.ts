@@ -37,9 +37,10 @@ const road = (x: number, z: number): BuildAction => ({ type: 'paint-ground', kin
  */
 function fiftyCellStroke(editor: TownEditor): number {
   const cells: Cell[] = [];
-  for (let x = 0; x < PLOT_WIDTH; x += 2) cells.push({ x, z: 42 });
-  for (let x = PLOT_WIDTH - 2; x >= 0; x -= 2) cells.push({ x, z: 44 });
-  cells.push({ x: 0, z: 46 }, { x: 2, z: 46 });
+  // Three rows south of the (centred) sample town: 24 + 24 + 2 road blocks.
+  for (let x = 0; x < 48; x += 2) cells.push({ x, z: 58 });
+  for (let x = 46; x >= 0; x -= 2) cells.push({ x, z: 60 });
+  cells.push({ x: 0, z: 62 }, { x: 2, z: 62 });
   expect(cells).toHaveLength(50);
   editor.beginStroke();
   let applied = 0;

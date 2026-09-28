@@ -6,7 +6,9 @@
  * Sits just above the ground tiles (y = 0.02) with polygon offset, depthWrite off, so it never
  * z-fights and never hides models (they depth-test over it).
  *
- * WP-04 (World & look). WP-16a: stronger at night (GRID_NIGHT).
+ * WP-04 (World & look). WP-16a: stronger at night (GRID_NIGHT). At night the lines also turn a dim
+ * moonlit blue (white on the navy ground read as a harsh overlay) and take the scene fog like the
+ * ground does, so they sit in the scene as seamlessly as the white lines do on the day lawn.
  */
 import * as THREE from 'three';
 import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
@@ -21,15 +23,19 @@ export const GRID_MAX_OPACITY = 0.14;
 /**
  * Day/night (WP-16a): at night the lines are multiplied by (1 + nightBoost · night) so the grid
  * stays readable on the dark ground. The only case where the opacity may exceed GRID_MAX_OPACITY.
+ * `color` (display sRGB) is the line colour at full night, blended from white by `night`.
  */
-export const GRID_NIGHT = { boost: 0.6 };
+export const GRID_NIGHT = { boost: 0.25, color: '#7896c4' };
 
 const vertexShader = /* glsl */ `
+#include <fog_pars_vertex>
 varying vec3 vWorld;
 void main() {
   vec4 world = modelMatrix * vec4(position, 1.0);
   vWorld = world.xyz;
-  gl_Position = projectionMatrix * viewMatrix * world;
+  vec4 mvPosition = viewMatrix * world;
+  gl_Position = projectionMatrix * mvPosition;
+  #include <fog_vertex>
 }`;
 
 const fragmentShader = /* glsl */ `
@@ -41,6 +47,7 @@ uniform float uMajor;
 uniform float uMinorStrength;
 uniform vec2 uFade; // camera distance: full opacity until x, gone at y
 varying vec3 vWorld;
+#include <fog_pars_fragment>
 
 float gridLine(vec2 p, float widthPx) {
   vec2 w = fwidth(p);
@@ -66,6 +73,8 @@ void main() {
   a *= uOpacity;
   if (a < 0.002) discard;
   gl_FragColor = vec4(uColor, a);
+  #include <fog_fragment>
+  #include <colorspace_fragment>
 }`;
 
 export class GridOverlay {
@@ -73,6 +82,8 @@ export class GridOverlay {
   /** Day opacity (debug slider, clamped to GRID_MAX_OPACITY); the uniform adds the night boost. */
   private baseOpacity = GRID_MAX_OPACITY;
   private night = 0;
+  private readonly dayColor = new THREE.Color(1, 1, 1);
+  private readonly nightColor = new THREE.Color();
 
   constructor() {
     const w = PLOT_WIDTH * CELL_SIZE;
@@ -82,16 +93,19 @@ export class GridOverlay {
     const material = new THREE.ShaderMaterial({
       name: 'grid-overlay',
       uniforms: {
+        ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
         uColor: { value: new THREE.Color(1, 1, 1) },
         uOpacity: { value: GRID_MAX_OPACITY },
         uHalf: { value: new THREE.Vector2(w / 2, d / 2) },
         uCell: { value: CELL_SIZE },
         uMajor: { value: ROAD_BLOCK },
         uMinorStrength: { value: GRID_MINOR_STRENGTH },
-        uFade: { value: new THREE.Vector2(22, 56) },
+        // WP-04 tuned 22/56 for the 24-unit plot; scaled with the 32-unit (64 × 64) plot.
+        uFade: { value: new THREE.Vector2(30, 75) },
       },
       vertexShader,
       fragmentShader,
+      fog: true,
       transparent: true,
       depthWrite: false,
       polygonOffset: true,
@@ -114,9 +128,14 @@ export class GridOverlay {
     this.updateOpacity();
   }
 
-  /** 0 day .. 1 night: the lines get up to (1 + GRID_NIGHT.boost)× stronger. Exactly the day value at 0. */
+  /**
+   * 0 day .. 1 night: the lines get up to (1 + GRID_NIGHT.boost)× stronger and blend from white to
+   * GRID_NIGHT.color. Exactly the day look at 0.
+   */
   setNight(night: number): void {
     this.night = Math.min(1, Math.max(0, night));
+    this.nightColor.setStyle(GRID_NIGHT.color, THREE.SRGBColorSpace);
+    this.mesh.material.uniforms.uColor.value.copy(this.dayColor).lerp(this.nightColor, this.night);
     this.updateOpacity();
   }
 

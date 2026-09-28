@@ -30,7 +30,7 @@
  *    cream and 1.8× taller, the low fence dark wood; the lamppost is dark iron and stouter.
  */
 import * as THREE from 'three';
-import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS, type ModelId } from '../catalog/models';
+import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS, ZEBRA_PIECE_MODELS, type ModelId } from '../catalog/models';
 import { objectDef } from '../catalog/objects';
 import { CELL_SIZE, cellToWorld, edgeToWorld, ROAD_TILE_SIZE, roadBlockCentreWorld } from '../game/config';
 import type { DebugTools } from '../debug/DebugTools';
@@ -77,6 +77,9 @@ export const MODEL_STYLES: Readonly<Partial<Record<ModelId, ModelStyle>>> = {
   'road-cross': { warmAtlas: true },
   'road-end': { warmAtlas: true },
   'road-single': { warmAtlas: true },
+  'road-crossing': { warmAtlas: true },
+  'road-tee-zebra': { warmAtlas: true },
+  'road-cross-zebra': { warmAtlas: true },
   // WP-12: fences are 0.5 long (scale 0.5); Y restores a readable height: ≈ 1.65 m / 0.8 m at toy scale.
   'fence-tall': { color: '#f2eadb', scale: [1, 1.8, 1] },
   'fence-low': { color: '#9a6a42', scale: [1, 1.4, 1] },
@@ -141,6 +144,8 @@ export class TownRenderer {
   private readonly edgeLayer = new THREE.Group();
   private readonly groundByCell = new Map<string, Visual>();
   private readonly objectsById = new Map<number, Visual>();
+  /** Road markings (zebra crossings) on the town: no visual of their own, the road tile draws them. */
+  private readonly markingIds = new Set<number>();
   private readonly edgesByKey = new Map<string, Visual>();
   /** Visuals currently popping in or shrinking out (shrinking ones are in no map). */
   private readonly animating = new Set<Visual>();
@@ -197,6 +202,7 @@ export class TownRenderer {
       for (const visual of map.values()) this.freeVisual(visual);
       map.clear();
     }
+    this.markingIds.clear();
     for (let z = 0; z < this.town.depth; z += 1) for (let x = 0; x < this.town.width; x += 1) this.refreshGround({ x, z }, false);
     for (const object of this.town.objects()) this.addObject(object, false);
     for (const placed of this.town.edges()) this.addEdge(placed, false);
@@ -240,7 +246,7 @@ export class TownRenderer {
     let dying = 0;
     for (const visual of this.animating) if (visual.mode === 'out') dying += 1;
     return {
-      objects: this.objectsById.size,
+      objects: this.objectsById.size + this.markingIds.size,
       groundTiles: this.groundByCell.size,
       edges: this.edgesByKey.size,
       instances,
@@ -316,6 +322,7 @@ export class TownRenderer {
     for (const texture of this.ownedTextures) texture.dispose();
     this.groundByCell.clear();
     this.objectsById.clear();
+    this.markingIds.clear();
     this.edgesByKey.clear();
     this.animating.clear();
   }
@@ -420,6 +427,16 @@ export class TownRenderer {
   private describeGround(kind: Exclude<GroundKind, 'field'>, cell: Cell): { sig: string; rotation: number; pieces: PieceSpec[] } {
     if (kind === 'road') {
       const tile = roadTileFor(roadMask(this.town, cell));
+      // A zebra crossing on this block (straight / tee / cross) swaps in the marked piece.
+      const marking = this.town.getObjectAt(cell);
+      const zebra = marking && objectDef(marking.kind).roadMarking ? ZEBRA_PIECE_MODELS[tile.piece] : undefined;
+      if (zebra) {
+        return {
+          sig: `road:${tile.piece}:${tile.rotation}:zebra`,
+          rotation: tile.rotation,
+          pieces: [{ source: this.modelSource(zebra, false), local: new THREE.Matrix4() }],
+        };
+      }
       if (tile.piece === 'single') {
         // Isolated road: two round dead-end caps squashed to half a cell each, back to back, so a
         // lone tile matches the rounded ends of every other dead end (road-square looked like a slab).
@@ -492,6 +509,11 @@ export class TownRenderer {
   private addObject(placed: PlacedObject, animate: boolean): void {
     this.removeObject(placed.id, false);
     const def = objectDef(placed.kind);
+    if (def.roadMarking) {
+      // Drawn by the road tile under it (describeGround), re-tiled by the caller.
+      this.markingIds.add(placed.id);
+      return;
+    }
     const model = def.models[placed.variant % def.models.length];
     // Centre of the rotated footprint.
     const cells = footprintCells(placed.anchor, def.footprint, placed.rotation);
@@ -512,6 +534,7 @@ export class TownRenderer {
   }
 
   private removeObject(id: number, animate: boolean): void {
+    this.markingIds.delete(id);
     const visual = this.objectsById.get(id);
     if (!visual) return;
     this.objectsById.delete(id);

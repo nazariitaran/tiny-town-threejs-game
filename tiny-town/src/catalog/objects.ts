@@ -21,7 +21,7 @@ export interface ObjectDef {
    * Cells covered at rotation 0: [width along x, depth along z] (0.5-unit cells; a road block is 2 × 2).
    */
   footprint: readonly [number, number];
-  /** Ground kinds every footprint cell must have. Only road features may list 'road'. */
+  /** Ground kinds every footprint cell must have. Only road features and road markings may list 'road'. */
   allowedGround: readonly GroundKind[];
   /** Must at least one footprint cell be 4-adjacent to this ground kind? */
   requiresAdjacent?: GroundKind;
@@ -31,6 +31,12 @@ export interface ObjectDef {
    * Drawn instead of the road tiles below it; roads join it only at the middle of each side.
    */
   roadFeature?: boolean;
+  /**
+   * Road marking (zebra crossing): one block-aligned road block that must already be road (a straight
+   * or a junction). It has no model of its own: the road tile under it draws its marked variant
+   * (catalog ZEBRA_PIECE_MODELS). Bulldozing it leaves the road; roads and traffic ignore it.
+   */
+  roadMarking?: boolean;
   /** Residents counted in stats (>0 means it's a home). */
   residents: number;
   /** Visual variants; PlacedObject.variant indexes into this list. */
@@ -49,6 +55,8 @@ const def = (d: Omit<ObjectDef, 'variants'>): ObjectDef => ({ ...d, variants: d.
 export const OBJECTS: Readonly<Record<ObjectKind, ObjectDef>> = {
   // Streets
   roundabout: def({ kind: 'roundabout', label: 'Roundabout', group: 'road', footprint: [6, 6], allowedGround: ANY_GROUND, roadFeature: true, residents: 0, models: ['roundabout'] }),
+  // models[0] is only the ghost / icon look; the tile under it draws the real zebra per road piece.
+  'zebra-crossing': def({ kind: 'zebra-crossing', label: 'Zebra crossing', group: 'road', footprint: [2, 2], allowedGround: ['road'], roadMarking: true, residents: 0, models: ['road-crossing'] }),
   'traffic-light': def({ kind: 'traffic-light', label: 'Traffic light', group: 'street', footprint: [1, 1], allowedGround: PROP_GROUND, requiresAdjacent: 'road', residents: 0, models: ['traffic-light', 'traffic-light-hanging'] }),
   lamppost: def({ kind: 'lamppost', label: 'Lamppost', group: 'street', footprint: [1, 1], allowedGround: PROP_GROUND, residents: 0, models: ['lamppost'] }),
   'bus-stop': def({ kind: 'bus-stop', label: 'Bus stop', group: 'street', footprint: [2, 1], allowedGround: PROP_GROUND, requiresAdjacent: 'road', residents: 0, models: ['bus-stop'] }),

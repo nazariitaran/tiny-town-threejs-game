@@ -9,7 +9,7 @@
  *  Reset  reset() tweens back to DEFAULT_POSE (F / Home and the menu button emit intent:reset-camera)
  *  Title  setMode('title'): TITLE_POSE, slow auto-orbit, no input.
  *
- * Clamps: polar 30–70°, distance 6–60, target over the plot + 2 cells. Tunables live in
+ * Clamps: polar 30–70°, distance 6–60 (at least 1.2× the fitted home distance), target over the plot + 2 cells. Tunables live in
  * debug.folder('Camera') with ?debug.
  */
 import * as THREE from 'three';
@@ -22,8 +22,8 @@ import { easeInOutCubic, easeOutCubic, shortestAngle } from './strokeMath';
 
 const DEG = Math.PI / 180;
 /** defaultPoseFor(1280, 720) rounded (see DEFAULT_POSE). */
-const DESKTOP_TARGET = 1.827;
-const DESKTOP_DISTANCE = 35.808;
+const DESKTOP_TARGET = 1.829;
+const DESKTOP_DISTANCE = 35.843;
 
 export interface CameraPose {
   targetX: number;
@@ -87,7 +87,7 @@ export const TITLE_POSE: CameraPose = {
   targetZ: 2,
   azimuth: Math.PI / 4,
   polar: THREE.MathUtils.degToRad(78),
-  distance: 34,
+  distance: 44, // 34 on the 24-unit (48 × 48) plot; scaled with the 32-unit plot
 };
 
 export type CameraMode = 'title' | 'build';

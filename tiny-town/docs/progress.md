@@ -215,11 +215,14 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
   - Lights are emissive masks on the Kenney swatch atlases (window glass is one swatch in all 12 suburban houses and the supermarket), plus instanced additive lamp pools. No real point lights.
   - Every existing test state is pinned to afternoon, so the current baselines must not change.
   - Details: `docs/plans/wp-16-day-night.md`.
+- 2026-09-28 — **Plot 64 × 64 cells** (32 × 32 world units, `CELL_SIZE` still 0.5), owner request after WP-17's bigger buildings. The default camera keeps the v0.2 zoom (plot corners start just off-screen); world-space tunables (grid fade, title orbit, decor belt, night fog) scaled with the plot. A smaller (48 × 48) save loads centred on the plot, so no save version bump. The 48 × 48 sample town and asset gallery are shifted by `demoOffset()` (8 cells) to the centre. The mobile stress-town triangle budget went 250k → 320k (owner decision; the full town is 1.78× the area). Gates (working tree, 2026-09-28): `npm run verify` green (21 files, 399 unit tests, build OK); `npm run test:e2e` 108 tests, 91 passed + 14 skipped, the 3 `life.spec.ts` failures re-mapped (sample-town cells + `demoOffset`) and green on re-run; all 8 darwin visual baselines regenerated.
+- 2026-09-28 — **Junction centre lines and a Zebra crossing tool** (owner request). Tees and crossroads draw their centre lines meeting (`road-intersection-line`, `road-crossroad-line`); the plain tee left a blank patch, and v0.3's automatic crossroad zebras are gone. Zebras are a new Streets tool (34 placing tools; Streets 1–8): a block-aligned road marking (`ObjectDef.roadMarking`) on a straight, tee or cross; the road tile under it draws `road-crossing` / `road-intersection-path` / `road-crossroad-path`. Bulldozing it leaves the road; traffic ignores it. The sample town has one on the main street, the asset gallery one on mask 5.
+- 2026-09-28 — **Night grid colours**: the lines blend from white to a dim moon blue at night, the night boost is 0.25 (was 0.6), and the grid shader takes the scene fog and output colour conversion, so it sits in the night scene like it does on the day lawn.
 - 2026-09-27 (v0.3) — **Crossroad tile markings done**: the crossroad uses `road-crossroad-path` (zebra crossings), checked against the mobile triangle budget. Removed from the backlog.
 
 ## Open issues
 **Mobile budget**
-- Stress-town triangle headroom on mobile is only about 10.9k (239.1k of 250k, v0.3 working tree, dev server; v0.2 was 243.5k). Any new content with a large triangle count needs a budget check.
+- 64 × 64 plot: the stress town is 291.3k triangles on mobile (Pixel 7 emulation, dev server, 2026-09-28), headroom ~29k under the new 320k budget. Any new content with a large triangle count needs a budget check.
 
 **Touch precision**
 - At the default phone pose a cell is about 10.6 px, so small props need a pinch-zoom on touch.

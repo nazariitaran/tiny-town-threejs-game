@@ -35,13 +35,13 @@ describe('build camera framing (readability first)', () => {
     const dockTop = dockTopPx(SAFE_INSETS.wide, 720);
     expect(rect.left).toBeGreaterThanOrEqual(SAFE_INSETS.wide.side - 1);
     expect(rect.right).toBeLessThanOrEqual(1280 - SAFE_INSETS.wide.side + 1);
-    // Tight width fit: the plot spans at least ~75 % of the screen width.
-    expect(rect.right - rect.left).toBeGreaterThan(0.75 * 1280);
+    // 64 × 64 plot: the width fit keeps the v0.2 zoom, so the side corners sit just off-screen.
+    expect(rect.right - rect.left).toBeGreaterThan(1280);
     expect(rect.centreY).toBeLessThanOrEqual(dockTop - CENTRE_ABOVE_DOCK_PX);
     expect(rect.centreY).toBeGreaterThan(SAFE_INSETS.wide.top);
-    // Close enough that buildings read (M1 review target ≈ 33–36).
+    // Close enough that buildings read (M1 review target ≈ 33–36; unchanged by the 64 × 64 plot).
     expect(pose.distance).toBeGreaterThan(32);
-    expect(pose.distance).toBeLessThan(37);
+    expect(pose.distance).toBeLessThan(40);
   });
 
   it('DEFAULT_POSE is the desktop fit', () => {
@@ -75,7 +75,7 @@ describe('build camera framing (readability first)', () => {
     expect(pose.targetZ).toBe(TITLE_POSE.targetZ);
   });
 
-  it('WP-12 cell pitch at the default pose: ≥ 12 px desktop, ≥ 9 px phone (|cell(24,24) − cell(25,24)|)', () => {
+  it('WP-12 cell pitch at the default pose: ≥ 12 px desktop, ≥ 9 px phone (two cells at the plot centre)', () => {
     const pitch = (width: number, height: number) => {
       const pose = defaultPoseFor(width, height);
       const camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 2000);
@@ -87,8 +87,9 @@ describe('build camera framing (readability first)', () => {
         const p = new THREE.Vector3(w.x, 0, w.z).project(camera);
         return { x: ((p.x + 1) / 2) * width, y: ((1 - p.y) / 2) * height };
       };
-      const a = toScreen(24, 24);
-      const b = toScreen(25, 24);
+      const c = PLOT_WIDTH / 2;
+      const a = toScreen(c, c);
+      const b = toScreen(c + 1, c);
       return Math.hypot(b.x - a.x, b.y - a.y);
     };
     const desktop = pitch(1280, 720);

@@ -112,6 +112,7 @@ describe('fx recipes', () => {
       road: 'road', pavement: 'path', walkway: 'path', grass: 'lawn', meadow: 'meadow',
       // group road → road; street / garden → prop; home / outbuilding / amenity → building; tree / plant → tree.
       roundabout: 'road',
+      'zebra-crossing': 'road',
       'traffic-light': 'prop', lamppost: 'prop', postbox: 'prop', 'bus-stop': 'small-building',
       cottage: 'building', townhouse: 'building', bungalow: 'building', 'family-home': 'building',
       'garage-house': 'building', 'big-house': 'building', garage: 'building',

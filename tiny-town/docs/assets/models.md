@@ -23,7 +23,8 @@ Live scales and footprints are in the next section, "Grid and scale", and in `sr
 
 | Category | Tool | Model id(s) | Source file |
 | --- | --- | --- | --- |
-| Streets | Road | `road-straight`, `road-corner-square`, `road-tee`, `road-cross` (v0.3: zebra crossings), `road-end-round`, `road-single`; unused `road-corner` (curved), `road-corner-sidewalk`, `road-crossroad` (plain), `road-end`, `road-crossing`, `road-driveway` | `roads/*.glb` (City Kit Roads) |
+| Streets | Road | `road-straight`, `road-corner-square`, `road-tee` / `road-cross` (centre lines meet: `road-intersection-line` / `road-crossroad-line`), `road-end-round`, `road-single`; unused `road-corner` (curved), `road-corner-sidewalk`, `road-crossroad` / `road-intersection` (blank centre), `road-end`, `road-driveway` |
+| Streets | Zebra crossing | `road-crossing` (straight), `road-tee-zebra` (`road-intersection-path`), `road-cross-zebra` (`road-crossroad-path`): drawn by the road tile under the marking | `roads/*.glb` (City Kit Roads) | `roads/*.glb` (City Kit Roads) |
 | Streets | Pavement | `pavement-tile` | `roads/tile-low.glb` |
 | Streets | Roundabout | `roundabout`: 3 × 3 road tiles in one model | `roads/road-roundabout.glb` |
 | Streets | Traffic light | `traffic-light`, `traffic-light-hanging` (variants) | `roads/traffic-light*.glb` |
@@ -69,7 +70,7 @@ This section is **current**. It matches `src/catalog/models.ts` and `objects.ts`
 
 **WP-17:** every home, the corner shop, the supermarket and the church grew one cell in each direction, and their models scaled up to fill the bigger lot: the homes, supermarket and church by `HOME_SCALE` = 4/3 (the depth ratio 3 → 4), the corner shop by 1.4. The front-yard nudge grew with them (−0.15 → −0.2; type-n −0.04 → −0.05), so the yard keeps its share of the lot. The swing shrank to 0.87. Trees (≈ 0.88) now reach about 80 % of the cottage (1.11) instead of matching it. Drawn sizes below are from `catalog.test.ts` › proportions.
 
-**WP-12 (v0.2): `CELL_SIZE = 0.5` world units, a 48 × 48-cell plot, and one Kenney road tile (1 world unit, `ROAD_TILE_SIZE`) covers an aligned 2 × 2 road block.** Toy scale: 1 world unit ≈ 8 m, a cell ≈ 4 m. All road pieces are exactly 1 × 1 at scale 1, centred, with their top at y = 0.02. The scales below are the live values in `src/catalog/models.ts`; sizes are as drawn (including TownRenderer's `MODEL_STYLES` stretch). The v0.2 rows were measured by `catalog.test.ts` › proportions (it logs this table). The v0.3 rows are the `inspect:models` bounds × the catalog scale, at rotation 0.
+**WP-12 (v0.2): `CELL_SIZE = 0.5` world units, a 48 × 48-cell plot (64 × 64 since 2026-09-28; cell size unchanged), and one Kenney road tile (1 world unit, `ROAD_TILE_SIZE`) covers an aligned 2 × 2 road block.** Toy scale: 1 world unit ≈ 8 m, a cell ≈ 4 m. All road pieces are exactly 1 × 1 at scale 1, centred, with their top at y = 0.02. The scales below are the live values in `src/catalog/models.ts`; sizes are as drawn (including TownRenderer's `MODEL_STYLES` stretch). The v0.2 rows were measured by `catalog.test.ts` › proportions (it logs this table). The v0.3 rows are the `inspect:models` bounds × the catalog scale, at rotation 0.
 
 | Item | Footprint (cells) | Scale (v0.1) | Drawn size w × h × d | Why |
 | --- | --- | --- | --- | --- |
@@ -171,7 +172,7 @@ Rotating by q quarter turns counter-clockwise from above (`rotation.y = q·π/2`
 
 > **Integrator note (scaffold):** the game does not use the table above directly. `src/render/roadTiles.ts` maps each mask to a *canonical* piece orientation (straight N+S, corner E+S, tee E+S+W, end S), and each piece's `rotationOffset` in `src/catalog/models.ts` turns the native model onto it (straight 1, corner 1, tee 0, end 3). Both are unit-tested, and `asset-gallery` shows all 16 masks. The catalog uses `road-bend-square` for corners (it matches the square T and X pieces) and `road-end-round` for dead ends. `road-corner-sidewalk` is the alternative if curved corners read better in-game.
 >
-> **v0.3:** the crossroad draws `road-crossroad-path` (zebra crossings on all four arms, 276 triangles; the plain `road-crossroad`, 116, is shipped but unused). It was budget-checked on the mobile stress town. The **roundabout** is not a road piece: it is a road-feature object that draws its own 3 × 3-tile model over its road blocks, and a neighbouring road joins it only at the middle block of each side (`roadTiles.isFeatureArm`).
+> **Junctions and zebras (2026-09-28):** tees and crossroads draw `road-intersection-line` (76 triangles) / `road-crossroad-line` (108), whose centre lines meet; the plain `road-intersection` / `road-crossroad` left a blank patch in the middle. (v0.3 drew `road-crossroad-path` with zebras on every crossroad.) Zebras are the player's Zebra crossing tool: the road block under one draws `road-crossing` (straight, 104), `road-intersection-path` (tee, 204) or `road-crossroad-path` (cross, 276), each with the same rotation as the plain piece. The **roundabout** is not a road piece: it is a road-feature object that draws its own 3 × 3-tile model over its road blocks, and a neighbouring road joins it only at the middle block of each side (`roadTiles.isFeatureArm`).
 
 ## Loading notes (three.js r184)
 

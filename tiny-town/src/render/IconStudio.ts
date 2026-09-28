@@ -31,7 +31,7 @@ interface IconScene {
   frame?: THREE.Box3;
 }
 
-const C = 24; // centre cell (x and z); even, so it is also a road-block anchor
+const C = PLOT_WIDTH / 2; // centre cell (x and z); even, so it is also a road-block anchor
 const line = (kind: GroundKind): Array<[number, number, GroundKind]> => [
   [C - 1, C, kind],
   [C, C, kind],
@@ -61,6 +61,9 @@ function sceneForTool(toolId: string): IconScene | null {
   switch (toolId) {
     case 'road':
       return { ground: roadLine(), clipToCentre: true, roadBlock: true };
+    case 'zebra-crossing':
+      // The zebra is the middle block of a short straight road (the tile draws the marking).
+      return { ground: roadLine(), object: 'zebra-crossing', clipToCentre: true, roadBlock: true };
     case 'walkway':
       return { ground: line(toolId), clipToCentre: true };
     case 'pavement':

@@ -16,14 +16,14 @@
  * Every stroke is one undo entry. Only a deliberate click reports build:invalid (throttled to one
  * per 400 ms per reason); drags skip blocked cells silently.
  *
- * Input: mouse/pen left button = tool (right/middle/Alt+left = camera). Touch: one finger = tool
+ * Input: mouse/pen left button = tool (right/middle/Alt+left = camera; a right click without a drag deselects the tool). Touch: one finger = tool
  * (committed after 150 ms or 10 px so a second finger can still turn it into a camera gesture),
  * two fingers = camera. pointercancel, lostpointercapture, window blur and visibilitychange all end
  * strokes. Keys: B bulldoze · R / Shift+R rotate · Esc deselect (no tool → intent:open-menu) ·
  * F / Home reset camera · Ctrl/Cmd+Z undo · Shift+Ctrl/Cmd+Z / Ctrl+Y redo. Digits belong to WP-06.
  */
 import * as THREE from 'three';
-import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS } from '../catalog/models';
+import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS, ZEBRA_PIECE_MODELS } from '../catalog/models';
 import { objectDef } from '../catalog/objects';
 import { actionForTool, toolDef, type DragMode, type ToolId } from '../catalog/tools';
 import type { DebugTools } from '../debug/DebugTools';
@@ -77,6 +77,8 @@ export type HoverInfo = Cell & { valid: boolean; reason: string | null };
 /** Touch: a single finger becomes a tool stroke after this long / this far (px). */
 const TOUCH_COMMIT_MS = 150;
 const TOUCH_COMMIT_PX = 10;
+/** A right press that moves less than this before release is a click (deselect), not a camera pan. */
+const RIGHT_CLICK_SLOP_PX = 5;
 /** Bulldoze targets a fence when the pointer is within this many cells of it (touch: coarser). */
 const BULLDOZE_EDGE_RANGE = 0.3;
 const BULLDOZE_EDGE_RANGE_COARSE = 0.4;
@@ -111,6 +113,8 @@ interface HoverState {
 
 export class ToolController {
   private toolId: ToolId | null = null;
+  /** Right button press awaiting release: a click without a drag deselects the tool. */
+  private rightPress: { pointerId: number; clientX: number; clientY: number } | null = null;
   private rotation: Rotation = 0;
   private enabled = false;
   private stroke: Stroke | null = null;
@@ -276,7 +280,12 @@ export class ToolController {
         return;
       }
     }
-    // Right-click never builds; Alt+left orbits the camera.
+    // Right-click never builds; Alt+left orbits the camera. A right *click* (no drag) drops the tool like Escape;
+    // a right drag is still the camera pan, so the decision waits for pointerup.
+    if (event.button === 2 && event.pointerType !== 'touch') {
+      this.rightPress = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY };
+      return;
+    }
     if (event.button !== 0 || event.altKey || !this.toolId || this.stroke) return;
     this.trackPointer(event);
     if (event.pointerType === 'touch') {
@@ -306,6 +315,12 @@ export class ToolController {
 
   private readonly onPointerUp = (event: PointerEvent): void => {
     if (event.pointerType === 'touch') this.touchPointers.delete(event.pointerId);
+    const right = this.rightPress;
+    if (right && right.pointerId === event.pointerId && event.button === 2) {
+      this.rightPress = null;
+      const moved = Math.hypot(event.clientX - right.clientX, event.clientY - right.clientY);
+      if (this.enabled && this.toolId && moved < RIGHT_CLICK_SLOP_PX) this.selectTool(null);
+    }
     const pending = this.pendingTouch;
     if (pending && pending.pointerId === event.pointerId) {
       // A tap: place at the touch point.
@@ -329,6 +344,7 @@ export class ToolController {
   private readonly onPointerCancel = (event: PointerEvent): void => {
     this.touchPointers.delete(event.pointerId);
     if (this.pendingTouch?.pointerId === event.pointerId) this.pendingTouch = null;
+    if (this.rightPress?.pointerId === event.pointerId) this.rightPress = null;
     if (this.stroke?.pointerId === event.pointerId) this.finishStroke();
   };
 
@@ -516,12 +532,23 @@ export class ToolController {
     return result;
   }
 
+  /**
+   * A road marking's ghost: the marked variant of the road piece under it, turned like that tile (a
+   * zebra follows the road, so R does nothing). Off a straight or junction it shows the plain crossing.
+   */
+  private markingPart(anchor: Cell): GhostPart {
+    const state = this.editor.state;
+    if (!state.inBounds(anchor) || state.getGround(anchor) !== 'road') return { model: 'road-crossing' };
+    const tile = roadTileFor(roadMask(state, anchor));
+    return { model: ZEBRA_PIECE_MODELS[tile.piece] ?? 'road-crossing', quarterTurns: tile.rotation };
+  }
+
   /** Where the active tool acts for this pick: objects centre their footprint on the pointer. */
   private targetCell(pick: PickResult): Cell {
     if (!this.toolId || toolDef(this.toolId).layer !== 'object') return pick.cell;
     const def = objectDef(this.toolId as PlacedObject['kind']);
     const state = this.editor.state;
-    const snap = def.roadFeature ? ROAD_BLOCK : 1;
+    const snap = def.roadFeature || def.roadMarking ? ROAD_BLOCK : 1;
     return anchorForPointer(pick.grid.x, pick.grid.z, def.footprint, this.rotation, state.width, state.depth, { x: 0, z: 0 }, snap);
   }
 
@@ -633,12 +660,13 @@ export class ToolController {
     } else if (def.layer === 'object') {
       const objectDefinition = objectDef(toolId as PlacedObject['kind']);
       const centre = footprintCentreWorld(target, objectDefinition.footprint, this.rotation);
+      const marking = objectDefinition.roadMarking ? this.markingPart(target) : null;
       this.ghost.show({
         x: centre.x,
         z: centre.z,
-        quarterTurns: this.rotation,
+        quarterTurns: marking ? 0 : this.rotation,
         state: ghostState,
-        parts: [{ model: objectDefinition.models[0] }],
+        parts: [marking ?? { model: objectDefinition.models[0] }],
         tileScale: rotatedFootprint(objectDefinition.footprint, this.rotation),
       });
     } else if (edge) {
@@ -668,12 +696,13 @@ export class ToolController {
     if (object) {
       const def = objectDef(object.kind);
       const centre = footprintCentreWorld(object.anchor, def.footprint, object.rotation);
+      const marking = def.roadMarking ? this.markingPart(object.anchor) : null;
       this.ghost.show({
         x: centre.x,
         z: centre.z,
-        quarterTurns: object.rotation,
+        quarterTurns: marking ? 0 : object.rotation,
         state: 'remove',
-        parts: [{ model: def.models[object.variant % def.models.length] }],
+        parts: [marking ?? { model: def.models[object.variant % def.models.length] }],
         tileScale: rotatedFootprint(def.footprint, object.rotation),
         snap: true,
       });

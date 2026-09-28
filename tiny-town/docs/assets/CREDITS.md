@@ -8,7 +8,7 @@ Almost all 3D models in `public/assets/models/` are licensed **CC0 1.0 Universal
 
 | Pack | Author | URL | Models used |
 |---|---|---|---|
-| City Kit (Roads) 2.1 | Kenney (www.kenney.nl) | https://kenney.nl/assets/city-kit-roads | road-straight, road-bend, road-bend-sidewalk, road-bend-square, road-intersection, road-crossroad, road-crossroad-path, road-end, road-end-round, road-square, road-crossing, road-driveway-single, road-roundabout, tile-low, light-curved, traffic-light, traffic-light-hanging; road-sign-street (inside bus-stop) |
+| City Kit (Roads) 2.1 | Kenney (www.kenney.nl) | https://kenney.nl/assets/city-kit-roads | road-straight, road-bend, road-bend-sidewalk, road-bend-square, road-intersection, road-intersection-line, road-intersection-path, road-crossroad, road-crossroad-line, road-crossroad-path, road-end, road-end-round, road-square, road-crossing, road-driveway-single, road-roundabout, tile-low, light-curved, traffic-light, traffic-light-hanging; road-sign-street (inside bus-stop) |
 | City Kit (Suburban) 2.0 | Kenney | https://kenney.nl/assets/city-kit-suburban | building-type-a/-c/-d/-e/-i/-k/-m/-n/-o/-r/-s/-u, planter, path-long, path-short, path-stones-long, path-stones-short, tree-large, tree-small; fence (inside fence-tall); colour variation textures |
 | City Kit (Industrial) 2.0 | Kenney | https://kenney.nl/assets/city-kit-industrial | building-s; building-j (as composed/garage) |
 | City Kit (Commercial) 2.1 | Kenney | https://kenney.nl/assets/city-kit-commercial | building-e (supermarket); detail-overhang-wide (inside bus-stop); detail-parasol-a, detail-parasol-b (inside swimming-pool) |
@@ -42,7 +42,7 @@ The composed models (`public/assets/models/composed/`) are built by `scripts/com
 
 ### Icons
 
-The 33 tool icons in `public/assets/icons/tool-<id>.png` (128 px) were rendered in this project from the in-game models, using `scripts/render-icons.mjs` + `src/render/IconStudio.ts` (in-game models and materials). Icons of CC0 models are CC0. The Church, Swing and Barbecue icons are renders of the CC-BY models above and carry the same attribution. v0.3 deleted the old icons, including Kenney's 64 px preview renders of unused models.
+The 34 tool icons in `public/assets/icons/tool-<id>.png` (128 px) were rendered in this project from the in-game models, using `scripts/render-icons.mjs` + `src/render/IconStudio.ts` (in-game models and materials). Icons of CC0 models are CC0. The Church, Swing and Barbecue icons are renders of the CC-BY models above and carry the same attribution. v0.3 deleted the old icons, including Kenney's 64 px preview renders of unused models.
 
 ## Music
 
