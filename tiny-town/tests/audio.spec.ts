@@ -5,10 +5,12 @@
  *  - Mute persists across a reload (SETTINGS_STORAGE_KEY) and the mute button reflects it (aria-pressed).
  *  - Hiding the page suspends the context; showing it resumes.
  *  - A broken sound file produces exactly one console warning and the game keeps going.
+ * WP-13 music checks and WP-18 music resume (position saved on hide/unload, resumed on the next visit).
  */
 import { expect, test, type Page } from '@playwright/test';
 
 const SETTINGS_KEY = 'tiny-town:settings:v1';
+const MUSIC_POSITION_KEY = 'tiny-town:music:v1';
 
 type Diag = NonNullable<Window['__THREE_GAME_DIAGNOSTICS__']>;
 
@@ -43,7 +45,7 @@ const cellPoint = (page: Page, x: number, z: number) =>
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
-  await page.evaluate((key) => window.localStorage.removeItem(key), SETTINGS_KEY);
+  await page.evaluate((keys) => keys.forEach((key) => window.localStorage.removeItem(key)), [SETTINGS_KEY, MUSIC_POSITION_KEY]);
   await page.reload();
 });
 
@@ -174,7 +176,17 @@ test('a broken sound file is reported once and never throws', async ({ page }) =
 // ---- WP-13: background music -------------------------------------------------------------------
 
 const MUSIC_PATH = '/assets/music/foundation-of-gold.mp3';
-type MusicDiag = { enabled: boolean; volume: number; playing: boolean; loaded: boolean; requested: boolean; ducked: boolean; time: number; loops: number };
+type MusicDiag = {
+  enabled: boolean;
+  volume: number;
+  playing: boolean;
+  loaded: boolean;
+  requested: boolean;
+  ducked: boolean;
+  time: number;
+  loops: number;
+  resumedFrom: number | null;
+};
 /** audio.music is published by AudioManager.state (vite-env.d.ts type update requested in the WP-13 hand-off). */
 const music = async (page: Page): Promise<MusicDiag> => ((await diag(page)).audio as unknown as { music: MusicDiag }).music;
 
@@ -207,7 +219,7 @@ test('music is not requested before Start, then streams, plays and advances', as
   const m = await music(page);
   console.log('music diagnostics after Start:', JSON.stringify(m));
   expect(m.time).toBeGreaterThan(first + 0.5);
-  expect(m).toMatchObject({ enabled: true, volume: 0.5, playing: true, ducked: false });
+  expect(m).toMatchObject({ enabled: true, volume: 0.5, playing: true, ducked: false, resumedFrom: null });
   expect(log.audioWarnings()).toEqual([]);
   expect(log.errors).toEqual([]);
 });
@@ -280,4 +292,93 @@ test('master mute and a hidden page silence music; unmute/show resume it', async
   await expect.poll(async () => (await music(page)).playing).toBe(false);
   await setHidden(false);
   await expect.poll(async () => (await music(page)).playing).toBe(true);
+});
+
+// ---- WP-18: music resumes where it left off ----------------------------------------------------
+
+/** MusicPlayer.url, the track id in the stored position. */
+const MUSIC_TRACK = '/assets/music/foundation-of-gold.mp3';
+/** Track length in s (docs/assets/audio.md). */
+const MUSIC_DURATION_S = 585.05;
+
+const storedPosition = async (page: Page): Promise<{ track: string; time: number } | null> =>
+  JSON.parse((await page.evaluate((key) => window.localStorage.getItem(key), MUSIC_POSITION_KEY)) ?? 'null');
+
+const storePosition = (page: Page, value: string): Promise<void> =>
+  page.evaluate(([key, v]) => window.localStorage.setItem(key, v), [MUSIC_POSITION_KEY, value] as const);
+
+const setPageHidden = (page: Page, hidden: boolean) =>
+  page.evaluate((h) => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => h });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (h ? 'hidden' : 'visible') });
+    document.dispatchEvent(new Event('visibilitychange'));
+  }, hidden);
+
+test('music position is saved on hide and on unload, and the next visit resumes from it', async ({ page }) => {
+  const log = collectConsole(page);
+  await startGame(page);
+  await expect.poll(async () => (await music(page)).loaded, { timeout: 10_000 }).toBe(true);
+  await expect.poll(async () => (await music(page)).time, { timeout: 10_000 }).toBeGreaterThan(2);
+  expect(await storedPosition(page)).toBeNull(); // nothing saved yet (the periodic save is every 15 s)
+
+  await setPageHidden(page, true);
+  const onHide = await storedPosition(page);
+  expect(onHide).toMatchObject({ track: MUSIC_TRACK });
+  expect(onHide!.time).toBeGreaterThan(2);
+  await setPageHidden(page, false);
+  await expect.poll(async () => (await music(page)).playing, { timeout: 10_000 }).toBe(true);
+
+  await page.reload(); // pagehide saves again, a little later in the track
+  const onUnload = await storedPosition(page);
+  expect(onUnload!.time).toBeGreaterThanOrEqual(onHide!.time);
+
+  await startGame(page);
+  await expect.poll(async () => (await music(page)).resumedFrom, { timeout: 10_000 }).toBe(onUnload!.time);
+  await expect.poll(async () => (await music(page)).playing, { timeout: 10_000 }).toBe(true);
+  const m = await music(page);
+  console.log(`saved on hide ${onHide!.time.toFixed(2)} s, on unload ${onUnload!.time.toFixed(2)} s; resumed:`, JSON.stringify(m));
+  expect(m.time).toBeGreaterThanOrEqual(onUnload!.time);
+  expect(m.loops).toBe(0);
+  expect(log.audioWarnings()).toEqual([]);
+  expect(log.errors).toEqual([]);
+});
+
+test('a saved position inside the end guard starts the music from 0', async ({ page }) => {
+  await storePosition(page, JSON.stringify({ track: MUSIC_TRACK, time: MUSIC_DURATION_S - 2 }));
+  await page.reload();
+  await startGame(page);
+  await expect.poll(async () => (await music(page)).playing, { timeout: 10_000 }).toBe(true);
+  const m = await music(page);
+  expect(m.resumedFrom).toBeNull();
+  expect(m.time).toBeLessThan(3);
+});
+
+test('a resumed track still loops back to 0:00', async ({ page }) => {
+  test.setTimeout(60_000);
+  const from = MUSIC_DURATION_S - 8;
+  await storePosition(page, JSON.stringify({ track: MUSIC_TRACK, time: from }));
+  await page.reload();
+  await startGame(page);
+  await expect.poll(async () => (await music(page)).resumedFrom, { timeout: 10_000 }).toBe(from);
+  await expect.poll(async () => (await music(page)).loops, { timeout: 20_000 }).toBe(1);
+  const m = await music(page);
+  expect(m.time).toBeLessThan(5);
+  // the periodic save fires right after the wrap, so the next visit doesn't replay the end
+  await expect.poll(async () => (await storedPosition(page))?.time ?? Infinity, { timeout: 5_000 }).toBeLessThan(10);
+});
+
+test('garbage or another track in the stored position starts from 0 without warnings', async ({ page }) => {
+  const log = collectConsole(page);
+  for (const value of ['{not json', JSON.stringify({ track: '/assets/music/other.mp3', time: 120 })]) {
+    await page.reload(); // back to the title first: leaving a playing game saves a real position on pagehide
+    await storePosition(page, value);
+    await page.reload();
+    await startGame(page);
+    await expect.poll(async () => (await music(page)).playing, { timeout: 10_000 }).toBe(true);
+    const m = await music(page);
+    expect(m.resumedFrom).toBeNull();
+    expect(m.time).toBeLessThan(3);
+  }
+  expect(log.audioWarnings()).toEqual([]);
+  expect(log.errors).toEqual([]);
 });

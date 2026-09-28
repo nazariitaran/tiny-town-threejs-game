@@ -14,6 +14,8 @@
  * created in unlock() (the Start/Continue gesture), so nothing is fetched before Start. Music on/off and
  * music volume persist through the same SettingsPort (`music`, `musicVolume`); it is ducked while the
  * menu is open, paused while muted or hidden. See MusicPlayer.ts and docs/assets/audio.md.
+ * Music resume (WP-18): the position is saved through the same port (`get/setMusicPosition`, optional)
+ * when the page is hidden or unloaded (`pagehide`), and the next visit resumes from it.
  *
  * Settings come from the SettingsPort (Game passes WP-02's SaveStore). If none is given, the manager
  * runs on DEFAULT_SETTINGS and doesn't persist.
@@ -22,7 +24,7 @@ import { assetUrl } from '../game/config';
 import type { GameBus } from '../game/events';
 import type { SfxEvent } from './sfx';
 import { SFX_TABLE } from './sfxTable';
-import { MusicPlayer, type MusicState } from './MusicPlayer';
+import { MusicPlayer, type MusicPositionPort, type MusicState } from './MusicPlayer';
 import type { ToolId } from '../catalog/tools';
 import { toolDef } from '../catalog/tools';
 
@@ -42,7 +44,7 @@ export interface AudioSettings {
  * `setSettings(patch)`), so Game can pass its SaveStore instance straight in:
  * `new AudioManager(bus, fxRand, saves)`.
  */
-export interface SettingsPort {
+export interface SettingsPort extends Partial<MusicPositionPort> {
   getSettings(): Partial<AudioSettings>;
   setSettings(patch: Partial<AudioSettings>): unknown;
 }
@@ -95,7 +97,7 @@ export class AudioManager {
     const stored = { ...DEFAULT_SETTINGS, ...settings.getSettings() };
     this.muted = stored.muted;
     this.volume = stored.volume;
-    this.music = new MusicPlayer(stored.music, clamp01(stored.musicVolume, DEFAULT_SETTINGS.musicVolume));
+    this.music = new MusicPlayer(stored.music, clamp01(stored.musicVolume, DEFAULT_SETTINGS.musicVolume), undefined, settings);
 
     const on = bus.on.bind(bus);
     this.unsubscribers.push(
@@ -121,6 +123,7 @@ export class AudioManager {
       on('phase:changed', ({ phase }) => this.music.setDucked(phase === 'menu')),
     );
     document.addEventListener('visibilitychange', this.onVisibilityChange);
+    window.addEventListener('pagehide', this.onPageHide);
     // Game builds the UI after the AudioManager; announce the stored settings once it's listening.
     queueMicrotask(() => {
       if (this.unsubscribers.length > 0) this.announce();
@@ -226,6 +229,7 @@ export class AudioManager {
     for (const off of this.unsubscribers) off();
     this.unsubscribers.length = 0;
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
+    window.removeEventListener('pagehide', this.onPageHide);
     this.music.dispose();
     void this.context?.close().catch(() => undefined);
     this.context = null;
@@ -276,6 +280,8 @@ export class AudioManager {
     const ctx = this.context;
     if (!ctx || ctx.state === 'closed') return;
     if (document.hidden) {
+      // Tab close, app switch, minimise: remember where the music is (also while muted, i.e. paused).
+      this.music.savePosition();
       if (ctx.state === 'running') {
         this.suspendedForHidden = true;
         this.syncMusic();
@@ -287,6 +293,9 @@ export class AudioManager {
       void ctx.resume().catch((error: unknown) => console.warn('[audio] could not resume after the page became visible', error));
     }
   };
+
+  /** Backup for `visibilitychange` (bfcache, iOS). */
+  private readonly onPageHide = (): void => this.music.savePosition();
 
   private async loadAll(): Promise<void> {
     const ctx = this.context;

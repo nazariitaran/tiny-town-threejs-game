@@ -52,6 +52,7 @@ src/
   audio/AudioManager.ts       Web Audio SFX, master mute/volume           WP-07
   audio/MusicPlayer.ts        streamed background music (owned by         WP-13 (audio)
                               AudioManager)
+  audio/musicPosition.ts      music resume rules (pure; saved position)   WP-18
   audio/sfx.ts          [C]   SFX event ids                               integrator
   audio/sfxTable.ts           GENERATED from docs/assets/audio.json       integrator (npm run gen:sfx)
   vite-env.d.ts         [C]   diagnostics + test-hook types               integrator
@@ -139,6 +140,8 @@ Variant choice (e.g. tree shape, house model, traffic-light style) uses the seed
 
 Settings (`muted`, `volume`, `grid`, `music`, `musicVolume`; defaults false / 0.8 / true / true / 0.5) under `tiny-town:settings:v1`; older settings without the music fields load with the defaults.
 
+Music position (WP-18) `{ track, time }` under `tiny-town:music:v1` (`MUSIC_POSITION_STORAGE_KEY`), through `SaveStore.getMusicPosition()` / `setMusicPosition()`. Deleting the town save keeps it. Rules: `docs/assets/audio.md` §Background music.
+
 ## Rendering strategy
 - `ModelLibrary` loads each GLB once and normalises it (scale, facing, base on y=0, footprint-centred).
 - `TownRenderer` draws with **`InstancedMesh` pools keyed by (model, part)**; capacity grows by doubling. Ground `field` is not drawn per cell (the plot plane is). Pop-in/out tweens write per-instance matrices.
@@ -211,7 +214,7 @@ The `sample-town` state uses every placing tool (34) with zero rejections: stats
 | `invalidCount` | |
 | `camera` | pose |
 | `quality` | |
-| `audio` | `muted` / `volume` / `unlocked` / `loaded` / `starts`, plus `music`: `{enabled, volume, playing, loaded, requested, ducked, time, loops}` |
+| `audio` | `muted` / `volume` / `unlocked` / `loaded` / `starts`, plus `music`: `{enabled, volume, playing, loaded, requested, ducked, time, loops, resumedFrom}` |
 | `save` | `{available, pending, lastError}` |
 | `fx` | `FxDiagnostics`: active, drawCalls, spawned, dropped, reducedMotion, windTime, windStrength |
 | `life` | `LifeDiagnostics`: loaded, cars, target, drivableCells, spawned, despawned, waiting, drawCalls, … |

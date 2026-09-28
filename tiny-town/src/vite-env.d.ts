@@ -25,7 +25,7 @@ interface ThreeGameDiagnostics {
     loaded: number;
     starts: number;
     /** Background music (WP-13): streamed, starts after Start. */
-    music: { enabled: boolean; volume: number; playing: boolean; loaded: boolean; requested: boolean; ducked: boolean; time: number; loops: number };
+    music: { enabled: boolean; volume: number; playing: boolean; loaded: boolean; requested: boolean; ducked: boolean; time: number; loops: number; resumedFrom: number | null };
   };
   /** Autosave state (SaveStore). pending = a debounced write is waiting. */
   save: { available: boolean; pending: boolean; lastError: string | null };
