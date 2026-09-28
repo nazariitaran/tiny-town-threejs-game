@@ -24,7 +24,7 @@
  */
 import * as THREE from 'three';
 import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS, ZEBRA_PIECE_MODELS } from '../catalog/models';
-import { objectDef } from '../catalog/objects';
+import { heightScale, objectDef } from '../catalog/objects';
 import { actionForTool, toolDef, type DragMode, type ToolId } from '../catalog/tools';
 import type { DebugTools } from '../debug/DebugTools';
 import {
@@ -666,7 +666,7 @@ export class ToolController {
         z: centre.z,
         quarterTurns: marking ? 0 : this.rotation,
         state: ghostState,
-        parts: [marking ?? { model: objectDefinition.models[0] }],
+        parts: [marking ?? { model: objectDefinition.models[0], scaleY: heightScale(objectDefinition) }],
         tileScale: rotatedFootprint(objectDefinition.footprint, this.rotation),
       });
     } else if (edge) {
@@ -702,7 +702,7 @@ export class ToolController {
         z: centre.z,
         quarterTurns: marking ? 0 : object.rotation,
         state: 'remove',
-        parts: [marking ?? { model: def.models[object.variant % def.models.length] }],
+        parts: [marking ?? { model: def.models[object.variant % def.models.length], scaleY: heightScale(def) }],
         tileScale: rotatedFootprint(def.footprint, object.rotation),
         snap: true,
       });

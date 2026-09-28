@@ -49,7 +49,7 @@ Grid: 64 × 64 cells of 0.5 world units (48 × 48 in v0.2, WP-12; 64 × 64 since
 | Homes | Cottage 4×4, Townhouse 3×4, Bungalow 4×4, Family home 4×4, Suburban 4×4, Big house 5×4, Garage 1×2 | object (multi-cell footprint) | click; R rotates the footprint |
 | Town | Fountain 2×2, Corner shop 3×3, Church 3×4, Supermarket 5×4, Pool 4×3 | object (multi-cell footprint) | click; R rotates the footprint |
 | Nature | Grass, Wildflowers (meadow) | ground | click-drag paint |
-| Nature | Bush, Oak, Pine, Birch | object 1×1 | click, drag scatters |
+| Nature | Bush, Pine, Birch (1×1); Oak (2×2, the big tree) | object | click, drag scatters |
 | Garden | Garden path (walkway) | ground | click-drag paint |
 | Garden | Hedge, Low fence, Tall fence | **edge** (sits on cell borders) | click-drag along edges |
 | Garden | Planter, Bench, Barbecue 1×1, Swing 2×1 | object | click; Planter also drag-scatters |

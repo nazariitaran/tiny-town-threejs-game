@@ -106,9 +106,9 @@ Rules of the road:
 - **Footprints** (`catalog/objects.ts`, cells at rotation 0):
   - roundabout 6×6;
   - cottage, bungalow, family home and suburban home 4×4; big house and supermarket 5×4; townhouse and church 3×4; corner shop 3×3 (WP-17: homes and town buildings grew one cell each way);
-  - pool 4×3; fountain 2×2;
+  - pool 4×3; fountain and oak 2×2 (the oak is the big tree);
   - garage 1×2; bus stop and swing 2×1;
-  - traffic light, lamppost, postbox, trees, bush, planter, bench and barbecue 1×1.
+  - traffic light, lamppost, postbox, pine, birch, bush, planter, bench and barbecue 1×1.
   
   The tool centres a footprint on the pointer with `grid.anchorForPointer` (odd sizes on the hovered cell, even sizes on the nearest corner, clamped into the plot). Its `snap` parameter (v0.3) keeps a road feature's anchor on multiples of `ROAD_BLOCK`.
 - Layers per cell: **ground** (exactly one `GroundKind`, default `field`), **object** (0–1 object covering the cell; multi-cell footprints anchored at min corner), and **edges** (hedges and fences on cell borders, canonical `n`/`w` sides).
@@ -132,6 +132,8 @@ Rules of the road:
 Only road features stand on road; every other object's `allowedGround` excludes it.
 
 Variant choice (e.g. tree shape, house model, traffic-light style) uses the seeded RNG at placement time and is stored in `PlacedObject.variant`, so undo/redo/save reproduce it exactly.
+
+**Tall trees.** `ObjectDef.height` is a fixed vertical stretch of the drawn model (default 1): pine ×2, birch and oak none (`catalog/objects.ts`). It is drawing only: the footprint stays 1 × 1, so rules, stats, saves and the bulldozer never see it, and the player has no control over it. The **oak** is the exception to "trees are 1 × 1": it covers **2 × 2 cells** (1 × 1 world units, a road block's size) at natural proportions (model scale 0.9, about 0.98 × 1.74 × 1.0), so the crown fills its lot. Older saves keep their oaks' anchors, so oaks that now overlap are dropped on load (no migration; owner-approved). `TownRenderer` stretches only Y (`origin = R(yaw) · S(j, j·h, j)`, `j` = the ±12 % per-tree jitter), so the crown stays inside its cell; the ghost stretches the same way (`GhostPart.scaleY`). Bush and everything else are unchanged. The wind shader measures a leaf's height along the model's own Y axis and bends at half rate above 1 unit, so tall trees sway more but don't lean into the next cell.
 
 ## Save format
 `SavedTownV4` (= `SavedTown`) in `town/types.ts`: versioned, 64 × 64 (width/depth are stored; a smaller save, e.g. a 48 × 48 town, is centred on the plot by a whole number of road blocks, so it keeps its world position), RLE ground, objects, edges, next id, optional camera pose. `serialize.ts` validates unknown input (never trusts localStorage), demotes partial road blocks to field, drops road features that are not block-aligned or not standing on road, and round-trips (tested). Autosave: debounced 1 s after `town:changed` (never on cause `'load'`; off after any test-hook `setState`), key `tiny-town:save:v1` (a slot name; it did not change with the format). Code uses `SavedTown`.

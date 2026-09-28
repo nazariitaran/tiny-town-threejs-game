@@ -351,7 +351,7 @@ describe('row 4 — place-object: footprint in bounds, unoccupied, ground ∈ al
     ground(state, 'road', [1, 1]);
     object(state, 'lamppost', 2, 2);
     expectFail(plan(state, placeObj('oak', 2, 2)), 'occupied');
-    expectFail(plan(state, placeObj('oak', 1, 1)), 'blocked-by-road');
+    expectFail(plan(state, placeObj('oak', 0, 0)), 'blocked-by-road'); // the 2 × 2 oak covers (1, 1)
   });
 });
 

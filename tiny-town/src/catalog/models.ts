@@ -113,7 +113,9 @@ export const MODELS = {
   // Fantasy Town round fountain with its centre tier (native 2 × 2), 2 × 2 cells.
   fountain: M('/assets/models/composed/fountain.glb', 0.45, 0),
   // ---- Nature. WP-12 proportions (toy scale 1 unit ≈ 8 m): trees ≈ cottage height (~0.88).
-  oak: M('/assets/models/platformer/tree.glb', 0.45, 0, { sway: true }),
+  // The oak is the exception: a big round tree on a 2 × 2 cell lot (1 × 1 units, like a road block),
+  // twice the old scale so its crown fills the lot: 0.98 × 1.74 × 1.0.
+  oak: M('/assets/models/platformer/tree.glb', 0.9, 0, { sway: true }),
   pine: M('/assets/models/platformer/tree-pine.glb', 0.45, 0, { sway: true }),
   birch: M('/assets/models/suburban/tree-large.glb', 1.15, 0, { sway: true }),
   'birch-small': M('/assets/models/suburban/tree-small.glb', 1.15, 0, { sway: true }),

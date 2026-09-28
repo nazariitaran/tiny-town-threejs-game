@@ -39,6 +39,11 @@ export interface ObjectDef {
   roadMarking?: boolean;
   /** Residents counted in stats (>0 means it's a home). */
   residents: number;
+  /**
+   * Vertical stretch of the drawn model (default 1). Trees stand taller than their kit models but keep
+   * their width, so the crown stays inside its one cell. Drawing only: never changes the footprint.
+   */
+  height?: number;
   /** Visual variants; PlacedObject.variant indexes into this list. */
   models: readonly ModelId[];
   /** Number of variants the rules pick from (== models.length). */
@@ -49,6 +54,13 @@ const OPEN_GROUND: readonly GroundKind[] = ['field', 'grass', 'meadow'];
 const PAVED_OK: readonly GroundKind[] = [...OPEN_GROUND, 'pavement'];
 const PROP_GROUND: readonly GroundKind[] = [...OPEN_GROUND, 'pavement', 'walkway'];
 const ANY_GROUND: readonly GroundKind[] = [...PROP_GROUND, 'road'];
+
+/**
+ * The columnar pine is taller than its kit model (which sits at cottage height): ×2 in Y only, so it
+ * keeps its one cell, and is still under the church (2.33). The birch keeps its natural height, and the
+ * oak isn't stretched at all: it is a big round tree that covers 2 × 2 cells instead.
+ */
+const PINE_HEIGHT = 2;
 
 const def = (d: Omit<ObjectDef, 'variants'>): ObjectDef => ({ ...d, variants: d.models.length });
 
@@ -76,8 +88,8 @@ export const OBJECTS: Readonly<Record<ObjectKind, ObjectDef>> = {
   'swimming-pool': def({ kind: 'swimming-pool', label: 'Pool', group: 'amenity', footprint: [4, 3], allowedGround: PROP_GROUND, residents: 0, models: ['swimming-pool'] }),
   fountain: def({ kind: 'fountain', label: 'Fountain', group: 'amenity', footprint: [2, 2], allowedGround: PROP_GROUND, residents: 0, models: ['fountain'] }),
   // Nature
-  oak: def({ kind: 'oak', label: 'Oak', group: 'tree', footprint: [1, 1], allowedGround: PAVED_OK, residents: 0, models: ['oak'] }),
-  pine: def({ kind: 'pine', label: 'Pine', group: 'tree', footprint: [1, 1], allowedGround: PAVED_OK, residents: 0, models: ['pine'] }),
+  oak: def({ kind: 'oak', label: 'Oak', group: 'tree', footprint: [2, 2], allowedGround: PAVED_OK, residents: 0, models: ['oak'] }),
+  pine: def({ kind: 'pine', label: 'Pine', group: 'tree', footprint: [1, 1], allowedGround: PAVED_OK, height: PINE_HEIGHT, residents: 0, models: ['pine'] }),
   birch: def({ kind: 'birch', label: 'Birch', group: 'tree', footprint: [1, 1], allowedGround: PAVED_OK, residents: 0, models: ['birch', 'birch-small'] }),
   bush: def({ kind: 'bush', label: 'Bush', group: 'plant', footprint: [1, 1], allowedGround: PAVED_OK, residents: 0, models: ['bush'] }),
   // Garden
@@ -90,3 +102,6 @@ export const OBJECTS: Readonly<Record<ObjectKind, ObjectDef>> = {
 export const objectDef = (kind: ObjectKind): ObjectDef => OBJECTS[kind];
 
 export const OBJECT_KINDS = Object.keys(OBJECTS) as ObjectKind[];
+
+/** Vertical stretch of a placed object's drawn model (1 for anything without one). */
+export const heightScale = (def: ObjectDef): number => def.height ?? 1;

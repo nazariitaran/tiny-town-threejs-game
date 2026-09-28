@@ -19,6 +19,7 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
   - Gates on the branch after all merges (2026-09-27): `npm run verify` green (21 files, 387 unit tests, build OK); `npm run test:e2e` green: 114 tests, 100 passed, 14 skipped by design, 0 failed (6.1 min).
   - Worktrees `wp-16a/b/c` removed after their evidence was copied to `artifacts/wp-16a/`, `wp-16b/`, `wp-16c/`.
 - **WP-17 is built** on the integration branch `building-sizes` and awaits the owner's review (bigger buildings, smaller swing, dark shops at night). See "WP-17 as built".
+- **Tall trees are built** on the branch `tall-trees` and await the owner's review: pine ×2 taller (still 1 × 1), birch unchanged, and the oak now a big 2 × 2 tree at natural proportions (fixed per species, no player control). See "Tall trees as built".
 - **Where current facts live:**
   - grid, rules, save, modules, diagnostics and budgets: `docs/design/03-architecture.md`;
   - asset scales and footprints: `docs/assets/models.md`;
@@ -280,3 +281,10 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
 ## Next actions
 1. v0.3 is measured and versioned (0.3.0). What's left is the deploy itself (`docs/release.md` §Build and deploy) and, if wanted, a release tag.
 2. For the next iteration, open a new WP section in `docs/PLAN.md`. Take ports from 5218 up and follow the `docs/HANDOVER.md` runbook with an integration branch.
+
+### Tall trees as built (branch `tall-trees`)
+An owner request: taller trees that still take one tile. Done directly by the integrator, not a numbered WP.
+- **Design history:** the first cut gave oak, pine and birch three player-picked height tiers (H key, Height button, an optional `PlacedObject.height`). The owner reviewed it and simplified: **no player choice, one fixed height per species.** That machinery was removed again.
+- **Result:** `ObjectDef.height`: pine ×2, birch natural. A second review found the ×1.7 oak read as a tall slab that did not fill its cell (measured: the crown body is ~90 % of a 0.5 cell and tapers), so the owner asked for the **oak to take a 2 × 2 cell lot** instead: footprint `[2, 2]`, model scale 0.45 → 0.9 (about 0.98 × 1.74 × 1.0), no stretch. Nothing in rules, `PlacedObject`, save (still v4) or UI changed. Existing saves keep their oaks' anchors, so oaks that now overlap are dropped on load (owner-approved, no migration).
+- **Drawing:** `TownRenderer` and the ghost stretch Y only. `windSway.ts` measures height along the model's Y axis and bends at half rate above 1 unit (natural trees unchanged; the bush's bend gets a little smaller because its Y is squashed). The oak and pine tool icons were re-rendered (`render-icons.mjs` also nudges ten unrelated icons on every run, so only these two were kept), and the sample-town, asset-gallery and night-town baselines regenerated.
+- **Known trade-offs:** a tall tree hides about 1.3 × its height of the view behind it; the heights are one constant each in `catalog/objects.ts` (`OAK_HEIGHT`, `PINE_HEIGHT`).

@@ -54,6 +54,8 @@ export interface GhostPart {
   z?: number;
   quarterTurns?: number;
   scale?: number;
+  /** Extra vertical stretch (a tree taller than its kit model; footprint and width stay). */
+  scaleY?: number;
 }
 
 export interface GhostShowOptions {
@@ -270,7 +272,8 @@ export class GhostPreview {
       group.visible = true;
       group.position.set(part.x ?? 0, part.y ?? 0, part.z ?? 0);
       group.rotation.y = ((part.quarterTurns ?? 0) * Math.PI) / 2;
-      group.scale.setScalar((part.scale ?? 1) * (state === 'remove' ? 1.08 : 1));
+      const size = (part.scale ?? 1) * (state === 'remove' ? 1.08 : 1);
+      group.scale.set(size, size * (part.scaleY ?? 1), size);
       this.active.push(group);
     }
     if (state !== this.modelState || solid !== this.modelSolid) {
