@@ -19,7 +19,7 @@
  *    the add with the same id, and addObject() defensively frees any visual under that id.
  *  - Variants: PlacedObject.variant picks from ObjectDef.models; trees get a stable scale/yaw
  *    jitter from hash(id) (never the RNG, so it survives reloads). ObjectDef.height stretches a
- *    tree's Y on top of that (oak ×1.7, pine ×2); the crown width is unchanged.
+ *    tree's Y on top of that (pine ×2); the crown width is unchanged.
  *  - Ground: road auto-tiles per 2 × 2 road BLOCK (WP-12: one tile per block, owned by the block's
  *    anchor cell and drawn at the block centre; the other 3 cells draw nothing; roadTiles.ts; a lone
  *    tile = two squashed round caps); pavement = kit

@@ -56,11 +56,10 @@ const PROP_GROUND: readonly GroundKind[] = [...OPEN_GROUND, 'pavement', 'walkway
 const ANY_GROUND: readonly GroundKind[] = [...PROP_GROUND, 'road'];
 
 /**
- * Trees are taller than their kit models (which sit at cottage height). Y only: the oak's round crown
- * already fills its cell, so it stays squarish (×1.7 is as far as it stretches before it turns blobby);
- * the columnar pine takes ×2, which is still under the church (2.33). The birch keeps its natural height.
+ * The columnar pine is taller than its kit model (which sits at cottage height): ×2 in Y only, so it
+ * keeps its one cell, and is still under the church (2.33). The birch keeps its natural height, and the
+ * oak isn't stretched at all: it is a big round tree that covers 2 × 2 cells instead.
  */
-const OAK_HEIGHT = 1.7;
 const PINE_HEIGHT = 2;
 
 const def = (d: Omit<ObjectDef, 'variants'>): ObjectDef => ({ ...d, variants: d.models.length });
@@ -89,7 +88,7 @@ export const OBJECTS: Readonly<Record<ObjectKind, ObjectDef>> = {
   'swimming-pool': def({ kind: 'swimming-pool', label: 'Pool', group: 'amenity', footprint: [4, 3], allowedGround: PROP_GROUND, residents: 0, models: ['swimming-pool'] }),
   fountain: def({ kind: 'fountain', label: 'Fountain', group: 'amenity', footprint: [2, 2], allowedGround: PROP_GROUND, residents: 0, models: ['fountain'] }),
   // Nature
-  oak: def({ kind: 'oak', label: 'Oak', group: 'tree', footprint: [1, 1], allowedGround: PAVED_OK, height: OAK_HEIGHT, residents: 0, models: ['oak'] }),
+  oak: def({ kind: 'oak', label: 'Oak', group: 'tree', footprint: [2, 2], allowedGround: PAVED_OK, residents: 0, models: ['oak'] }),
   pine: def({ kind: 'pine', label: 'Pine', group: 'tree', footprint: [1, 1], allowedGround: PAVED_OK, height: PINE_HEIGHT, residents: 0, models: ['pine'] }),
   birch: def({ kind: 'birch', label: 'Birch', group: 'tree', footprint: [1, 1], allowedGround: PAVED_OK, residents: 0, models: ['birch', 'birch-small'] }),
   bush: def({ kind: 'bush', label: 'Bush', group: 'plant', footprint: [1, 1], allowedGround: PAVED_OK, residents: 0, models: ['bush'] }),

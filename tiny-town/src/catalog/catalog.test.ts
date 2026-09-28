@@ -180,7 +180,7 @@ describe('catalog', () => {
       roundabout: [6, 6], 'zebra-crossing': [2, 2], 'traffic-light': [1, 1], lamppost: [1, 1], 'bus-stop': [2, 1], postbox: [1, 1],
       cottage: [4, 4], townhouse: [3, 4], bungalow: [4, 4], 'family-home': [4, 4], 'garage-house': [4, 4], 'big-house': [5, 4],
       garage: [1, 2], 'corner-shop': [3, 3], supermarket: [5, 4], church: [3, 4], 'swimming-pool': [4, 3], fountain: [2, 2],
-      oak: [1, 1], pine: [1, 1], birch: [1, 1], bush: [1, 1],
+      oak: [2, 2], pine: [1, 1], birch: [1, 1], bush: [1, 1],
       planter: [1, 1], bench: [1, 1], swing: [2, 1], barbecue: [1, 1],
     });
   });
@@ -251,10 +251,10 @@ describe('proportions', () => {
   const h = (id: ModelId) => drawn(id).y;
   const cars = () => [...carSizes.values()];
 
-  it('tree heights: pine ×2, oak ×1.7, birch natural; only trees stretch, and the tallest stays under the church', () => {
+  it('tree heights: pine ×2, oak and birch natural; only the pine stretches, and the tallest stays under the church', () => {
     const TREE_JITTER = 1.12; // TownRenderer: ±12% per-tree size
     expect(heightScale(OBJECTS.pine)).toBe(2);
-    expect(heightScale(OBJECTS.oak)).toBe(1.7);
+    expect(heightScale(OBJECTS.oak)).toBe(1);
     expect(heightScale(OBJECTS.birch)).toBe(1);
     for (const kind of OBJECT_KINDS) {
       const def = OBJECTS[kind];
@@ -299,11 +299,23 @@ describe('proportions', () => {
   it('trees reach about the cottage roof (WP-17: 75–100 % of its height) and stay below the townhouse ridges', () => {
     const cottage = h('cottage');
     const townhouseRidge = Math.min(h('townhouse'), h('townhouse-alt'));
-    for (const tree of ['oak', 'pine', 'birch'] as const) {
+    for (const tree of ['pine', 'birch'] as const) {
       expect(h(tree) / cottage, `${tree} vs cottage`).toBeGreaterThan(0.75);
       expect(h(tree) / cottage, `${tree} vs cottage`).toBeLessThan(1);
       expect(h(tree), `${tree} vs townhouse`).toBeLessThan(townhouseRidge);
     }
+  });
+
+  it('the oak is the big tree: its crown fills its 2 × 2 cell lot, it is taller than a cottage and below the church', () => {
+    const [w, d] = OBJECTS.oak.footprint;
+    const lot = w * CELL_SIZE;
+    expect([w, d]).toEqual([2, 2]);
+    expect(drawn('oak').x, 'oak width').toBeGreaterThan(0.9 * lot);
+    expect(drawn('oak').z, 'oak depth').toBeGreaterThan(0.9 * lot);
+    // ±12 % per-tree size jitter (TownRenderer) may push the crown a little past the lot, never far.
+    expect(drawn('oak').x * 1.12).toBeLessThan(1.25 * lot);
+    expect(h('oak')).toBeGreaterThan(h('cottage'));
+    expect(h('oak') * 1.12).toBeLessThan(h('church'));
   });
 
   it('the lamppost is taller than the garage and the bus stop, and below the eaves', () => {
