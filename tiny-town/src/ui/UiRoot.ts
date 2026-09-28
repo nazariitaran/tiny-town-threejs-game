@@ -15,7 +15,7 @@ import { TOOL_CATEGORIES, toolDef, toolsInCategory, type ToolCategory, type Tool
 import { assetUrl } from '../game/config';
 import type { GameBus, GamePhase } from '../game/events';
 import { photoFrameLayout } from '../photo/photoLayout';
-import { canSharePhoto, downloadPhoto, photoFile, sharePhoto } from '../photo/savePhoto';
+import { downloadPhoto } from '../photo/savePhoto';
 import type { Rotation } from '../town/types';
 import { TIME_MODES, type DayPhase, type TimeMode } from '../world/dayCycle';
 import { GLYPHS } from './glyphs';
@@ -82,7 +82,7 @@ export class UiRoot {
   private hoverKey: string | null = null;
   private quietHoverKey: string | null = null;
   /** The latest framed photo (WP-19) and the object URL the preview shows it through. */
-  private photo: { blob: Blob; fileName: string; file: File; url: string } | null = null;
+  private photo: { blob: Blob; fileName: string; url: string } | null = null;
 
   constructor(
     host: HTMLElement,
@@ -329,7 +329,6 @@ export class UiRoot {
           <p class="ui-photo-status" aria-live="polite">${PHOTO_DEVELOPING}</p>
           <div class="ui-photo-actions">
             <button type="button" class="ui-btn ui-btn-primary" id="${id.photoDownload}" disabled>${GLYPHS.download}<span>Download</span></button>
-            <button type="button" class="ui-btn" id="${id.photoShare}" hidden disabled>${GLYPHS.share}<span>Share</span></button>
           </div>
           <button type="button" class="ui-link" id="${id.photoClose}" data-back>Back to town</button>
         </section>
@@ -374,7 +373,6 @@ export class UiRoot {
     else if (target.id === id.timeMode) this.bus.emit('intent:cycle-time-mode');
     else if (target.id === id.photo) this.takePhoto();
     else if (target.id === id.photoDownload) this.downloadPhoto();
-    else if (target.id === id.photoShare) void this.sharePhoto();
     else if (target.id === id.mute) this.bus.emit('intent:set-muted', { muted: !this.muted });
     else if (target.id === id.menu) this.bus.emit('intent:open-menu');
     else if (target.id === id.rotate) this.bus.emit('intent:rotate', { direction: 1 });
@@ -487,12 +485,6 @@ export class UiRoot {
     this.renderPhotoState('ready', `Saved as ${this.photo.fileName}`);
   }
 
-  private async sharePhoto(): Promise<void> {
-    if (!this.photo) return;
-    const result = await sharePhoto(this.photo.file);
-    if (result === 'failed') this.renderPhotoState('ready', "Sharing didn't work. Try Download instead.");
-  }
-
   private confirmNewTown(): void {
     if (this.phase === 'title') {
       this.closeModal();
@@ -575,36 +567,26 @@ export class UiRoot {
     const image = this.el<HTMLImageElement>(UI_TEST_IDS.photoImage);
     image.hidden = true;
     image.removeAttribute('src');
-    this.button(UI_TEST_IDS.photoShare).hidden = true;
     this.renderPhotoState('developing', PHOTO_DEVELOPING);
   }
 
   private showPhoto({ blob, width, height, fileName }: { blob: Blob; width: number; height: number; fileName: string }): void {
     if (this.photo) URL.revokeObjectURL(this.photo.url);
-    const file = photoFile(blob, fileName);
-    this.photo = { blob, fileName, file, url: URL.createObjectURL(blob) };
+    this.photo = { blob, fileName, url: URL.createObjectURL(blob) };
     const image = this.el<HTMLImageElement>(UI_TEST_IDS.photoImage);
     image.width = width;
     image.height = height;
     image.src = this.photo.url;
     image.hidden = false;
     this.printFigure().style.setProperty('--print-ar', String(width / height));
-    const share = this.button(UI_TEST_IDS.photoShare);
-    const download = this.button(UI_TEST_IDS.photoDownload);
-    share.hidden = !canSharePhoto(file);
-    // On phones the share sheet is the way into the photo library, so it leads there.
-    const shareFirst = !share.hidden && this.coarse.matches;
-    share.classList.toggle('ui-btn-primary', shareFirst);
-    download.classList.toggle('ui-btn-primary', !shareFirst);
     this.renderPhotoState('ready', '');
-    if (this.modal === 'photo') (shareFirst ? share : download).focus({ preventScroll: true });
+    if (this.modal === 'photo') this.button(UI_TEST_IDS.photoDownload).focus({ preventScroll: true });
   }
 
   private renderPhotoState(state: 'developing' | 'ready' | 'error', status: string): void {
     this.printFigure().dataset.state = state;
     this.root.querySelector('.ui-photo-status')!.textContent = status;
     this.button(UI_TEST_IDS.photoDownload).disabled = state !== 'ready';
-    this.button(UI_TEST_IDS.photoShare).disabled = state !== 'ready';
   }
 
   private printFigure(): HTMLElement {

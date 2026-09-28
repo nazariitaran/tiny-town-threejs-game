@@ -84,21 +84,16 @@ export function photoFrameLayout(photoWidth: number, photoHeight: number): Photo
   };
 }
 
-/** Caption words for each part of the day. */
-export const PHOTO_PHASE_LABEL: Readonly<Record<DayPhase, string>> = {
-  dawn: 'Sunrise',
-  day: 'Daytime',
-  dusk: 'Sunset',
-  night: 'Night',
-};
-
 /** Which sky glyph the frame shows: a moon at night, a sun otherwise. */
 export const photoSkyGlyph = (phase: DayPhase): 'sun' | 'moon' => (phase === 'night' ? 'moon' : 'sun');
 
-/** "Tiny Town" plus "28 Sep 2026 · Night" (date in the player's locale unless one is given). */
-export function photoCaption(date: Date, phase: DayPhase, locale?: string): { title: string; line: string } {
+/**
+ * "Tiny Town" over "28 Sep 2026" (date in the player's locale unless one is given). No words for the
+ * time of day: the frame's sun / moon says it (owner decision).
+ */
+export function photoCaption(date: Date, locale?: string): { title: string; line: string } {
   const day = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' }).format(date);
-  return { title: 'Tiny Town', line: `${day} · ${PHOTO_PHASE_LABEL[phase]}` };
+  return { title: 'Tiny Town', line: day };
 }
 
 /** `tiny-town-2026-09-28-1432.jpg`, local time. */

@@ -47,8 +47,6 @@ export const UI_TEST_IDS = {
   /** The framed photo in the preview (src set once the photo is ready; data-state on its figure). */
   photoImage: 'ui-photo-img',
   photoDownload: 'btn-photo-download',
-  /** Only shown where the browser can share files (navigator.canShare). */
-  photoShare: 'btn-photo-share',
   photoClose: 'btn-photo-close',
   confirmPanel: 'ui-confirm',
   confirmClear: 'btn-confirm-clear',

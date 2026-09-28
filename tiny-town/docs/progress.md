@@ -19,7 +19,7 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
   - Gates on the branch after all merges (2026-09-27): `npm run verify` green (21 files, 387 unit tests, build OK); `npm run test:e2e` green: 114 tests, 100 passed, 14 skipped by design, 0 failed (6.1 min).
   - Worktrees `wp-16a/b/c` removed after their evidence was copied to `artifacts/wp-16a/`, `wp-16b/`, `wp-16c/`.
 - **WP-17 is built** on the integration branch `building-sizes` and awaits the owner's review (bigger buildings, smaller swing, dark shops at night). See "WP-17 as built".
-- **WP-19 Town photo is built** on the branch `wp-19-photo` (worktree `../ThreeJsGames-wt/wp-19-photo`, branched from `main` at `691dfd8`) and awaits the owner's review: a top-bar camera / `P` saves the current view as a Polaroid JPEG, via a preview with Download / Share. See "WP-19 as built".
+- **WP-19 Town photo is built** on the branch `wp-19-photo` (worktree `../ThreeJsGames-wt/wp-19-photo`, branched from `main` at `691dfd8`) and awaits the owner's review: a top-bar camera / `P` saves the current view as a Polaroid JPEG, via a preview with Download. See "WP-19 as built".
 - **Where current facts live:**
   - grid, rules, save, modules, diagnostics and budgets: `docs/design/03-architecture.md`;
   - asset scales and footprints: `docs/assets/models.md`;
@@ -50,7 +50,7 @@ The SHA is the merge commit on `main`; the WP's own commit is in brackets. Every
 | WP-12 | Scale & grid density | ✅ | `fbbef2a` (plan `2f6446d`, docs `cf4123b`) | see "WP-12 as built" below |
 | WP-15 | New building blocks & categories (v0.3) | ✅ | `ea54bb5` (`27add32`) | see "WP-15 as built" below |
 | WP-18 | Music resumes where it left off | ✅ merged to `main` (owner-approved 2026-09-28) | `40822f8` (`98c7ca8`) | `src/audio/musicPosition.ts`; saved on hide / `pagehide` / every 15 s; seek on `loadedmetadata`; 5 s end guard |
-| WP-19 | Town photo | 🔍 built on `wp-19-photo`, awaiting owner review (not merged) | — (`c62376e` + docs) | `src/photo/**`; camera button / `P` → menu phase → one frame at long edge 2400 px → Polaroid JPEG → preview (Download / Share) |
+| WP-19 | Town photo | 🔍 built on `wp-19-photo`, awaiting owner review (not merged) | — (`c62376e` + docs) | `src/photo/**`; camera button / `P` → menu phase → one frame at long edge 2400 px → Polaroid JPEG → preview (Download) |
 | WP-16 | Day/night cycle (v0.3) | ✅ merged to `main` (owner-approved) | contract `7aefe67`, `af576a1`; 16a `42f0590` (`a4965c9`); 16b `a849f35` (`d6f97e3`); 16c `1a0c360` (`eb2c2d8`) | see "WP-16 as built" below |
 
 **Integrator (WP-01) commits worth knowing:**
@@ -99,7 +99,8 @@ The plan was approved and implemented. The as-built facts are in `03-architectur
 Current facts: `03-architecture.md` §Town photo; UI in `02-interaction-and-ui.md` (top bar, `P`, the Photo state).
 - **As planned**, with these details settled while building:
   - The preview reuses the **menu phase** with a new `photo` modal view (the same pattern `?` uses for help), so no new `GamePhase`. The side effects are the menu's: the clock pauses and the music ducks −3 dB while the preview is up.
-  - The caption reads "Tiny Town" / "28 Sep 2026 · Daytime" (Sunrise / Daytime / Sunset / Night), with a sun or, at night, a moon. The date uses the player's locale.
+  - The caption reads "Tiny Town" / "28 Sep 2026" with a sun or, at night, a moon. The date uses the player's locale.
+  - **Owner amendments after review** (2026-09-28): the Share button is gone (Download only), and the caption lost its time-of-day word ("· Night"), because the icon tells it.
   - The file is the straight card; the tilt and the washi tape exist only in the preview.
   - The top bar holds six actions (camera left of the time button) with no CSS change: it stays one row at 360 px.
 - **Measured** (dev server, full Chromium, M-series laptop; `artifacts/wp-19/`):
@@ -107,13 +108,13 @@ Current facts: `03-architecture.md` §Town photo; UI in `02-interaction-and-ui.m
   - Pixel 7 emulation (412 × 915): ratio 2.62, JPEG 1188 × 2670, 290 KB, 78 ms;
   - the ghost test: the on-screen block difference with vs without a supermarket ghost is 120.7; between the two photos it is 0.00;
   - production preview (`vite preview`, 1280 × 720): 2536 × 1688, 355 KB, 71 ms; the lazy `PhotoFrame` chunk loads through the relative base.
-- **Bundle:** the main chunk went from 890.92 kB (`main`, `691dfd8`) to 900.11 kB, over the 900 kB warning limit. `PhotoFrame` is now loaded on the first photo (a 2.08 kB chunk), leaving the main chunk at **899.47 kB**. It's under the limit, but with no headroom; most of the photo cost is UI markup, glyphs and CSS, which must be in the main chunk. **The next feature needs a split first**; the lazy `lil-gui` import (about 30 kB) is the known one.
+- **Bundle:** the main chunk went from 890.92 kB (`main`, `691dfd8`) to 900.11 kB, over the 900 kB warning limit. `PhotoFrame` is now loaded on the first photo (a 2.08 kB chunk), leaving the main chunk at **899.47 kB** (898.21 kB after the Share button was removed). It's under the limit, but with no headroom; most of the photo cost is UI markup, glyphs and CSS, which must be in the main chunk. **The next feature needs a split first**; the lazy `lil-gui` import (about 30 kB) is the known one.
 - **Gates** (branch, 2026-09-28):
   - `npm run verify` green: 23 files, 440 unit tests, build OK.
   - `npm run test:e2e`: 134 tests, 116 passed, 18 skipped by design, 0 failed (7.9 min). That run predates the lazy import; after it, `tests/photo.spec.ts` was re-run: 6 passed, 4 skipped. Earlier, `--repeat-each=3` gave 18 / 18.
   - Baselines: the six with a top bar (sample-town, asset-gallery and night-town × desktop and mobile) were regenerated. The masked diff (`tests/tools/maskedDiff.ts`, threshold 0, 12 px pad around the top bar) finds **0 px changed outside the top bar** in all six. `title` is unchanged. Old baselines and diff images: `artifacts/wp-19/baselines-before/`, `masked-diff/`.
 - **Evidence:** `artifacts/wp-19/`: `desktop-*`, `night-*`, `mobile-*` (the before-shot, developing, preview and the saved JPEG), `e2e-*` downloads and previews, and `e2e-full.log`.
-- **Not verified here:** real iOS Safari (Share → Save Image, and what Download does there) and Android Chrome sharing need a device check.
+- **Not verified here:** what Download does on a real iPhone (Files) and Android phone, and long-press "Save to Photos" on the iOS preview, need a device check.
 
 ### WP-17 as built (branch `building-sizes`; vs `docs/plans/wp-17-building-sizes.md`)
 - **Merges:** plan + contract `3a950d1` → 17b (shop lights) → 17a (scale & layouts) → 17c (QA).
@@ -241,7 +242,7 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
 - 2026-09-28 — **Plot 64 × 64 cells** (32 × 32 world units, `CELL_SIZE` still 0.5), owner request after WP-17's bigger buildings. The default camera keeps the v0.2 zoom (plot corners start just off-screen); world-space tunables (grid fade, title orbit, decor belt, night fog) scaled with the plot. A smaller (48 × 48) save loads centred on the plot, so no save version bump. The 48 × 48 sample town and asset gallery are shifted by `demoOffset()` (8 cells) to the centre. The mobile stress-town triangle budget went 250k → 320k (owner decision; the full town is 1.78× the area). Gates (working tree, 2026-09-28): `npm run verify` green (21 files, 399 unit tests, build OK); `npm run test:e2e` 108 tests, 91 passed + 14 skipped, the 3 `life.spec.ts` failures re-mapped (sample-town cells + `demoOffset`) and green on re-run; all 8 darwin visual baselines regenerated.
 - 2026-09-28 — **Junction centre lines and a Zebra crossing tool** (owner request). Tees and crossroads draw their centre lines meeting (`road-intersection-line`, `road-crossroad-line`); the plain tee left a blank patch, and v0.3's automatic crossroad zebras are gone. Zebras are a new Streets tool (34 placing tools; Streets 1–8): a block-aligned road marking (`ObjectDef.roadMarking`) on a straight, tee or cross; the road tile under it draws `road-crossing` / `road-intersection-path` / `road-crossroad-path`. Bulldozing it leaves the road; traffic ignores it. The sample town has one on the main street, the asset gallery one on mask 5.
 - 2026-09-28 — **Night grid colours**: the lines blend from white to a dim moon blue at night, the night boost is 0.25 (was 0.6), and the grid shader takes the scene fog and output colour conversion, so it sits in the night scene like it does on the day lawn.
-- 2026-09-28 — **Town photo (WP-19)**, owner request: a camera at the top right saves the town as a framed picture. Owner picks: what's on screen (not an auto-framed "whole town" shot), a Polaroid with the title, date and time of day but **no homes/residents line**, and a preview before saving. The photo is rendered to the game canvas at a raised pixel ratio and copied in the same task, not rendered off-screen, so tone mapping and colours match the screen. No shutter sound until the owner supplies or approves one.
+- 2026-09-28 — **Town photo (WP-19)**, owner request: a camera at the top right saves the town as a framed picture. Owner picks: what's on screen (not an auto-framed "whole town" shot), a Polaroid with the title, the date and a sun/moon icon (**no homes/residents line, no time-of-day words**), and a preview with Download only (Share removed after review). The photo is rendered to the game canvas at a raised pixel ratio and copied in the same task, not rendered off-screen, so tone mapping and colours match the screen. No shutter sound until the owner supplies or approves one.
 - 2026-09-28 — **Music resumes where it left off (WP-18)**, owner request: short sessions kept hearing only the intro. The position `{ track, time }` has its own key, `tiny-town:music:v1`, not the settings, because it is throwaway data written often. The seek happens on `loadedmetadata`, not through a `#t=` media fragment: it is simpler, and it can't change how the loop wraps. The end guard uses the real `duration`, so no track length is stored.
 - 2026-09-27 (v0.3) — **Crossroad tile markings done**: the crossroad uses `road-crossroad-path` (zebra crossings), checked against the mobile triangle budget. Removed from the backlog.
 

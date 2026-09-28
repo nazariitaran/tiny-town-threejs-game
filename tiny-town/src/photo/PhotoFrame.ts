@@ -58,7 +58,7 @@ function encode(canvas: HTMLCanvasElement): Promise<Blob> {
 
 export async function framePhoto(shot: HTMLCanvasElement, phase: DayPhase, date: Date): Promise<FramedPhoto> {
   const layout = photoFrameLayout(shot.width, shot.height);
-  const caption = photoCaption(date, phase);
+  const caption = photoCaption(date);
   const titleFont = `800 ${layout.title.fontPx}px ${FONT_STACK}`;
   const lineFont = `700 ${layout.line.fontPx}px ${FONT_STACK}`;
   const sky = photoSkyGlyph(phase);

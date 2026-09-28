@@ -72,11 +72,9 @@ describe('photoFrameLayout', () => {
 describe('photoCaption', () => {
   const date = new Date(2026, 8, 28, 14, 32);
 
-  it('names the town and the day, not its stats', () => {
-    expect(photoCaption(date, 'night', 'en-GB')).toEqual({ title: 'Tiny Town', line: '28 Sept 2026 · Night' });
-    expect(photoCaption(date, 'day', 'en-US').line).toBe('Sep 28, 2026 · Daytime');
-    expect(photoCaption(date, 'dawn', 'en-GB').line).toMatch(/· Sunrise$/);
-    expect(photoCaption(date, 'dusk', 'en-GB').line).toMatch(/· Sunset$/);
+  it('names the town and the date only: no stats, no time-of-day words (the icon says it)', () => {
+    expect(photoCaption(date, 'en-GB')).toEqual({ title: 'Tiny Town', line: '28 Sept 2026' });
+    expect(photoCaption(date, 'en-US').line).toBe('Sep 28, 2026');
   });
 
   it('shows the moon only at night', () => {
