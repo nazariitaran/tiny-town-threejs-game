@@ -1,6 +1,6 @@
 # WP-22 — Birds over the town (plan, 2026-09-29)
 
-> **Plan, built on the branch `wp-22-birds` (from `d119d54`), awaiting owner review.** As-built facts go to `03-architecture.md` and `progress.md` ("WP-22 as built").
+> **Approved plan, implemented and merged into `main`** (owner-approved 2026-09-29 with every decision below; built on the branch `wp-22-birds` from `d119d54`). This is the plan, not the as-built record. As-built facts go to `03-architecture.md` and `progress.md` ("WP-22 as built").
 
 ## Owner request (2026-09-29)
 > For the birds — I envisage it as just occasionally some birds fly over the town.

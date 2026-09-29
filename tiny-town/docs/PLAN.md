@@ -449,7 +449,7 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
 - **Acceptance:** see the plan.
 
 ### WP-22 — Birds over the town
-- **Status: built, awaiting owner review** on the branch `wp-22-birds` (from `d119d54`; dev server 5232, tests 5233). Plan: `docs/plans/wp-22-birds.md`; as built: `docs/progress.md` "WP-22 as built".
+- **Status: merged** into `main` (owner-approved 2026-09-29, all planning decisions accepted). Built on the branch `wp-22-birds` (from `d119d54`; dev server 5232, tests 5233). Plan: `docs/plans/wp-22-birds.md`; as built: `docs/progress.md` "WP-22 as built".
 - **Why:** owner request (2026-09-29): "just occasionally some birds fly over the town". The owner read the squirrels-and-birds analysis and chose birds only (no squirrels).
 - **Decisions (the analysis's defaults, overridable at review):** no new flocks at night, more at dawn and dusk, a few more in a leafy town, flocks over the title screen too, no sound.
 - **Design:** a pure `life/FlockSim.ts` (schedule, Bézier paths over the plot, formations, flap/glide; its own seeded stream) and `life/BirdSystem.ts` (a procedural 18-triangle bird in one `InstancedMesh`, wings folded in the vertex shader, the same patch on the shadow depth material). Four species on the same bird: pigeons, starlings, geese (a V) and gulls. Test states switch spontaneous flocks off until a reload; `spawnFlock(species?)` launches one; `?debug&flock=N` sets an N-second wait.
