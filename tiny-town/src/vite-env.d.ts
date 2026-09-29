@@ -35,6 +35,8 @@ interface ThreeGameDiagnostics {
   fx: import('./fx/PlacementFx').FxDiagnostics;
   /** Ambient cars (WP-10). */
   life: import('./life/LifeSystem').LifeDiagnostics;
+  /** Flocks over the town (WP-22): auto = spontaneous flocks on; positions of every bird in the air. */
+  birds: import('./life/BirdSystem').BirdDiagnostics;
   /**
    * Day/night (WP-16). t = time of day shown (0..1), pinned = a test hook / test state holds it.
    * night 0 day .. 1 full night; lightsOn = fraction of lit houses; lamps = lampposts NightLights
@@ -97,6 +99,12 @@ interface ThreeGameTestHooks {
    * paused for a screenshot. null releases the pin (Auto/Day/Night resume). Test states pin too.
    */
   setTimeOfDay(t: number | null): void;
+  /**
+   * Launch a flock of birds now (WP-22), any time of day: 'pigeon' | 'starling' | 'goose' | 'gull',
+   * or a species picked by the flock stream. Returns the number of birds (0 when the sky is full).
+   * Test states switch spontaneous flocks off until a reload, so this is how tests get birds.
+   */
+  spawnFlock(species?: string): number;
 }
 
 interface Window {
