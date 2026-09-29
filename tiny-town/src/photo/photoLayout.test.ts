@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   PHOTO_LONG_EDGE,
   PHOTO_MAX_EDGE,
+  fitCaptionTitle,
+  MIN_TITLE_SCALE,
   photoCaption,
   photoFileName,
   photoFrameLayout,
@@ -73,8 +75,9 @@ describe('photoCaption', () => {
   const date = new Date(2026, 8, 28, 14, 32);
 
   it('names the town and the date only: no stats, no time-of-day words (the icon says it)', () => {
-    expect(photoCaption(date, 'en-GB')).toEqual({ title: 'Tiny Town', line: '28 Sept 2026' });
-    expect(photoCaption(date, 'en-US').line).toBe('Sep 28, 2026');
+    expect(photoCaption('Puddleton', date, 'en-GB')).toEqual({ title: 'Puddleton', line: '28 Sept 2026' });
+    expect(photoCaption('Puddleton', date, 'en-US').line).toBe('Sep 28, 2026');
+    expect(photoCaption('', date, 'en-GB').title).toBe('Tiny Town');
   });
 
   it('shows the moon only at night', () => {
@@ -84,9 +87,46 @@ describe('photoCaption', () => {
   });
 });
 
+describe('fitCaptionTitle', () => {
+  // A monospace stand-in for canvas measureText: every character is 0.5 em wide.
+  const measure = (text: string, px: number) => Array.from(text).length * px * 0.5;
+
+  it('keeps a title that fits at full size', () => {
+    expect(fitCaptionTitle('Puddleton', 1000, 100, measure)).toEqual({ text: 'Puddleton', fontPx: 100 });
+  });
+
+  it('shrinks a longer title just enough, down to MIN_TITLE_SCALE', () => {
+    // 30 chars × 50 px = 1500 px at 100 px → 1200 px wide needs 80 px.
+    const fit = fitCaptionTitle('a'.repeat(30), 1200, 100, measure);
+    expect(fit).toEqual({ text: 'a'.repeat(30), fontPx: 80 });
+    expect(measure(fit.text, fit.fontPx)).toBeLessThanOrEqual(1200);
+  });
+
+  it('cuts with an ellipsis at the smallest size when shrinking is not enough', () => {
+    const fit = fitCaptionTitle('Bobbington on Wobble Downs Xyz', 450, 100, measure);
+    expect(fit.fontPx).toBe(100 * MIN_TITLE_SCALE);
+    expect(fit.text.endsWith('…')).toBe(true);
+    expect(measure(fit.text, fit.fontPx)).toBeLessThanOrEqual(450);
+    expect(fit.text).toBe('Bobbington on…');
+  });
+
+  it('every layout leaves the title room between the badge and the sky glyph', () => {
+    for (const [w, h] of [[2400, 1275], [1080, 2400], [640, 640]] as const) {
+      const l = photoFrameLayout(w, h);
+      expect(l.title.x).toBeGreaterThan(l.badge.x + l.badge.width);
+      expect(l.title.x + l.title.maxWidth).toBeLessThan(l.sky.x);
+    }
+  });
+});
+
 describe('photoFileName', () => {
-  it('is tiny-town-<date>-<hhmm>.jpg in local time, zero-padded', () => {
+  it('is <town>-<date>-<hhmm>.jpg in local time, zero-padded', () => {
+    expect(photoFileName(new Date(2026, 8, 28, 14, 32), 'Puddleton')).toBe('puddleton-2026-09-28-1432.jpg');
+    expect(photoFileName(new Date(2027, 0, 5, 7, 3), 'Bobbington-on-Wobble')).toBe('bobbington-on-wobble-2027-01-05-0703.jpg');
+  });
+
+  it('falls back to tiny-town when there is no name or no usable letter in it', () => {
     expect(photoFileName(new Date(2026, 8, 28, 14, 32))).toBe('tiny-town-2026-09-28-1432.jpg');
-    expect(photoFileName(new Date(2027, 0, 5, 7, 3))).toBe('tiny-town-2027-01-05-0703.jpg');
+    expect(photoFileName(new Date(2026, 8, 28, 14, 32), '東京')).toBe('tiny-town-2026-09-28-1432.jpg');
   });
 });

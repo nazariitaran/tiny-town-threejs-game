@@ -3,7 +3,8 @@ import { edgeToWorld, footprintCentreWorld, PLOT_DEPTH, PLOT_WIDTH, roadBlockCen
 import { createGameBus, type GameBus, type GameEvents } from '../game/events';
 import { createSeededRandom } from '../utils/random';
 import { buildSampleTown } from './sampleTown';
-import { serializeTown } from './serialize';
+import { parseSave, serializeTown } from './serialize';
+import { DEFAULT_TOWN_NAME } from './townName';
 import { TownEditor } from './TownEditor';
 import { TownState } from './TownState';
 import type { BuildAction, Cell } from './types';
@@ -19,7 +20,7 @@ function setup(seed = 1) {
 
 function record(bus: GameBus) {
   const log: Recorded[] = [];
-  const types = ['town:changed', 'town:stats', 'build:placed', 'build:removed', 'history:changed'] as const;
+  const types = ['town:changed', 'town:stats', 'build:placed', 'build:removed', 'history:changed', 'town:named'] as const;
   for (const type of types) bus.on(type, (payload: unknown) => void log.push({ type, payload } as Recorded));
   return {
     log,
@@ -354,6 +355,63 @@ describe('TownEditor.reset and load', () => {
     expect(() => editor.load(save)).toThrow(/parseSave/);
   });
 });
+
+describe('TownEditor name (WP-20)', () => {
+  it('starts as the default name and reset(name) names the new town', () => {
+    const { editor, events } = setup();
+    expect(editor.name).toBe(DEFAULT_TOWN_NAME);
+    editor.reset('  Puddleton ');
+    expect(editor.name).toBe('Puddleton');
+    expect(events.of('town:named')).toEqual([{ name: 'Puddleton', cause: 'reset' }]);
+    // A blank name (or none) gives the default: test states and "never named" towns.
+    editor.reset('   ');
+    expect(editor.name).toBe(DEFAULT_TOWN_NAME);
+    editor.reset('Bumbleford');
+    editor.reset();
+    expect(editor.name).toBe(DEFAULT_TOWN_NAME);
+  });
+
+  it('rename sanitises, ignores blank or unchanged names, and is not undoable', () => {
+    const { editor, events } = setup();
+    buildSampleTown(editor);
+    const depth = editor.history.undoDepth;
+    events.clear();
+    expect(editor.rename(' Muffin   Heath ')).toBe(true);
+    expect(editor.name).toBe('Muffin Heath');
+    expect(editor.rename('Muffin Heath')).toBe(false);
+    expect(editor.rename(' \t ')).toBe(false);
+    expect(editor.rename('y'.repeat(35))).toBe(true);
+    expect(editor.name).toBe('y'.repeat(30));
+    expect(events.of('town:named')).toEqual([
+      { name: 'Muffin Heath', cause: 'rename' },
+      { name: 'y'.repeat(30), cause: 'rename' },
+    ]);
+    expect(events.of('town:changed')).toEqual([]);
+    expect(editor.history.undoDepth).toBe(depth);
+  });
+
+  it('the name is saved and loaded; a save without one loads as the default', () => {
+    const { editor } = setup();
+    buildSampleTown(editor);
+    editor.rename('Teacup Green');
+    const saved = ok(parseSave(JSON.stringify(editor.serialize())));
+    expect(saved.name).toBe('Teacup Green');
+
+    const other = setup(3);
+    other.editor.load(saved);
+    expect(other.editor.name).toBe('Teacup Green');
+    expect(other.events.of('town:named')).toEqual([{ name: 'Teacup Green', cause: 'load' }]);
+
+    const { name: _dropped, ...unnamed } = saved;
+    other.editor.load(unnamed);
+    expect(other.editor.name).toBe(DEFAULT_TOWN_NAME);
+  });
+});
+
+function ok<T>(result: T | Error): T {
+  if (result instanceof Error) throw result;
+  return result;
+}
 
 describe('stats after the sample town', () => {
   it('match hand-computed values', () => {

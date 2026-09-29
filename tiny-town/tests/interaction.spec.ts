@@ -4,7 +4,7 @@
  * cellToClient test hook; diagnostics are only read, never written.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { footprintPoint, footprintPointer } from './helpers';
+import { clickStart, footprintPoint, footprintPointer } from './helpers';
 
 /** `hover` also carries the validity the UI shows (ToolController.hovered); typed narrower in vite-env.d.ts. */
 type Diagnostics = Omit<NonNullable<Window['__THREE_GAME_DIAGNOSTICS__']>, 'hover'> & {
@@ -60,8 +60,7 @@ function collectErrors(page: Page): string[] {
 async function startBuilding(page: Page): Promise<void> {
   await page.goto('/');
   await page.waitForFunction(() => window.__THREE_GAME_DIAGNOSTICS__?.phase === 'title', undefined, { timeout: 20_000 });
-  await page.locator('#btn-start').click();
-  await page.waitForFunction(() => window.__THREE_GAME_DIAGNOSTICS__?.phase === 'building');
+  await clickStart(page);
 }
 
 async function selectTool(page: Page, category: string, tool: string): Promise<void> {

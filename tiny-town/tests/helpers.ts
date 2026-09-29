@@ -60,9 +60,26 @@ export async function gotoTitle(page: Page): Promise<void> {
   await page.waitForFunction(() => window.__THREE_GAME_DIAGNOSTICS__?.phase === 'title', undefined, { timeout: 15_000 });
 }
 
-/** Title → building through the real Start button. */
+/**
+ * Title → building through the real Start button. A new town is named first (WP-20): the name
+ * dialog opens with a suggested name, which is accepted as it is. Continue goes straight in.
+ */
 export async function startBuilding(page: Page): Promise<void> {
-  await byId(page, UI_TEST_IDS.start).click();
+  await clickStart(page);
+}
+
+/** Click Start; if the name dialog opens (no save), accept its suggestion; wait for building. */
+export async function clickStart(page: Page): Promise<void> {
+  await page.locator(`#${UI_TEST_IDS.start}`).click();
+  await page.waitForFunction(
+    (panelId) => window.__THREE_GAME_DIAGNOSTICS__?.phase === 'building' || !document.getElementById(panelId)?.hidden,
+    UI_TEST_IDS.namePanel,
+  );
+  const panel = page.locator(`#${UI_TEST_IDS.namePanel}`);
+  if (await panel.isVisible()) {
+    await expect(page.locator(`#${UI_TEST_IDS.nameInput}`)).not.toHaveValue('');
+    await page.locator(`#${UI_TEST_IDS.nameSubmit}`).click();
+  }
   await page.waitForFunction(() => window.__THREE_GAME_DIAGNOSTICS__?.phase === 'building');
 }
 

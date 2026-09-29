@@ -269,6 +269,29 @@ describe('SaveStore autosave', () => {
     expect(store.read()).toEqual(saved);
   });
 
+  it('a rename schedules a write with the new name; reset and load names never do (WP-20)', () => {
+    const { bus, store, editor, timers, storage } = setup();
+    store.attachAutosave(bus, () => editor.serialize());
+    editor.reset('Puddleton');
+    expect(store.pending).toBe(false);
+    editor.rename('Bumbleford');
+    expect(store.pending).toBe(true);
+    timers.advance(AUTOSAVE_DEBOUNCE_MS);
+    expect((storage as MemoryStorage).writes).toBe(1);
+    expect(store.read()?.name).toBe('Bumbleford');
+    editor.load(store.read()!);
+    expect(store.pending).toBe(false);
+  });
+
+  it('autosaveEnabled=false ignores renames too', () => {
+    const { bus, store, editor, timers, storage } = setup();
+    store.attachAutosave(bus, () => editor.serialize());
+    store.autosaveEnabled = false;
+    editor.rename('Bumbleford');
+    timers.advance(5000);
+    expect((storage as MemoryStorage).writes).toBe(0);
+  });
+
   it('flush() writes a pending autosave immediately; nothing pending → false', () => {
     const { bus, store, editor, storage } = setup();
     store.attachAutosave(bus, () => editor.serialize());

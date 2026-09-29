@@ -28,6 +28,7 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
 - **WP-17 is merged into `main`** (owner-approved; integration branch `building-sizes`; part of v0.4): bigger buildings, smaller swing, dark shops at night. See "WP-17 as built".
 - **Tall trees are merged into `main`** (owner-approved, no version tag; built on the branch `tall-trees`): pine ×2 taller (still 1 × 1), birch unchanged, and the oak now a big 2 × 2 tree at natural proportions (fixed per species, no player control). See "Tall trees as built".
 - **WP-19 Town photo is merged into `main`** (owner-approved 2026-09-28, after two amendments; built on the branch `wp-19-photo`, branched from `691dfd8`): a top-bar camera / `P` saves the current view as a Polaroid JPEG, via a preview with Download. See "WP-19 as built".
+- **WP-20 Name your town is merged into `main`** (owner-approved 2026-09-29 after one amendment: no note under the dialog heading; built on the branch `wp-20-town-name` from `ac820b8`); no version label (owner). See "WP-20 as built".
 - **Where current facts live:**
   - grid, rules, save, modules, diagnostics and budgets: `docs/design/03-architecture.md`;
   - asset scales and footprints: `docs/assets/models.md`;
@@ -59,6 +60,7 @@ The SHA is the merge commit on `main`; the WP's own commit is in brackets. Every
 | WP-15 | New building blocks & categories (v0.3) | ✅ | `ea54bb5` (`27add32`) | see "WP-15 as built" below |
 | WP-18 | Music resumes where it left off | ✅ merged to `main` (owner-approved 2026-09-28) | `40822f8` (`98c7ca8`) | `src/audio/musicPosition.ts`; saved on hide / `pagehide` / every 15 s; seek on `loadedmetadata`; 5 s end guard |
 | WP-19 | Town photo | ✅ merged to `main` (owner-approved 2026-09-28) | merge on `main` (`c62376e`, `841536f`, `0c35597`, `92435c1`) | `src/photo/**`; camera button / `P` → menu phase → one frame at long edge 2400 px → Polaroid JPEG → preview (Download) |
+| WP-20 | Name your town | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`be8c752` + amendment) | `src/town/townName.ts`; name dialog before every new town, rename from the top-left pill / menu; saved in `SavedTownV4.name`; photo caption + file name; three.js vendor chunk |
 | WP-16 | Day/night cycle (v0.3) | ✅ merged to `main` (owner-approved) | contract `7aefe67`, `af576a1`; 16a `42f0590` (`a4965c9`); 16b `a849f35` (`d6f97e3`); 16c `1a0c360` (`eb2c2d8`) | see "WP-16 as built" below |
 
 **Integrator (WP-01) commits worth knowing:**
@@ -102,6 +104,23 @@ The plan was approved and implemented. The as-built facts are in `03-architectur
 
 **Timing**
 - WP-12 was merged after WP-13/14 (`9a8379f` merged main into the WP-12 branch).
+
+### WP-20 as built (branch `wp-20-town-name`; vs `docs/plans/wp-20-town-name.md`)
+Current facts: `03-architecture.md` §Save format (town name, name suggestions) and §Town photo; UI in `02-interaction-and-ui.md` (top bar, menu, the Name your town state).
+- **As planned**, with these details settled while building:
+  - **Phones:** in one row, the six 44 px actions (291 px) leave the name 16–53 px at 375–412 px wide (measured). So 400–440 px shows the name at 0.95 rem with an ellipsis (~7 characters at 412 px), and **below 400 px the pill stays the icon-only badge** (a rename button). The **menu's heading is now the town's name** (was "Menu") on every device, so phones always show it in full somewhere. *Open for the owner:* a phone layout that shows more of the name would need a second row or fewer top-bar actions.
+  - **Bundle split:** the feature took the main chunk from 898.21 kB to 905.42 kB (over the 900 kB warning limit). Instead of the lazy `lil-gui` import (8 synchronous `debug.folder()` callers, ~30 kB), `vite.config.ts` now puts three.js in its own vendor chunk (Rolldown `codeSplitting.groups`): **main 264.0 kB (84.1 kB gzip) + `three` 641.7 kB (162.0 kB gzip)** + the lazy `PhotoFrame` 2.2 kB. The download is the same; `index.html` modulepreloads the vendor chunk.
+  - The names list (12 KB) is fetched at load, not bundled.
+  - The menu's New town and Rename town share a row; the name dialog's primary button reads "Start building" (new) or "Save" (rename).
+  - **Owner amendment after review** (2026-09-29): the note under the heading ("Up to 30 characters. You can rename it any time from the top bar.") was removed; the counter shows the limit.
+- **Measured / checked** (dev server and production preview, full Chromium; `artifacts/wp-20/`):
+  - the dialog on desktop and at 360 / 375 / 390 / 412 px (`desktop-*`, `phone-*`), the menu at 360 px, and a 29-character name on the photo card (desktop: full size; Pixel 7 portrait: shrunk to fit), `e2e-*-bobbington-on-wobble-downs-xy-*.jpg`;
+  - production preview (`vite preview`, 1280 × 720): the `three` chunk, `data/default_town_names.json` and the lazy `PhotoFrame` chunk all load (200) through the relative base; a named town's photo downloads as `marmalade-mills-2026-09-29-1749.jpg`; no console errors or warnings.
+- **Gates** (branch, 2026-09-29):
+  - `npm run verify` green: 24 files, 469 unit tests (27 new: name rules, list parsing incl. the shipped JSON, pick, slug, editor name/rename/load, save name parse, rename autosave, caption fit, file name), build OK with no chunk warning.
+  - `npm run test:e2e`: 146 tests, 127 passed, 18 skipped by design, 1 failed: the mobile `sample-town` baseline (expected, see below). `tests/town-name.spec.ts` (12 tests, desktop + mobile) also passed `--repeat-each=2` (24 / 24). Log: `artifacts/wp-20/e2e-full.log`.
+  - Baselines: the three phone top-bar baselines (sample-town, asset-gallery, night-town) were regenerated one at a time; the masked diff (top bar + 12 px pad, threshold 0) finds **0 px changed outside the top bar** in each (4.2–4.7k px inside it). The **committed mobile `sample-town` baseline had been captured in the flaky no-touch state** (the "click the map" hint and high-tier hedges; see Open issues), so it was checked against a correct touch-state capture instead of the old file. Desktop baselines are unchanged (a strict pixel compare finds 1 anti-aliased pixel in the house badge; not committed). All 8 baselines pass afterwards. Old baselines and diff images: `artifacts/wp-20/baselines-before/`, `masked-diff/`.
+- **Not verified here:** real iOS / Android (the on-screen keyboard over the dialog, autocapitalisation).
 
 ### WP-19 as built (branch `wp-19-photo`, merged; vs `docs/PLAN.md` WP-19)
 Current facts: `03-architecture.md` §Town photo; UI in `02-interaction-and-ui.md` (top bar, `P`, the Photo state).
@@ -250,6 +269,8 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
 - 2026-09-28 — **Plot 64 × 64 cells** (32 × 32 world units, `CELL_SIZE` still 0.5), owner request after WP-17's bigger buildings. The default camera keeps the v0.2 zoom (plot corners start just off-screen); world-space tunables (grid fade, title orbit, decor belt, night fog) scaled with the plot. A smaller (48 × 48) save loads centred on the plot, so no save version bump. The 48 × 48 sample town and asset gallery are shifted by `demoOffset()` (8 cells) to the centre. The mobile stress-town triangle budget went 250k → 320k (owner decision; the full town is 1.78× the area). Gates (working tree, 2026-09-28): `npm run verify` green (21 files, 399 unit tests, build OK); `npm run test:e2e` 108 tests, 91 passed + 14 skipped, the 3 `life.spec.ts` failures re-mapped (sample-town cells + `demoOffset`) and green on re-run; all 8 darwin visual baselines regenerated.
 - 2026-09-28 — **Junction centre lines and a Zebra crossing tool** (owner request). Tees and crossroads draw their centre lines meeting (`road-intersection-line`, `road-crossroad-line`); the plain tee left a blank patch, and v0.3's automatic crossroad zebras are gone. Zebras are a new Streets tool (34 placing tools; Streets 1–8): a block-aligned road marking (`ObjectDef.roadMarking`) on a straight, tee or cross; the road tile under it draws `road-crossing` / `road-intersection-path` / `road-crossroad-path`. Bulldozing it leaves the road; traffic ignores it. The sample town has one on the main street, the asset gallery one on mask 5.
 - 2026-09-28 — **Night grid colours**: the lines blend from white to a dim moon blue at night, the night boost is 0.25 (was 0.6), and the grid shader takes the scene fog and output colour conversion, so it sits in the night scene like it does on the day lawn.
+- 2026-09-29 — **Name your town (WP-20)**, owner request. The name belongs to the town (the save's optional `name`, no version bump; unnamed = "Tiny Town"), not to the settings. It is asked before every new town (the destructive confirm stays a separate step), never on Continue; renames come from the top-left pill or the menu, are autosaved and not undoable. Suggestions come from the owner's `public/data/default_town_names.json` (fetched, not bundled) through a per-load seeded stream (`seed()` pins it), the one exception to the fixed-seed rule. The title and loading screens keep the game's logo. The photo file name uses the town's slug (a small addition the owner may drop).
+- 2026-09-29 — **three.js in a vendor chunk** (WP-20): the fix for the 900 kB main-chunk warning, instead of the lazy `lil-gui` import.
 - 2026-09-28 — **Town photo (WP-19)**, owner request: a camera at the top right saves the town as a framed picture. Owner picks: what's on screen (not an auto-framed "whole town" shot), a Polaroid with the title, the date and a sun/moon icon (**no homes/residents line, no time-of-day words**), and a preview with Download only (Share removed after review). The photo is rendered to the game canvas at a raised pixel ratio and copied in the same task, not rendered off-screen, so tone mapping and colours match the screen. No shutter sound until the owner supplies or approves one.
 - 2026-09-28 — **Music resumes where it left off (WP-18)**, owner request: short sessions kept hearing only the intro. The position `{ track, time }` has its own key, `tiny-town:music:v1`, not the settings, because it is throwaway data written often. The seek happens on `loadedmetadata`, not through a `#t=` media fragment: it is simpler, and it can't change how the loop wraps. The end guard uses the real `duration`, so no track length is stored.
 - 2026-09-27 (v0.3) — **Crossroad tile markings done**: the crossroad uses `road-crossroad-path` (zebra crossings), checked against the mobile triangle budget. Removed from the backlog.
@@ -263,7 +284,7 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
 
 **Release measurements**
 - v0.3 (package 0.3.0) was re-measured on the production preview on 2026-09-27 (`docs/release.md` §Budgets; evidence in `artifacts/v03-release/`). Every budget is met.
-- The main JS chunk is 887 kB, 13 kB under the 900 kB code-split threshold, so the next feature will likely need a split (lazy `lil-gui` saves about 30 kB).
+- The main JS chunk was 887 kB (v0.3) and 898 kB (v0.4). WP-20 split three.js into its own chunk: main 264 kB + `three` 642 kB, so the 900 kB warning is far off (the release table in `docs/release.md` still shows the v0.4 numbers).
 - The sample town uses 28 of 30 textures.
 
 **Audio**

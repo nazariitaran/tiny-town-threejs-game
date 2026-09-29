@@ -2,7 +2,7 @@
  * Save format: TownState ⇄ SavedTown (= SavedTownV4, town/types.ts), validation and migration.
  * PURE (no three.js, no DOM). WP-02 owns this file; tested in serialize.test.ts.
  *
- *   serializeTown(state, camera?)  → SavedTown   (deterministic: objects by id, edges by key)
+ *   serializeTown(state, camera?, name?)  → SavedTown   (deterministic: objects by id, edges by key)
  *   parseSave(unknown | string)    → SavedTown | Error   (never throws)
  *
  * parseSave never trusts its input (it usually comes from localStorage):
@@ -16,12 +16,14 @@
  *  - demotes road cells of partial 2 × 2 road blocks to field (roads come in aligned blocks);
  *  - drops road features (roundabouts) and road markings (zebra crossings) that are not
  *    block-aligned or not standing on road;
- *  - repairs nextObjectId (≥ highest id + 1) and drops a malformed camera pose.
+ *  - repairs nextObjectId (≥ highest id + 1) and drops a malformed camera pose;
+ *  - keeps the town name (WP-20) sanitised, and drops one that is not a string or ends up blank.
  * The result is always loadable by TownEditor.load without throwing.
  */
 import { PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
 import { OBJECTS } from '../catalog/objects';
 import { cellKey, edgeCells, edgeInBounds, edgeKey, footprintCells, ROAD_BLOCK } from './grid';
+import { sanitizeTownName } from './townName';
 import type { EdgeKind, GroundKind, ObjectKind, PlacedEdge, PlacedObject, Rotation, SavedTown, TownStateReader } from './types';
 
 export const CURRENT_SAVE_VERSION = 4;
@@ -53,7 +55,7 @@ export const SAVE_MIGRATIONS: Readonly<Record<number, (raw: RawSave) => RawSave>
 // ---------------------------------------------------------------------------------------------
 // serialize
 
-export function serializeTown(state: SerializableTown, camera?: CameraPose): SavedTown {
+export function serializeTown(state: SerializableTown, camera?: CameraPose, name?: string): SavedTown {
   const ground: Array<[GroundKind, number]> = [];
   for (let z = 0; z < state.depth; z += 1) {
     for (let x = 0; x < state.width; x += 1) {
@@ -79,6 +81,8 @@ export function serializeTown(state: SerializableTown, camera?: CameraPose): Sav
     nextObjectId: state.nextObjectId,
   };
   if (camera) save.camera = { ...camera };
+  const cleanName = name === undefined ? '' : sanitizeTownName(name);
+  if (cleanName) save.name = cleanName;
   return save;
 }
 
@@ -255,6 +259,8 @@ function parseSaveUnsafe(input: unknown, options: ParseOptions): SavedTown | Err
   };
   const camera = parseCamera(raw.camera);
   if (camera) save.camera = camera;
+  const name = typeof raw.name === 'string' ? sanitizeTownName(raw.name) : '';
+  if (name) save.name = name;
   return save;
 }
 

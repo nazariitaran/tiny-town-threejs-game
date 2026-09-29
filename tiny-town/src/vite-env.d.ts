@@ -10,6 +10,8 @@ interface ThreeGameDiagnostics {
   /** Hovered cell; valid/reason mirror hover:changed (a just-placed cell reports valid). */
   hover: { x: number; z: number; valid: boolean; reason: string | null } | null;
   town: import('./town/types').TownStats;
+  /** The town's name (WP-20): what the top bar and the photo card show. */
+  townName: string;
   /** Objects in TownState. Compare with render.objects (what TownRenderer actually draws). */
   objects: number;
   render: { objects: number; groundTiles: number; edges: number } & Record<string, number>;

@@ -70,6 +70,13 @@ describe('serializeTown', () => {
     expect(serializeTown(state, camera).camera).toEqual(camera);
   });
 
+  it('includes the town name only when given, sanitised (WP-20)', () => {
+    const state = new TownState(PLOT_WIDTH, PLOT_DEPTH);
+    expect('name' in serializeTown(state)).toBe(false);
+    expect('name' in serializeTown(state, undefined, ' ')).toBe(false);
+    expect(serializeTown(state, undefined, ' Puddleton ').name).toBe('Puddleton');
+  });
+
   it('is deterministic: objects sorted by id, edges by position', () => {
     const editor = makeEditor();
     buildSampleTown(editor);
@@ -361,6 +368,15 @@ describe('parseSave sanitises and clamps', () => {
     );
     expect(save.nextObjectId).toBe(42);
     expect(ok(parseSave({ ...blank(), nextObjectId: 'x' })).nextObjectId).toBe(1);
+  });
+
+  it('keeps the town name (sanitised) and drops a missing, non-string or blank one (WP-20)', () => {
+    expect(ok(parseSave({ ...blank(), name: 'Puddleton' })).name).toBe('Puddleton');
+    expect(ok(parseSave({ ...blank(), name: '  Little \n Snorting ' })).name).toBe('Little Snorting');
+    expect(ok(parseSave({ ...blank(), name: 'x'.repeat(40) })).name).toBe('x'.repeat(30));
+    expect('name' in ok(parseSave(blank()))).toBe(false);
+    expect('name' in ok(parseSave({ ...blank(), name: 42 }))).toBe(false);
+    expect('name' in ok(parseSave({ ...blank(), name: '   ' }))).toBe(false);
   });
 
   it('keeps a valid camera pose and drops a malformed one', () => {
