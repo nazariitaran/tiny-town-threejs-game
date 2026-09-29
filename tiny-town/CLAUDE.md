@@ -20,7 +20,7 @@ A cosy browser city-builder sandbox (three.js + TypeScript + Vite). Start here. 
   - `night-town` test state and hook `setTimeOfDay`.
   - Current facts: `docs/design/03-architecture.md` §Day/night. The plan (historical) is `docs/plans/wp-16-day-night.md`.
 - **WP-20 "Name your town"**, merged on `main` (owner-approved 2026-09-29; no version label): a name dialog before every new town (30 characters, a random suggestion from `public/data/default_town_names.json`), rename from the top-left pill or the menu, the name in the save (`SavedTownV4.name`) and on the photo card. three.js is now its own vendor chunk. Plan: `docs/plans/wp-20-town-name.md`.
-- **WP-21 "Town file"** is built on the branch `wp-21-town-file`, awaiting the owner's review: download the town as a `.tinytown.json` file and open one again (the top-bar folder, Menu → Town file on phones, or the title link), with a confirm before replacing. **Save-format changes now need a `SAVE_MIGRATIONS` step**, or downloaded towns stop opening. Plan: `docs/plans/wp-21-town-file.md`.
+- **WP-21 "Town file"**, merged on `main` (owner-approved 2026-09-29): download the town as a `.tinytown.json` file and open one again (the top-bar folder, Menu → Town file on phones, or the title link), with a confirm before replacing. **Save-format changes now need a `SAVE_MIGRATIONS` step**, or downloaded towns stop opening. Plan: `docs/plans/wp-21-town-file.md`.
 - Status, decisions, open issues and the backlog are in `docs/progress.md`, the integrator's recovery point. Read it before planning anything.
 - Current facts (grid, rules, save format, modules, diagnostics, budgets) are in `docs/design/03-architecture.md`.
 - Some docs are historical snapshots, and each says so in a banner at the top:

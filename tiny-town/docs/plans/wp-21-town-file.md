@@ -1,6 +1,6 @@
 # WP-21 — Download and open a town file (plan, 2026-09-29)
 
-> **Plan, being implemented on the branch `wp-21-town-file`** (from `main` `c7e9a40`). It merges into `main` only after the owner's approval. No version label unless the owner sets one. As-built facts go to `03-architecture.md`, `02-interaction-and-ui.md` and `progress.md` ("WP-21 as built").
+> **Approved plan, implemented and merged into `main`** (owner-approved 2026-09-29 with every decision below; built on the branch `wp-21-town-file` from `c7e9a40`). This is the plan, not the as-built record. As-built facts go to `03-architecture.md`, `02-interaction-and-ui.md` and `progress.md` ("WP-21 as built").
 
 ## Owner request (2026-09-29)
 > As a user, I want to be able to download and restore my town, so I can store my favourite towns on my drive and can resume build for any of them at any time on any machine.
