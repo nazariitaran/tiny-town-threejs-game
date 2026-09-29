@@ -31,6 +31,7 @@ src/
   town/townName.ts            town name rules, suggestion pick, slug      WP-20
                               (pure, tested)
   persistence/SaveStore.ts    localStorage autosave + settings            WP-02
+  persistence/townFile.ts     town file encode/decode, file name (pure)   WP-21
   core/Loop.ts, Renderer.ts   rAF loop; WebGLRenderer setup/resize        integrator / WP-04 (Renderer.ts)
   render/ModelLibrary.ts      GLB load + normalise                        WP-03
   render/TownRenderer.ts      incremental instanced drawing + pop-in,     WP-03
@@ -150,6 +151,11 @@ Settings (`muted`, `volume`, `grid`, `music`, `musicVolume`; defaults false / 0.
 
 **Name suggestions (WP-20).** `Game` fetches `public/data/default_town_names.json` (owner-supplied, 500 names; `assetUrl(TOWN_NAMES_PATH)`) during load, next to the models; a failed fetch only warns, and the suggestion becomes "Tiny Town". It is not bundled, to keep the main chunk small. `UiRoot` gets `suggestTownName(avoid?)`, which picks through a **third RNG stream**, `Game.nameRng`. That stream is seeded from `crypto.getRandomValues` at boot (`utils/random.ts` `entropySeed`), because the fixed default seed would give every new player the same first name; `seed(n)` re-seeds it, so tests are deterministic. It is the only stream not on the fixed seed and is used for nothing else.
 
+**Town files (WP-21).** A town can leave the browser as a file and come back on any machine. `persistence/townFile.ts` (pure, tested) encodes `{ app: 'tiny-town', kind: 'town', format: 1, exportedAt: <ISO>, town: SavedTown }` and names it `<slug>-YYYY-MM-DD-HHMM.tinytown.json` (`townFileStem`, shared with the photo). `town` is exactly the autosave (town, name, camera pose); settings and the time of day are not in it. `decodeTownFile` also takes a bare save, refuses more than 2 MB, and runs `parseSave`, mapping its errors to player-facing messages (not a town / newer version / older version / too big).
+- **Download:** `intent:export-town` → `Game` serialises the **live** town with the camera pose → `town-file:ready { blob, fileName }` in the same task, so `UiRoot` downloads it (`utils/download.ts`) inside the click.
+- **Open:** `UiRoot` reads the picked file (`<input type="file">`), decodes it, and shows the confirm with the file's name and date; Replace → `intent:open-town { save }` (already through `parseSave`). `Game.openTown`: `editor.load(save)` (cause `load`, history cleared), **writes the save at once** (and turns autosave back on after a test state), enters building and applies the file's camera. From the title it is also the Start click (audio unlock, `clock.startDay()`); from the menu the time of day carries on.
+- **Format promise:** until WP-21, save-format bumps shipped without migrations. Now that towns live in files, a format change must add a `SAVE_MIGRATIONS` step, or accept that older files stop opening ("This town is from an older version…").
+
 Music position (WP-18) `{ track, time }` under `tiny-town:music:v1` (`MUSIC_POSITION_STORAGE_KEY`), through `SaveStore.getMusicPosition()` / `setMusicPosition()`. Deleting the town save keeps it. Rules: `docs/assets/audio.md` §Background music.
 
 ## Rendering strategy
@@ -248,6 +254,6 @@ There are no other diagnostics globals; the `__THREE_GAME_FX_DIAGNOSTICS__` / `_
 
 Playwright projects are `desktop-chrome` (1280×720) and `mobile-chrome` (Pixel 7 emulation, touch). Both run full Chromium (`channel: 'chromium'`) with 1 worker. The canvas inspector's `--mobile` mode is a 390 × 844 touch viewport.
 
-Stable DOM ids for tests are `UI_TEST_IDS` in `src/ui/testIds.ts`, which has no side effects and is re-exported by `UiRoot.ts`. Examples: `btn-start`, `tool-<id>`, `cat-<category>`, `btn-undo`, `btn-redo`, `btn-mute`, `btn-rotate`, `tool-bulldoze`, the menu ids, `chk-music` / `range-music`, the photo ids (`btn-photo`, `ui-photo`, `ui-photo-img`, `btn-photo-download`, `btn-photo-close`), and the town name ids (WP-20: `btn-town-name` (the top-left pill), `btn-rename-town`, `ui-town-name` (the dialog, `data-mode` new / rename), `input-town-name`, `btn-town-name-shuffle`, `btn-town-name-cancel`, `btn-town-name-ok`). A tool button exists only while its category is active.
+Stable DOM ids for tests are `UI_TEST_IDS` in `src/ui/testIds.ts`, which has no side effects and is re-exported by `UiRoot.ts`. Examples: `btn-start`, `tool-<id>`, `cat-<category>`, `btn-undo`, `btn-redo`, `btn-mute`, `btn-rotate`, `tool-bulldoze`, the menu ids, `chk-music` / `range-music`, the photo ids (`btn-photo`, `ui-photo`, `ui-photo-img`, `btn-photo-download`, `btn-photo-close`), the town name ids (WP-20: `btn-town-name` (the top-left pill), `btn-rename-town`, `ui-town-name` (the dialog, `data-mode` new / rename), `input-town-name`, `btn-town-name-shuffle`, `btn-town-name-cancel`, `btn-town-name-ok`), and the town file ids (WP-21: `btn-town-file` (top bar, > 440 px), `btn-town-file-menu` (menu, ≤ 440 px), `btn-title-open-file`, `ui-town-file`, `btn-town-file-download`, `btn-town-file-open`, `btn-town-file-close`, `input-town-file`, `ui-town-file-confirm`, `btn-town-file-cancel`, `btn-town-file-replace`, `btn-town-file-keep`). A tool button exists only while its category is active.
 
 Visual baselines live in `tests/visual-regression.spec.ts-snapshots/`: 6 PNGs covering title, sample-town and asset-gallery × desktop and mobile. They are **darwin only**, and a missing baseline fails.

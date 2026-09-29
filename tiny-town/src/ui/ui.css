@@ -304,6 +304,14 @@
   gap: 12px;
 }
 
+/* WP-21: "Open a town file" and "Credits" side by side under the title's buttons. */
+.ui-title-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
 .ui-title-credits {
   background: var(--panel);
   text-decoration: none;
@@ -1072,6 +1080,28 @@
   cursor: default;
 }
 
+/* WP-21: the Town file panel (Download / Open a town file…) and its status line. The menu row is the
+   phones' way in (the top-bar button doesn't fit there, see the 440 px query below). */
+.ui-town-file-row {
+  display: none;
+}
+
+.ui-panel p.ui-file-status {
+  min-height: 1.35em;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.ui-panel p.ui-file-status[data-state='error'] {
+  color: var(--brick-dark);
+}
+
+.ui-panel p.ui-file-when {
+  font-size: 0.9rem;
+}
+
 /* Camera flash over everything when the shutter fires (off under reduced motion). */
 .ui-flash {
   position: absolute;
@@ -1266,6 +1296,15 @@
 @media (max-width: 440px) {
   .ui-topbar {
     gap: 6px;
+  }
+
+  /* WP-21: a seventh 44 px action doesn't fit one row here; the menu carries Town file instead. */
+  .ui-town-file-btn {
+    display: none;
+  }
+
+  .ui-town-file-row {
+    display: inline-flex;
   }
 
   .ui-brand {

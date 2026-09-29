@@ -27,6 +27,9 @@ export const GLYPHS = {
   // Town photo (WP-19): the top-bar camera and the preview's Download button.
   photo: svg('<path d="M3 9a2 2 0 0 1 2-2h2.2l1.6-2.5h6.4L16.8 7H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13.2" r="3.6"/>'),
   download: svg('<path d="M12 4v11"/><path d="m7 10.5 5 5 5-5"/><path d="M5 20h14"/>'),
+  // Town file (WP-21): the top-bar folder and the panel's "Open a town file…".
+  folder: svg('<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2.5h7.5A2.5 2.5 0 0 1 21 10v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/><path d="M3 10.5h18"/>'),
+  upload: svg('<path d="M12 16V5"/><path d="m7 9.5 5-5 5 5"/><path d="M5 20h14"/>'),
   // Town name (WP-20): the menu's Rename town button and the name dialog's "Another name" die.
   pencil: svg('<path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>'),
   dice: svg(

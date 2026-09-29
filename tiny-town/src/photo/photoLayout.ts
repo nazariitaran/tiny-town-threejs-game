@@ -3,7 +3,7 @@
  * Pure (no DOM, no three.js) so it runs in Node tests; PhotoFrame.ts draws what this lays out.
  * WP-20: the caption's title is the player's town name, fitted to the strip (fitCaptionTitle).
  */
-import { DEFAULT_TOWN_NAME, townNameSlug } from '../town/townName';
+import { DEFAULT_TOWN_NAME, townFileStem } from '../town/townName';
 import type { DayPhase } from '../world/dayCycle';
 
 /** Wanted long edge of the captured 3D view, in device pixels (the frame adds a border around it). */
@@ -129,8 +129,5 @@ export function fitCaptionTitle(
 
 /** `puddleton-2026-09-28-1432.jpg`, local time; `tiny-town-…` when the name has no usable letters. */
 export function photoFileName(date: Date, townName: string = DEFAULT_TOWN_NAME): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-  const slug = townNameSlug(townName) || townNameSlug(DEFAULT_TOWN_NAME);
-  return `${slug}-${day}-${pad(date.getHours())}${pad(date.getMinutes())}.jpg`;
+  return `${townFileStem(townName, date)}.jpg`;
 }

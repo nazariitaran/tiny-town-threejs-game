@@ -70,3 +70,14 @@ export function townNameSlug(name: string): string {
     .slice(0, TOWN_NAME_MAX_LENGTH)
     .replace(/-+$/, '');
 }
+
+/**
+ * The stem every file named after the town shares (the photo, WP-19; the town file, WP-21):
+ * `puddleton-2026-09-28-1432`, local time; `tiny-town-…` when the name has no usable letters.
+ */
+export function townFileStem(name: string, date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  const slug = townNameSlug(name) || townNameSlug(DEFAULT_TOWN_NAME);
+  return `${slug}-${day}-${pad(date.getHours())}${pad(date.getMinutes())}`;
+}

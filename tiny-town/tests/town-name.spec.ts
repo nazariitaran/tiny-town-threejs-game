@@ -202,7 +202,8 @@ test.describe('name your town', () => {
     await nameAndStart(page, 'W'.repeat(30));
     const bar = await page.evaluate(() => {
       const rect = (s: string) => document.querySelector(s)!.getBoundingClientRect();
-      const buttons = [...document.querySelectorAll('.ui-actions button')].map((b) => b.getBoundingClientRect());
+      // Visible actions only: WP-21's Town file button is display:none on phones.
+      const buttons = [...document.querySelectorAll('.ui-actions button')].map((b) => b.getBoundingClientRect()).filter((r) => r.width > 0);
       return { brand: rect('#btn-town-name'), actions: rect('.ui-actions'), buttons, width: window.innerWidth };
     });
     expect(bar.brand.right).toBeLessThanOrEqual(bar.actions.left);

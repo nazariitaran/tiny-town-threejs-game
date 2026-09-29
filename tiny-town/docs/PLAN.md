@@ -440,6 +440,14 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
 - **Files:** new `src/town/townName.ts` + test, `tests/town-name.spec.ts`; contract: `town/types.ts`, `game/events.ts` (`intent:start.name`, `intent:new-town {name}`, `intent:rename-town`, `town:named`), `vite-env.d.ts` (`townName`), `Game.ts`; `TownEditor.ts`, `serialize.ts`, `SaveStore.ts` + tests; `UiRoot.ts`, `ui.css`, `testIds.ts`, `glyphs.ts`; `photoLayout.ts` + test, `PhotoFrame.ts`; `utils/random.ts` (`entropySeed`); `vite.config.ts` (three.js vendor chunk); the specs that click Start.
 - **Acceptance:** see the plan. `npm run verify` green; `tests/town-name.spec.ts` (desktop + mobile); full e2e green; desktop baselines unchanged, phone top-bar baselines regenerated with the masked diff; main chunk under 900 kB.
 
+### WP-21 — Download and open a town file
+- **Status: built on the branch `wp-21-town-file`** (from `main` `c7e9a40`; dev server 5230, tests 5231), waiting for the owner's review. Plan: `docs/plans/wp-21-town-file.md`; as built: `docs/progress.md` "WP-21 as built".
+- **Why:** owner request (2026-09-29): keep favourite towns on a drive and resume any of them, any time, on any machine.
+- **Owner decisions:** a new button in the top-right stack offering Download and Open, with a confirmation that the current town will be replaced. On phones (≤ 440 px, where a seventh button doesn't fit one row) the same actions sit in the Menu. The title gets an "Open a town file" link.
+- **Design:** a JSON file `{ app: 'tiny-town', kind: 'town', format: 1, exportedAt, town: SavedTown }` named `<slug>-YYYY-MM-DD-HHMM.tinytown.json`; decoded by the pure `persistence/townFile.ts` through `parseSave`; `intent:export-town` → `town-file:ready` (same click); `intent:open-town { save }` loads, writes the save at once, and from the title starts the game.
+- **Files:** new `src/persistence/townFile.ts` + test, `tests/town-file.spec.ts`; contract: `game/events.ts`, `Game.ts`; `town/townName.ts` (`townFileStem`), `photo/photoLayout.ts`, `utils/download.ts` (was `photo/savePhoto.ts`); `UiRoot.ts`, `ui.css`, `testIds.ts`, `glyphs.ts`; `tests/daynight.spec.ts`; regenerated baselines.
+- **Acceptance:** see the plan.
+
 ## 5. Checkpoints (integrator runs these on merged main)
 
 > Historical: M1, M2 and M3 all passed on 2026-09-26 (`docs/checkpoints/m1.md`–`m3.md`). Reuse the procedure for future checkpoints.
