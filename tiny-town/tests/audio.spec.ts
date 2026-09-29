@@ -8,6 +8,7 @@
  * WP-13 music checks and WP-18 music resume (position saved on hide/unload, resumed on the next visit).
  */
 import { expect, test, type Page } from '@playwright/test';
+import { clickStart } from './helpers';
 
 const SETTINGS_KEY = 'tiny-town:settings:v1';
 const MUSIC_POSITION_KEY = 'tiny-town:music:v1';
@@ -29,8 +30,7 @@ const diag = (page: Page): Promise<Diag> => page.evaluate(() => window.__THREE_G
 
 async function startGame(page: Page): Promise<void> {
   await page.waitForFunction(() => window.__THREE_GAME_DIAGNOSTICS__?.phase === 'title', undefined, { timeout: 15_000 });
-  await page.locator('#btn-start').click();
-  await page.waitForFunction(() => window.__THREE_GAME_DIAGNOSTICS__?.phase === 'building');
+  await clickStart(page);
 }
 
 async function waitForAudio(page: Page, minLoaded: number): Promise<void> {

@@ -164,6 +164,11 @@ export interface SavedTownV4 {
   edges: PlacedEdge[];
   nextObjectId: number;
   camera?: { targetX: number; targetZ: number; azimuth: number; polar: number; distance: number };
+  /**
+   * The player's name for the town (WP-20; optional, no version bump): 1–30 characters, sanitised
+   * (town/townName.ts). A save without one loads as DEFAULT_TOWN_NAME.
+   */
+  name?: string;
 }
 
 /** The current save format. */

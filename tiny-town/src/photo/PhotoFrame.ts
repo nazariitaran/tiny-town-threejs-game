@@ -1,11 +1,12 @@
 /**
  * Draws the Polaroid around a captured view and encodes it (WP-19). Layout comes from
  * photoLayout.ts; colours and glyphs match the UI (cream panel, ink, brick brand badge,
- * the time-of-day sun / moon), so the photo looks like part of the game.
+ * the time-of-day sun / moon), so the photo looks like part of the game. The title is the
+ * player's town name (WP-20), shrunk or cut to fit the strip.
  */
 import { GLYPHS } from '../ui/glyphs';
 import type { DayPhase } from '../world/dayCycle';
-import { PHOTO_JPEG_QUALITY, PHOTO_MIME, photoCaption, photoFrameLayout, photoSkyGlyph, type Rect } from './photoLayout';
+import { fitCaptionTitle, PHOTO_JPEG_QUALITY, PHOTO_MIME, photoCaption, photoFrameLayout, photoSkyGlyph, type Rect } from './photoLayout';
 
 const PAPER_TOP = '#fffbf3';
 const PAPER_BOTTOM = '#fbf1df';
@@ -56,10 +57,11 @@ function encode(canvas: HTMLCanvasElement): Promise<Blob> {
   });
 }
 
-export async function framePhoto(shot: HTMLCanvasElement, phase: DayPhase, date: Date): Promise<FramedPhoto> {
+export async function framePhoto(shot: HTMLCanvasElement, phase: DayPhase, date: Date, townName: string): Promise<FramedPhoto> {
   const layout = photoFrameLayout(shot.width, shot.height);
-  const caption = photoCaption(date);
-  const titleFont = `800 ${layout.title.fontPx}px ${FONT_STACK}`;
+  const caption = photoCaption(townName, date);
+  const titleFontAt = (px: number) => `800 ${px}px ${FONT_STACK}`;
+  const titleFont = titleFontAt(layout.title.fontPx);
   const lineFont = `700 ${layout.line.fontPx}px ${FONT_STACK}`;
   const sky = photoSkyGlyph(phase);
   const [house, skyImage] = await Promise.all([
@@ -97,8 +99,12 @@ export async function framePhoto(shot: HTMLCanvasElement, phase: DayPhase, date:
 
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = INK;
-  ctx.font = titleFont;
-  ctx.fillText(caption.title, layout.title.x, layout.title.baseline);
+  const title = fitCaptionTitle(caption.title, layout.title.maxWidth, layout.title.fontPx, (text, px) => {
+    ctx.font = titleFontAt(px);
+    return ctx.measureText(text).width;
+  });
+  ctx.font = titleFontAt(title.fontPx);
+  ctx.fillText(title.text, layout.title.x, layout.title.baseline);
   ctx.fillStyle = INK_SOFT;
   ctx.font = lineFont;
   ctx.fillText(caption.line, layout.line.x, layout.line.baseline);

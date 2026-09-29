@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { clickStart } from './helpers';
 import { PNG } from 'pngjs';
 
 type CanvasSample = {
@@ -59,8 +60,7 @@ test('loads, starts, and builds a road through real input', async ({ page }, tes
   const sample = await sampleCanvas(page);
   expect(sample, JSON.stringify(sample)).toMatchObject({ ok: true });
 
-  await page.locator('#btn-start').click();
-  await page.waitForFunction(() => window.__THREE_GAME_DIAGNOSTICS__?.phase === 'building');
+  await clickStart(page);
 
   await page.locator('#cat-streets').click();
   await page.locator('#tool-road').click();

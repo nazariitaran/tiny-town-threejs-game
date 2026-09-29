@@ -48,6 +48,17 @@ export const UI_TEST_IDS = {
   photoImage: 'ui-photo-img',
   photoDownload: 'btn-photo-download',
   photoClose: 'btn-photo-close',
+  // --- added by WP-20 (town name) ---
+  /** Top-bar brand pill: shows the town's name; click/tap to rename. */
+  townName: 'btn-town-name',
+  /** Menu "Rename town" button. */
+  renameTown: 'btn-rename-town',
+  /** The name dialog (data-mode="new" | "rename"), its field, dice, cancel and submit buttons. */
+  namePanel: 'ui-town-name',
+  nameInput: 'input-town-name',
+  nameShuffle: 'btn-town-name-shuffle',
+  nameCancel: 'btn-town-name-cancel',
+  nameSubmit: 'btn-town-name-ok',
   confirmPanel: 'ui-confirm',
   confirmClear: 'btn-confirm-clear',
   confirmCancel: 'btn-confirm-cancel',

@@ -348,15 +348,32 @@
   gap: 8px;
 }
 
+/* WP-20: the brand pill is a button showing the town's name (click / tap to rename it). A long name
+   ends in an ellipsis; the pill gives way to the action pill, never the other way round. */
 .ui-brand {
+  flex: 0 1 auto;
   height: var(--topbar-h);
-  min-width: 0;
+  min-width: var(--topbar-h);
+  max-width: min(40vw, 440px);
   padding: 0 16px 0 8px;
   font-size: 1.05rem;
+  transition: background-color var(--fast) var(--ease);
+}
+
+.ui-brand:hover {
+  background: var(--panel-solid);
 }
 
 .ui-brand .ui-mark {
+  min-width: 0;
+  max-width: 100%;
   font-size: 1.1rem;
+}
+
+.ui-town-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ui-actions {
@@ -1003,6 +1020,66 @@
   flex: 1 1 0;
 }
 
+/* WP-20: the name dialog (a new town's name, or a rename): the field with a die for another
+   random name, a character counter, Cancel + Start building / Save. */
+.ui-name-form {
+  display: grid;
+  gap: 10px;
+}
+
+.ui-panel p.ui-name-note {
+  font-size: 0.9rem;
+}
+
+.ui-name-panel[data-mode='rename'] .ui-name-note {
+  display: none;
+}
+
+.ui-name-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ui-name-field input {
+  flex: 1;
+  min-width: 0;
+  height: 50px;
+  padding: 0 14px;
+  border: 2px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  /* ≥ 16 px, so iOS doesn't zoom in on focus. */
+  font-size: 1.2rem;
+  font-weight: 800;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.ui-name-field input:focus {
+  border-color: var(--blue);
+}
+
+.ui-name-field .ui-icon-btn {
+  flex: none;
+  width: 44px;
+  height: 44px;
+}
+
+.ui-panel p.ui-name-count {
+  margin-top: -6px;
+  justify-self: end;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 /* Camera flash over everything when the shutter fires (off under reduced motion). */
 .ui-flash {
   position: absolute;
@@ -1190,10 +1267,27 @@
   }
 }
 
-/* WP-16c: five 44 px actions (undo, redo, time, mute, menu) need ~245 px, so on phones up to
-   440 px wide the brand is the round icon-only badge (it was ≤ 380 px before the time button).
-   Keeps the top bar one row at 390 and 412 (Pixel 7) px. */
+/* WP-16c / WP-20: six 44 px actions need ~290 px. On phones up to 440 px wide the town's name
+   gets a smaller size and whatever room is left (an ellipsis cuts it: ~7 characters at 412 px);
+   below 400 px that would be 2–3 characters, so the brand is the round icon-only badge there (the
+   menu's heading shows the full name). Keeps the top bar one row at 360, 390 and 412 (Pixel 7) px. */
 @media (max-width: 440px) {
+  .ui-topbar {
+    gap: 6px;
+  }
+
+  .ui-brand {
+    max-width: none;
+    padding: 0 10px 0 6px;
+  }
+
+  .ui-brand .ui-mark {
+    gap: 0.24em;
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 399px) {
   .ui-brand .ui-mark-text {
     display: none;
   }

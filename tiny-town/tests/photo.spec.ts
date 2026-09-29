@@ -9,6 +9,7 @@ import { PHOTO_LONG_EDGE } from '../src/photo/photoLayout';
 import { applyState, byId, canvasPoint, diagnostics, gotoTitle, selectTool, trackErrors, UI_TEST_IDS, waitFrames } from './helpers';
 
 const OUT = 'artifacts/wp-19';
+// Test states reset the name to "Tiny Town" (WP-20: the file name starts with the town's slug).
 const FILE_NAME = /^tiny-town-\d{4}-\d{2}-\d{2}-\d{4}\.jpg$/;
 
 const photo = async (page: Page) => (await diagnostics(page)).photo;

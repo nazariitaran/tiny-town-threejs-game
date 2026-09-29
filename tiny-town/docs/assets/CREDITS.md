@@ -50,6 +50,12 @@ The 34 tool icons in `public/assets/icons/tool-<id>.png` (128 px) were rendered 
 |---|---|---|
 | Foundation of Gold | `public/assets/music/foundation-of-gold.mp3` | Foundation of Gold — background music created by the project owner (generated with ElevenLabs, owner's account); all rights held by the project owner. |
 
+## Data
+
+| Data | File | Credit |
+|---|---|---|
+| Town name suggestions (500 names, WP-20) | `public/data/default_town_names.json` | Supplied by the project owner (2026-09-29); all rights held by the project owner. Fetched at load, not bundled. |
+
 ## Font
 
 | Font | Package | Licence |

@@ -14,7 +14,7 @@
  *   saves.attachAutosave(bus, () => editor.serialize(cameraPose()));
  *   bus.on('intent:start', ({ mode }) => {
  *     const save = mode === 'continue' ? saves.read() : null;
- *     if (save) editor.load(save); else editor.reset();    // load() never autosaves (cause 'load')
+ *     if (save) editor.load(save); else editor.reset(name); // load() never autosaves (cause 'load')
  *   });
  *   addEventListener('pagehide', () => saves.flush());     // don't lose the last second
  *   saves.getSettings() / saves.setSettings({ muted, volume, grid, music, musicVolume, timeMode })
@@ -25,6 +25,8 @@
  * the snapshot callback is serialized and written, then 'save:written' is emitted.
  * cause 'load' never schedules a write. cause 'reset' (New town) cancels any pending write and
  * clears the stored save, so an empty plot is never offered as "Continue".
+ * A rename ('town:named' with cause 'rename', WP-20) schedules a write like an edit; the name of a
+ * new town is written with its first edit.
  */
 import { parseMusicPosition, type MusicPosition } from '../audio/musicPosition';
 import { MUSIC_POSITION_STORAGE_KEY, SAVE_STORAGE_KEY, SETTINGS_STORAGE_KEY } from '../game/config';
@@ -193,20 +195,27 @@ export class SaveStore {
   // ---- autosave -------------------------------------------------------------------------------
 
   /**
-   * Start autosaving: debounced `debounceMs` after 'town:changed' (cause ≠ 'load'), writes
-   * `snapshot()`. Calling again re-attaches (previous subscription removed).
+   * Start autosaving: debounced `debounceMs` after 'town:changed' (cause ≠ 'load') or a rename,
+   * writes `snapshot()`. Calling again re-attaches (previous subscription removed).
    */
   attachAutosave(bus: GameBus, snapshot: () => SavedTown, debounceMs = AUTOSAVE_DEBOUNCE_MS): void {
     this.detachAutosave();
     this.bus = bus;
     this.snapshot = snapshot;
     this.debounceMs = debounceMs;
-    this.unsubscribe = bus.on('town:changed', ({ cause }) => {
+    const offChanged = bus.on('town:changed', ({ cause }) => {
       if (cause === 'load') return;
       if (!this.autosaveEnabled) return;
       if (cause === 'reset') this.clear();
       else this.schedule();
     });
+    const offNamed = bus.on('town:named', ({ cause }) => {
+      if (cause === 'rename' && this.autosaveEnabled) this.schedule();
+    });
+    this.unsubscribe = () => {
+      offChanged();
+      offNamed();
+    };
   }
 
   /** Stop listening and cancel any pending write. */

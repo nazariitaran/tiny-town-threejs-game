@@ -27,6 +27,11 @@ export const GLYPHS = {
   // Town photo (WP-19): the top-bar camera and the preview's Download button.
   photo: svg('<path d="M3 9a2 2 0 0 1 2-2h2.2l1.6-2.5h6.4L16.8 7H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13.2" r="3.6"/>'),
   download: svg('<path d="M12 4v11"/><path d="m7 10.5 5 5 5-5"/><path d="M5 20h14"/>'),
+  // Town name (WP-20): the menu's Rename town button and the name dialog's "Another name" die.
+  pencil: svg('<path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>'),
+  dice: svg(
+    '<rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="8.6" cy="8.6" r="1.35" fill="currentColor" stroke="none"/><circle cx="15.4" cy="8.6" r="1.35" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.35" fill="currentColor" stroke="none"/><circle cx="8.6" cy="15.4" r="1.35" fill="currentColor" stroke="none"/><circle cx="15.4" cy="15.4" r="1.35" fill="currentColor" stroke="none"/>',
+  ),
   // Day/night modes (WP-16c): the top-bar time button and the menu's "Time of day" row.
   /** Auto: a sun whose core is a crescent moon (the cycle runs by itself). */
   timeAuto: svg(

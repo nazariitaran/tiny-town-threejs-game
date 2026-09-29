@@ -17,13 +17,17 @@ export type GamePhase = 'loading' | 'title' | 'building' | 'menu' | 'error';
 
 export type GameEvents = {
   // ---- intents (UI / input → game) -------------------------------------
-  'intent:start': { mode: 'continue' | 'new' };
+  /** `name`: what the player called a 'new' town (WP-20); ignored for 'continue' (the save has it). */
+  'intent:start': { mode: 'continue' | 'new'; name?: string };
   'intent:select-tool': { toolId: ToolId | null };
   /** direction 1 = clockwise seen from above (the R key), -1 = counter-clockwise (Shift+R). */
   'intent:rotate': { direction: 1 | -1 };
   'intent:undo': void;
   'intent:redo': void;
-  'intent:new-town': void;
+  /** Menu → New town → confirm → name dialog: clear the plot and call the new town `name` (WP-20). */
+  'intent:new-town': { name: string };
+  /** Top-bar town name / menu → game: rename the current town (WP-20; saved, not undoable). */
+  'intent:rename-town': { name: string };
   'intent:open-menu': void;
   'intent:close-menu': void;
   'intent:set-muted': { muted: boolean };
@@ -52,6 +56,11 @@ export type GameEvents = {
   /** Applied town mutations (after placement, bulldoze, undo, redo, load). Renderer consumes this. */
   'town:changed': { changes: readonly TownChange[]; cause: 'edit' | 'undo' | 'redo' | 'load' | 'reset' };
   'town:stats': TownStats;
+  /**
+   * The town's name (WP-20): after a load (the save's name, or the default), a reset (New town,
+   * test states) or a rename. The top bar renders it; SaveStore autosaves on 'rename'.
+   */
+  'town:named': { name: string; cause: 'load' | 'reset' | 'rename' };
 
   /**
    * Semantic build events for audio / fx / hud juice. One per placed/removed thing, only for

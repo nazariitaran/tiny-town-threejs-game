@@ -24,11 +24,12 @@ import { TownRenderer } from '../render/TownRenderer';
 import { TownEditor } from '../town/TownEditor';
 import { TownState } from '../town/TownState';
 import { buildAssetGallery, buildSampleTown, buildStressTown } from '../town/sampleTown';
+import { parseTownNames, pickTownName, TOWN_NAMES_PATH } from '../town/townName';
 import { UiRoot } from '../ui/UiRoot';
-import { createSeededRandom } from '../utils/random';
+import { createSeededRandom, entropySeed } from '../utils/random';
 import { createDaySample, DayClock, sampleDay, T_AFTERNOON, T_NIGHT, TIME_MODES, type DayPhase, type TimeMode } from '../world/dayCycle';
 import { Environment } from '../world/Environment';
-import { MAX_DPR, PLOT_DEPTH, PLOT_WIDTH, type QualityTier } from './config';
+import { assetUrl, MAX_DPR, PLOT_DEPTH, PLOT_WIDTH, type QualityTier } from './config';
 import { createGameBus, type GamePhase } from './events';
 
 /** Named states for __THREE_GAME_TEST_HOOKS__.setState (canvas inspector, visual tests, bots). */
@@ -53,6 +54,13 @@ export class Game {
   private seedValue = 1;
   private rng = createSeededRandom(this.seedValue);
   private fxRng = createSeededRandom(this.seedValue ^ 0x9e3779b9);
+  /**
+   * Town-name suggestions (WP-20): a third stream, seeded afresh on every page load (a fixed seed
+   * would give every new player the same first name); seed() pins it for tests.
+   */
+  private nameRng = createSeededRandom(entropySeed());
+  /** The owner's suggestion list (public/data/default_town_names.json), loaded with the models. */
+  private townNames: string[] = [];
   private gridPreferred = true;
   private invalidCount = 0;
 
@@ -111,18 +119,18 @@ export class Game {
     this.clock = new DayClock(this.saves.getSettings().timeMode);
     this.installClockDebug();
     this.audio = new AudioManager(this.bus, fxRand, this.saves);
-    this.ui = new UiRoot(uiHost, this.bus, () => this.saves.has());
+    this.ui = new UiRoot(uiHost, this.bus, () => this.saves.has(), (avoid) => pickTownName(this.townNames, this.nameRng, avoid));
 
     // Persistence: autosave 1 s after edits (never on 'load'); flush on page hide.
     this.saves.attachAutosave(this.bus, () => this.editor.serialize(this.cameraController.getPose()));
     window.addEventListener('pagehide', this.onPageHide);
     this.gridPreferred = this.saves.getSettings().grid;
 
-    this.bus.on('intent:start', ({ mode }) => {
+    this.bus.on('intent:start', ({ mode, name }) => {
       void this.audio.unlock(); // must stay inside the click's call stack
       const save = mode === 'continue' ? this.saves.read() : null;
       if (save) this.editor.load(save);
-      else this.editor.reset(); // 'new': cause 'reset' also clears the stored save
+      else this.editor.reset(name); // 'new': cause 'reset' also clears the stored save
       this.setPhase('building');
       if (save?.camera) this.cameraController.setPose(save.camera);
       this.clock.startDay(); // Auto starts in the morning; the time of day is never saved
@@ -132,7 +140,8 @@ export class Game {
     this.bus.on('intent:cycle-time-mode', () => {
       this.setTimeMode(TIME_MODES[(TIME_MODES.indexOf(this.clock.mode) + 1) % TIME_MODES.length]);
     });
-    this.bus.on('intent:new-town', () => this.editor.reset());
+    this.bus.on('intent:new-town', ({ name }) => this.editor.reset(name));
+    this.bus.on('intent:rename-town', ({ name }) => this.editor.rename(name));
     this.bus.on('intent:open-menu', () => {
       if (this.phase === 'building') this.setPhase('menu');
     });
@@ -192,6 +201,7 @@ export class Game {
       await Promise.all([
         this.library.loadAll((loaded, total, label) => this.bus.emit('load:progress', { loaded, total, label })),
         this.life.load(),
+        this.loadTownNames(),
       ]);
       this.townRenderer.rebuildAll();
       this.environment.populate(this.library);
@@ -203,6 +213,17 @@ export class Game {
       console.error(error);
       this.bus.emit('load:error', { message: error instanceof Error ? error.message : String(error) });
       this.setPhase('error');
+    }
+  }
+
+  /** The name suggestions (WP-20). Never fails the load: without them the suggestion is "Tiny Town". */
+  private async loadTownNames(): Promise<void> {
+    try {
+      const response = await fetch(assetUrl(TOWN_NAMES_PATH));
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      this.townNames = parseTownNames(await response.json());
+    } catch (error) {
+      console.warn('[town-name] no name suggestions:', error);
     }
   }
 
@@ -268,12 +289,13 @@ export class Game {
       return;
     }
     const date = new Date();
+    const townName = this.editor.name;
     import('../photo/PhotoFrame')
-      .then(({ framePhoto }) => framePhoto(shot.canvas, phase, date))
+      .then(({ framePhoto }) => framePhoto(shot.canvas, phase, date, townName))
       .then(({ blob, width, height }) => {
         this.photo.developing = false;
         this.photo.last = { width, height, bytes: blob.size, pixelRatio: shot.pixelRatio, ms: Math.round(performance.now() - started) };
-        this.bus.emit('photo:ready', { blob, width, height, fileName: photoFileName(date) });
+        this.bus.emit('photo:ready', { blob, width, height, fileName: photoFileName(date, townName) });
       }, fail);
   }
 
@@ -346,6 +368,7 @@ export class Game {
         this.seedValue = value;
         this.rng = createSeededRandom(value);
         this.fxRng = createSeededRandom(value ^ 0x9e3779b9);
+        this.nameRng = createSeededRandom(value ^ 0x51f15eed);
       },
       setState: async (name: string) => {
         if (!(TEST_STATES as readonly string[]).includes(name)) throw new Error(`Unknown test state: ${name}`);
@@ -395,6 +418,7 @@ export class Game {
       rotation: this.tools.activeRotation,
       hover: this.tools.hovered,
       town: this.town.stats(),
+      townName: this.editor.name,
       objects: [...this.town.objects()].length,
       render: this.townRenderer.getDiagnostics(),
       history: {

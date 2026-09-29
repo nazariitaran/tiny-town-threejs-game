@@ -75,7 +75,7 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│ [🏡 Tiny Town]                          [↶][↷] │ [📷][☀][🔊][☰]   │  top bar: ONE row (brand pill · action pill)
+│ [🏡 Puddleton]                          [↶][↷] │ [📷][☀][🔊][☰]   │  top bar: ONE row (town name pill · action pill)
 │            "Drag to lay road — it joins up automatically"            │  hint pill, 10 px under the top bar (fades)
 │                                                                      │
 │                          3D  TOWN  VIEW                              │
@@ -102,7 +102,7 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
   Inside a category the tools run **surfaces → lines → objects** (ground paint, then edges, then placed items). A category holds at most 9 tools, so every tool has a digit. `catalog.test.ts` checks both. An item card is a 44 px icon (the in-project render of the in-game model, `scripts/render-icons.mjs`), a short label and a number-key badge. The selected card is raised with an accent outline. Clicking the active item again deselects it.
 - **Mode buttons** (right end of the dock): Rotate (shows the current rotation arrow) and Bulldoze (toggles; red accent when active).
 - **Top bar**: one row. The row is 48 px tall (`--topbar-h`; 52 px on phones), so it ends 60 / 64 px below the safe-area top.
-  - Left: the title mark only. v0.2 (WP-14) removed the live stats pill as redundant; `TownState.stats()` and diagnostics `town` remain for tests.
+  - Left: the **town name pill** (WP-20): the brick house badge and the player's town name (bold, ellipsised when too long; desktop caps the pill at 40 % of the width). It is a button: click / tap it to rename the town. v0.2 (WP-14) removed the live stats pill as redundant; `TownState.stats()` and diagnostics `town` remain for tests.
   - Right: Undo and Redo (disabled when unavailable), then the **photo camera** (WP-19, key `P`), the **time-of-day button** (v0.3, WP-16), the sound toggle (mute), and Menu. Volume and music settings are in the menu.
   - The time button cycles Auto → Day → Night (`intent:cycle-time-mode`; key `T`). Its glyph is sun + moon, sun or moon, and its label reads "Time of day: Auto". It renders from `daytime:changed`. The mode is a saved setting; the time of day is not.
 - **Hint line**: a contextual one-liner for the active tool's gesture. It sits top-centre, 10 px under the top bar, fades after about 3.5 s, and stops appearing after 3 uses of that tool.
@@ -113,7 +113,7 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
 
 ### Mobile (≤ 760 px wide or `pointer: coarse`)
 - The dock is full-width at the bottom (safe-area padded). The item tray scrolls horizontally with scroll-snap. Cards are 80 × 78 px with 50 px icons; at ≤ 380 px wide they shrink to 64 px and the labels are hidden.
-- The top bar stays one row: the title mark (an icon-only badge at **≤ 440 px** since v0.3: five 44 px actions need about 245 px; six since WP-19's photo camera, about 290 px, which still fits one row at 360 px) plus the actions; every top-bar action stays a ≥ 44 px target. The hint pill sits 10 px under the top bar.
+- The top bar stays one row: the town name pill plus the actions (six 44 px actions since WP-19's photo camera, about 290 px); every top-bar action stays a ≥ 44 px target. At **400–440 px** the name gets a smaller size and whatever is left (about 7 characters at 412 px, then an ellipsis); **below 400 px** the pill is the icon-only badge (still a rename button), because only 2–3 characters would fit. The menu's heading shows the full name, so phones always have a place where it reads in full. The hint pill sits 10 px under the top bar.
 - One finger = tool action (tap place / drag paint); two fingers = camera. With no tool selected, one finger pans.
 - Hint line mentions "two fingers to move the camera".
 
@@ -122,11 +122,12 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
 | State | Content | Enter / exit |
 | --- | --- | --- |
 | **Loading** | Title mark + progress bar (models/audio loaded / total) | App start → assets ready |
-| **Title** | Big "Tiny Town" mark over the live, slowly orbiting scene. Buttons: **Start building** (primary), which reads **Continue** when a save exists; **New town**, shown only when a save exists; a small Credits link | Assets ready → user clicks. This click also unlocks audio and starts the streamed music |
+| **Title** | Big "Tiny Town" mark (the game's logo, never the town's name) over the live, slowly orbiting scene. Buttons: **Start building** (primary), which reads **Continue** when a save exists; **New town**, shown only when a save exists; a small Credits link | Assets ready → user clicks. Continue goes straight in; Start building (no save) and New town (after its confirm) open **Name your town** first. The click that enters the game (Continue, or the name dialog's Start building) unlocks audio and starts the streamed music |
+| **Name your town** (WP-20; over the title, or the menu phase with the name view) | "Name your town" (new town) or "Rename your town": a text field (≤ 30 characters, live "n / 30" counter) pre-filled with a random name from `public/data/default_town_names.json` (new) or the current name (rename); a **die** button draws another random name; **Cancel** and **Start building** / **Save**. Enter submits, Esc cancels; a blank name can't be submitted. Desktop focuses the field with the text selected; touch focuses the button, so the keyboard opens only when the field is tapped | New town: from the title's Start building (no save) or after "Start a new town?" → Clear (title or menu); nothing is cleared until the name is confirmed. Rename: the top-left pill (Cancel returns to building) or Menu → Rename town (Cancel returns to the menu). Renaming is not undoable and is autosaved |
 | **Building** | Dock, top bar, hint line | Main state |
-| **Menu** (overlay; the sim keeps rendering; music ducks −3 dB; the day clock pauses) | Resume · Controls · Reset view · Volume · **Music** on/off · **Music volume** · Show grid · **Time of day** (Auto / Day / Night segmented control) · New town (confirm) · Credits | ☰, or Esc when no tool is selected |
+| **Menu** (overlay; the sim keeps rendering; music ducks −3 dB; the day clock pauses) | Headed by the **town's name** (WP-20). Resume · Controls · Reset view · Volume · **Music** on/off · **Music volume** · Show grid · **Time of day** (Auto / Day / Night segmented control) · **Rename town** · New town (confirm, then Name your town) · Credits | ☰, or Esc when no tool is selected |
 | **Photo** (WP-19; the menu phase with the photo view instead of the menu: same pause, duck and dim) | A white flash (none under reduced motion), then the photo as a slightly tilted Polaroid with a strip of washi tape: "Developing…" on a warm grey print, then the picture fades up from pale sepia. **Download** and **Back to town** (no Share button, owner decision) | Camera button or `P` while building → Esc / Back to town returns to building (the tool stays selected) |
-| **Confirm dialog** | "Start a new town? Your current town will be cleared." Cancel / Clear | From menu |
+| **Confirm dialog** | "Start a new town? Your current town will be cleared." Cancel / Clear (Clear opens Name your town; WP-20) | From menu, or the title's New town |
 | **Controls help** | Two-column gesture list (mouse+keys / touch) | From menu, `?` key |
 | **Error** | Friendly message if WebGL or asset loading fails, with retry | Fatal load error |
 

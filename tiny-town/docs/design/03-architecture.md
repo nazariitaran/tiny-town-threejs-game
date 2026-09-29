@@ -3,7 +3,7 @@
 > **Status: current for v0.3 on `main` (WP-15 catalog + WP-16 day/night), 2026-09-27; v0.3 is not yet released.** This is the source of truth for the grid, rules, save format, module map, diagnostics and budgets. If this file and the code disagree, the code wins; fix this file.
 
 ## Stack
-TypeScript (strict) · Vite 8 · three.js r184 (`three/addons/*` for MapControls, GLTFLoader) · Web Audio (SFX buffers; music streamed via `HTMLAudioElement`) · lil-gui (`?debug`) · Vitest (pure logic) · Playwright (browser, `channel: 'chromium'`, 1 worker). No physics engine: the game is grid-based and has no simulation that needs one.
+TypeScript (strict) · Vite 8 · three.js r184 (`three/addons/*` for MapControls, GLTFLoader) · Web Audio (SFX buffers; music streamed via `HTMLAudioElement`) · lil-gui (`?debug`) · Vitest (pure logic) · Playwright (browser, `channel: 'chromium'`, 1 worker). No physics engine: the game is grid-based and has no simulation that needs one. The build puts three.js in its own vendor chunk (`vite.config.ts`, WP-20), so the game's own chunk stays far below the 900 kB warning limit.
 
 ## Module map and ownership
 
@@ -28,6 +28,8 @@ src/
   town/TownEditor.ts          the only mutator; publishes facts           WP-02
   town/serialize.ts           save format + validation (no migrations)    WP-02
   town/sampleTown.ts          demo towns: sample, asset gallery, stress   WP-02
+  town/townName.ts            town name rules, suggestion pick, slug      WP-20
+                              (pure, tested)
   persistence/SaveStore.ts    localStorage autosave + settings            WP-02
   core/Loop.ts, Renderer.ts   rAF loop; WebGLRenderer setup/resize        integrator / WP-04 (Renderer.ts)
   render/ModelLibrary.ts      GLB load + normalise                        WP-03
@@ -95,7 +97,7 @@ Rules of the road:
 4. **All randomness goes through the seeded RNG** passed into constructors (`Game.rng`). Never `Math.random()` (it breaks screenshots and bot runs).
 5. **One cell↔world mapping**: `game/config.ts`. Nobody re-derives it. Likewise every runtime asset URL goes through `assetUrl()`.
 6. **Keyboard ownership**: digits 1–9 (tool in the active category), Shift+1–5 (category), `?` (controls help) and `P` (take a photo, WP-19) belong to the UI (`ui/uiKeys.ts`, `UiRoot`); everything else (R, B, Esc, F/Home, WASD/arrows, Q/E, +/−, undo/redo) belongs to `ToolController`/`CameraController`.
-7. **Two RNG streams**: gameplay (`Game.rng`: variants) and cosmetic (`Game.fxRng`: audio/fx jitter, ambient cars), so a sound never changes the next house variant.
+7. **Two RNG streams**: gameplay (`Game.rng`: variants) and cosmetic (`Game.fxRng`: audio/fx jitter, ambient cars), so a sound never changes the next house variant. A third, `nameRng`, draws only town-name suggestions (WP-20, §Save format).
 
 ## Frame update order (Game.update)
 `resizeRenderer` → `ToolController.update` → `CameraController.update` → `TownRenderer.update(animDelta)` → `LifeSystem.update(animDelta)` → `DayClock.advance(animDelta)` (building phase only) → `Game.applyDaylight()` (`Environment.applyDaylight`, `NightLights.update`, `LifeSystem.setNight`, `daytime:changed` on a mode/phase change) → `Environment.update(animDelta, animElapsed)` → `PlacementFx.update(animDelta)` → diagnostics → render. With `setReducedMotion(true)`, `animDelta`/`animElapsed` are 0. With `setPausedForScreenshot(true)`, nothing updates but rendering continues.
@@ -144,6 +146,10 @@ Variant choice (e.g. tree shape, house model, traffic-light style) uses the seed
 
 Settings (`muted`, `volume`, `grid`, `music`, `musicVolume`; defaults false / 0.8 / true / true / 0.5) under `tiny-town:settings:v1`; older settings without the music fields load with the defaults.
 
+**Town name (WP-20).** `SavedTownV4.name` is optional, so it needed no version bump: 1–30 characters (Unicode code points), control characters removed, whitespace collapsed and trimmed (`town/townName.ts` `sanitizeTownName`). `parseSave` keeps a sanitised name and drops one that isn't a string or ends up blank; a save without a name loads as `DEFAULT_TOWN_NAME` ("Tiny Town"), which is also the name after any test-state reset. `TownEditor` holds the name: `reset(name?)`, `load(save)` and `rename(name)` set it and emit `town:named { name, cause: 'load' | 'reset' | 'rename' }`; `serialize()` writes it. Renaming is not undoable. SaveStore autosaves on `town:named` with cause `rename` (debounced like an edit); a new town's name is written with its first edit, or its first rename. Events: `intent:start { mode, name? }` (the name of a `'new'` town), `intent:new-town { name }`, `intent:rename-town { name }`.
+
+**Name suggestions (WP-20).** `Game` fetches `public/data/default_town_names.json` (owner-supplied, 500 names; `assetUrl(TOWN_NAMES_PATH)`) during load, next to the models; a failed fetch only warns, and the suggestion becomes "Tiny Town". It is not bundled, to keep the main chunk small. `UiRoot` gets `suggestTownName(avoid?)`, which picks through a **third RNG stream**, `Game.nameRng`. That stream is seeded from `crypto.getRandomValues` at boot (`utils/random.ts` `entropySeed`), because the fixed default seed would give every new player the same first name; `seed(n)` re-seeds it, so tests are deterministic. It is the only stream not on the fixed seed and is used for nothing else.
+
 Music position (WP-18) `{ track, time }` under `tiny-town:music:v1` (`MUSIC_POSITION_STORAGE_KEY`), through `SaveStore.getMusicPosition()` / `setMusicPosition()`. Deleting the town save keeps it. Rules: `docs/assets/audio.md` §Background music.
 
 ## Rendering strategy
@@ -184,9 +190,9 @@ Plan and rationale: `docs/plans/wp-16-day-night.md`. The as-built deviations are
 - **Flow:** the top-bar camera button or `P` (no modifiers, building phase only) → `UiRoot` sets its pending view to `photo` and emits `intent:take-photo` → `Game.takePhoto()`:
   1. enters the **menu** phase. The UI shows the photo view instead of the menu. As for the menu, the tools switch off (so the ghost, the footprint frame and the hover highlight go), the grid hides, the clock stops and the music ducks −3 dB;
   2. `photo/capture.ts` renders **one frame to the game canvas** at a raised pixel ratio (`photoPixelRatio`: the long edge reaches 2400 px, never below the screen ratio, capped by `MAX_RENDERBUFFER_SIZE` / `MAX_VIEWPORT_DIMS` and 4096), copies it into a 2D canvas, then restores the ratio and renders again, all in the same task, so nothing flickers. Rendering to the canvas (not a render target) keeps the tone mapping and sRGB output, so the photo matches the screen. The copy must follow the render in the same task because the drawing buffer is not preserved;
-  3. `photo/PhotoFrame.ts` draws the Polaroid (layout in `photoLayout.ts`, scaled by the short edge: border 5 %, bottom strip 20 %) with the brick house badge, "Tiny Town", the date ("28 Sep 2026", player's locale) and a sun, or a moon at night. No town stats and no time-of-day words: the icon says it (owner decisions). It is encoded as JPEG at 0.92 → `photo:ready {blob, width, height, fileName}` or `photo:error`.
+  3. `photo/PhotoFrame.ts` draws the Polaroid (layout in `photoLayout.ts`, scaled by the short edge: border 5 %, bottom strip 20 %) with the brick house badge, the **town's name** (WP-20; "Tiny Town" before WP-20), the date ("28 Sep 2026", player's locale) and a sun, or a moon at night. A long name shrinks to fit between the badge and the sun / moon (`fitCaptionTitle`, down to 60 % of the size), then ends in an ellipsis. No town stats and no time-of-day words: the icon says it (owner decisions). It is encoded as JPEG at 0.92 → `photo:ready {blob, width, height, fileName}` or `photo:error`.
 - **What the photo shows:** exactly the current view: camera, time of day, cars, lights, fireflies and placement dust. The DOM UI is never in it. On phones it includes the strip under the dock.
-- **Saving (UI):** Download = an object URL plus `a[download]` (`tiny-town-YYYY-MM-DD-HHMM.jpg`), inside the button's click (fresh user activation). There is no Share button (owner decision, 2026-09-28): on iOS a download goes to Files, and a long press on the preview image still offers "Save to Photos".
+- **Saving (UI):** Download = an object URL plus `a[download]` (`<town-slug>-YYYY-MM-DD-HHMM.jpg`, e.g. `puddleton-2026-09-29-1432.jpg`; `tiny-town-…` when the name has no ASCII letters or digits), inside the button's click (fresh user activation). There is no Share button (owner decision, 2026-09-28): on iOS a download goes to Files, and a long press on the preview image still offers "Save to Photos".
 - **Closing:** Esc or "Back to town" emits `intent:close-menu` (straight back to building, the tool still selected). A second photo is ignored while one is developing.
 - **Cost:** 60–90 ms per photo on an M-series laptop (capture + frame + encode). The JPEG is 0.2–0.4 MB at 2536 × 1688 (desktop) or 1188 × 2670 (Pixel 7).
 
@@ -202,7 +208,7 @@ The mobile triangle budget was raised from 250k to 320k with the 64 × 64 plot (
 | Shadow maps | 1 × 2048 | 1 × 1024 | as budgeted (`Environment.setQuality`: high 2048, low 1024) |
 | DPR cap | 2 | 1.5 | `MAX_DPR` in `config.ts` |
 | Frame time (M-series laptop, headless full Chromium) | ≤ 8 ms | — | 1.46 ms day / 1.51 ms night on the stress town (v0.4 production preview, uncapped); v0.3: 1.38 / 1.37 ms; v0.1: 1.36 ms |
-| Initial download (JS + CSS + font + models + SFX + icons) | ≤ 8 MB | ≤ 8 MB | 4.78 MB over the network before the title (v0.4 production preview); `dist/` 4.99 MB without maps or music. The 4.68 MB music track is streamed after Start and isn't part of the initial download |
+| Initial download (JS + CSS + font + models + SFX + icons + name list) | ≤ 8 MB | ≤ 8 MB | 4.78 MB over the network before the title (v0.4 production preview); `dist/` 4.99 MB without maps or music. The 4.68 MB music track is streamed after Start and isn't part of the initial download |
 
 ## Test hooks and diagnostics
 `window.__THREE_GAME_TEST_HOOKS__` (installed in production too; policy in `docs/release.md`):
@@ -222,6 +228,7 @@ The `sample-town` state uses every placing tool (34) with zero rejections: stats
 | `frame`, `phase`, `tool`, `rotation` | |
 | `hover` | `{x, z, valid, reason}` or null, mirroring `hover:changed`; a just-placed cell reports valid |
 | `town` | `TownState.stats()`: homes, residents, amenities (v0.3: Town-category buildings), trees, roadTiles (= road blocks), props (street, garden and plant objects), fences (every edge: fences and hedges) |
+| `townName` | WP-20: the town's name (`TownEditor.name`), as the top bar and the photo show it |
 | `objects` | TownState object count |
 | `render` | what TownRenderer actually draws: objects, groundTiles, edges, instances, pools, draw/shadow-call and triangle estimates, animating, dying, materials |
 | `history` | `canUndo` / `canRedo` / `undoDepth` / `redoDepth` |
@@ -241,6 +248,6 @@ There are no other diagnostics globals; the `__THREE_GAME_FX_DIAGNOSTICS__` / `_
 
 Playwright projects are `desktop-chrome` (1280×720) and `mobile-chrome` (Pixel 7 emulation, touch). Both run full Chromium (`channel: 'chromium'`) with 1 worker. The canvas inspector's `--mobile` mode is a 390 × 844 touch viewport.
 
-Stable DOM ids for tests are `UI_TEST_IDS` in `src/ui/testIds.ts`, which has no side effects and is re-exported by `UiRoot.ts`. Examples: `btn-start`, `tool-<id>`, `cat-<category>`, `btn-undo`, `btn-redo`, `btn-mute`, `btn-rotate`, `tool-bulldoze`, the menu ids, `chk-music` / `range-music`, and the photo ids (`btn-photo`, `ui-photo`, `ui-photo-img`, `btn-photo-download`, `btn-photo-share`, `btn-photo-close`). A tool button exists only while its category is active.
+Stable DOM ids for tests are `UI_TEST_IDS` in `src/ui/testIds.ts`, which has no side effects and is re-exported by `UiRoot.ts`. Examples: `btn-start`, `tool-<id>`, `cat-<category>`, `btn-undo`, `btn-redo`, `btn-mute`, `btn-rotate`, `tool-bulldoze`, the menu ids, `chk-music` / `range-music`, the photo ids (`btn-photo`, `ui-photo`, `ui-photo-img`, `btn-photo-download`, `btn-photo-close`), and the town name ids (WP-20: `btn-town-name` (the top-left pill), `btn-rename-town`, `ui-town-name` (the dialog, `data-mode` new / rename), `input-town-name`, `btn-town-name-shuffle`, `btn-town-name-cancel`, `btn-town-name-ok`). A tool button exists only while its category is active.
 
 Visual baselines live in `tests/visual-regression.spec.ts-snapshots/`: 6 PNGs covering title, sample-town and asset-gallery × desktop and mobile. They are **darwin only**, and a missing baseline fails.

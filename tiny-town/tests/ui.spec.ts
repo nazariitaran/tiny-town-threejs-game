@@ -6,7 +6,7 @@ import { mkdirSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { TOOL_CATEGORIES, toolsInCategory } from '../src/catalog/tools';
 import { UI_TEST_IDS } from '../src/ui/UiRoot';
-import { clickFootprint } from './helpers';
+import { clickFootprint, clickStart } from './helpers';
 
 // UI_RUN_ID picks the evidence folder, e.g. UI_RUN_ID=wp06-fix1 → artifacts/wp06-fix1.
 const OUT = `artifacts/${process.env.UI_RUN_ID ?? 'wp-06'}`;
@@ -31,8 +31,7 @@ async function boot(page: Page): Promise<void> {
 
 async function start(page: Page): Promise<void> {
   await boot(page);
-  await page.locator(id(UI_TEST_IDS.start)).click();
-  await page.waitForFunction(() => window.__THREE_GAME_DIAGNOSTICS__?.phase === 'building');
+  await clickStart(page);
 }
 
 const cellPoint = (page: Page, x: number, z: number) =>
@@ -296,9 +295,12 @@ test('menu opens and closes; New town asks for confirmation', async ({ page }, i
   await expect(page.locator(id(UI_TEST_IDS.menuPanel))).toBeVisible();
   expect((await diag(page)).town.homes).toBe(homes);
 
-  // New town → confirm → Clear empties it and returns to building.
+  // New town → confirm → Clear → name the new town (WP-20) empties it and returns to building.
   await page.locator(id(UI_TEST_IDS.newTown)).click();
   await page.locator(id(UI_TEST_IDS.confirmClear)).click();
+  await expect(page.locator(id(UI_TEST_IDS.namePanel))).toBeVisible();
+  expect((await diag(page)).town.homes).toBe(homes); // nothing is cleared before the name is confirmed
+  await page.locator(id(UI_TEST_IDS.nameSubmit)).click();
   await expect.poll(async () => (await diag(page)).town.homes).toBe(0);
   await expect.poll(async () => (await diag(page)).phase).toBe('building');
   expect(errors).toEqual([]);

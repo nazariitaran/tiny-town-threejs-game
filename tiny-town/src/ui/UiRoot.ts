@@ -1,7 +1,7 @@
 /**
  * DOM UI (WP-06): loading, title, build HUD (top bar + dock with category tabs, item tray and
- * mode buttons), hint line, cursor tooltip, menu / confirm / controls help / credits / photo
- * overlays and the error screen. Layout and states follow docs/design/02-interaction-and-ui.md §4–§7.
+ * mode buttons), hint line, cursor tooltip, menu / confirm / controls help / credits / photo /
+ * town name overlays and the error screen. Layout and states follow docs/design/02-interaction-and-ui.md §4–§7.
  *
  * Talks to the game ONLY via the bus: emits `intent:*` / `ui:sfx`, renders facts
  * (`phase:changed`, `tool:changed`, `history:changed`, `audio:changed`, ...).
@@ -16,6 +16,7 @@ import { assetUrl } from '../game/config';
 import type { GameBus, GamePhase } from '../game/events';
 import { photoFrameLayout } from '../photo/photoLayout';
 import { downloadPhoto } from '../photo/savePhoto';
+import { DEFAULT_TOWN_NAME, sanitizeTownName, TOWN_NAME_MAX_LENGTH, townNameLength } from '../town/townName';
 import type { Rotation } from '../town/types';
 import { TIME_MODES, type DayPhase, type TimeMode } from '../world/dayCycle';
 import { GLYPHS } from './glyphs';
@@ -24,7 +25,9 @@ import { digitAction, isPhotoKey } from './uiKeys';
 
 export { UI_TEST_IDS };
 
-type ModalView = 'menu' | 'confirm' | 'help' | 'credits' | 'photo';
+type ModalView = 'menu' | 'confirm' | 'help' | 'credits' | 'photo' | 'name';
+/** The name dialog (WP-20) names a new town or renames this one, and returns to where it opened. */
+type NameDialog = { mode: 'new' | 'rename'; from: 'title' | 'menu' | 'building' };
 type UiSfx = 'ui-hover' | 'ui-click' | 'ui-open' | 'ui-close';
 
 const HINT_MAX_USES = 3;
@@ -83,16 +86,25 @@ export class UiRoot {
   private quietHoverKey: string | null = null;
   /** The latest framed photo (WP-19) and the object URL the preview shows it through. */
   private photo: { blob: Blob; fileName: string; url: string } | null = null;
+  /** The town's name (WP-20; from `town:named`) and the name dialog's purpose while it is open. */
+  private townName = DEFAULT_TOWN_NAME;
+  private nameDialog: NameDialog = { mode: 'new', from: 'title' };
 
+  /**
+   * `suggestTownName(avoid)` draws a random name from the suggestion list (Game owns the list and its
+   * seeded stream), never `avoid` when there is another choice.
+   */
   constructor(
     host: HTMLElement,
     private readonly bus: GameBus,
     private readonly hasSave: () => boolean,
+    private readonly suggestTownName: (avoid?: string) => string,
   ) {
     this.root = host;
     this.root.innerHTML = this.template();
 
     this.root.addEventListener('click', this.onClick);
+    this.root.addEventListener('submit', this.onSubmit);
     this.root.addEventListener('input', this.onInput);
     this.root.addEventListener('change', this.onInput);
     this.root.addEventListener('pointerover', this.onPointerOver);
@@ -149,7 +161,13 @@ export class UiRoot {
       // WP-19: the photo preview fills in when the framed photo is ready.
       bus.on('photo:ready', (photo) => this.showPhoto(photo)),
       bus.on('photo:error', () => this.renderPhotoState('error', "The photo didn't come out. Close this and try again.")),
+      // WP-20: the top bar shows the town's name.
+      bus.on('town:named', ({ name }) => {
+        this.townName = name;
+        this.renderTownName();
+      }),
     );
+    this.renderTownName();
     this.renderTray();
     this.renderAudio();
     this.renderTimeMode();
@@ -159,6 +177,7 @@ export class UiRoot {
 
   dispose(): void {
     this.root.removeEventListener('click', this.onClick);
+    this.root.removeEventListener('submit', this.onSubmit);
     this.root.removeEventListener('input', this.onInput);
     this.root.removeEventListener('change', this.onInput);
     this.root.removeEventListener('pointerover', this.onPointerOver);
@@ -202,7 +221,7 @@ export class UiRoot {
       </section>
 
       <header class="ui-topbar ui-hud" data-phase="building menu">
-        <div class="ui-brand ui-pill"><span class="ui-mark">${mark}</span></div>
+        <button id="${id.townName}" type="button" class="ui-brand ui-pill"><span class="ui-mark"><span class="ui-mark-house">${GLYPHS.homes}</span><span class="ui-mark-text ui-town-name"></span></span></button>
         <div class="ui-actions ui-pill" role="group" aria-label="Game controls">
           <button id="${id.undo}" type="button" class="ui-icon-btn" disabled aria-label="Undo" title="Undo (Ctrl+Z)">${GLYPHS.undo}</button>
           <button id="${id.redo}" type="button" class="ui-icon-btn" disabled aria-label="Redo" title="Redo (Ctrl+Shift+Z)">${GLYPHS.redo}</button>
@@ -269,8 +288,27 @@ export class UiRoot {
             ${GLYPHS.grid}<span>Show grid</span>
             <input type="checkbox" id="${id.grid}" role="switch" checked />
           </label>
-          <button type="button" class="ui-btn ui-btn-danger-soft" id="${id.newTown}">${GLYPHS.plus}<span>New town</span></button>
+          <div class="ui-row">
+            <button type="button" class="ui-btn" id="${id.renameTown}">${GLYPHS.pencil}<span>Rename town</span></button>
+            <button type="button" class="ui-btn ui-btn-danger-soft" id="${id.newTown}">${GLYPHS.plus}<span>New town</span></button>
+          </div>
           <button type="button" class="ui-link" id="${id.credits}">Credits</button>
+        </section>
+
+        <section class="ui-panel ui-name-panel" id="${id.namePanel}" data-view="name" data-mode="new" role="dialog" aria-modal="true" aria-labelledby="ui-name-h" aria-describedby="ui-name-d">
+          <h2 id="ui-name-h">Name your town</h2>
+          <form class="ui-name-form" novalidate>
+            <p id="ui-name-d" class="ui-name-note">Up to ${TOWN_NAME_MAX_LENGTH} characters. You can rename it any time from the top bar.</p>
+            <div class="ui-name-field">
+              <input type="text" id="${id.nameInput}" maxlength="${TOWN_NAME_MAX_LENGTH}" aria-label="Town name" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="done" />
+              <button type="button" class="ui-icon-btn" id="${id.nameShuffle}" aria-label="Another name" title="Another name">${GLYPHS.dice}</button>
+            </div>
+            <p class="ui-name-count" id="ui-name-count" aria-hidden="true"></p>
+            <div class="ui-row">
+              <button type="button" class="ui-btn" id="${id.nameCancel}" data-back>Cancel</button>
+              <button type="submit" class="ui-btn ui-btn-primary" id="${id.nameSubmit}"><span class="ui-name-submit">Start building</span></button>
+            </div>
+          </form>
         </section>
 
         <section class="ui-panel" id="${id.confirmPanel}" data-view="confirm" role="alertdialog" aria-modal="true" aria-labelledby="ui-confirm-h" aria-describedby="ui-confirm-d">
@@ -365,7 +403,13 @@ export class UiRoot {
     const quiet = target.id === id.undo || target.id === id.redo; // AudioManager plays undo/redo
     if (!quiet) this.sfx('ui-click');
 
-    if (target.id === id.start) this.bus.emit('intent:start', { mode: this.hasSave() ? 'continue' : 'new' });
+    if (target.id === id.start) {
+      // Continue goes straight in; a new town is named first (WP-20).
+      if (this.hasSave()) this.bus.emit('intent:start', { mode: 'continue' });
+      else this.openNameDialog({ mode: 'new', from: 'title' });
+    } else if (target.id === id.townName) this.openNameDialog({ mode: 'rename', from: 'building' });
+    else if (target.id === id.renameTown) this.openNameDialog({ mode: 'rename', from: 'menu' });
+    else if (target.id === id.nameShuffle) this.shuffleTownName();
     else if (target.id === id.titleNew) this.openModal('confirm');
     else if (target.id === id.titleCredits || target.id === id.credits) this.openModal('credits');
     else if (target.id === id.undo) this.bus.emit('intent:undo');
@@ -389,9 +433,18 @@ export class UiRoot {
     else if (target.dataset.tool) this.selectTool(target.dataset.tool as ToolId);
   };
 
+  /** The name dialog's form (Enter in the field or its submit button). */
+  private readonly onSubmit = (event: SubmitEvent): void => {
+    if (!(event.target as HTMLElement).closest(`#${UI_TEST_IDS.namePanel}`)) return;
+    event.preventDefault();
+    this.submitTownName();
+  };
+
   private readonly onInput = (event: Event): void => {
     const target = event.target as HTMLInputElement;
-    if (target.id === UI_TEST_IDS.volume && event.type === 'input') {
+    if (target.id === UI_TEST_IDS.nameInput) {
+      if (event.type === 'input') this.renderNameCount();
+    } else if (target.id === UI_TEST_IDS.volume && event.type === 'input') {
       this.bus.emit('intent:set-volume', { volume: Number(target.value) });
     } else if (target.id === UI_TEST_IDS.musicVolume && event.type === 'input') {
       this.bus.emit('intent:set-music-volume', { volume: Number(target.value) });
@@ -424,16 +477,17 @@ export class UiRoot {
   };
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
-    const target = event.target as HTMLElement | null;
-    const typing = target instanceof HTMLInputElement && target.type !== 'range' && target.type !== 'checkbox' && target.type !== 'radio';
-    if (typing || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return;
-
-    if (event.code === 'Escape' && this.modal) {
+    // Esc closes an overlay even from the town name field (WP-20); every other key there is typing.
+    if (event.code === 'Escape' && this.modal && !event.isComposing) {
       event.preventDefault();
       event.stopImmediatePropagation();
       this.back();
       return;
     }
+    const target = event.target as HTMLElement | null;
+    const typing = target instanceof HTMLInputElement && target.type !== 'range' && target.type !== 'checkbox' && target.type !== 'radio';
+    if (typing || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return;
+
     if (event.key === '?' && (this.phase === 'building' || this.phase === 'menu')) {
       event.preventDefault();
       if (this.phase === 'menu') this.openModal('help');
@@ -485,22 +539,82 @@ export class UiRoot {
     this.renderPhotoState('ready', `Saved as ${this.photo.fileName}`);
   }
 
+  /** "Clear" in the new-town confirm: name the new town first; nothing is cleared until it is named. */
   private confirmNewTown(): void {
-    if (this.phase === 'title') {
+    this.openNameDialog({ mode: 'new', from: this.phase === 'title' ? 'title' : 'menu' });
+  }
+
+  /**
+   * The name dialog (WP-20). From the title it opens over the title; from the top bar it enters the
+   * menu phase (like the photo view); from the menu or the confirm it replaces that panel.
+   */
+  private openNameDialog(dialog: NameDialog): void {
+    this.nameDialog = dialog;
+    if (dialog.from === 'building') {
+      if (this.phase !== 'building') return;
+      this.pendingView = 'name';
+      this.bus.emit('intent:open-menu');
+      this.pendingView = null;
+    } else this.openModal('name');
+  }
+
+  /** Fill the dialog: a random suggestion for a new town, the current name for a rename. */
+  private startNameView(): void {
+    const { mode } = this.nameDialog;
+    const panel = this.el(UI_TEST_IDS.namePanel);
+    panel.dataset.mode = mode;
+    this.el('ui-name-h').textContent = mode === 'new' ? 'Name your town' : 'Rename your town';
+    panel.querySelector('.ui-name-submit')!.textContent = mode === 'new' ? 'Start building' : 'Save';
+    this.el<HTMLInputElement>(UI_TEST_IDS.nameInput).value = mode === 'new' ? this.suggestTownName() : this.townName;
+    this.renderNameCount();
+  }
+
+  /** Desktop: the field, text selected, so typing replaces the suggestion. Touch: the button, so the keyboard stays shut. */
+  private focusNameDialog(): void {
+    const input = this.el<HTMLInputElement>(UI_TEST_IDS.nameInput);
+    if (this.coarse.matches) this.button(UI_TEST_IDS.nameSubmit).focus({ preventScroll: true });
+    else {
+      input.focus({ preventScroll: true });
+      input.select();
+    }
+  }
+
+  private shuffleTownName(): void {
+    const input = this.el<HTMLInputElement>(UI_TEST_IDS.nameInput);
+    input.value = this.suggestTownName(sanitizeTownName(input.value));
+    this.renderNameCount();
+  }
+
+  private submitTownName(): void {
+    const name = sanitizeTownName(this.el<HTMLInputElement>(UI_TEST_IDS.nameInput).value);
+    if (!name || this.modal !== 'name') return;
+    const { mode, from } = this.nameDialog;
+    if (mode === 'rename') {
+      this.bus.emit('intent:rename-town', { name });
+      this.back();
+    } else if (from === 'title') {
       this.closeModal();
-      this.bus.emit('intent:start', { mode: 'new' });
+      this.bus.emit('intent:start', { mode: 'new', name });
     } else {
-      this.bus.emit('intent:new-town');
+      this.bus.emit('intent:new-town', { name });
       this.bus.emit('intent:close-menu');
     }
+  }
+
+  /** "n / 30" under the field; a blank name can't be submitted. */
+  private renderNameCount(): void {
+    const value = this.el<HTMLInputElement>(UI_TEST_IDS.nameInput).value;
+    this.el('ui-name-count').textContent = `${townNameLength(value)} / ${TOWN_NAME_MAX_LENGTH}`;
+    this.button(UI_TEST_IDS.nameSubmit).disabled = sanitizeTownName(value) === '';
   }
 
   /** Esc / Back / Cancel: sub-view → menu (while paused), menu → resume, title overlay → close. */
   private back(): void {
     if (!this.modal) return;
     if (this.phase === 'menu') {
-      // The photo view opens straight from the build view, so it closes straight back to it.
-      if (this.modal === 'menu' || this.modal === 'photo') this.bus.emit('intent:close-menu');
+      // The photo view and the top-bar rename open straight from the build view, so they close straight back to it.
+      const toBuilding = this.modal === 'menu' || this.modal === 'photo' || (this.modal === 'name' && this.nameDialog.from === 'building');
+      if (toBuilding) this.bus.emit('intent:close-menu');
       else this.openModal('menu');
     } else this.closeModal();
   }
@@ -514,6 +628,11 @@ export class UiRoot {
     this.setHudInert(true);
     if (!wasOpen) this.sfx('ui-open');
     if (view === 'photo') this.startPhotoView();
+    if (view === 'name') {
+      this.startNameView();
+      this.focusNameDialog();
+      return;
+    }
     const panel = modal.querySelector<HTMLElement>(`[data-view="${view}"]`)!;
     panel.querySelector<HTMLElement>('button:not(:disabled)')?.focus({ preventScroll: true });
   }
@@ -591,6 +710,17 @@ export class UiRoot {
 
   private printFigure(): HTMLElement {
     return this.root.querySelector<HTMLElement>('.ui-print')!;
+  }
+
+  /** WP-20: the top-bar pill and the photo's alt text follow the town's name. */
+  private renderTownName(): void {
+    const brand = this.button(UI_TEST_IDS.townName);
+    brand.querySelector('.ui-town-name')!.textContent = this.townName;
+    brand.setAttribute('aria-label', `${this.townName}, rename town`);
+    brand.title = `${this.townName} · Rename town`;
+    // The menu is headed by the town's name: on narrow phones the top bar has no room for it.
+    this.el('ui-menu-h').textContent = this.townName;
+    this.el(UI_TEST_IDS.photoImage).setAttribute('alt', `A photo of ${this.townName} in a Polaroid frame`);
   }
 
   private renderTitle(): void {

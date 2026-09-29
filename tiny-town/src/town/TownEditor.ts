@@ -13,10 +13,14 @@
  *                                     entry (or joins the open stroke). silent: no build:* events
  *                                     (no sound/FX spam for demo towns).
  *  - undo() / redo()                  cause 'undo' / 'redo'.
- *  - reset()                          empty plot, history cleared, cause 'reset'. Not undoable.
+ *  - reset(name?)                     empty plot, history cleared, cause 'reset'. Not undoable.
+ *                                     The town is called `name` (default DEFAULT_TOWN_NAME).
  *  - load(save)                       replace the town with a VALIDATED save (see parseSave), cause
  *                                     'load' with a full change list (remove old…, add new…),
  *                                     history cleared. Not undoable.
+ *  - rename(name)                     WP-20: rename the town (sanitised; blank or unchanged is
+ *                                     ignored). Not undoable; SaveStore autosaves it.
+ *  - name                             the town's name. reset/load/rename emit 'town:named'.
  *  - serialize(camera?)               current town as SavedTown (for SaveStore).
  *
  * Every change list keeps its primary change last; build events derive from it.
@@ -28,6 +32,7 @@ import type { ToolId } from '../catalog/tools';
 import { History } from './History';
 import { planAction } from './rules';
 import { decodeGround, serializeTown, type CameraPose } from './serialize';
+import { DEFAULT_TOWN_NAME, sanitizeTownName } from './townName';
 import type { TownState } from './TownState';
 import type { BuildAction, InvalidReason, PlanResult, SavedTown, TownChange } from './types';
 
@@ -55,12 +60,18 @@ export class TownEditor {
   private stroke: TownChange[] | null = null;
   /** Placements/removals so far in the current stroke (build:* strokeIndex). */
   private strokeCount = 0;
+  private townName = DEFAULT_TOWN_NAME;
 
   constructor(
     readonly state: TownState,
     private readonly bus: GameBus,
     private readonly rng: () => number,
   ) {}
+
+  /** The town's name (WP-20): always a valid name, DEFAULT_TOWN_NAME until named. */
+  get name(): string {
+    return this.townName;
+  }
 
   /** Is a stroke open (between beginStroke and endStroke)? */
   get inStroke(): boolean {
@@ -143,13 +154,25 @@ export class TownEditor {
     this.publish(changes, 'redo');
   }
 
-  /** Clear the plot (New town). Not undoable. */
-  reset(): void {
+  /** Clear the plot (New town) and call the new town `name` (blank → the default). Not undoable. */
+  reset(name: string = DEFAULT_TOWN_NAME): void {
     this.stroke = null;
     this.strokeCount = 0;
     const changes = this.state.clear();
     this.history.clear();
     this.publish(changes, 'reset');
+    this.setName(name, 'reset');
+  }
+
+  /**
+   * Rename the town (WP-20). The name is sanitised (townName.ts); a blank or unchanged name is
+   * ignored. Not undoable: it isn't a build action. Returns whether the name changed.
+   */
+  rename(name: string): boolean {
+    const clean = sanitizeTownName(name);
+    if (!clean || clean === this.townName) return false;
+    this.setName(clean, 'rename');
+    return true;
   }
 
   /**
@@ -179,11 +202,17 @@ export class TownEditor {
     changes.push(...added);
     this.history.clear();
     this.publish(changes, 'load');
+    this.setName(save.name ?? DEFAULT_TOWN_NAME, 'load');
   }
 
   /** The current town as a save (deterministic). SaveStore / Game use this for autosave. */
   serialize(camera?: CameraPose): SavedTown {
-    return serializeTown(this.state, camera);
+    return serializeTown(this.state, camera, this.townName);
+  }
+
+  private setName(name: string, cause: 'load' | 'reset' | 'rename'): void {
+    this.townName = sanitizeTownName(name) || DEFAULT_TOWN_NAME;
+    this.bus.emit('town:named', { name: this.townName, cause });
   }
 
   private plan(action: BuildAction): PlanResult {
