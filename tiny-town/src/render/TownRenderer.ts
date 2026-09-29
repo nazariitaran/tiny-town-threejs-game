@@ -84,9 +84,6 @@ export const MODEL_STYLES: Readonly<Partial<Record<ModelId, ModelStyle>>> = {
   // WP-12: fences are 0.5 long (scale 0.5); Y restores a readable height: ≈ 1.65 m / 0.8 m at toy scale.
   'fence-tall': { color: '#f2eadb', scale: [1, 1.8, 1] },
   'fence-low': { color: '#9a6a42', scale: [1, 1.4, 1] },
-  // WP-23: the gate keeps its kit wood (a lighter gate with a dark door panel, so it reads inside a
-  // low-fence run) and stands a little taller than the low fence (0.17 vs 0.10).
-  'fence-gate': { scale: [1, 0.89, 1] },
   // v0.3: the hedge is 0.5 long; a little longer so neighbouring runs close up at corners.
   hedge: { scale: [1.12, 1, 1] },
   // v0.3: the oak canopy squashed into a low round shrub (the model's offset sinks the trunk).

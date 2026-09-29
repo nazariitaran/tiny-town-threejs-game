@@ -2,7 +2,7 @@
 
 Every placeable item is covered by models in one flat, colourful look: a 512 px gradient `colormap.png` per kit, the same greens, lavender-greys and terracotta. Almost all are **CC0** models from Kenney's current kits. Since v0.3 a few come from **Poly Pizza** (https://poly.pizza): the church, swing, barbecue and (WP-23) the donut shop, tiered fountain and slide are **CC-BY 3.0** and need attribution; the corner shop (KayKit) and the mailbox (CreativeTrio) are CC0. They are normalised to the Kenney look (see "Poly Pizza models" below). WP-23 also ships the first **Kenney Nature Kit** pieces (the tulips), recoloured by the compose script. Licences and attribution lines: [`CREDITS.md`](CREDITS.md).
 
-- Machine-readable manifest: [`models.json`](models.json), with 74 entries covering bounds, pivot, front, scale, footprint, triangle count and bytes (WP-23: the garage, the unused garage-row and the unused composed gate removed; ten entries added). There are 74 GLB files.
+- Machine-readable manifest: [`models.json`](models.json), with 73 entries covering bounds, pivot, front, scale, footprint, triangle count and bytes (WP-23: the garage, the unused garage-row and the unused composed gate removed; nine entries added). There are 73 GLB files.
   - It is **hand-maintained**. `suggestedScale` and `footprintCells` match `src/catalog/models.ts` and `objects.ts` (edited by hand for WP-12 and v0.3). When the catalog changes, update the manifest by hand.
   - Ids are the catalog model ids (`MODELS` in `src/catalog/models.ts`), except the older road-piece and walkway entries (see "Coverage per build tool") and shipped-but-unused files, which have their own ids.
   - `category` is the dock category (`streets`, `homes`, `town`, `nature`, `garden`), or `decor` for cars and the decor ring.
@@ -13,7 +13,7 @@ Every placeable item is covered by models in one flat, colourful look: a 512 px 
   - **Never pass `--json docs/assets/models.json`.** That writes the raw report, which has a different schema, over the curated manifest.
 - Rebuild the composed models: `node scripts/compose-models.mjs`. The sources live in `assets-src/` (Kenney kits, and `assets-src/polypizza/` for the Poly Pizza models) and are gitignored.
 - Screenshots (historical, from sourcing time, 44 models): [town preview](models-town-preview.png), [gallery of all 44 at suggested scale](models-gallery.png), [road pieces top-down](models-road-pieces-topdown.png). The current in-game gallery is the `asset-gallery` test state: all 32 object kinds, every edge kind and the 16 road masks.
-- Payload (measured 2026-09-29, WP-23 working tree): **3.90 MB** of GLB + PNG in `public/assets/models/` (74 GLBs; `du` 4.0 MB), plus 296 KB of icons (41 PNGs; `du` 380 KB). The donut shop is the largest new file (259 KB). The four cars, used by the ambient life system (WP-10), are 0.73 MB of the model payload. (v0.3, 2026-09-27: 3.58 MB, 64 GLBs.)
+- Payload (measured 2026-09-29, WP-23 working tree): **3.90 MB** of GLB + PNG in `public/assets/models/` (73 GLBs; `du` 4.0 MB), plus 286 KB of icons (40 PNGs; `du` 368 KB). The donut shop is the largest new file (259 KB). The four cars, used by the ambient life system (WP-10), are 0.73 MB of the model payload. (v0.3, 2026-09-27: 3.58 MB, 64 GLBs.)
 
 ![town preview](models-town-preview.png)
 
@@ -44,7 +44,7 @@ Live scales and footprints are in the next section, "Grid and scale", and in `sr
 | Town | Donut shop | `donut-shop` (WP-23): "Donut Store" by J-Toastie (Poly Pizza, **CC-BY 3.0**), normalised, without its ground slab, flat window glass | `composed/donut-shop.glb` |
 | Town | Church | `church`: "Church" by Poly by Google (Poly Pizza, **CC-BY 3.0**), normalised | `composed/church.glb` |
 | Town | Supermarket | `supermarket`: City Kit Commercial `building-e` | `commercial/building-e.glb` |
-| Town | Pool | `swimming-pool`: Fantasy Town `fountain-square` stretched into a basin, plus two Commercial parasol tables | `composed/swimming-pool.glb` |
+| Garden | Pool (in Town until the WP-23 review) | `swimming-pool`: Fantasy Town `fountain-square` stretched into a basin, plus two Commercial parasol tables | `composed/swimming-pool.glb` |
 | Nature | Grass | `grass-tuft` (scatter) on a flat lawn slab | `platformer/grass.glb` |
 | Nature | Wildflowers | `meadow-flowers`, `meadow-flowers-tall` (+ `grass-tuft`) | `platformer/flowers*.glb` |
 | Nature | Tulips | `tulips-a`, `-b`, `-c` (WP-23): the Nature Kit's red, yellow and purple flower together in one cell, one variant per flower shape (A, B, C); recoloured | `composed/tulips-*.glb` |
@@ -54,7 +54,6 @@ Live scales and footprints are in the next section, "Grid and scale", and in `sr
 | Garden | Hedge | `hedge`: edge piece | `platformer/hedge.glb` |
 | Garden | Low fence | `fence-low`: Fantasy Town fence re-oriented to the edge convention | `composed/fence-small.glb` |
 | Garden | Tall fence | `fence-tall`: edge piece built from 2× suburban fence panels | `composed/fence-tall.glb` |
-| Garden | Gate | `fence-gate` (WP-23): Fantasy Town `fence-gate` as shipped, an edge piece a little taller than the low fence | `fantasy-town/fence-gate.glb` |
 | Garden | Planter | `planter` (suburban) | `suburban/planter.glb` |
 | Garden | Bench | `bench` (holiday) | `holiday/bench.glb` |
 | Garden | Long bench | `long-bench` (WP-23): Fantasy Town `stall-bench` | `fantasy-town/stall-bench.glb` |
@@ -64,8 +63,8 @@ Live scales and footprints are in the next section, "Grid and scale", and in `sr
 | Garden | Slide | `slide` (WP-23): "Slide" by sirkitree (Poly Pizza, **CC-BY 3.0**), normalised | `composed/slide.glb` |
 | Decor | — | `car-sedan`, `car-hatchback`, `car-van`, `car-taxi` (ambient cars, WP-10); `rocks` (catalog `decor-rocks`) and the oak/pine in the decor ring; unused `plant` | `cars/*`, `platformer/rocks`, `platformer/plant` |
 
-**Icons** (`public/assets/icons/tool-<toolId>.png`, 41 files, one per dock tool; Bulldoze uses `/assets/ui/bulldoze.svg`):
-- All 41 are 128 × 128 and were rendered in this project from the in-game models and materials by `node scripts/render-icons.mjs`, which drives `src/render/IconStudio.ts` in a browser and needs a dev server. The script only writes the icons that `catalog/tools.ts` references. They were last re-rendered for v0.3; WP-23 rendered its eight new icons and kept the others (a run nudges unrelated icons by a few pixels).
+**Icons** (`public/assets/icons/tool-<toolId>.png`, 40 files, one per dock tool; Bulldoze uses `/assets/ui/bulldoze.svg`):
+- All 40 are 128 × 128 and were rendered in this project from the in-game models and materials by `node scripts/render-icons.mjs`, which drives `src/render/IconStudio.ts` in a browser and needs a dev server. The script only writes the icons that `catalog/tools.ts` references. They were last re-rendered for v0.3; WP-23 rendered its seven new icons and kept the others (a run nudges unrelated icons by a few pixels).
 - Icons of CC0 models are CC0. The Church, Swing and Barbecue icons show CC-BY models and carry their attribution (`CREDITS.md`).
 - v0.3 deleted the 44 older icons (named after model ids), including the 27 Kenney 64 px previews of unused models. Only tools have icons now.
 
@@ -101,10 +100,9 @@ This section is **current**. It matches `src/catalog/models.ts` and `objects.ts`
 | Mailbox (WP-23, composed) | 1 × 1 | 1 (new) | 0.06 × 0.35 × 0.17 | A post with the box on top; it needs the height to read at game zoom. |
 | Donut shop (WP-23, composed) | 3 × 3 | 1 (new) | 1.15 × 1.67 × 1.04 | Like the corner shop's lot; the donut on the roof makes it a landmark (body ≈ 1.3). |
 | Tiered fountain (WP-23, composed) | 3 × 3 | 1 (new) | 1.40 × 0.53 × 1.40 | A plaza fountain, bigger than the 2 × 2 Fountain. |
-| Tulips (WP-23, composed) | 1 × 1 | 1 (new) | ≈ 0.5 × 0.27–0.34 × 0.4–0.48 | Three flowers filling one cell. |
+| Tulips (WP-23, composed) | 1 × 1 | 1 (new) | ≈ 0.31–0.35 × 0.16–0.2 × 0.25–0.31 | Three small flowers in one cell, lower than the bush (flowers ×0.7; ×1.15 was "huge" at the owner's review). |
 | Long bench / Table (WP-23, Fantasy Town) | 1 × 1 | 0.5 (new) | 0.47 × 0.12 × 0.13 / 0.5 × 0.18 × 0.33 | One kit scale, so a table between two long benches matches. |
 | Slide (WP-23, composed) | 2 × 1 | 1 (new) | 0.58 × 0.37 × 0.19 | As tall as the swing; runs along X. |
-| Gate (WP-23, Fantasy Town) | cell edge (0.5) | 0.5 (new), style Y 0.89 | 0.5 long, 0.17 tall | A little taller than the low fence (0.10), so it reads inside a run. |
 | Lamppost `light-curved` | 1 × 1 | 1 (1.35), offset z 0.087, style 1.5 × 1 × 1.15 | 0.075 × 0.675 × 0.26 | Taller than the bus-stop bench, below the eaves. |
 | Pine (platformer) | 1 × 1 | 0.45 (0.36) | 0.43 × 0.90 | About 80 % of the cottage since WP-17, below townhouse ridges; drawn ×2 tall (next row). |
 | Oak (platformer) | **2 × 2** | 0.9 (ring: 0.36) | 0.98 × 1.74 × 1.0 | The big tree: crown fills its 2 × 2 lot (1 × 1 units); taller than a cottage, below the church (2.33). The decor ring is unaffected (`TEMPLATE_RESCALE` divides by the model scale). |
@@ -136,7 +134,7 @@ Side-by-side evidence (same camera, v0.1 vs WP-12): `artifacts/wp-12/proportions
   - `barbecue`: centred, but its base is at y = −0.143 natively.
   - `plant` (unused): a slight −Z offset of 0.07 native.
   
-  Of the raw files with off-centre pivots, Fantasy Town `fence` is shipped only as a re-centred composed version. Fantasy Town `fence-gate` (WP-23) ships as is: it runs along Z on its tile's edge natively, and bounds-centring plus `rotationOffset: 1` put it on the cell edge.
+  Of the raw files with off-centre pivots, Fantasy Town `fence` is shipped only as a re-centred composed version.
 - **Front: the Kenney city, suburban, industrial and commercial models face −Z**, and so do the composed bus stop, postbox, pool and (WP-23) donut shop. This includes doors and planters, garage doors, the bus-stop open side, the postbox slot, the lamp arm and the pool deck. The game's contract is "rotation 0 ⇒ front faces +z", so use **`rotationOffset: 2`** (180°) for these in `catalog/models.ts`. The exceptions (v0.3):
   - **traffic lights** (`traffic-light`, `traffic-light-hanging`): the lamps face **−X** natively, so `rotationOffset: 1`;
   - **corner shop** and **church**: the shop front and the church tower and door face **+Z** natively, so `rotationOffset: 0`;
@@ -146,7 +144,7 @@ Side-by-side evidence (same camera, v0.1 vs WP-12): `artifacts/wp-12/proportions
   - **Car Kit cars** (not in the catalog; `LifeSystem`): the bonnet, raked windscreen and yellow headlights are at native **+Z** and the red tail lights at −Z. `LifeSystem.FRONT_ROTATION` is therefore 0. Until v0.3 (WP-16b) it was π and the cars drove backwards.
   
   Trees, the bush, flowers, the tulips, rocks, the lantern, both fountains, the barbecue and the roundabout are symmetric, so their offset does not matter. The swing frame and the slide run along X (offset 0).
-- **Edge pieces** (`hedge`, `fence-tall`, `fence-low`; the WP-23 `fence-gate` runs along Z natively and is turned by its `rotationOffset`) are 1 native unit long along X, base y = 0. The fences are centred on the origin and 0.075–0.08 thick; the hedge is 0.3 thick and sits off-centre (see Pivot). At the catalog scale of 0.5 they span one cell edge. Place the origin at the midpoint of the cell edge (positions below are in cell units; `config.edgeToWorld` converts them):
+- **Edge pieces** (`hedge`, `fence-tall`, `fence-low`) are 1 native unit long along X, base y = 0. The fences are centred on the origin and 0.075–0.08 thick; the hedge is 0.3 thick and sits off-centre (see Pivot). At the catalog scale of 0.5 they span one cell edge. Place the origin at the midpoint of the cell edge (positions below are in cell units; `config.edgeToWorld` converts them):
   - N edge of cell (x, z): position (x, z − 0.5), rotation 0.
   - W edge of cell (x, z): position (x − 0.5, z), rotation 90°.
   

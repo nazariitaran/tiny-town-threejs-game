@@ -1325,7 +1325,7 @@
   },
   {
     "id": "swimming-pool",
-    "category": "town",
+    "category": "garden",
     "tool": "swimming-pool",
     "file": "/assets/models/composed/swimming-pool.glb",
     "icon": "/assets/icons/tool-swimming-pool.png",
@@ -1696,7 +1696,7 @@
     "fileBytes": 42680,
     "notes": "Same file as oak. At ×0.3 with offset y −0.26 (trunk sunk) and MODEL_STYLES Y ×0.58 it draws as a low round shrub, like the decor-ring hedgerow. Sways."
   },
-  {
+{
     "id": "tulips-a",
     "category": "nature",
     "tool": "tulips",
@@ -1706,16 +1706,16 @@
     "license": "CC0 1.0",
     "author": "Kenney (www.kenney.nl)",
     "boundsNative": {
-      "x": 0.518,
-      "y": 0.336,
-      "z": 0.389
+      "x": 0.332,
+      "y": 0.205,
+      "z": 0.251
     },
     "boundsMinNative": {
-      "x": -0.249,
-      "y": -0.057,
-      "z": -0.199
+      "x": -0.16,
+      "y": -0.035,
+      "z": -0.128
     },
-    "pivot": "centre-y0=-0.057",
+    "pivot": "centre-y0=-0.035",
     "front": "n/a — scatter",
     "suggestedScale": 1,
     "footprintCells": [
@@ -1726,9 +1726,9 @@
     "materials": 6,
     "textures": [],
     "fileBytes": 21468,
-    "notes": "WP-23. Tulips variant 0: the Nature Kit's red, yellow and purple flower (shape A) at ×1.15 in one cell. The kit's materials are fixed by natureMaterials(): metalness 1 → 0, factors sRGB → linear, teal leaves → green #4fae5c. No textures. Sways."
+    "notes": "WP-23. Tulips variant 0: the Nature Kit's red, yellow and purple flower (shape A) at ×0.7 in one cell (×1.15 at first; \"huge\" at the owner review). The kit's materials are fixed by natureMaterials(): metalness 1 → 0, factors sRGB → linear, teal leaves → green #4fae5c. No textures. Sways."
   },
-  {
+{
     "id": "tulips-b",
     "category": "nature",
     "tool": "tulips",
@@ -1738,16 +1738,16 @@
     "license": "CC0 1.0",
     "author": "Kenney (www.kenney.nl)",
     "boundsNative": {
-      "x": 0.551,
-      "y": 0.297,
-      "z": 0.484
+      "x": 0.353,
+      "y": 0.181,
+      "z": 0.309
     },
     "boundsMinNative": {
-      "x": -0.293,
-      "y": -0.057,
-      "z": -0.227
+      "x": -0.188,
+      "y": -0.035,
+      "z": -0.145
     },
-    "pivot": "centre-y0=-0.057",
+    "pivot": "centre-y0=-0.035",
     "front": "n/a — scatter",
     "suggestedScale": 1,
     "footprintCells": [
@@ -1757,10 +1757,10 @@
     "triangles": 350,
     "materials": 6,
     "textures": [],
-    "fileBytes": 27544,
-    "notes": "WP-23. Tulips variant 1: the Nature Kit's red, yellow and purple flower (shape B) at ×1.15 in one cell. The kit's materials are fixed by natureMaterials(): metalness 1 → 0, factors sRGB → linear, teal leaves → green #4fae5c. No textures. Sways."
+    "fileBytes": 27540,
+    "notes": "WP-23. Tulips variant 1: the Nature Kit's red, yellow and purple flower (shape B) at ×0.7 in one cell (×1.15 at first; \"huge\" at the owner review). The kit's materials are fixed by natureMaterials(): metalness 1 → 0, factors sRGB → linear, teal leaves → green #4fae5c. No textures. Sways."
   },
-  {
+{
     "id": "tulips-c",
     "category": "nature",
     "tool": "tulips",
@@ -1770,16 +1770,16 @@
     "license": "CC0 1.0",
     "author": "Kenney (www.kenney.nl)",
     "boundsNative": {
-      "x": 0.487,
-      "y": 0.267,
-      "z": 0.445
+      "x": 0.313,
+      "y": 0.163,
+      "z": 0.283
     },
     "boundsMinNative": {
-      "x": -0.218,
-      "y": -0.057,
-      "z": -0.207
+      "x": -0.142,
+      "y": -0.035,
+      "z": -0.131
     },
-    "pivot": "offset(cx=0.026,cz=0.015)-y0=-0.057",
+    "pivot": "centre-y0=-0.035",
     "front": "n/a — scatter",
     "suggestedScale": 1,
     "footprintCells": [
@@ -1790,7 +1790,7 @@
     "materials": 9,
     "textures": [],
     "fileBytes": 22960,
-    "notes": "WP-23. Tulips variant 2: the Nature Kit's red, yellow and purple flower (shape C) at ×1.15 in one cell. The kit's materials are fixed by natureMaterials(): metalness 1 → 0, factors sRGB → linear, teal leaves → green #4fae5c. No textures. Sways."
+    "notes": "WP-23. Tulips variant 2: the Nature Kit's red, yellow and purple flower (shape C) at ×0.7 in one cell (×1.15 at first; \"huge\" at the owner review). The kit's materials are fixed by natureMaterials(): metalness 1 → 0, factors sRGB → linear, teal leaves → green #4fae5c. No textures. Sways."
   },
   {
     "id": "walkway-path-long",
@@ -1995,40 +1995,6 @@
     ],
     "fileBytes": 19032,
     "notes": "Wooden rail garden fence edge piece: 1 unit long along X native, centred on the origin, base y=0; rotate 90° for edges along Z. At ×0.5 it spans one 0.5 cell edge; TownRenderer stretches Y ×1.4 (0.10 tall)."
-  },
-  {
-    "id": "fence-gate",
-    "category": "garden",
-    "tool": "fence-gate",
-    "file": "/assets/models/fantasy-town/fence-gate.glb",
-    "icon": "/assets/icons/tool-fence-gate.png",
-    "source": "Kenney Fantasy Town Kit 2.0 — https://kenney.nl/assets/fantasy-town-kit",
-    "license": "CC0 1.0",
-    "author": "Kenney (www.kenney.nl)",
-    "boundsNative": {
-      "x": 0.075,
-      "y": 0.38,
-      "z": 1
-    },
-    "boundsMinNative": {
-      "x": 0.425,
-      "y": 0,
-      "z": -0.5
-    },
-    "pivot": "edge (off-centre natively; ModelLibrary bounds-centres it)",
-    "front": "n/a — runs along Z natively (rotationOffset 1 lays it along the edge)",
-    "suggestedScale": 0.5,
-    "footprintCells": [
-      1,
-      0
-    ],
-    "triangles": 560,
-    "materials": 1,
-    "textures": [
-      "Textures/colormap.png"
-    ],
-    "fileBytes": 46340,
-    "notes": "WP-23. Fantasy Town fence-gate as shipped (was the unused composed fence-small-gate): one cell edge long at ×0.5, MODEL_STYLES Y ×0.89 (0.17 tall, a little above the low fence). Keeps the kit wood and its dark door panel."
   },
   {
     "id": "bench",

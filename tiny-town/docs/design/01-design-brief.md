@@ -47,12 +47,12 @@ Grid: 64 × 64 cells of 0.5 world units (48 × 48 in v0.2, WP-12; 64 × 64 since
 | Streets | Zebra crossing (one road block of a straight, tee or crossroad) | object, road marking | click on road; snaps to the road-block grid |
 | Streets | Traffic light, Bus stop 2×1 (both next to a road), Lamppost, Postbox, Mailbox | object | click; Lamppost also drag-scatters |
 | Homes | Cottage 4×4, Townhouse 3×4, Bungalow 4×4, Family home 4×4, Suburban 4×4, Big house 5×4 (WP-23 removed the Garage) | object (multi-cell footprint) | click; R rotates the footprint |
-| Town | Fountain 2×2, Tiered fountain 3×3, Corner shop 3×3, Donut shop 3×3, Church 3×4, Supermarket 5×4, Pool 4×3 | object (multi-cell footprint) | click; R rotates the footprint |
+| Town | Fountain 2×2, Tiered fountain 3×3, Corner shop 3×3, Donut shop 3×3, Church 3×4, Supermarket 5×4 | object (multi-cell footprint) | click; R rotates the footprint |
 | Nature | Grass, Wildflowers (meadow) | ground | click-drag paint |
 | Nature | Tulips, Bush, Pine, Birch (1×1); Oak (2×2, the big tree) | object | click, drag scatters |
 | Garden | Garden path (walkway) | ground | click-drag paint |
-| Garden | Hedge, Low fence, Tall fence, Gate | **edge** (sits on cell borders) | click-drag along edges |
-| Garden | Planter, Bench, Long bench, Table, Barbecue 1×1, Swing and Slide 2×1 | object | click; Planter also drag-scatters |
+| Garden | Hedge, Low fence, Tall fence | **edge** (sits on cell borders) | click-drag along edges |
+| Garden | Planter, Bench, Long bench, Table, Barbecue 1×1, Swing and Slide 2×1, Pool 4×3 | object | click; Planter also drag-scatters |
 | Modes | Bulldoze; Esc / clicking the active item again = no tool (pan) | — | click-drag |
 
 ## Non-goals for v1

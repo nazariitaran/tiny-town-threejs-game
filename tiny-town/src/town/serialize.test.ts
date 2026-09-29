@@ -505,17 +505,16 @@ describe('parseSave and the WP-23 catalog change (no version bump)', () => {
     expect(editor.state.stats()).toMatchObject({ homes: 1, props: 1, fences: 1 });
   });
 
-  it('gates and the new objects round-trip through JSON unchanged', () => {
+  it('the new objects round-trip through JSON unchanged', () => {
     const editor = makeEditor();
     const placed = [
-      editor.apply({ type: 'place-edge', kind: 'fence-gate', edge: { x: 4, z: 4, side: 'n' } }, 'fence-gate'),
       editor.apply({ type: 'place-object', kind: 'tulips', cell: { x: 6, z: 6 }, rotation: 0 }, 'tulips'),
       editor.apply({ type: 'place-object', kind: 'slide', cell: { x: 8, z: 6 }, rotation: 1 }, 'slide'),
       editor.apply({ type: 'place-object', kind: 'donut-shop', cell: { x: 12, z: 6 }, rotation: 2 }, 'donut-shop'),
     ];
     expect(placed.every((r) => r.ok)).toBe(true);
     const saved = serializeTown(editor.state, camera);
-    expect(saved.edges.map((e) => e.kind)).toEqual(['fence-gate']);
+    expect(saved.objects.map((o) => o.kind).sort()).toEqual(['donut-shop', 'slide', 'tulips']);
     const parsed = ok(parseSave(JSON.stringify(saved)));
     expect(parsed).toEqual(saved);
   });

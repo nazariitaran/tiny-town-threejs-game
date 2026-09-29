@@ -72,7 +72,6 @@ const ROWS: readonly ToolRow[] = [
   { id: 'donut-shop', label: 'Donut shop', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'church', label: 'Church', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'supermarket', label: 'Supermarket', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
-  { id: 'swimming-pool', label: 'Pool', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   // Nature
   { id: 'grass', label: 'Grass', category: 'nature', layer: 'ground', drag: 'paint', sfx: 'place-nature', hint: 'Drag to paint lawn' },
   { id: 'meadow', label: 'Wildflowers', category: 'nature', layer: 'ground', drag: 'paint', sfx: 'place-nature', hint: 'Drag to sow a wildflower meadow' },
@@ -86,7 +85,6 @@ const ROWS: readonly ToolRow[] = [
   { id: 'hedge', label: 'Hedge', category: 'garden', layer: 'edge', drag: 'line', sfx: 'place-nature', hint: `${EDGE} to grow a hedge` },
   { id: 'fence-low', label: 'Low fence', category: 'garden', layer: 'edge', drag: 'line', sfx: 'place-prop', hint: `${EDGE} to build a fence` },
   { id: 'fence-tall', label: 'Tall fence', category: 'garden', layer: 'edge', drag: 'line', sfx: 'place-prop', hint: `${EDGE} to build a fence` },
-  { id: 'fence-gate', label: 'Gate', category: 'garden', layer: 'edge', drag: 'line', sfx: 'place-prop', hint: 'Click a cell edge to put in a gate' },
   { id: 'planter', label: 'Planter', category: 'garden', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: SCATTER },
   { id: 'bench', label: 'Bench', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-prop', hint: PLACE },
   { id: 'long-bench', label: 'Long bench', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-prop', hint: PLACE },
@@ -94,6 +92,8 @@ const ROWS: readonly ToolRow[] = [
   { id: 'barbecue', label: 'Barbecue', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-prop-metal', hint: PLACE },
   { id: 'swing', label: 'Swing', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-prop', hint: PLACE },
   { id: 'slide', label: 'Slide', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-prop', hint: PLACE },
+  // Owner review (WP-23): the pool is a garden thing, not a civic one.
+  { id: 'swimming-pool', label: 'Pool', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   // Modes
   { id: 'bulldoze', label: 'Bulldoze', category: 'mode', layer: 'bulldoze', drag: 'paint', sfx: 'remove', hint: 'Click or drag to remove things' },
 ];

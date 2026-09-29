@@ -78,7 +78,7 @@ function roadRect(run: (toolId: ToolId, action: BuildAction) => void, x0: number
  *    fountain (WP-23);
  *  - south-west: a cottage, a garden path down to a fountain with a bench and a meadow with a pool;
  *  - a back garden behind the north-west homes (bench, barbecue, swing, slide, planter, a table with
- *    two long benches, bushes and tulips inside a low fence with a gate, and a hedge), a tall-fence run
+ *    two long benches, bushes and tulips inside a low fence and a hedge), a tall-fence run
  *    along the east lawn, and five trees.
  * Uses every placing tool.
  */
@@ -140,11 +140,8 @@ export function buildSampleTown(editor: TownEditor): DemoTownResult {
   place('bench', 11, 30, 3);
   place('swimming-pool', 13, 33, 2);
 
-  // Back garden behind the north-west homes (rows 13–18): low fence with a gate to the north, hedge to
-  // the west.
-  edgeRun('fence-low', 'n', { x: 6, z: 13 }, 7);
-  edgeRun('fence-gate', 'n', { x: 13, z: 13 }, 1);
-  edgeRun('fence-low', 'n', { x: 14, z: 13 }, 6);
+  // Back garden behind the north-west homes (rows 13–18): low fence to the north, hedge to the west.
+  edgeRun('fence-low', 'n', { x: 6, z: 13 }, 14);
   edgeRun('hedge', 'w', { x: 6, z: 13 }, 6);
   place('bench', 8, 15);
   place('barbecue', 11, 15);
@@ -220,11 +217,7 @@ export function buildAssetGallery(editor: TownEditor): DemoTownResult {
   });
   const edges = ['hedge', 'fence-low', 'fence-tall'] as const;
   edges.forEach((kind, k) => {
-    for (let x = 26 + k * 6; x < 32 + k * 6; x += 1) {
-      // A gate in the middle of the low-fence run (x 32..37).
-      const gate = kind === 'fence-low' && x === 34;
-      run(gate ? 'fence-gate' : kind, { type: 'place-edge', kind: gate ? 'fence-gate' : kind, edge: { x, z: 42, side: 'n' } });
-    }
+    for (let x = 26 + k * 6; x < 32 + k * 6; x += 1) run(kind, { type: 'place-edge', kind, edge: { x, z: 42, side: 'n' } });
   });
   return commit();
 }

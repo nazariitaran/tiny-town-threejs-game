@@ -12,7 +12,7 @@ Almost all 3D models in `public/assets/models/` are licensed **CC0 1.0 Universal
 | City Kit (Suburban) 2.0 | Kenney | https://kenney.nl/assets/city-kit-suburban | building-type-a/-c/-d/-e/-i/-k/-m/-n/-o/-r/-s/-u, planter, path-long, path-short, path-stones-long, path-stones-short, tree-large, tree-small; fence (inside fence-tall); colour variation textures |
 | City Kit (Commercial) 2.1 | Kenney | https://kenney.nl/assets/city-kit-commercial | building-e (supermarket); detail-overhang-wide (inside bus-stop); detail-parasol-a, detail-parasol-b (inside swimming-pool) |
 | Platformer Kit 4.1 | Kenney | https://kenney.nl/assets/platformer-kit | tree (also the bush), tree-pine, hedge, flowers, flowers-tall, grass, plant, rocks |
-| Fantasy Town Kit 2.0 | Kenney | https://kenney.nl/assets/fantasy-town-kit | lantern, fence-gate (Gate), stall (Table), stall-bench (Long bench); fence (as composed/fence-small); fountain-round-detail (as composed/fountain); fountain-square (inside swimming-pool) |
+| Fantasy Town Kit 2.0 | Kenney | https://kenney.nl/assets/fantasy-town-kit | lantern, stall (Table), stall-bench (Long bench); fence (as composed/fence-small); fountain-round-detail (as composed/fountain); fountain-square (inside swimming-pool) |
 | Nature Kit 2.1 | Kenney | https://kenney.nl/assets/nature-kit | flower_red/yellow/purple A–C (inside composed/tulips-a/-b/-c, recoloured) |
 | Holiday Kit 2.0 | Kenney | https://kenney.nl/assets/holiday-kit | bench (garden bench, also inside bus-stop) |
 | Car Kit 3.1 | Kenney | https://kenney.nl/assets/car-kit | sedan, hatchback-sports, van, taxi |
@@ -47,7 +47,7 @@ The composed models (`public/assets/models/composed/`) are built by `scripts/com
 
 ### Icons
 
-The 41 tool icons in `public/assets/icons/tool-<id>.png` (128 px) were rendered in this project from the in-game models, using `scripts/render-icons.mjs` + `src/render/IconStudio.ts` (in-game models and materials). Icons of CC0 models are CC0. The Church, Swing, Barbecue, Donut shop, Tiered fountain and Slide icons are renders of the CC-BY models above and carry the same attribution. v0.3 deleted the old icons, including Kenney's 64 px preview renders of unused models.
+The 40 tool icons in `public/assets/icons/tool-<id>.png` (128 px) were rendered in this project from the in-game models, using `scripts/render-icons.mjs` + `src/render/IconStudio.ts` (in-game models and materials). Icons of CC0 models are CC0. The Church, Swing, Barbecue, Donut shop, Tiered fountain and Slide icons are renders of the CC-BY models above and carry the same attribution. v0.3 deleted the old icons, including Kenney's 64 px preview renders of unused models.
 
 ## Music
 
