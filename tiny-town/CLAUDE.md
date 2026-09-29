@@ -19,7 +19,7 @@ A cosy browser city-builder sandbox (three.js + TypeScript + Vite). Start here. 
   - Lit house windows, lamp pools, traffic lights, headlights, fireflies, fewer cars at night. Shops and the church stay dark (WP-17).
   - `night-town` test state and hook `setTimeOfDay`.
   - Current facts: `docs/design/03-architecture.md` §Day/night. The plan (historical) is `docs/plans/wp-16-day-night.md`.
-- **WP-20 "Name your town"** is built on the branch `wp-20-town-name`, awaiting the owner's review (no version label): a name dialog before every new town (30 characters, a random suggestion from `public/data/default_town_names.json`), rename from the top-left pill or the menu, the name in the save (`SavedTownV4.name`) and on the photo card. three.js is now its own vendor chunk. Plan: `docs/plans/wp-20-town-name.md`.
+- **WP-20 "Name your town"**, merged on `main` (owner-approved 2026-09-29; no version label): a name dialog before every new town (30 characters, a random suggestion from `public/data/default_town_names.json`), rename from the top-left pill or the menu, the name in the save (`SavedTownV4.name`) and on the photo card. three.js is now its own vendor chunk. Plan: `docs/plans/wp-20-town-name.md`.
 - Status, decisions, open issues and the backlog are in `docs/progress.md`, the integrator's recovery point. Read it before planning anything.
 - Current facts (grid, rules, save format, modules, diagnostics, budgets) are in `docs/design/03-architecture.md`.
 - Some docs are historical snapshots, and each says so in a banner at the top:

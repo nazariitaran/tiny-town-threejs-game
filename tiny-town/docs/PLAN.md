@@ -433,7 +433,7 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
   - Manual, not automatable here: what Download does on iOS Safari (Files) and Android Chrome; long-press "Save to Photos" on the iOS preview.
 
 ### WP-20 — Name your town
-- **Status: built on the branch `wp-20-town-name`** (from `main` `ac820b8`; dev server 5230, tests 5231), waiting for the owner's review. No version label (owner). Plan: `docs/plans/wp-20-town-name.md`; as built: `docs/progress.md` "WP-20 as built".
+- **Status: merged** into `main` (owner-approved 2026-09-29 after one amendment: no note under the dialog heading). Built on the branch `wp-20-town-name` (from `ac820b8`; dev server 5230, tests 5231). No version label (owner). Plan: `docs/plans/wp-20-town-name.md`; as built: `docs/progress.md` "WP-20 as built".
 - **Why:** owner request (2026-09-29): "name my town, so I can feel more personal connection to it".
 - **Owner asks:** a popup before starting a town, a name of up to 30 characters, pre-filled with a random name from `public/data/default_town_names.json`; the name replaces the game name in the top-left corner and goes on the photo card; the player can edit it.
 - **Design:** the name is part of the town save (optional `SavedTownV4.name`, no version bump; an unnamed save is "Tiny Town"). New towns are named in a dialog (Start building with no save; New town after its confirm); Continue skips it. Rename from the top-left pill or Menu → Rename town; not undoable, autosaved. Suggestions come from the fetched list through a per-load seeded stream (`seed()` pins it). The photo card's title is the name (shrunk, then cut, to fit) and the file is `<slug>-YYYY-MM-DD-HHMM.jpg`.

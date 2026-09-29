@@ -295,10 +295,9 @@ export class UiRoot {
           <button type="button" class="ui-link" id="${id.credits}">Credits</button>
         </section>
 
-        <section class="ui-panel ui-name-panel" id="${id.namePanel}" data-view="name" data-mode="new" role="dialog" aria-modal="true" aria-labelledby="ui-name-h" aria-describedby="ui-name-d">
+        <section class="ui-panel ui-name-panel" id="${id.namePanel}" data-view="name" data-mode="new" role="dialog" aria-modal="true" aria-labelledby="ui-name-h">
           <h2 id="ui-name-h">Name your town</h2>
           <form class="ui-name-form" novalidate>
-            <p id="ui-name-d" class="ui-name-note">Up to ${TOWN_NAME_MAX_LENGTH} characters. You can rename it any time from the top bar.</p>
             <div class="ui-name-field">
               <input type="text" id="${id.nameInput}" maxlength="${TOWN_NAME_MAX_LENGTH}" aria-label="Town name" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="done" />
               <button type="button" class="ui-icon-btn" id="${id.nameShuffle}" aria-label="Another name" title="Another name">${GLYPHS.dice}</button>

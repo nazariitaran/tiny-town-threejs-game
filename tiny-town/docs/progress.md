@@ -28,7 +28,7 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
 - **WP-17 is merged into `main`** (owner-approved; integration branch `building-sizes`; part of v0.4): bigger buildings, smaller swing, dark shops at night. See "WP-17 as built".
 - **Tall trees are merged into `main`** (owner-approved, no version tag; built on the branch `tall-trees`): pine ×2 taller (still 1 × 1), birch unchanged, and the oak now a big 2 × 2 tree at natural proportions (fixed per species, no player control). See "Tall trees as built".
 - **WP-19 Town photo is merged into `main`** (owner-approved 2026-09-28, after two amendments; built on the branch `wp-19-photo`, branched from `691dfd8`): a top-bar camera / `P` saves the current view as a Polaroid JPEG, via a preview with Download. See "WP-19 as built".
-- **WP-20 Name your town is built on the branch `wp-20-town-name`** (from `main` `ac820b8`), waiting for the owner's review; no version label (owner). See "WP-20 as built".
+- **WP-20 Name your town is merged into `main`** (owner-approved 2026-09-29 after one amendment: no note under the dialog heading; built on the branch `wp-20-town-name` from `ac820b8`); no version label (owner). See "WP-20 as built".
 - **Where current facts live:**
   - grid, rules, save, modules, diagnostics and budgets: `docs/design/03-architecture.md`;
   - asset scales and footprints: `docs/assets/models.md`;
@@ -60,7 +60,7 @@ The SHA is the merge commit on `main`; the WP's own commit is in brackets. Every
 | WP-15 | New building blocks & categories (v0.3) | ✅ | `ea54bb5` (`27add32`) | see "WP-15 as built" below |
 | WP-18 | Music resumes where it left off | ✅ merged to `main` (owner-approved 2026-09-28) | `40822f8` (`98c7ca8`) | `src/audio/musicPosition.ts`; saved on hide / `pagehide` / every 15 s; seek on `loadedmetadata`; 5 s end guard |
 | WP-19 | Town photo | ✅ merged to `main` (owner-approved 2026-09-28) | merge on `main` (`c62376e`, `841536f`, `0c35597`, `92435c1`) | `src/photo/**`; camera button / `P` → menu phase → one frame at long edge 2400 px → Polaroid JPEG → preview (Download) |
-| WP-20 | Name your town | 🔶 built on `wp-20-town-name`, awaiting owner review | — | `src/town/townName.ts`; name dialog before every new town, rename from the top-left pill / menu; saved in `SavedTownV4.name`; photo caption + file name; three.js vendor chunk |
+| WP-20 | Name your town | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`be8c752` + amendment) | `src/town/townName.ts`; name dialog before every new town, rename from the top-left pill / menu; saved in `SavedTownV4.name`; photo caption + file name; three.js vendor chunk |
 | WP-16 | Day/night cycle (v0.3) | ✅ merged to `main` (owner-approved) | contract `7aefe67`, `af576a1`; 16a `42f0590` (`a4965c9`); 16b `a849f35` (`d6f97e3`); 16c `1a0c360` (`eb2c2d8`) | see "WP-16 as built" below |
 
 **Integrator (WP-01) commits worth knowing:**
@@ -112,6 +112,7 @@ Current facts: `03-architecture.md` §Save format (town name, name suggestions) 
   - **Bundle split:** the feature took the main chunk from 898.21 kB to 905.42 kB (over the 900 kB warning limit). Instead of the lazy `lil-gui` import (8 synchronous `debug.folder()` callers, ~30 kB), `vite.config.ts` now puts three.js in its own vendor chunk (Rolldown `codeSplitting.groups`): **main 264.0 kB (84.1 kB gzip) + `three` 641.7 kB (162.0 kB gzip)** + the lazy `PhotoFrame` 2.2 kB. The download is the same; `index.html` modulepreloads the vendor chunk.
   - The names list (12 KB) is fetched at load, not bundled.
   - The menu's New town and Rename town share a row; the name dialog's primary button reads "Start building" (new) or "Save" (rename).
+  - **Owner amendment after review** (2026-09-29): the note under the heading ("Up to 30 characters. You can rename it any time from the top bar.") was removed; the counter shows the limit.
 - **Measured / checked** (dev server and production preview, full Chromium; `artifacts/wp-20/`):
   - the dialog on desktop and at 360 / 375 / 390 / 412 px (`desktop-*`, `phone-*`), the menu at 360 px, and a 29-character name on the photo card (desktop: full size; Pixel 7 portrait: shrunk to fit), `e2e-*-bobbington-on-wobble-downs-xy-*.jpg`;
   - production preview (`vite preview`, 1280 × 720): the `three` chunk, `data/default_town_names.json` and the lazy `PhotoFrame` chunk all load (200) through the relative base; a named town's photo downloads as `marmalade-mills-2026-09-29-1749.jpg`; no console errors or warnings.

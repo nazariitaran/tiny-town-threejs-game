@@ -1027,14 +1027,6 @@
   gap: 10px;
 }
 
-.ui-panel p.ui-name-note {
-  font-size: 0.9rem;
-}
-
-.ui-name-panel[data-mode='rename'] .ui-name-note {
-  display: none;
-}
-
 .ui-name-field {
   display: flex;
   align-items: center;
