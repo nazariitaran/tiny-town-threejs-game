@@ -392,11 +392,12 @@ const recipes = {
   // "Mailbox" by CreativeTrio (CC0): a kerbside mailbox on a post (small palette texture kept).
   mailbox: () => flatMaterials(merge([{ file: poly('mailbox-post.glb'), name: 'mailbox', scale: 0.36 }], GEN)),
   // Tulips: the Nature Kit's red, yellow and purple flower in one cell (0.5 units), in three shapes
-  // (A, B, C) for the object's variants. Native flowers are ~0.16 wide and 0.19–0.29 tall.
+  // (A, B, C) for the object's variants. Native flowers are ~0.16 wide and 0.19–0.29 tall; at ×0.7 they
+  // stay under the bush (owner review: ×1.15 was huge).
   ...Object.fromEntries(['A', 'B', 'C'].map((shape, v) => [`tulips-${shape.toLowerCase()}`, () => natureMaterials(merge([
-    { file: natureKit(`flower_red${shape}.glb`), name: 'red', translation: [-0.1, 0, -0.08], rotY: 20 + 40 * v, scale: 1.15 },
-    { file: natureKit(`flower_yellow${shape}.glb`), name: 'yellow', translation: [0.11, 0, -0.05], rotY: 140 + 40 * v, scale: 1.15 },
-    { file: natureKit(`flower_purple${shape}.glb`), name: 'purple', translation: [-0.01, 0, 0.11], rotY: 260 + 40 * v, scale: 1.15 },
+    { file: natureKit(`flower_red${shape}.glb`), name: 'red', translation: [-0.07, 0, -0.055], rotY: 20 + 40 * v, scale: 0.7 },
+    { file: natureKit(`flower_yellow${shape}.glb`), name: 'yellow', translation: [0.075, 0, -0.035], rotY: 140 + 40 * v, scale: 0.7 },
+    { file: natureKit(`flower_purple${shape}.glb`), name: 'purple', translation: [-0.005, 0, 0.075], rotY: 260 + 40 * v, scale: 0.7 },
   ], GEN))])),
 };
 

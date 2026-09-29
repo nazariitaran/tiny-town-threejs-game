@@ -33,7 +33,7 @@ describe('demo towns', () => {
     buildSampleTown(editor);
     const used = new Set(spy.mock.calls.flatMap(([items]) => items.map((item) => item.toolId)));
     const placing = TOOLS.map((t) => t.id).filter((id) => id !== 'bulldoze');
-    expect(placing).toHaveLength(41);
+    expect(placing).toHaveLength(40);
     expect(placing.filter((id) => !used.has(id))).toEqual([]);
   });
 

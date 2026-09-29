@@ -119,7 +119,7 @@ describe('fx recipes', () => {
       'corner-shop': 'building', 'donut-shop': 'building', supermarket: 'building', church: 'building', 'swimming-pool': 'building',
       fountain: 'building', 'tiered-fountain': 'building',
       oak: 'tree', pine: 'tree', birch: 'tree', bush: 'tree', tulips: 'tree',
-      hedge: 'fence', 'fence-low': 'fence', 'fence-tall': 'fence', 'fence-gate': 'fence',
+      hedge: 'fence', 'fence-low': 'fence', 'fence-tall': 'fence',
       planter: 'prop', bench: 'prop', 'long-bench': 'prop', 'garden-table': 'prop', swing: 'prop', slide: 'prop', barbecue: 'prop',
     });
   });

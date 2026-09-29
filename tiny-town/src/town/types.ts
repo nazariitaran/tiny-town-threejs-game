@@ -63,7 +63,7 @@ export type ObjectKind =
   | 'barbecue';
 
 /** Things that run along cell edges (Garden). */
-export type EdgeKind = 'hedge' | 'fence-low' | 'fence-tall' | 'fence-gate';
+export type EdgeKind = 'hedge' | 'fence-low' | 'fence-tall';
 
 export type Rotation = 0 | 1 | 2 | 3;
 

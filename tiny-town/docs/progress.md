@@ -63,7 +63,7 @@ The SHA is the merge commit on `main`; the WP's own commit is in brackets. Every
 | WP-18 | Music resumes where it left off | ✅ merged to `main` (owner-approved 2026-09-28) | `40822f8` (`98c7ca8`) | `src/audio/musicPosition.ts`; saved on hide / `pagehide` / every 15 s; seek on `loadedmetadata`; 5 s end guard |
 | WP-19 | Town photo | ✅ merged to `main` (owner-approved 2026-09-28) | merge on `main` (`c62376e`, `841536f`, `0c35597`, `92435c1`) | `src/photo/**`; camera button / `P` → menu phase → one frame at long edge 2400 px → Polaroid JPEG → preview (Download) |
 | WP-22 | Birds over the town | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`a5b42bf`) | `src/life/FlockSim.ts` (pure) + `BirdSystem.ts`; a flock every 45–110 s (none at night), 4 species, procedural 18-tri bird, flapping shadows; `spawnFlock` hook, `?debug&flock=N` |
-| WP-23 | New build items, garage removed | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`7fd5b9f`) | 8 new tools (mailbox, tiered fountain, donut shop, tulips, gate, long bench, table, slide), garage removed, ≤ 12 tools per category (digits for the first nine), Nature Kit material fix |
+| WP-23 | New build items, garage removed | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`7fd5b9f`; review amendment on the branch) | 7 new tools (mailbox, tiered fountain, donut shop, tulips, long bench, table, slide; the gate was removed at review), garage removed, pool moved to Garden, ≤ 12 tools per category (digits for the first nine), Nature Kit material fix |
 | WP-21 | Download and open a town file | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`941988c`) | `src/persistence/townFile.ts`; top-bar folder (> 440 px) / Menu → Town file (phones) / title link; `.tinytown.json`; confirm before replacing; saved at once |
 | WP-20 | Name your town | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`be8c752` + amendment) | `src/town/townName.ts`; name dialog before every new town, rename from the top-left pill / menu; saved in `SavedTownV4.name`; photo caption + file name; three.js vendor chunk |
 | WP-16 | Day/night cycle (v0.3) | ✅ merged to `main` (owner-approved) | contract `7aefe67`, `af576a1`; 16a `42f0590` (`a4965c9`); 16b `a849f35` (`d6f97e3`); 16c `1a0c360` (`eb2c2d8`) | see "WP-16 as built" below |
@@ -112,18 +112,18 @@ The plan was approved and implemented. The as-built facts are in `03-architectur
 
 ### WP-23 as built (branch `wp-23-new-items`; vs `docs/plans/wp-23-new-items.md`)
 Owner request (2026-09-29), picked from the asset research on the owner's Desktop (`tiny-town-inventory-research/`).
-- **New tools (8; 41 placing tools):**
+- **New tools (7 after the review; 40 placing tools):**
   - Streets: **Mailbox** (CreativeTrio, CC0);
   - Town: **Tiered fountain** (Poly by Google, CC-BY, recoloured), **Donut shop** (J-Toastie, CC-BY, 3 × 3 like the corner shop, dark at night);
   - Nature: **Tulips** (three Nature Kit flowers in one cell, three variants);
-  - Garden: **Gate** (edge), **Long bench**, **Table** (Fantasy Town, shipped as kit files sharing one colormap), **Slide** (sirkitree, CC-BY).
+  - Garden: **Long bench**, **Table** (Fantasy Town, shipped as kit files sharing one colormap), **Slide** (sirkitree, CC-BY). A **Gate** (edge) shipped in the first cut and was removed at the owner's review.
 - **Removed:** the Garage (tool, kind, `outbuilding` group, model, icon, compose recipe) and the unused `industrial/` folder and composed `fence-small-gate.glb`. Old saves and town files with garages still open, without them (no version bump; tested).
-- **Dock:** up to 12 tools per category (owner); digits 1–9 for the first nine, no badge past that (Garden's Barbecue, Swing, Slide).
+- **Dock:** up to 12 tools per category (owner); digits 1–9 for the first nine, no badge past that (Garden's Swing, Slide, Pool).
+- **Owner review amendment (2026-09-29):** tulips scaled down (×1.15 → ×0.7), the Gate removed (tool, edge kind, model, icon; gates in saves are dropped on load like any unknown edge kind), and the **Pool moved from Town to Garden** (last in the Garden tray; still counted as an amenity in stats and FX).
 - **Compose script:** new helpers `recolor`, `dropMaterials`, `pruneTextures` and `natureMaterials` (the Nature Kit fix: metalness 0, sRGB → linear, teal leaves → green). The donut shop's ground slab is dropped and its window texture flattened (it added a texture for no visible gain).
 - **Where the plan changed while building:**
-  - The gate ships as the raw Fantasy Town file with its own wood colour and dark door panel, a little taller than the low fence; styled exactly like the low fence it was invisible in a fence run.
   - The mailbox is ×0.36 of the source (0.35 tall), not postbox height: at postbox height it read as a stick.
-  - The tulips are ×1.15 (they fill the cell); at ×0.85 they were three specks.
+  - The tulips were ×1.15 in the first cut (filling the cell); the owner found them huge, so they are ×0.7 now (≈ 0.33 × 0.18, lower than the bush).
 - **Budgets** (dev server, canvas inspector, 2026-09-29; `artifacts/wp-23/inspect-*`):
   - stress town: desktop 31 calls, 330.3k triangles (v0.4: 358.2k); mobile (low tier) 31 calls, 261.2k (v0.4: 293.2k; budget 320k). Mailboxes and trees replaced its 50 garages.
   - sample town: 87 / 87 calls, 192.2k / 127.2k triangles, **28 / 27 textures** (desktop / mobile; budget 30; v0.4: 27 / 26). The new pieces add the Fantasy Town colormap and the mailbox palette; the garage's atlas is gone; the donut shop's window texture was flattened (29 before).

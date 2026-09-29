@@ -154,9 +154,6 @@ export const MODELS = {
   hedge: M('/assets/models/platformer/hedge.glb', 0.5, 0),
   'fence-tall': M('/assets/models/composed/fence-tall.glb', 0.5, 0),
   'fence-low': M('/assets/models/composed/fence-small.glb', 0.5, 0),
-  // WP-23: the Fantasy Town gate as shipped (it shares the kit colormap with the table and bench).
-  // Natively it runs along Z; a quarter turn lays it along the edge (X). MODEL_STYLES sets its height.
-  'fence-gate': M('/assets/models/fantasy-town/fence-gate.glb', 0.5, 1),
   // ---- Ground scatter and decor
   // Scatter pieces for grass/meadow cells (WP-03 task 6). WP-12: one clump per 0.5 cell.
   'grass-tuft': M('/assets/models/platformer/grass.glb', 0.35, 0, { sway: true }),
@@ -213,5 +210,4 @@ export const EDGE_MODELS: Readonly<Record<EdgeKind, ModelId>> = {
   hedge: 'hedge',
   'fence-low': 'fence-low',
   'fence-tall': 'fence-tall',
-  'fence-gate': 'fence-gate',
 };

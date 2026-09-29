@@ -74,7 +74,6 @@ function sceneForTool(toolId: string): IconScene | null {
       return { edge: toolId, frame: HEDGE_FRAME };
     case 'fence-low':
     case 'fence-tall':
-    case 'fence-gate':
       return { edge: toolId, frame: FENCE_FRAME };
     default: {
       if (!Object.prototype.hasOwnProperty.call(OBJECTS, toolId)) return null;

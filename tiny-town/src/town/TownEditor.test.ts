@@ -425,7 +425,7 @@ describe('stats after the sample town', () => {
     // roundabout's 3 × 3 blocks (x 20..25, z 22..27) that were not road yet: 2 north + 2 south = 40.
     // Props: street (2 traffic lights, 4 lampposts, postbox, mailbox, bus stop = 9) + garden (2 benches,
     // 2 long benches, table, barbecue, swing, slide, planter = 9) + plants (2 bushes, 3 tulips) = 23.
-    // Fences (edge layer): 13 low + 1 gate (x 6..19) + 6 hedge (z 13..18) + 8 tall (z 27..34) = 28.
+    // Fences (edge layer): 14 low (x 6..19) + 6 hedge (z 13..18) + 8 tall (z 27..34) = 28.
     expect(editor.state.stats()).toEqual({ homes: 8, residents: 25, amenities: 7, trees: 5, roadTiles: 40, props: 23, fences: 28 });
   });
 });

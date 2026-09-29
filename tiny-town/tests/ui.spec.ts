@@ -108,7 +108,7 @@ test('the five category tabs render their tools in catalog order, each with a lo
       .toEqual(expected.map((tool) => `${tool}:true:true`));
     counts[category.id] = expected.length;
   }
-  expect(counts).toEqual({ streets: 9, homes: 6, town: 7, nature: 7, garden: 12 });
+  expect(counts).toEqual({ streets: 9, homes: 6, town: 6, nature: 7, garden: 12 });
   expect(errors).toEqual([]);
 });
 

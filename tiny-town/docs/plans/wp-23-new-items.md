@@ -1,6 +1,6 @@
 # WP-23 — New build items, garage removed (plan, 2026-09-29)
 
-> **Plan.** Built on the branch `wp-23-new-items` (from `d119d54`; worktree `../ThreeJsGames-wt/wp-23-new-items`; dev server 5240). It goes to `main` only after owner approval. As-built facts go to `03-architecture.md`, `02-interaction-and-ui.md`, `docs/assets/*` and `progress.md` ("WP-23 as built").
+> **Plan, implemented and merged into `main`** (owner-approved 2026-09-29). **Review amendment:** the Gate was removed, the tulips scaled down (×1.15 → ×0.7) and the Pool moved from Town to Garden; see `progress.md` "WP-23 as built". Built on the branch `wp-23-new-items` (from `d119d54`; worktree `../ThreeJsGames-wt/wp-23-new-items`; dev server 5240). It goes to `main` only after owner approval. As-built facts go to `03-architecture.md`, `02-interaction-and-ui.md`, `docs/assets/*` and `progress.md` ("WP-23 as built").
 
 ## Owner request (2026-09-29)
 The owner picked these from the asset research (`~/Desktop/tiny-town-inventory-research/`):
