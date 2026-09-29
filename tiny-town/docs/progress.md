@@ -30,7 +30,7 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
 - **WP-19 Town photo is merged into `main`** (owner-approved 2026-09-28, after two amendments; built on the branch `wp-19-photo`, branched from `691dfd8`): a top-bar camera / `P` saves the current view as a Polaroid JPEG, via a preview with Download. See "WP-19 as built".
 - **WP-20 Name your town is merged into `main`** (owner-approved 2026-09-29 after one amendment: no note under the dialog heading; built on the branch `wp-20-town-name` from `ac820b8`); no version label (owner). See "WP-20 as built".
 - **WP-21 Town file is merged into `main`** (owner-approved 2026-09-29 with all planning decisions, including the save-format migration promise; built on the branch `wp-21-town-file` from `c7e9a40`). See "WP-21 as built".
-- **WP-23 New build items is built on the branch `wp-23-new-items`** (from `d119d54`, worktree `../ThreeJsGames-wt/wp-23-new-items`), **awaiting owner review**; not merged. See "WP-23 as built".
+- **WP-23 New build items is merged into `main`** (owner-approved 2026-09-29; built on the branch `wp-23-new-items` from `d119d54`, with `main` merged in after WP-22): 8 new tools, the garage removed, up to 12 tools per category. See "WP-23 as built".
 - **Where current facts live:**
   - grid, rules, save, modules, diagnostics and budgets: `docs/design/03-architecture.md`;
   - asset scales and footprints: `docs/assets/models.md`;
@@ -62,6 +62,8 @@ The SHA is the merge commit on `main`; the WP's own commit is in brackets. Every
 | WP-15 | New building blocks & categories (v0.3) | ✅ | `ea54bb5` (`27add32`) | see "WP-15 as built" below |
 | WP-18 | Music resumes where it left off | ✅ merged to `main` (owner-approved 2026-09-28) | `40822f8` (`98c7ca8`) | `src/audio/musicPosition.ts`; saved on hide / `pagehide` / every 15 s; seek on `loadedmetadata`; 5 s end guard |
 | WP-19 | Town photo | ✅ merged to `main` (owner-approved 2026-09-28) | merge on `main` (`c62376e`, `841536f`, `0c35597`, `92435c1`) | `src/photo/**`; camera button / `P` → menu phase → one frame at long edge 2400 px → Polaroid JPEG → preview (Download) |
+| WP-22 | Birds over the town | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`a5b42bf`) | `src/life/FlockSim.ts` (pure) + `BirdSystem.ts`; a flock every 45–110 s (none at night), 4 species, procedural 18-tri bird, flapping shadows; `spawnFlock` hook, `?debug&flock=N` |
+| WP-23 | New build items, garage removed | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`7fd5b9f`) | 8 new tools (mailbox, tiered fountain, donut shop, tulips, gate, long bench, table, slide), garage removed, ≤ 12 tools per category (digits for the first nine), Nature Kit material fix |
 | WP-21 | Download and open a town file | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`941988c`) | `src/persistence/townFile.ts`; top-bar folder (> 440 px) / Menu → Town file (phones) / title link; `.tinytown.json`; confirm before replacing; saved at once |
 | WP-20 | Name your town | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`be8c752` + amendment) | `src/town/townName.ts`; name dialog before every new town, rename from the top-left pill / menu; saved in `SavedTownV4.name`; photo caption + file name; three.js vendor chunk |
 | WP-16 | Day/night cycle (v0.3) | ✅ merged to `main` (owner-approved) | contract `7aefe67`, `af576a1`; 16a `42f0590` (`a4965c9`); 16b `a849f35` (`d6f97e3`); 16c `1a0c360` (`eb2c2d8`) | see "WP-16 as built" below |
@@ -128,6 +130,26 @@ Owner request (2026-09-29), picked from the asset research on the owner's Deskto
 - **Gates (worktree, 2026-09-29):** `npm run verify` green (25 files, 479 unit tests, build OK; main chunk 274 kB). Full `npm run test:e2e` (156 tests): 132 passed, 18 skipped by design, 6 failed, all expected: two `ui.spec.ts` checks with the old tool counts/digits (updated; `ui.spec.ts` then 20 passed, 4 skipped) and the three desktop baselines that show the new items. The new `tests/new-items.spec.ts` passes on desktop and mobile.
 - **Baselines:** sample-town, asset-gallery and night-town (desktop) regenerated. The diff (`artifacts/wp-23/diff-*.png`, old ones in `baselines-before/`) shows only the dock's 9th Streets card, the new pieces, the mailbox in the garage's spot and a few trees in the sample town whose ±12 % jitter moved (the tulips' variant pick advances the seeded stream). The mobile baselines still pass (the changes stay under the 1 % tolerance in the phone's view), so they were not regenerated.
 - **Evidence:** `artifacts/wp-23/` (in-game shots `g-*.png`, icons sheet, inspector captures, baseline diffs).
+
+### WP-22 as built (branch `wp-22-birds`; vs `docs/plans/wp-22-birds.md`)
+Current facts: `03-architecture.md` §Birds. Owner request 2026-09-29 (birds only; squirrels dropped after the analysis).
+- **As planned**, with these details settled while building:
+  - Two flocks in the air fly different height lanes (low 2.8–3.0, high 3.3–3.5), so crossing flocks never fly through each other. A unit test caught two same-height flocks overlapping.
+  - Formation spacing is checked on the ground plane, and the wander scales with the bird's size (a 0.8-size starling came too close with a fixed wander).
+  - Species sizes went up about 15 % after the first look (pigeon 1.15, starling 1, goose 1.5, gull 1.45 × a 0.36 wingspan): at the default camera the starlings were specks.
+  - `instanceColor` is created up front, so the bird shader is built once.
+- **Checked** (dev server, full Chromium; `artifacts/wp-22/`, scripts `look.mjs`, `look-title-dusk.mjs`, `measure.mjs`):
+  - each species over the sample town at the default camera and close up (`<species>-default.png`, `<species>-close-*.png`);
+  - geese over the title screen; starlings at dusk;
+  - shadows flap and glide over the grass and roofs.
+- **Measured** (stress town, dev server, 2 flocks = 16 birds in the air):
+  - desktop: 31 → **32 calls**, 362,404 → 362,692 triangles (**+288** = 16 × 18);
+  - Pixel 7 emulation (low tier): 31 → 32 calls. Triangles move by ±4k from the cars driving in and out of view (287.2k–291.3k with no birds), so the birds' +288 is inside that noise.
+  - Frame time was vsync-bound (8.33 ms at 120 Hz) with or without birds; the uncapped figure wasn't measured.
+- **Gates** (branch, 2026-09-29):
+  - `npm run verify` green: 26 files, **496 unit tests** (19 new in `src/life/birds.test.ts`), build OK; main chunk 281.9 kB.
+  - `npm run test:e2e`: 164 tests, 143 passed, 20 skipped by design, 1 failed. The failure was `birds.spec.ts`'s crossing test, killed by a Vite reload: a source file was edited while that test ran, and the draw calls read 6 on the reloaded page. Re-run on its own with `--repeat-each=2`: 20 passed, 4 skipped. **All 8 visual baselines passed unchanged.** Logs: `artifacts/wp-22/e2e-full.log`, `e2e-birds-repeat.log`.
+- **Not verified here:** real phones, and a production-preview measurement.
 
 ### WP-21 as built (branch `wp-21-town-file`; vs `docs/plans/wp-21-town-file.md`)
 Current facts: `03-architecture.md` §Save format ("Town files"); UI in `02-interaction-and-ui.md` (top bar, the Town file and Town file confirm states, the menu row, the title link).

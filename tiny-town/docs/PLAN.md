@@ -448,8 +448,16 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
 - **Files:** new `src/persistence/townFile.ts` + test, `tests/town-file.spec.ts`; contract: `game/events.ts`, `Game.ts`; `town/townName.ts` (`townFileStem`), `photo/photoLayout.ts`, `utils/download.ts` (was `photo/savePhoto.ts`); `UiRoot.ts`, `ui.css`, `testIds.ts`, `glyphs.ts`; `tests/daynight.spec.ts`; regenerated baselines.
 - **Acceptance:** see the plan.
 
+### WP-22 — Birds over the town
+- **Status: merged** into `main` (owner-approved 2026-09-29, all planning decisions accepted). Built on the branch `wp-22-birds` (from `d119d54`; dev server 5232, tests 5233). Plan: `docs/plans/wp-22-birds.md`; as built: `docs/progress.md` "WP-22 as built".
+- **Why:** owner request (2026-09-29): "just occasionally some birds fly over the town". The owner read the squirrels-and-birds analysis and chose birds only (no squirrels).
+- **Decisions (the analysis's defaults, overridable at review):** no new flocks at night, more at dawn and dusk, a few more in a leafy town, flocks over the title screen too, no sound.
+- **Design:** a pure `life/FlockSim.ts` (schedule, Bézier paths over the plot, formations, flap/glide; its own seeded stream) and `life/BirdSystem.ts` (a procedural 18-triangle bird in one `InstancedMesh`, wings folded in the vertex shader, the same patch on the shadow depth material). Four species on the same bird: pigeons, starlings, geese (a V) and gulls. Test states switch spontaneous flocks off until a reload; `spawnFlock(species?)` launches one; `?debug&flock=N` sets an N-second wait.
+- **Files:** new `src/life/FlockSim.ts`, `src/life/BirdSystem.ts`, `src/life/birds.test.ts`, `tests/birds.spec.ts`; contract: `Game.ts`, `vite-env.d.ts`; docs.
+- **Acceptance:** see the plan. `npm run verify` green; `tests/birds.spec.ts` (desktop + mobile); full e2e green with the visual baselines unchanged.
+
 ### WP-23 — New build items, garage removed
-- **Status: built on the branch `wp-23-new-items`** (from `d119d54`; worktree `../ThreeJsGames-wt/wp-23-new-items`; dev server 5240, tests 5241), **awaiting owner review**; `main` only after approval. Plan: `docs/plans/wp-23-new-items.md`; as built: `docs/progress.md` "WP-23 as built".
+- **Status: merged** into `main` (owner-approved 2026-09-29). Built on the branch `wp-23-new-items` (from `d119d54`, `main` merged in after WP-22; worktree `../ThreeJsGames-wt/wp-23-new-items`; dev server 5240, tests 5241). Plan: `docs/plans/wp-23-new-items.md`; as built: `docs/progress.md` "WP-23 as built".
 - **Why:** owner request (2026-09-29), after the asset research (`~/Desktop/tiny-town-inventory-research/`): more Town, Nature and Garden items, picked from the research sheets.
 - **Owner asks:** Fantasy Town table (`stall`), long bench (`stall-bench`) and gate (`fence-gate`); the Nature Kit's red, yellow and purple flowers, all three in one 0.5 cell; from Poly Pizza the donut shop, the tiered fountain, the slide and the mailbox; remove the garage. Accepted: more than 9 tools per category, tools past the ninth without a digit.
 - **Design:** 8 new tools (Mailbox in Streets; Tiered fountain and Donut shop in Town; Tulips in Nature; Gate, Long bench, Table and Slide in Garden), the garage kind, model and icon removed, no save bump (unknown kinds are dropped on load), a 12-tool cap per category with digits for the first nine, a Nature Kit material fix in the compose script, CC-BY credits for three models.

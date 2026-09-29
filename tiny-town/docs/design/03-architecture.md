@@ -61,6 +61,8 @@ src/
   vite-env.d.ts         [C]   diagnostics + test-hook types               integrator
   life/**                     ambient cars: TrafficSim, lanePaths (incl.  WP-10
                               the roundabout ring), LifeSystem (BatchedMesh)
+                              + birds: FlockSim (pure), BirdSystem        WP-22
+                              (procedural InstancedMesh)
   fx/**                       placement VFX, wind sway                    WP-08
   photo/**                    town photo: capture, Polaroid frame,        WP-19
                               download/share; photoLayout.ts is pure
@@ -85,6 +87,7 @@ There is no `StatsHud`: the stats pill was removed in v0.2 (WP-14).
                          │
       TownRenderer ◄─────┤ town:changed      (incremental redraw, road neighbours re-tiled)
       LifeSystem   ◄─────┤ town:changed      (road graph; cars despawn when their road goes)
+      BirdSystem         (no events: reads town.stats().trees when a flock is launched)
       AudioManager ◄─────┤ build:* / ui:sfx / intent:undo|redo / intent:set-* / phase:changed
         └ MusicPlayer    │ (music on/off, volume, menu duck) → music:changed / audio:changed → UI
       PlacementFx  ◄─────┘ build:placed / build:removed
@@ -101,7 +104,7 @@ Rules of the road:
 7. **Two RNG streams**: gameplay (`Game.rng`: variants) and cosmetic (`Game.fxRng`: audio/fx jitter, ambient cars), so a sound never changes the next house variant. A third, `nameRng`, draws only town-name suggestions (WP-20, §Save format).
 
 ## Frame update order (Game.update)
-`resizeRenderer` → `ToolController.update` → `CameraController.update` → `TownRenderer.update(animDelta)` → `LifeSystem.update(animDelta)` → `DayClock.advance(animDelta)` (building phase only) → `Game.applyDaylight()` (`Environment.applyDaylight`, `NightLights.update`, `LifeSystem.setNight`, `daytime:changed` on a mode/phase change) → `Environment.update(animDelta, animElapsed)` → `PlacementFx.update(animDelta)` → diagnostics → render. With `setReducedMotion(true)`, `animDelta`/`animElapsed` are 0. With `setPausedForScreenshot(true)`, nothing updates but rendering continues.
+`resizeRenderer` → `ToolController.update` → `CameraController.update` → `TownRenderer.update(animDelta)` → `LifeSystem.update(animDelta)` → `BirdSystem.update(animDelta)` (WP-22) → `DayClock.advance(animDelta)` (building phase only) → `Game.applyDaylight()` (`Environment.applyDaylight`, `NightLights.update`, `LifeSystem.setNight`, `daytime:changed` on a mode/phase change) → `Environment.update(animDelta, animElapsed)` → `PlacementFx.update(animDelta)` → diagnostics → render. With `setReducedMotion(true)`, `animDelta`/`animElapsed` are 0. With `setPausedForScreenshot(true)`, nothing updates but rendering continues.
 
 ## Grid
 - Plot `64 × 64` cells (`PLOT_WIDTH/DEPTH`), `CELL_SIZE = 0.5` world units per cell, centred on the origin, so the plot is 32 × 32 world units (2026-09-28; WP-12 had 48 × 48 cells = 24 × 24 units, v0.1 24 × 24 one-unit cells). World-space tunables were scaled with it: grid fade 30 → 75, title orbit 44, decor belt 60–120, night fog 13 / 225, framing side insets −42 desktop / −412 phone (same zoom as on 48 × 48, so the plot's side corners start just off-screen). Toy scale: 1 world unit ≈ 8 m, a cell ≈ 4 m. Cell `{x, z}` centre = `cellToWorld`; a footprint's centre = `footprintCentreWorld`; `worldToGridPoint` gives fractional grid coordinates.
@@ -167,6 +170,7 @@ Music position (WP-18) `{ track, time }` under `tiny-town:music:v1` (`MUSIC_POSI
 - Shared materials: Kenney kits use one colour-atlas texture per kit, so the whole town should need a handful of materials. Don't clone materials per instance.
 - Ghost preview uses `ModelLibrary.createObject()` with a separate translucent tinted material (not shared with the town).
 - Ambient cars (`LifeSystem`) are one `BatchedMesh`: +1 main-pass and +1 shadow draw call.
+- Birds (`BirdSystem`, WP-22) are one `InstancedMesh` of a procedural 18-triangle bird (≤ 16 instances, per-instance colour and wing angles `aFlap`; the wings fold in the vertex shader, on the lit and the shadow depth material): +1 main-pass and +1 shadow call while a flock is up, 0 with an empty sky.
 - FX (`PlacementFx`) use pooled particles in 3 meshes (soft dust, chips/leaves/petals, sparkles): at most 3 draw calls, and none when idle.
 
 ## Day/night (v0.3, WP-16)
@@ -194,6 +198,28 @@ Plan and rationale: `docs/plans/wp-16-day-night.md`. The as-built deviations are
   - headlight beams: +1, ≤ 6 cars;
   - fireflies over open meadow cells: +1.
 - **Life:** `LifeSystem.setNight(n)` → `TrafficSim.setDensity(1 − 0.5·n)`, so there are fewer cars at night. Car Kit cars face native +Z (`FRONT_ROTATION` 0 since v0.3).
+- **Birds (WP-22):** `BirdSystem.setDaylight(night, phase)`: no new flock while night > 0.5 (one in the air finishes its crossing), and the wait between flocks is × 0.6 at dawn and dusk, when starlings are likelier.
+
+## Birds (WP-22)
+Plan: `docs/plans/wp-22-birds.md`.
+- **Schedule** (`life/FlockSim.ts`, pure):
+  - the first flock comes 10–25 s after a reset (page load), then one every 45–110 s;
+  - the wait is × 0.6 at dawn/dusk and up to 25 % shorter with trees (fully at 40);
+  - no new flock at night;
+  - at most 2 flocks and 16 birds at once;
+  - its own mulberry32 stream (`seed ^ BIRD_SEED_SALT` in `Game`): it never draws from `fxRng`.
+- **Flight:**
+  - A quadratic Bézier from 34 units off-centre, through a control point within 6 units of the centre (so it passes within about 8 units: over the town), to the far side (±35°).
+  - Speed 2.4–3.2 units/s, so about 25 s per crossing.
+  - Each flock flies a low lane (2.8–3.0) or a high lane (3.3–3.5), and a second flock takes the other one. Birds stay within ±0.12 of their lane: above the church and inside the shadow frustum (`PLOT_CONTENT_HEIGHT` 4).
+  - Birds grow in / shrink out over the first and last 6 % of the path.
+- **Species:** pigeons (cloud), starlings (tight cloud), geese (V) and gulls (loose line). Each has its own colour, size (1–1.5 × a 0.36 wingspan), flap rate and glide habit.
+- **Tests and reduced motion:**
+  - Test states set spontaneous flocks off until a reload, like autosave. So baselines and draw-call checks never meet a surprise flock; `spawnFlock(species?)` launches one.
+  - The OS "reduce motion" setting stops spontaneous flocks.
+  - `setReducedMotion(true)` clears the sky.
+  - `?debug&flock=N` sets a fixed N-second wait (debug only).
+- **Photo:** a flock in view is in the photo.
 
 ## Town photo (WP-19)
 - **Flow:** the top-bar camera button or `P` (no modifiers, building phase only) → `UiRoot` sets its pending view to `photo` and emits `intent:take-photo` → `Game.takePhoto()`:
@@ -224,6 +250,7 @@ The mobile triangle budget was raised from 250k to 320k with the 64 × 64 plot (
 - `seed`;
 - `setState(name)` for `title | empty-build | sample-town | active-play | asset-gallery | stress-town | night-town` (`night-town` = the sample town at t = 0.82). Every state reseeds, rebuilds deterministically and turns autosave off until reload. Unknown names throw.
 - `setPausedForScreenshot`, `setReducedMotion`, `hideDebugUi`;
+- `spawnFlock(species?)` (WP-22): launch a flock now; returns its bird count (0 when the sky is full);
 - `cellToClient(x, z)`, which takes 64 × 64 cell coordinates so bots click real cells with real input;
 - `setCameraPose(pose)` (v0.3): moves the camera to `{targetX, targetZ, azimuth, polar, distance}` at once and renders, for screenshots of one spot (e.g. the asset gallery).
 - `setTimeOfDay(t | null)` (v0.3, WP-16): pins the time of day (0..1) and applies the look at once, even while paused for a screenshot; `null` releases the pin. Every test state pins afternoon (0.55) except `night-town` (0.82).
@@ -248,6 +275,7 @@ The `sample-town` state uses every placing tool (41, WP-23) with zero rejections
 | `save` | `{available, pending, lastError}` |
 | `fx` | `FxDiagnostics`: active, drawCalls, spawned, dropped, reducedMotion, windTime, windStrength |
 | `life` | `LifeDiagnostics`: loaded, cars, target, drivableCells, spawned, despawned, waiting, drawCalls, … |
+| `birds` | WP-22 `BirdDiagnostics`: `auto` (spontaneous flocks on), flocks, birds, spawned (since the last reset), nextFlockIn (s), species[], drawCalls, shadowDrawCalls, positions `[{x, y, z}]` |
 | `daytime` | v0.3: `{mode, t, phase, pinned, night, lightsOn, lamps, drawCalls}`. `drawCalls` = what NightLights adds (0 by day) |
 | `photo` | WP-19: `{taken, developing, last}`. `last` = `{width, height, bytes, pixelRatio, ms}` of the latest framed JPEG, or null |
 | `renderer` | three.js calls, triangles, geometries, textures; the canvas inspector reads this |
