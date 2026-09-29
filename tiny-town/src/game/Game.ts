@@ -13,6 +13,7 @@ import { DebugTools, type DebugTuning } from '../debug/DebugTools';
 import { PlacementFx } from '../fx/PlacementFx';
 import { LifeSystem } from '../life/LifeSystem';
 import { SaveStore } from '../persistence/SaveStore';
+import { encodeTownFile, TOWN_FILE_MIME, townFileName } from '../persistence/townFile';
 import { CameraController } from '../interaction/CameraController';
 import { GridPicker } from '../interaction/GridPicker';
 import { ToolController } from '../interaction/ToolController';
@@ -24,6 +25,7 @@ import { TownRenderer } from '../render/TownRenderer';
 import { TownEditor } from '../town/TownEditor';
 import { TownState } from '../town/TownState';
 import { buildAssetGallery, buildSampleTown, buildStressTown } from '../town/sampleTown';
+import type { SavedTown } from '../town/types';
 import { parseTownNames, pickTownName, TOWN_NAMES_PATH } from '../town/townName';
 import { UiRoot } from '../ui/UiRoot';
 import { createSeededRandom, entropySeed } from '../utils/random';
@@ -142,6 +144,8 @@ export class Game {
     });
     this.bus.on('intent:new-town', ({ name }) => this.editor.reset(name));
     this.bus.on('intent:rename-town', ({ name }) => this.editor.rename(name));
+    this.bus.on('intent:export-town', () => this.exportTown());
+    this.bus.on('intent:open-town', ({ save }) => this.openTown(save));
     this.bus.on('intent:open-menu', () => {
       if (this.phase === 'building') this.setPhase('menu');
     });
@@ -297,6 +301,34 @@ export class Game {
         this.photo.last = { width, height, bytes: blob.size, pixelRatio: shot.pixelRatio, ms: Math.round(performance.now() - started) };
         this.bus.emit('photo:ready', { blob, width, height, fileName: photoFileName(date, townName) });
       }, fail);
+  }
+
+  /** Town file (WP-21): the live town (not the stored autosave, which trails by 1 s), in the same task. */
+  private exportTown(): void {
+    if (this.phase !== 'building' && this.phase !== 'menu') return;
+    const date = new Date();
+    const text = encodeTownFile(this.editor.serialize(this.cameraController.getPose()), date);
+    this.bus.emit('town-file:ready', { blob: new Blob([text], { type: TOWN_FILE_MIME }), fileName: townFileName(this.editor.name, date) });
+  }
+
+  /**
+   * Town file (WP-21): replace the town with an opened (validated) file. Not undoable, like Continue.
+   * The save is written at once, so a reload continues the opened town; opening a file is the
+   * player's own act, so it also turns autosave back on after a test state. From the title this is
+   * the Start click (audio unlocks, the morning starts); from the menu the time of day carries on.
+   */
+  private openTown(save: SavedTown): void {
+    const fromTitle = this.phase === 'title';
+    if (!fromTitle && this.phase !== 'menu') return;
+    if (fromTitle) void this.audio.unlock(); // must stay inside the click's call stack
+    this.editor.load(save);
+    this.saves.autosaveEnabled = true;
+    this.saves.write(this.editor.serialize(save.camera));
+    this.setPhase('building');
+    if (save.camera) this.cameraController.setPose(save.camera);
+    else this.cameraController.reset();
+    if (fromTitle) this.clock.startDay();
+    this.applyDaylight();
   }
 
   /** `?debug&day=N`: an N-second Auto day (evidence captures); lil-gui `Clock` folder. Debug only. */

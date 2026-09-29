@@ -44,15 +44,17 @@ const topBarLayout = (page: Page) =>
       const r = (el: Element) => el.getBoundingClientRect();
       const brand = r(document.querySelector('.ui-brand')!);
       const actions = r(document.querySelector('.ui-actions')!);
+      // WP-21: the Town file button is display:none on phones (it lives in the menu there).
+      const shown = [...document.querySelectorAll('.ui-actions button')].filter((b) => r(b).width > 0);
       return {
         parent: button.parentElement!.classList.contains('ui-actions'),
         next: button.nextElementSibling?.id,
-        order: [...document.querySelectorAll('.ui-actions button')].map((b) => b.id),
+        order: shown.map((b) => b.id),
         size: [r(button).width, r(button).height],
         oneRow: !(brand.bottom <= actions.top || actions.bottom <= brand.top),
         inViewport: actions.right <= window.innerWidth + 0.5 && brand.left >= -0.5,
         overlap: brand.right > actions.left,
-        targets: [...document.querySelectorAll('.ui-actions button')].map((b) => Math.min(r(b).width, r(b).height)),
+        targets: shown.map((b) => Math.min(r(b).width, r(b).height)),
       };
     },
     { timeMode: UI_TEST_IDS.timeMode },
@@ -66,8 +68,10 @@ test.describe('time button (top bar)', () => {
     const layout = await topBarLayout(page);
     expect(layout.parent).toBe(true);
     expect(layout.next).toBe(UI_TEST_IDS.mute);
-    // WP-19 added the photo camera left of the time button.
-    expect(layout.order).toEqual([UI_TEST_IDS.undo, UI_TEST_IDS.redo, UI_TEST_IDS.photo, UI_TEST_IDS.timeMode, UI_TEST_IDS.mute, UI_TEST_IDS.menu]);
+    // WP-19 added the photo camera left of the time button; WP-21 the Town file button left of the
+    // camera, on screens wider than 440 px only (phones reach it through the menu).
+    const file = info.project.name === 'mobile-chrome' ? [] : [UI_TEST_IDS.townFile];
+    expect(layout.order).toEqual([UI_TEST_IDS.undo, UI_TEST_IDS.redo, ...file, UI_TEST_IDS.photo, UI_TEST_IDS.timeMode, UI_TEST_IDS.mute, UI_TEST_IDS.menu]);
     expect(layout.oneRow, 'top bar is one row').toBe(true);
     expect(layout.inViewport).toBe(true);
     expect(layout.overlap, 'brand × actions').toBe(false);

@@ -10,7 +10,7 @@
  */
 import type { SfxEvent } from '../audio/sfx';
 import type { ToolId } from '../catalog/tools';
-import type { Cell, Edge, Rotation, TownChange, TownStats } from '../town/types';
+import type { Cell, Edge, Rotation, SavedTown, TownChange, TownStats } from '../town/types';
 import type { DayPhase, TimeMode } from '../world/dayCycle';
 
 export type GamePhase = 'loading' | 'title' | 'building' | 'menu' | 'error';
@@ -28,6 +28,13 @@ export type GameEvents = {
   'intent:new-town': { name: string };
   /** Top-bar town name / menu → game: rename the current town (WP-20; saved, not undoable). */
   'intent:rename-town': { name: string };
+  /** Town file panel → game: serialise the live town for a download (WP-21); answered by `town-file:ready` in the same task. */
+  'intent:export-town': void;
+  /**
+   * Town file confirm / title → game: replace the town with an opened file (WP-21). `save` has been
+   * through parseSave (persistence/townFile.ts decodeTownFile). From the title it also starts the game.
+   */
+  'intent:open-town': { save: SavedTown };
   'intent:open-menu': void;
   'intent:close-menu': void;
   'intent:set-muted': { muted: boolean };
@@ -88,6 +95,8 @@ export type GameEvents = {
   'photo:ready': { blob: Blob; width: number; height: number; fileName: string };
   /** Photo (WP-19): capture or encoding failed; the preview says so. */
   'photo:error': { message: string };
+  /** Town file (WP-21): the live town as a file, emitted synchronously from `intent:export-town` (the UI downloads it in the same click). */
+  'town-file:ready': { blob: Blob; fileName: string };
 
   /** UI chrome feedback for audio (hover/click on DOM buttons). */
   'ui:sfx': { event: SfxEvent };

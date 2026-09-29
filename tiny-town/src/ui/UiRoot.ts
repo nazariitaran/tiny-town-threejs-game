@@ -15,7 +15,8 @@ import { TOOL_CATEGORIES, toolDef, toolsInCategory, type ToolCategory, type Tool
 import { assetUrl } from '../game/config';
 import type { GameBus, GamePhase } from '../game/events';
 import { photoFrameLayout } from '../photo/photoLayout';
-import { downloadPhoto } from '../photo/savePhoto';
+import { decodeTownFile, TOWN_FILE_ERRORS, TOWN_FILE_EXTENSION, TOWN_FILE_MAX_BYTES, TOWN_FILE_MIME, type DecodedTownFile } from '../persistence/townFile';
+import { downloadBlob } from '../utils/download';
 import { DEFAULT_TOWN_NAME, sanitizeTownName, TOWN_NAME_MAX_LENGTH, townNameLength } from '../town/townName';
 import type { Rotation } from '../town/types';
 import { TIME_MODES, type DayPhase, type TimeMode } from '../world/dayCycle';
@@ -25,7 +26,7 @@ import { digitAction, isPhotoKey } from './uiKeys';
 
 export { UI_TEST_IDS };
 
-type ModalView = 'menu' | 'confirm' | 'help' | 'credits' | 'photo' | 'name';
+type ModalView = 'menu' | 'confirm' | 'help' | 'credits' | 'photo' | 'name' | 'file' | 'file-confirm';
 /** The name dialog (WP-20) names a new town or renames this one, and returns to where it opened. */
 type NameDialog = { mode: 'new' | 'rename'; from: 'title' | 'menu' | 'building' };
 type UiSfx = 'ui-hover' | 'ui-click' | 'ui-open' | 'ui-close';
@@ -89,6 +90,9 @@ export class UiRoot {
   /** The town's name (WP-20; from `town:named`) and the name dialog's purpose while it is open. */
   private townName = DEFAULT_TOWN_NAME;
   private nameDialog: NameDialog = { mode: 'new', from: 'title' };
+  /** Town file (WP-21): where the panel opened from, and the decoded file waiting for its confirm. */
+  private fileFrom: 'title' | 'menu' | 'building' = 'building';
+  private pendingFile: DecodedTownFile | null = null;
 
   /**
    * `suggestTownName(avoid)` draws a random name from the suggestion list (Game owns the list and its
@@ -161,6 +165,14 @@ export class UiRoot {
       // WP-19: the photo preview fills in when the framed photo is ready.
       bus.on('photo:ready', (photo) => this.showPhoto(photo)),
       bus.on('photo:error', () => this.renderPhotoState('error', "The photo didn't come out. Close this and try again.")),
+      // WP-21: the live town as a file, answered in the same click as intent:export-town.
+      bus.on('town-file:ready', ({ blob, fileName }) => {
+        downloadBlob(blob, fileName);
+        this.renderFileStatus('ok', `Saved as ${fileName}`);
+        const keep = this.button(UI_TEST_IDS.fileConfirmKeep);
+        keep.textContent = `Saved as ${fileName}`;
+        keep.disabled = true;
+      }),
       // WP-20: the top bar shows the town's name.
       bus.on('town:named', ({ name }) => {
         this.townName = name;
@@ -216,7 +228,10 @@ export class UiRoot {
             <button id="${id.start}" type="button" class="ui-btn ui-btn-primary ui-btn-big">${GLYPHS.play}<span class="ui-start-label">Start building</span></button>
             <button id="${id.titleNew}" type="button" class="ui-btn ui-btn-big" hidden>${GLYPHS.plus}<span>New town</span></button>
           </div>
-          <button id="${id.titleCredits}" type="button" class="ui-link ui-title-credits">Credits</button>
+          <div class="ui-title-links">
+            <button id="${id.titleOpenFile}" type="button" class="ui-link ui-title-credits">Open a town file</button>
+            <button id="${id.titleCredits}" type="button" class="ui-link ui-title-credits">Credits</button>
+          </div>
         </div>
       </section>
 
@@ -226,6 +241,7 @@ export class UiRoot {
           <button id="${id.undo}" type="button" class="ui-icon-btn" disabled aria-label="Undo" title="Undo (Ctrl+Z)">${GLYPHS.undo}</button>
           <button id="${id.redo}" type="button" class="ui-icon-btn" disabled aria-label="Redo" title="Redo (Ctrl+Shift+Z)">${GLYPHS.redo}</button>
           <span class="ui-sep" aria-hidden="true"></span>
+          <button id="${id.townFile}" type="button" class="ui-icon-btn ui-town-file-btn" aria-label="Town file: download or open a town" title="Town file: download or open a town">${GLYPHS.folder}</button>
           <button id="${id.photo}" type="button" class="ui-icon-btn" aria-label="Take a photo" aria-keyshortcuts="P" title="Take a photo (P)">${GLYPHS.photo}</button>
           <button id="${id.timeMode}" type="button" class="ui-icon-btn ui-time-btn" aria-keyshortcuts="T"></button>
           <button id="${id.mute}" type="button" class="ui-icon-btn" aria-label="Mute sound" aria-pressed="false"></button>
@@ -288,6 +304,7 @@ export class UiRoot {
             ${GLYPHS.grid}<span>Show grid</span>
             <input type="checkbox" id="${id.grid}" role="switch" checked />
           </label>
+          <button type="button" class="ui-btn ui-town-file-row" id="${id.townFileMenu}">${GLYPHS.folder}<span>Town file</span></button>
           <div class="ui-row">
             <button type="button" class="ui-btn" id="${id.renameTown}">${GLYPHS.pencil}<span>Rename town</span></button>
             <button type="button" class="ui-btn ui-btn-danger-soft" id="${id.newTown}">${GLYPHS.plus}<span>New town</span></button>
@@ -370,6 +387,26 @@ export class UiRoot {
           <button type="button" class="ui-link" id="${id.photoClose}" data-back>Back to town</button>
         </section>
 
+        <section class="ui-panel ui-file-panel" id="${id.filePanel}" data-view="file" role="dialog" aria-modal="true" aria-labelledby="ui-file-h">
+          <h2 id="ui-file-h">Town file</h2>
+          <p>Keep a copy of your town on your device, or open one you saved before.</p>
+          <button type="button" class="ui-btn ui-btn-primary" id="${id.fileDownload}">${GLYPHS.download}<span>Download this town</span></button>
+          <button type="button" class="ui-btn" id="${id.fileOpen}">${GLYPHS.upload}<span>Open a town file…</span></button>
+          <p class="ui-file-status" aria-live="polite"></p>
+          <button type="button" class="ui-link" id="${id.fileClose}" data-back>Back to town</button>
+        </section>
+
+        <section class="ui-panel" id="${id.fileConfirmPanel}" data-view="file-confirm" role="alertdialog" aria-modal="true" aria-labelledby="ui-file-confirm-h" aria-describedby="ui-file-confirm-d">
+          <h2 id="ui-file-confirm-h"></h2>
+          <p class="ui-file-when"></p>
+          <p id="ui-file-confirm-d"></p>
+          <div class="ui-row">
+            <button type="button" class="ui-btn" id="${id.fileConfirmCancel}" data-back>Cancel</button>
+            <button type="button" class="ui-btn" id="${id.fileConfirmOpen}"></button>
+          </div>
+          <button type="button" class="ui-link" id="${id.fileConfirmKeep}"></button>
+        </section>
+
         <section class="ui-panel" id="${id.creditsPanel}" data-view="credits" role="dialog" aria-modal="true" aria-labelledby="ui-credits-h">
           <h2 id="ui-credits-h">Credits</h2>
           <p>Most 3D models, item icons and all sounds by <strong>Kenney</strong> (kenney.nl), CC0.</p>
@@ -380,6 +417,8 @@ export class UiRoot {
           <button type="button" class="ui-btn" id="${id.creditsClose}" data-back>Back</button>
         </section>
       </div>
+
+      <input type="file" id="${id.fileInput}" accept="${TOWN_FILE_EXTENSION},.json,${TOWN_FILE_MIME}" hidden />
 
       <div class="ui-flash" aria-hidden="true"></div>
 
@@ -409,6 +448,14 @@ export class UiRoot {
     } else if (target.id === id.townName) this.openNameDialog({ mode: 'rename', from: 'building' });
     else if (target.id === id.renameTown) this.openNameDialog({ mode: 'rename', from: 'menu' });
     else if (target.id === id.nameShuffle) this.shuffleTownName();
+    else if (target.id === id.townFile) this.openFilePanel('building');
+    else if (target.id === id.townFileMenu) this.openFilePanel('menu');
+    else if (target.id === id.titleOpenFile) {
+      this.fileFrom = 'title';
+      this.chooseTownFile();
+    } else if (target.id === id.fileOpen) this.chooseTownFile();
+    else if (target.id === id.fileDownload || target.id === id.fileConfirmKeep) this.bus.emit('intent:export-town');
+    else if (target.id === id.fileConfirmOpen) this.openPendingFile();
     else if (target.id === id.titleNew) this.openModal('confirm');
     else if (target.id === id.titleCredits || target.id === id.credits) this.openModal('credits');
     else if (target.id === id.undo) this.bus.emit('intent:undo');
@@ -443,6 +490,8 @@ export class UiRoot {
     const target = event.target as HTMLInputElement;
     if (target.id === UI_TEST_IDS.nameInput) {
       if (event.type === 'input') this.renderNameCount();
+    } else if (target.id === UI_TEST_IDS.fileInput) {
+      if (event.type === 'change') void this.readTownFile(target);
     } else if (target.id === UI_TEST_IDS.volume && event.type === 'input') {
       this.bus.emit('intent:set-volume', { volume: Number(target.value) });
     } else if (target.id === UI_TEST_IDS.musicVolume && event.type === 'input') {
@@ -534,7 +583,7 @@ export class UiRoot {
 
   private downloadPhoto(): void {
     if (!this.photo) return;
-    downloadPhoto(this.photo.blob, this.photo.fileName);
+    downloadBlob(this.photo.blob, this.photo.fileName);
     this.renderPhotoState('ready', `Saved as ${this.photo.fileName}`);
   }
 
@@ -600,6 +649,96 @@ export class UiRoot {
     }
   }
 
+  // ---------------------------------------------------------------- town file (WP-21)
+
+  /** Top bar (from building, like the photo view) or the phone menu row (from the menu). */
+  private openFilePanel(from: 'menu' | 'building'): void {
+    this.fileFrom = from;
+    if (from === 'building') {
+      if (this.phase !== 'building') return;
+      this.pendingView = 'file';
+      this.bus.emit('intent:open-menu');
+      this.pendingView = null;
+    } else this.openModal('file');
+  }
+
+  /** The system file picker (inside the click that asked for it). */
+  private chooseTownFile(): void {
+    this.el<HTMLInputElement>(UI_TEST_IDS.fileInput).click();
+  }
+
+  /** Read and check the picked file; a good one goes to the confirm, a bad one to the panel's status line. */
+  private async readTownFile(input: HTMLInputElement): Promise<void> {
+    const file = input.files?.[0];
+    input.value = ''; // picking the same file again still fires 'change'
+    if (!file) return;
+    let decoded: DecodedTownFile | Error;
+    try {
+      decoded = file.size > TOWN_FILE_MAX_BYTES ? new Error(TOWN_FILE_ERRORS.tooBig) : decodeTownFile(await file.text());
+    } catch {
+      decoded = new Error(TOWN_FILE_ERRORS.notTown);
+    }
+    // The player may have left the title or the panel while the file was read.
+    if (this.fileFrom === 'title' ? this.phase !== 'title' : this.phase !== 'menu') return;
+    if (decoded instanceof Error) {
+      if (this.modal !== 'file') this.openModal('file');
+      this.renderFileStatus('error', decoded.message);
+      return;
+    }
+    this.pendingFile = decoded;
+    this.openModal('file-confirm');
+  }
+
+  /** The panel: no Download on the title (there is no town yet). */
+  private startFileView(): void {
+    this.button(UI_TEST_IDS.fileDownload).hidden = this.fileFrom === 'title';
+    this.el(UI_TEST_IDS.fileClose).textContent = this.fileFrom === 'building' ? 'Back to town' : 'Back';
+    this.renderFileStatus('idle', '');
+  }
+
+  /** "Open Bumbleford?", when it was saved, and what it replaces (nothing on a fresh title). */
+  private startFileConfirmView(): void {
+    const file = this.pendingFile;
+    if (!file) return;
+    const name = file.town.name ?? DEFAULT_TOWN_NAME;
+    const replaces = this.fileFrom !== 'title' || this.hasSave();
+    this.el('ui-file-confirm-h').textContent = `Open ${name}?`;
+    const when = this.root.querySelector<HTMLElement>('.ui-file-when')!;
+    when.textContent = file.exportedAt
+      ? `Saved on ${new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(file.exportedAt)}.`
+      : '';
+    when.hidden = !file.exportedAt;
+    const warning = this.el('ui-file-confirm-d');
+    warning.textContent =
+      this.fileFrom === 'title'
+        ? 'Your saved town will be replaced.'
+        : `${this.townName} will be replaced. Download it first if you want to keep it.`;
+    warning.hidden = !replaces;
+    const open = this.button(UI_TEST_IDS.fileConfirmOpen);
+    open.textContent = replaces ? 'Replace town' : 'Open town';
+    open.classList.toggle('ui-btn-danger', replaces);
+    open.classList.toggle('ui-btn-primary', !replaces);
+    const keep = this.button(UI_TEST_IDS.fileConfirmKeep);
+    keep.hidden = this.fileFrom === 'title';
+    keep.disabled = false;
+    keep.textContent = `Download ${this.townName} first`;
+  }
+
+  private openPendingFile(): void {
+    const file = this.pendingFile;
+    if (!file || this.modal !== 'file-confirm') return;
+    this.pendingFile = null;
+    if (this.phase === 'title') this.closeModal();
+    // Game loads it and enters building; from the menu, the phase change closes the overlay.
+    this.bus.emit('intent:open-town', { save: file.town });
+  }
+
+  private renderFileStatus(state: 'idle' | 'ok' | 'error', text: string): void {
+    const status = this.root.querySelector<HTMLElement>('.ui-file-status')!;
+    status.dataset.state = state;
+    status.textContent = text;
+  }
+
   /** "n / 30" under the field; a blank name can't be submitted. */
   private renderNameCount(): void {
     const value = this.el<HTMLInputElement>(UI_TEST_IDS.nameInput).value;
@@ -612,8 +751,13 @@ export class UiRoot {
     if (!this.modal) return;
     if (this.phase === 'menu') {
       // The photo view and the top-bar rename open straight from the build view, so they close straight back to it.
-      const toBuilding = this.modal === 'menu' || this.modal === 'photo' || (this.modal === 'name' && this.nameDialog.from === 'building');
+      const toBuilding =
+        this.modal === 'menu' ||
+        this.modal === 'photo' ||
+        (this.modal === 'name' && this.nameDialog.from === 'building') ||
+        (this.modal === 'file' && this.fileFrom === 'building');
       if (toBuilding) this.bus.emit('intent:close-menu');
+      else if (this.modal === 'file-confirm') this.openModal('file');
       else this.openModal('menu');
     } else this.closeModal();
   }
@@ -627,13 +771,15 @@ export class UiRoot {
     this.setHudInert(true);
     if (!wasOpen) this.sfx('ui-open');
     if (view === 'photo') this.startPhotoView();
+    if (view === 'file') this.startFileView();
+    if (view === 'file-confirm') this.startFileConfirmView();
     if (view === 'name') {
       this.startNameView();
       this.focusNameDialog();
       return;
     }
     const panel = modal.querySelector<HTMLElement>(`[data-view="${view}"]`)!;
-    panel.querySelector<HTMLElement>('button:not(:disabled)')?.focus({ preventScroll: true });
+    panel.querySelector<HTMLElement>('button:not(:disabled):not([hidden])')?.focus({ preventScroll: true });
   }
 
   private closeModal(): void {

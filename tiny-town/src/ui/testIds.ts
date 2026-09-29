@@ -59,6 +59,24 @@ export const UI_TEST_IDS = {
   nameShuffle: 'btn-town-name-shuffle',
   nameCancel: 'btn-town-name-cancel',
   nameSubmit: 'btn-town-name-ok',
+  // --- added by WP-21 (town file) ---
+  /** Top-bar Town file button (hidden ≤ 440 px) and its phone twin in the menu (shown only ≤ 440 px). */
+  townFile: 'btn-town-file',
+  townFileMenu: 'btn-town-file-menu',
+  /** Title link "Open a town file" (straight to the file picker). */
+  titleOpenFile: 'btn-title-open-file',
+  /** The Town file panel: Download, Open a town file…, the status line (data-state), Back to town. */
+  filePanel: 'ui-town-file',
+  fileDownload: 'btn-town-file-download',
+  fileOpen: 'btn-town-file-open',
+  fileClose: 'btn-town-file-close',
+  /** The hidden <input type="file"> behind every "open" (Playwright: waitForEvent('filechooser')). */
+  fileInput: 'input-town-file',
+  /** The confirm before an opened file replaces the town. */
+  fileConfirmPanel: 'ui-town-file-confirm',
+  fileConfirmCancel: 'btn-town-file-cancel',
+  fileConfirmOpen: 'btn-town-file-replace',
+  fileConfirmKeep: 'btn-town-file-keep',
   confirmPanel: 'ui-confirm',
   confirmClear: 'btn-confirm-clear',
   confirmCancel: 'btn-confirm-cancel',

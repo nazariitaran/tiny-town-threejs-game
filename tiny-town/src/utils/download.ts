@@ -1,10 +1,10 @@
 /**
- * Saving a town photo (WP-19): a plain download. It runs inside the preview's Download click (user
- * activation). No share sheet (owner decision); on iOS a download goes to Files, and a long press on
- * the preview image still offers "Save to Photos".
+ * A plain file download: the town photo (WP-19) and the town file (WP-21). Call it inside the
+ * click that asked for it (user activation). No share sheet (owner decision); on iOS a download goes
+ * to Files, and a long press on the photo preview still offers "Save to Photos".
  */
 
-export function downloadPhoto(blob: Blob, fileName: string): void {
+export function downloadBlob(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
