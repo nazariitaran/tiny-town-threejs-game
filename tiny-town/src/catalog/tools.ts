@@ -10,12 +10,13 @@ export type ToolId = Exclude<GroundKind, 'field'> | ObjectKind | EdgeKind | 'bul
 /**
  * Dock categories — each answers "what am I building?":
  *   streets: the road network and everything that belongs to the kerb
- *   homes:   where people live (and their garages)
+ *   homes:   where people live
  *   town:    shops and civic places everyone shares
  *   nature:  things that grow on their own (ground cover, trees, bushes)
  *   garden:  things people build in a yard or park (paths, hedges, fences, furniture)
  * Inside a category tools run surfaces → lines → objects (ground paint, then edges, then placed
- * items); catalog.test.ts keeps that order. Each category holds at most 9 tools (digit shortcuts).
+ * items); catalog.test.ts keeps that order. Digits 1–9 pick the first nine tools of a category; a category
+ * holds at most 12 (WP-23, owner: tools past the ninth have no digit, and ~12 cards fill a desktop row).
  */
 export type ToolCategory = 'streets' | 'homes' | 'town' | 'nature' | 'garden';
 export type ToolLayer = 'ground' | 'object' | 'edge' | 'bulldoze';
@@ -56,6 +57,7 @@ const ROWS: readonly ToolRow[] = [
   { id: 'lamppost', label: 'Lamppost', category: 'streets', layer: 'object', drag: 'scatter', sfx: 'place-prop-metal', hint: SCATTER },
   { id: 'bus-stop', label: 'Bus stop', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-building', hint: 'Place next to a road · R to rotate' },
   { id: 'postbox', label: 'Postbox', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-prop-metal', hint: PLACE },
+  { id: 'mailbox', label: 'Mailbox', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-prop-metal', hint: PLACE },
   // Homes
   { id: 'cottage', label: 'Cottage', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'townhouse', label: 'Townhouse', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
@@ -63,16 +65,18 @@ const ROWS: readonly ToolRow[] = [
   { id: 'family-home', label: 'Family home', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'garage-house', label: 'Suburban', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'big-house', label: 'Big house', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
-  { id: 'garage', label: 'Garage', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   // Town
   { id: 'fountain', label: 'Fountain', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: PLACE },
+  { id: 'tiered-fountain', label: 'Tiered fountain', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: PLACE },
   { id: 'corner-shop', label: 'Corner shop', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
+  { id: 'donut-shop', label: 'Donut shop', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'church', label: 'Church', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'supermarket', label: 'Supermarket', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'swimming-pool', label: 'Pool', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   // Nature
   { id: 'grass', label: 'Grass', category: 'nature', layer: 'ground', drag: 'paint', sfx: 'place-nature', hint: 'Drag to paint lawn' },
   { id: 'meadow', label: 'Wildflowers', category: 'nature', layer: 'ground', drag: 'paint', sfx: 'place-nature', hint: 'Drag to sow a wildflower meadow' },
+  { id: 'tulips', label: 'Tulips', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT },
   { id: 'bush', label: 'Bush', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT },
   { id: 'oak', label: 'Oak', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT },
   { id: 'pine', label: 'Pine', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT },
@@ -82,10 +86,14 @@ const ROWS: readonly ToolRow[] = [
   { id: 'hedge', label: 'Hedge', category: 'garden', layer: 'edge', drag: 'line', sfx: 'place-nature', hint: `${EDGE} to grow a hedge` },
   { id: 'fence-low', label: 'Low fence', category: 'garden', layer: 'edge', drag: 'line', sfx: 'place-prop', hint: `${EDGE} to build a fence` },
   { id: 'fence-tall', label: 'Tall fence', category: 'garden', layer: 'edge', drag: 'line', sfx: 'place-prop', hint: `${EDGE} to build a fence` },
+  { id: 'fence-gate', label: 'Gate', category: 'garden', layer: 'edge', drag: 'line', sfx: 'place-prop', hint: 'Click a cell edge to put in a gate' },
   { id: 'planter', label: 'Planter', category: 'garden', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: SCATTER },
   { id: 'bench', label: 'Bench', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-prop', hint: PLACE },
+  { id: 'long-bench', label: 'Long bench', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-prop', hint: PLACE },
+  { id: 'garden-table', label: 'Table', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-prop', hint: PLACE },
   { id: 'barbecue', label: 'Barbecue', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-prop-metal', hint: PLACE },
   { id: 'swing', label: 'Swing', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-prop', hint: PLACE },
+  { id: 'slide', label: 'Slide', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-prop', hint: PLACE },
   // Modes
   { id: 'bulldoze', label: 'Bulldoze', category: 'mode', layer: 'bulldoze', drag: 'paint', sfx: 'remove', hint: 'Click or drag to remove things' },
 ];

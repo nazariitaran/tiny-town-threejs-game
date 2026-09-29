@@ -456,6 +456,14 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
 - **Files:** new `src/life/FlockSim.ts`, `src/life/BirdSystem.ts`, `src/life/birds.test.ts`, `tests/birds.spec.ts`; contract: `Game.ts`, `vite-env.d.ts`; docs.
 - **Acceptance:** see the plan. `npm run verify` green; `tests/birds.spec.ts` (desktop + mobile); full e2e green with the visual baselines unchanged.
 
+### WP-23 — New build items, garage removed
+- **Status: merged** into `main` (owner-approved 2026-09-29). Built on the branch `wp-23-new-items` (from `d119d54`, `main` merged in after WP-22; worktree `../ThreeJsGames-wt/wp-23-new-items`; dev server 5240, tests 5241). Plan: `docs/plans/wp-23-new-items.md`; as built: `docs/progress.md` "WP-23 as built".
+- **Why:** owner request (2026-09-29), after the asset research (`~/Desktop/tiny-town-inventory-research/`): more Town, Nature and Garden items, picked from the research sheets.
+- **Owner asks:** Fantasy Town table (`stall`), long bench (`stall-bench`) and gate (`fence-gate`); the Nature Kit's red, yellow and purple flowers, all three in one 0.5 cell; from Poly Pizza the donut shop, the tiered fountain, the slide and the mailbox; remove the garage. Accepted: more than 9 tools per category, tools past the ninth without a digit.
+- **Design:** 8 new tools (Mailbox in Streets; Tiered fountain and Donut shop in Town; Tulips in Nature; Gate, Long bench, Table and Slide in Garden), the garage kind, model and icon removed, no save bump (unknown kinds are dropped on load), a 12-tool cap per category with digits for the first nine, a Nature Kit material fix in the compose script, CC-BY credits for three models.
+- **Files:** contract: `town/types.ts`, `catalog/{objects,models,tools}.ts`; `town/serialize.ts`, `town/sampleTown.ts`; `render/TownRenderer.ts` (gate style), `render/IconStudio.ts`, `fx/fxRecipes.ts`; `ui/UiRoot.ts` (badges, credits); `scripts/compose-models.mjs`; new GLBs and icons; tests; docs.
+- **Acceptance:** see the plan.
+
 ## 5. Checkpoints (integrator runs these on merged main)
 
 > Historical: M1, M2 and M3 all passed on 2026-09-26 (`docs/checkpoints/m1.md`–`m3.md`). Reuse the procedure for future checkpoints.

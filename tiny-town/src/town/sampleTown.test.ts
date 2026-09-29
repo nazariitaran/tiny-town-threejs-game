@@ -19,7 +19,7 @@ describe('demo towns', () => {
     const editor = makeEditor();
     const result = buildSampleTown(editor);
     expect(result.rejected).toEqual([]);
-    expect(editor.state.stats()).toMatchObject({ homes: 8, amenities: 5, trees: 5 });
+    expect(editor.state.stats()).toMatchObject({ homes: 8, amenities: 7, trees: 5 });
     // WP-17: every home kind and the civic buildings, on their bigger lots.
     const kinds = [...editor.state.objects()].map((o) => o.kind);
     for (const kind of ['cottage', 'townhouse', 'bungalow', 'family-home', 'garage-house', 'big-house', 'corner-shop', 'supermarket', 'church'] as const) expect(kinds, kind).toContain(kind);
@@ -33,7 +33,7 @@ describe('demo towns', () => {
     buildSampleTown(editor);
     const used = new Set(spy.mock.calls.flatMap(([items]) => items.map((item) => item.toolId)));
     const placing = TOOLS.map((t) => t.id).filter((id) => id !== 'bulldoze');
-    expect(placing).toHaveLength(34);
+    expect(placing).toHaveLength(41);
     expect(placing.filter((id) => !used.has(id))).toEqual([]);
   });
 
@@ -56,7 +56,7 @@ describe('demo towns', () => {
     expect(buildAssetGallery(editor).rejected).toEqual([]);
     const kinds = new Set([...editor.state.objects()].map((o) => o.kind));
     expect(kinds).toEqual(new Set(OBJECT_KINDS));
-    expect(kinds.size).toBe(26);
+    expect(kinds.size).toBe(32);
     expect(GALLERY_OBJECTS).toHaveLength(OBJECT_KINDS.length);
     for (let mask = 0; mask < 16; mask += 1) {
       const block = galleryMaskBlock(mask);
@@ -69,7 +69,7 @@ describe('demo towns', () => {
     }
   });
 
-  it('stress town fills the plot with zero rejections (100 homes on WP-17 lots, 50 garages)', () => {
+  it('stress town fills the plot with zero rejections (100 homes on WP-17 lots, 50 mailboxes)', () => {
     const editor = makeEditor();
     const { rejected } = buildStressTown(editor);
     expect(rejected).toEqual([]);
@@ -77,7 +77,7 @@ describe('demo towns', () => {
     const count = (kind: string) => objects.filter((o) => o.kind === kind).length;
     // 64 × 64: 5 × 5 lot blocks (the leftover 4-cell strips east and south hold a road and field).
     expect(editor.state.stats().homes).toBe(100);
-    expect(count('garage')).toBe(50);
+    expect(count('mailbox')).toBe(50);
     expect(count('garage-house')).toBe(50);
     expect(count('cottage')).toBe(25);
     expect(count('townhouse')).toBe(25);

@@ -91,15 +91,15 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
 - **Dock** (bottom centre): category tabs; the active category's **item tray** slides up above the tabs. The build starts on **Streets**.
 - **Categories (v0.3).** Each one answers "what am I building?":
 
-  | Tab (Shift+) | Holds | Tools, in tray order (digit 1–9) |
+  | Tab (Shift+) | Holds | Tools, in tray order (digits 1–9 reach the first nine) |
   | --- | --- | --- |
-  | Streets (1) | the road network and everything at the kerb | Road, Pavement, Roundabout, Zebra (Zebra crossing), Traffic light, Lamppost, Bus stop, Postbox |
-  | Homes (2) | where people live, and their garages | Cottage, Townhouse, Bungalow, Family home, Suburban, Big house, Garage |
-  | Town (3) | shops and civic places everyone shares | Fountain, Corner shop, Church, Supermarket, Pool |
-  | Nature (4) | things that grow on their own | Grass, Wildflowers, Bush, Oak, Pine, Birch |
-  | Garden (5) | things people build in a yard or park | Garden path, Hedge, Low fence, Tall fence, Planter, Bench, Barbecue, Swing |
+  | Streets (1) | the road network and everything at the kerb | Road, Pavement, Roundabout, Zebra (Zebra crossing), Traffic light, Lamppost, Bus stop, Postbox, Mailbox |
+  | Homes (2) | where people live | Cottage, Townhouse, Bungalow, Family home, Suburban, Big house |
+  | Town (3) | shops and civic places everyone shares | Fountain, Tiered fountain, Corner shop, Donut shop, Church, Supermarket, Pool |
+  | Nature (4) | things that grow on their own | Grass, Wildflowers, Tulips, Bush, Oak, Pine, Birch |
+  | Garden (5) | things people build in a yard or park | Garden path, Hedge, Low fence, Tall fence, Gate, Planter, Bench, Long bench, Table, Barbecue, Swing, Slide |
 
-  Inside a category the tools run **surfaces → lines → objects** (ground paint, then edges, then placed items). A category holds at most 9 tools, so every tool has a digit. `catalog.test.ts` checks both. An item card is a 44 px icon (the in-project render of the in-game model, `scripts/render-icons.mjs`), a short label and a number-key badge. The selected card is raised with an accent outline. Clicking the active item again deselects it.
+  Inside a category the tools run **surfaces → lines → objects** (ground paint, then edges, then placed items). **WP-23 (owner decision, 2026-09-29):** a category holds at most **12** tools (about what fits a desktop row; the tray scrolls sideways where it doesn't). Digits 1–9 pick the first nine; tools past the ninth (today Garden's Barbecue, Swing and Slide) have no number badge, no "(n)" in their tooltip and no key. `catalog.test.ts` checks the order and the cap. An item card is a 44 px icon (the in-project render of the in-game model, `scripts/render-icons.mjs`), a short label and a number-key badge. The selected card is raised with an accent outline. Clicking the active item again deselects it.
 - **Mode buttons** (right end of the dock): Rotate (shows the current rotation arrow) and Bulldoze (toggles; red accent when active).
 - **Top bar**: one row. The row is 48 px tall (`--topbar-h`; 52 px on phones), so it ends 60 / 64 px below the safe-area top.
   - Left: the **town name pill** (WP-20): the brick house badge and the player's town name (bold, ellipsised when too long; desktop caps the pill at 40 % of the width). It is a button: click / tap it to rename the town. v0.2 (WP-14) removed the live stats pill as redundant; `TownState.stats()` and diagnostics `town` remain for tests.

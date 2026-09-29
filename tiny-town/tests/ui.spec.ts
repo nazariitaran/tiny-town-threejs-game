@@ -108,7 +108,7 @@ test('the five category tabs render their tools in catalog order, each with a lo
       .toEqual(expected.map((tool) => `${tool}:true:true`));
     counts[category.id] = expected.length;
   }
-  expect(counts).toEqual({ streets: 8, homes: 7, town: 5, nature: 6, garden: 8 });
+  expect(counts).toEqual({ streets: 9, homes: 6, town: 7, nature: 7, garden: 12 });
   expect(errors).toEqual([]);
 });
 
@@ -134,9 +134,9 @@ test('digit shortcuts: 1–9 pick a tool in the active category, Shift+1–5 swi
   await expect(page.locator(id(UI_TEST_IDS.category('town')))).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('Digit1');
   await expect.poll(async () => (await diag(page)).tool).toBe('fountain');
-  // Shift+4 = Nature: 5 = pine.
+  // Shift+4 = Nature: 6 = pine (WP-23: Tulips is 3).
   await page.keyboard.press('Shift+Digit4');
-  await page.keyboard.press('Digit5');
+  await page.keyboard.press('Digit6');
   await expect.poll(async () => (await diag(page)).tool).toBe('pine');
   // Shift+5 = Garden: 1 = garden path (walkway).
   await page.keyboard.press('Shift+Digit5');
@@ -202,7 +202,7 @@ test('refusal tooltip shows on an invalid click and is gone after the next succe
   await page.waitForTimeout(450);
   await clickFootprint(page, 'cottage', { x: 27, z: 16 });
   await expect(tip).toBeVisible();
-  await page.locator(id(UI_TEST_IDS.tool('garage'))).click();
+  await page.locator(id(UI_TEST_IDS.tool('bungalow'))).click();
   await expect(tip).toBeHidden();
   expect(errors).toEqual([]);
 });

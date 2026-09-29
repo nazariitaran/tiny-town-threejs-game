@@ -116,11 +116,11 @@ describe('row 1 — paint-ground: in bounds and kind differs', () => {
 
 // ---------------------------------------------------------------------------------------------
 describe('row 2 — paint-ground under an object: new kind ∈ allowedGround', () => {
-  it('valid: grass/meadow under a house, pavement under a tree/garage/prop, walkway under a prop', () => {
+  it('valid: grass/meadow under a house, pavement under a tree/bush/prop, walkway under a prop', () => {
     const state = makeState();
     object(state, 'cottage', 1, 1);
     object(state, 'oak', 2, 1);
-    object(state, 'garage', 3, 1);
+    object(state, 'bush', 3, 1);
     object(state, 'lamppost', 4, 1);
     expectOk(plan(state, paint('grass', 1, 1)));
     expectOk(plan(state, paint('meadow', 1, 1)));
@@ -343,7 +343,7 @@ describe('row 4 — place-object: footprint in bounds, unoccupied, ground ∈ al
     expectFail(plan(state, placeObj('cottage', 1, 1)), 'needs-ground', 'Cottage needs grass, meadow or open field');
     expectFail(plan(state, placeObj('family-home', 2, 1)), 'needs-ground', 'Family home needs grass, meadow or open field');
     expectFail(plan(state, placeObj('oak', 2, 1)), 'needs-ground', 'Oak needs grass, meadow, pavement or open field');
-    expectFail(plan(state, placeObj('garage', 2, 1)), 'needs-ground', 'Garage needs grass, meadow, pavement or open field');
+    expectFail(plan(state, placeObj('bush', 2, 1)), 'needs-ground', 'Bush needs grass, meadow, pavement or open field');
   });
 
   it('checks severity in order: out-of-bounds before occupied before ground', () => {
@@ -640,7 +640,7 @@ describe('multi-cell footprints (WP-12; WP-17 sizes: homes 4 × 4, townhouse 3 �
     expectFail(plan(state, placeObj('cottage', 2, D - 3)), 'out-of-bounds', 'Outside your plot');
     expectFail(plan(state, placeObj('cottage', -1, 2)), 'out-of-bounds', 'Outside your plot');
     expectFail(plan(state, placeObj('cottage', 2, -1)), 'out-of-bounds', 'Outside your plot');
-    expectFail(plan(state, placeObj('garage', 3, D - 1)), 'out-of-bounds', 'Outside your plot');
+    expectFail(plan(state, placeObj('swing', 3, D - 1, 1)), 'out-of-bounds', 'Outside your plot');
     expectOk(plan(state, placeObj('cottage', W - 4, D - 4)));
   });
 

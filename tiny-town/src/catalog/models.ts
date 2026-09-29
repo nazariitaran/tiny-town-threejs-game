@@ -70,12 +70,15 @@ export const MODELS = {
   'traffic-light-hanging': M('/assets/models/roads/traffic-light-hanging.glb', 1, 1, { offset: [-0.103, 0, 0], glow: 'traffic' }),
   // Pole is at the native origin; the arm overhangs −Z. Bounds-centring moves the pole 0.0867 × scale
   // off-centre; the offset puts it back mid-cell. WP-12: scale 1 (0.675 tall, arm 0.2): taller than
-  // the garage and the bus-stop bench, below the eaves.
+  // the bus-stop bench, below the eaves.
   lamppost: M('/assets/models/roads/light-curved.glb', 1, 2, { offset: [0, 0, 0.087], glow: 'lamp' }),
   // WP-12: 2×1 cells (0.76 × 0.34 × 0.37).
   'bus-stop': M('/assets/models/composed/bus-stop.glb', 0.8, 2),
   // WP-12: ≈ car height (0.15 × 0.24), ~1.2× real so it still reads as a pillar box.
   postbox: M('/assets/models/composed/postbox.glb', 1.4, 2),
+  // WP-23: CreativeTrio kerbside mailbox (Poly Pizza, CC0; composed at game scale: 0.03 × 0.20 × 0.10),
+  // about as tall as the postbox. The door end faces +Z natively.
+  mailbox: M('/assets/models/composed/mailbox.glb', 1, 0),
   // ---- Homes: City Kit Suburban at HOME_SCALE (WP-17: every home grew one cell each way, so ×4/3 of
   // the kit's native size), nudged back (−z at rotation 0) so a front yard reads between the door and
   // the street; the nudge grew with the model (0.15 → 0.2), so the yard keeps its share of the lot.
@@ -96,12 +99,13 @@ export const MODELS = {
   // 5 × 4 cells: type-d (2.34 × 1.65 × 1.37), type-n (2.38 × 1.52 × 1.84: small nudge).
   'big-house-d': M('/assets/models/suburban/building-type-d.glb', HOME_SCALE, 2, { offset: [0, 0, -0.2], glow: 'windows' }),
   'big-house-n': M('/assets/models/suburban/building-type-n.glb', HOME_SCALE, 2, { offset: [0, 0, -0.05], glow: 'windows' }),
-  // WP-12: single garage on 1×2 cells (0.49 × 0.41 × 0.62), lower than the eaves.
-  garage: M('/assets/models/composed/garage.glb', 0.48, 2),
   // ---- Town
   // KayKit corner shop (composed: normalised to 0.92 × 0.76 × 0.92), 3 × 3 cells at 1.4 (WP-17):
   // 1.29 × 1.06 × 1.29. The shop front (door, striped awning) faces +Z natively, unlike the Kenney kits.
   'corner-shop': M('/assets/models/composed/corner-shop.glb', 1.4, 0),
+  // WP-23: "Donut Store" by J-Toastie (Poly Pizza, CC-BY 3.0; composed at game scale without its own
+  // ground slab), 3 × 3 cells like the corner shop. Front (awning) faces −Z natively.
+  'donut-shop': M('/assets/models/composed/donut-shop.glb', 1, 2),
   // City Kit Commercial building-e: low, wide, green awning, 5 × 4 cells at HOME_SCALE (WP-17):
   // 2.19 × 1.19 × 1.34.
   supermarket: M('/assets/models/commercial/building-e.glb', HOME_SCALE, 2),
@@ -112,6 +116,9 @@ export const MODELS = {
   'swimming-pool': M('/assets/models/composed/swimming-pool.glb', 0.5, 2),
   // Fantasy Town round fountain with its centre tier (native 2 × 2), 2 × 2 cells.
   fountain: M('/assets/models/composed/fountain.glb', 0.45, 0),
+  // WP-23: "Fountain" by Poly by Google (Poly Pizza, CC-BY 3.0; composed at game scale and recoloured):
+  // a round basin with a tiered centre, 3 × 3 cells (1.4 × 0.53 × 1.4). Symmetric.
+  'tiered-fountain': M('/assets/models/composed/tiered-fountain.glb', 1, 0),
   // ---- Nature. WP-12 proportions (toy scale 1 unit ≈ 8 m): trees ≈ cottage height (~0.88).
   // The oak is the exception: a big round tree on a 2 × 2 cell lot (1 × 1 units, like a road block),
   // twice the old scale so its crown fills the lot: 0.98 × 1.74 × 1.0.
@@ -122,19 +129,34 @@ export const MODELS = {
   // A low round shrub: the oak's canopy, sunk so the trunk is hidden and squashed by MODEL_STYLES
   // (the same trick as the decor-ring hedgerow; the platformer plant read as birds from above).
   bush: M('/assets/models/platformer/tree.glb', 0.3, 0, { sway: true, offset: [0, -0.26, 0] }),
+  // WP-23: Nature Kit red, yellow and purple flowers in one cell (composed, recoloured: see
+  // compose-models.mjs natureMaterials), one model per flower shape.
+  'tulips-a': M('/assets/models/composed/tulips-a.glb', 1, 0, { sway: true }),
+  'tulips-b': M('/assets/models/composed/tulips-b.glb', 1, 0, { sway: true }),
+  'tulips-c': M('/assets/models/composed/tulips-c.glb', 1, 0, { sway: true }),
   // ---- Garden
   // Suburban planter (bushes in a bed), kit scale: 0.40 × 0.18 × 0.30.
   planter: M('/assets/models/suburban/planter.glb', 1, 2),
   // Holiday-kit park bench, seat faces +Z natively: 0.34 × 0.22 × 0.19.
   bench: M('/assets/models/holiday/bench.glb', 0.3, 0),
+  // WP-23: Fantasy Town market-stall bench and table (the kit's plain wooden table), at one scale so
+  // they match. Both run along Z natively; a quarter turn lays them along X like the park bench.
+  'long-bench': M('/assets/models/fantasy-town/stall-bench.glb', 0.5, 1),
+  'garden-table': M('/assets/models/fantasy-town/stall.glb', 0.5, 1),
   // Poly Pizza swing set (composed: 0.56 × 0.42 × 0.32), 2 × 1 cells; WP-17: 0.87 (0.48 × 0.37 × 0.28).
   swing: M('/assets/models/composed/swing.glb', 0.87, 0),
+  // WP-23: "Slide" by sirkitree (Poly Pizza, CC-BY 3.0; composed at game scale): 0.58 × 0.37 × 0.19,
+  // 2 × 1 cells, as tall as the swing; runs along X.
+  slide: M('/assets/models/composed/slide.glb', 1, 0),
   // Poly Pizza kettle barbecue (composed: 0.15 × 0.20).
   barbecue: M('/assets/models/composed/barbecue.glb', 1, 0),
   // Edge pieces are 1 native unit along X (one cell at scale 0.5); MODEL_STYLES restores fence height.
   hedge: M('/assets/models/platformer/hedge.glb', 0.5, 0),
   'fence-tall': M('/assets/models/composed/fence-tall.glb', 0.5, 0),
   'fence-low': M('/assets/models/composed/fence-small.glb', 0.5, 0),
+  // WP-23: the Fantasy Town gate as shipped (it shares the kit colormap with the table and bench).
+  // Natively it runs along Z; a quarter turn lays it along the edge (X). MODEL_STYLES sets its height.
+  'fence-gate': M('/assets/models/fantasy-town/fence-gate.glb', 0.5, 1),
   // ---- Ground scatter and decor
   // Scatter pieces for grass/meadow cells (WP-03 task 6). WP-12: one clump per 0.5 cell.
   'grass-tuft': M('/assets/models/platformer/grass.glb', 0.35, 0, { sway: true }),
@@ -191,4 +213,5 @@ export const EDGE_MODELS: Readonly<Record<EdgeKind, ModelId>> = {
   hedge: 'hedge',
   'fence-low': 'fence-low',
   'fence-tall': 'fence-tall',
+  'fence-gate': 'fence-gate',
 };

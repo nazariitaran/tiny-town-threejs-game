@@ -110,16 +110,17 @@ describe('fx recipes', () => {
     const classes = Object.fromEntries(TOOLS.filter((t) => t.id !== 'bulldoze').map((t) => [t.id, classify(t.id)]));
     expect(classes).toEqual({
       road: 'road', pavement: 'path', walkway: 'path', grass: 'lawn', meadow: 'meadow',
-      // group road → road; street / garden → prop; home / outbuilding / amenity → building; tree / plant → tree.
+      // group road → road; street / garden → prop; home / amenity → building; tree / plant → tree.
       roundabout: 'road',
       'zebra-crossing': 'road',
-      'traffic-light': 'prop', lamppost: 'prop', postbox: 'prop', 'bus-stop': 'small-building',
+      'traffic-light': 'prop', lamppost: 'prop', postbox: 'prop', mailbox: 'prop', 'bus-stop': 'small-building',
       cottage: 'building', townhouse: 'building', bungalow: 'building', 'family-home': 'building',
-      'garage-house': 'building', 'big-house': 'building', garage: 'building',
-      'corner-shop': 'building', supermarket: 'building', church: 'building', 'swimming-pool': 'building', fountain: 'building',
-      oak: 'tree', pine: 'tree', birch: 'tree', bush: 'tree',
-      hedge: 'fence', 'fence-low': 'fence', 'fence-tall': 'fence',
-      planter: 'prop', bench: 'prop', swing: 'prop', barbecue: 'prop',
+      'garage-house': 'building', 'big-house': 'building',
+      'corner-shop': 'building', 'donut-shop': 'building', supermarket: 'building', church: 'building', 'swimming-pool': 'building',
+      fountain: 'building', 'tiered-fountain': 'building',
+      oak: 'tree', pine: 'tree', birch: 'tree', bush: 'tree', tulips: 'tree',
+      hedge: 'fence', 'fence-low': 'fence', 'fence-tall': 'fence', 'fence-gate': 'fence',
+      planter: 'prop', bench: 'prop', 'long-bench': 'prop', 'garden-table': 'prop', swing: 'prop', slide: 'prop', barbecue: 'prop',
     });
   });
 
@@ -181,7 +182,7 @@ describe('fx recipes', () => {
   });
 
   it('soft dust stays small at spawn (≤ 0.17 world units, no boulders) and chips ≤ 0.055', () => {
-    for (const id of ['road', 'pavement', 'grass', 'meadow', 'oak', 'family-home', 'garage', 'bus-stop', 'fence-tall', 'lamppost']) {
+    for (const id of ['road', 'pavement', 'grass', 'meadow', 'oak', 'family-home', 'slide', 'bus-stop', 'fence-tall', 'lamppost']) {
       const p = pools();
       emitPlaced(p, createSeededRandom(8), id, 0, 0, 0);
       for (let i = 0; i < p.dust.count; i += 1) expect(p.dust.size[i]).toBeLessThanOrEqual(0.17);
@@ -324,10 +325,10 @@ describe('PlacementFx', () => {
 });
 
 describe('removal poof radius follows the footprint (WP-12)', () => {
-  it('hugs a 4×4 house (WP-17), a 1×2 garage and falls back to the minimum for unknown kinds', () => {
+  it('hugs a 4×4 house (WP-17), a 2×1 swing and falls back to the minimum for unknown kinds', () => {
     expect(footprintPoofRadius('cottage', 0.3)).toBeCloseTo(0.95, 5);
     expect(footprintPoofRadius('townhouse', 0.3)).toBeCloseTo(0.95, 5);
-    expect(footprintPoofRadius('garage', 0.3)).toBeCloseTo(0.45, 5);
+    expect(footprintPoofRadius('swing', 0.3)).toBeCloseTo(0.45, 5);
     expect(footprintPoofRadius('postbox', 0.3)).toBe(0.3);
     expect(footprintPoofRadius('toString', 0.28)).toBe(0.28);
   });

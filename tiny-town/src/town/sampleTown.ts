@@ -74,9 +74,12 @@ function roadRect(run: (toolId: ToolId, action: BuildAction) => void, x0: number
  *  - north of the main street, homes on rows 19–22 face south onto the pavement;
  *  - the civic corner south-east of the roundabout: corner shop, supermarket and church facing north,
  *    then a townhouse;
+ *  - west of the side street, south of the roundabout: a donut shop facing the street and a tiered
+ *    fountain (WP-23);
  *  - south-west: a cottage, a garden path down to a fountain with a bench and a meadow with a pool;
- *  - a back garden behind the north-west homes (bench, barbecue, swing, planter, bushes inside a
- *    low fence and a hedge), a tall-fence run along the east lawn, and five trees.
+ *  - a back garden behind the north-west homes (bench, barbecue, swing, slide, planter, a table with
+ *    two long benches, bushes and tulips inside a low fence with a gate, and a hedge), a tall-fence run
+ *    along the east lawn, and five trees.
  * Uses every placing tool.
  */
 export function buildSampleTown(editor: TownEditor): DemoTownResult {
@@ -120,22 +123,28 @@ export function buildSampleTown(editor: TownEditor): DemoTownResult {
   place('townhouse', 10, 19);
   place('bungalow', 15, 19);
   place('cottage', 27, 19);
+  place('mailbox', 31, 22);
   place('garage-house', 32, 19);
-  place('garage', 36, 21);
   place('big-house', 38, 19);
   // The civic corner south-east of the roundabout faces north (rotation 2): shops, church, a townhouse.
   place('corner-shop', 26, 27, 2);
   place('supermarket', 30, 27, 2);
   place('church', 36, 27, 2);
   place('townhouse', 40, 27, 2);
+  // West of the side street (WP-23): the donut shop faces the street (east), the tiered fountain below it.
+  place('donut-shop', 19, 28, 1);
+  place('tiered-fountain', 18, 33);
   // South-west: a cottage by the garden path, a fountain with a bench, the pool in the meadow.
   place('cottage', 5, 27, 2);
   place('fountain', 12, 28);
   place('bench', 11, 30, 3);
   place('swimming-pool', 13, 33, 2);
 
-  // Back garden behind the north-west homes (rows 13–18): low fence to the north, hedge to the west.
-  edgeRun('fence-low', 'n', { x: 6, z: 13 }, 14);
+  // Back garden behind the north-west homes (rows 13–18): low fence with a gate to the north, hedge to
+  // the west.
+  edgeRun('fence-low', 'n', { x: 6, z: 13 }, 7);
+  edgeRun('fence-gate', 'n', { x: 13, z: 13 }, 1);
+  edgeRun('fence-low', 'n', { x: 14, z: 13 }, 6);
   edgeRun('hedge', 'w', { x: 6, z: 13 }, 6);
   place('bench', 8, 15);
   place('barbecue', 11, 15);
@@ -143,6 +152,12 @@ export function buildSampleTown(editor: TownEditor): DemoTownResult {
   place('planter', 17, 15);
   place('bush', 7, 17);
   place('bush', 19, 17);
+  // WP-23: a table between two long benches, a slide and a row of tulips along the fence.
+  place('long-bench', 10, 16);
+  place('garden-table', 10, 17);
+  place('long-bench', 10, 18);
+  place('slide', 14, 17);
+  for (const x of [15, 16, 17]) place('tulips', x, 13);
   // Trees and a tall-fence run along the east edge of the south-east lawn.
   place('oak', 6, 10);
   place('pine', 12, 8);
@@ -170,7 +185,10 @@ export const GALLERY_OBJECTS: ReadonlyArray<readonly [ObjectKind, number, number
   ['fountain', 7, 26], ['swing', 10, 26], ['bench', 13, 26], ['barbecue', 15, 26], ['planter', 17, 26],
   ['postbox', 19, 26], ['lamppost', 21, 26], ['oak', 23, 26], ['pine', 25, 26], ['birch', 27, 26],
   ['bush', 29, 26], ['bus-stop', 32, 28], ['traffic-light', 35, 28],
-  ['townhouse', 37, 26], ['garage', 41, 26], ['corner-shop', 43, 26],
+  ['townhouse', 37, 26], ['mailbox', 41, 26], ['corner-shop', 43, 26],
+  // Row 3 (z 31–33, WP-23): the new pieces.
+  ['tiered-fountain', 7, 31], ['donut-shop', 11, 31], ['tulips', 15, 31], ['long-bench', 17, 31],
+  ['garden-table', 19, 31], ['slide', 21, 31],
   // The zebra crossing marks the road cluster of mask 5 (a north–south straight, galleryMaskBlock(5)).
   ['zebra-crossing', 42, 2],
 ];
@@ -180,7 +198,7 @@ export const GALLERY_OBJECTS: ReadonlyArray<readonly [ObjectKind, number, number
  * never touch), plus every object kind at rotation 0 (front should face the default camera, i.e. +z),
  * ground kinds and every edge kind, for visual verification of tiling/orientation/proportions.
  * Layout (cells, 48 × 48, shifted by demoOffset() like the sample town): mask centres at block coords (1 + 4c, 1 + 4r), mask = r * 6 + c;
- * objects per GALLERY_OBJECTS on rows 22–29; ground swatches + edge runs on rows 42–43.
+ * objects per GALLERY_OBJECTS on rows 22–33; ground swatches + edge runs on rows 42–43.
  */
 export function buildAssetGallery(editor: TownEditor): DemoTownResult {
   const { run, commit } = demoBuilder(editor, (item) => item.toolId, true);
@@ -202,7 +220,11 @@ export function buildAssetGallery(editor: TownEditor): DemoTownResult {
   });
   const edges = ['hedge', 'fence-low', 'fence-tall'] as const;
   edges.forEach((kind, k) => {
-    for (let x = 26 + k * 6; x < 32 + k * 6; x += 1) run(kind, { type: 'place-edge', kind, edge: { x, z: 42, side: 'n' } });
+    for (let x = 26 + k * 6; x < 32 + k * 6; x += 1) {
+      // A gate in the middle of the low-fence run (x 32..37).
+      const gate = kind === 'fence-low' && x === 34;
+      run(gate ? 'fence-gate' : kind, { type: 'place-edge', kind: gate ? 'fence-gate' : kind, edge: { x, z: 42, side: 'n' } });
+    }
   });
   return commit();
 }
@@ -211,9 +233,9 @@ export function buildAssetGallery(editor: TownEditor): DemoTownResult {
  * A dense, fully built plot for performance budgets. Deterministic. A 12 × 12 cell repeat (WP-17:
  * 4-deep lots): road rows at z 0/12/…/60 and road columns at x 0/12/…/60 (2 × 2 blocks), a pavement
  * row either side of each block of lots, and between them two rows of 4-deep lots facing opposite
- * ways. Each lot is 10 cells wide: the north-facing row holds a cottage, a suburban home, a garage and
- * trees; the south-facing row a townhouse, a tree column, a suburban home, a garage and trees (mostly
- * birch, on open field). Suburban homes (800–1 330 triangles), not family homes (1 731): the mobile
+ * ways. Each lot is 10 cells wide: the north-facing row holds a cottage, a suburban home, a mailbox and
+ * trees; the south-facing row a townhouse, a tree column, a suburban home, a mailbox and trees (mostly
+ * birch, on open field). WP-23: the mailbox and a tree took the removed garage's 1 × 2 spot. Suburban homes (800–1 330 triangles), not family homes (1 731): the mobile
  * budget. Lampposts and postboxes stand on the pavements.
  */
 export function buildStressTown(editor: TownEditor): DemoTownResult {
@@ -253,10 +275,10 @@ export function buildStressTown(editor: TownEditor): DemoTownResult {
           for (let dz = 0; dz < LOT_DEPTH; dz += 1) tree(x0 + 3, top + dz);
           place('garage-house', x0 + 4, top, rotation);
         }
-        // Garage (1×2) flush to the street side, two trees behind it, and a column of trees at the end.
-        const garageZ = rotation === 2 ? top : top + 2;
-        place('garage', x0 + 8, garageZ, rotation);
-        for (const dz of rotation === 2 ? [2, 3] : [0, 1]) tree(x0 + 8, top + dz);
+        // A mailbox on the street side, three trees behind it, and a column of trees at the end.
+        const mailboxZ = rotation === 2 ? top : top + 3;
+        place('mailbox', x0 + 8, mailboxZ, rotation);
+        for (const dz of rotation === 2 ? [1, 2, 3] : [0, 1, 2]) tree(x0 + 8, top + dz);
         for (let dz = 0; dz < LOT_DEPTH; dz += 1) tree(x0 + 9, top + dz);
       }
     }

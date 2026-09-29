@@ -30,6 +30,7 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
 - **WP-19 Town photo is merged into `main`** (owner-approved 2026-09-28, after two amendments; built on the branch `wp-19-photo`, branched from `691dfd8`): a top-bar camera / `P` saves the current view as a Polaroid JPEG, via a preview with Download. See "WP-19 as built".
 - **WP-20 Name your town is merged into `main`** (owner-approved 2026-09-29 after one amendment: no note under the dialog heading; built on the branch `wp-20-town-name` from `ac820b8`); no version label (owner). See "WP-20 as built".
 - **WP-21 Town file is merged into `main`** (owner-approved 2026-09-29 with all planning decisions, including the save-format migration promise; built on the branch `wp-21-town-file` from `c7e9a40`). See "WP-21 as built".
+- **WP-23 New build items is merged into `main`** (owner-approved 2026-09-29; built on the branch `wp-23-new-items` from `d119d54`, with `main` merged in after WP-22): 8 new tools, the garage removed, up to 12 tools per category. See "WP-23 as built".
 - **Where current facts live:**
   - grid, rules, save, modules, diagnostics and budgets: `docs/design/03-architecture.md`;
   - asset scales and footprints: `docs/assets/models.md`;
@@ -62,6 +63,7 @@ The SHA is the merge commit on `main`; the WP's own commit is in brackets. Every
 | WP-18 | Music resumes where it left off | ✅ merged to `main` (owner-approved 2026-09-28) | `40822f8` (`98c7ca8`) | `src/audio/musicPosition.ts`; saved on hide / `pagehide` / every 15 s; seek on `loadedmetadata`; 5 s end guard |
 | WP-19 | Town photo | ✅ merged to `main` (owner-approved 2026-09-28) | merge on `main` (`c62376e`, `841536f`, `0c35597`, `92435c1`) | `src/photo/**`; camera button / `P` → menu phase → one frame at long edge 2400 px → Polaroid JPEG → preview (Download) |
 | WP-22 | Birds over the town | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`a5b42bf`) | `src/life/FlockSim.ts` (pure) + `BirdSystem.ts`; a flock every 45–110 s (none at night), 4 species, procedural 18-tri bird, flapping shadows; `spawnFlock` hook, `?debug&flock=N` |
+| WP-23 | New build items, garage removed | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`7fd5b9f`) | 8 new tools (mailbox, tiered fountain, donut shop, tulips, gate, long bench, table, slide), garage removed, ≤ 12 tools per category (digits for the first nine), Nature Kit material fix |
 | WP-21 | Download and open a town file | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`941988c`) | `src/persistence/townFile.ts`; top-bar folder (> 440 px) / Menu → Town file (phones) / title link; `.tinytown.json`; confirm before replacing; saved at once |
 | WP-20 | Name your town | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`be8c752` + amendment) | `src/town/townName.ts`; name dialog before every new town, rename from the top-left pill / menu; saved in `SavedTownV4.name`; photo caption + file name; three.js vendor chunk |
 | WP-16 | Day/night cycle (v0.3) | ✅ merged to `main` (owner-approved) | contract `7aefe67`, `af576a1`; 16a `42f0590` (`a4965c9`); 16b `a849f35` (`d6f97e3`); 16c `1a0c360` (`eb2c2d8`) | see "WP-16 as built" below |
@@ -107,6 +109,27 @@ The plan was approved and implemented. The as-built facts are in `03-architectur
 
 **Timing**
 - WP-12 was merged after WP-13/14 (`9a8379f` merged main into the WP-12 branch).
+
+### WP-23 as built (branch `wp-23-new-items`; vs `docs/plans/wp-23-new-items.md`)
+Owner request (2026-09-29), picked from the asset research on the owner's Desktop (`tiny-town-inventory-research/`).
+- **New tools (8; 41 placing tools):**
+  - Streets: **Mailbox** (CreativeTrio, CC0);
+  - Town: **Tiered fountain** (Poly by Google, CC-BY, recoloured), **Donut shop** (J-Toastie, CC-BY, 3 × 3 like the corner shop, dark at night);
+  - Nature: **Tulips** (three Nature Kit flowers in one cell, three variants);
+  - Garden: **Gate** (edge), **Long bench**, **Table** (Fantasy Town, shipped as kit files sharing one colormap), **Slide** (sirkitree, CC-BY).
+- **Removed:** the Garage (tool, kind, `outbuilding` group, model, icon, compose recipe) and the unused `industrial/` folder and composed `fence-small-gate.glb`. Old saves and town files with garages still open, without them (no version bump; tested).
+- **Dock:** up to 12 tools per category (owner); digits 1–9 for the first nine, no badge past that (Garden's Barbecue, Swing, Slide).
+- **Compose script:** new helpers `recolor`, `dropMaterials`, `pruneTextures` and `natureMaterials` (the Nature Kit fix: metalness 0, sRGB → linear, teal leaves → green). The donut shop's ground slab is dropped and its window texture flattened (it added a texture for no visible gain).
+- **Where the plan changed while building:**
+  - The gate ships as the raw Fantasy Town file with its own wood colour and dark door panel, a little taller than the low fence; styled exactly like the low fence it was invisible in a fence run.
+  - The mailbox is ×0.36 of the source (0.35 tall), not postbox height: at postbox height it read as a stick.
+  - The tulips are ×1.15 (they fill the cell); at ×0.85 they were three specks.
+- **Budgets** (dev server, canvas inspector, 2026-09-29; `artifacts/wp-23/inspect-*`):
+  - stress town: desktop 31 calls, 330.3k triangles (v0.4: 358.2k); mobile (low tier) 31 calls, 261.2k (v0.4: 293.2k; budget 320k). Mailboxes and trees replaced its 50 garages.
+  - sample town: 87 / 87 calls, 192.2k / 127.2k triangles, **28 / 27 textures** (desktop / mobile; budget 30; v0.4: 27 / 26). The new pieces add the Fantasy Town colormap and the mailbox palette; the garage's atlas is gone; the donut shop's window texture was flattened (29 before).
+- **Gates (worktree, 2026-09-29):** `npm run verify` green (25 files, 479 unit tests, build OK; main chunk 274 kB). Full `npm run test:e2e` (156 tests): 132 passed, 18 skipped by design, 6 failed, all expected: two `ui.spec.ts` checks with the old tool counts/digits (updated; `ui.spec.ts` then 20 passed, 4 skipped) and the three desktop baselines that show the new items. The new `tests/new-items.spec.ts` passes on desktop and mobile.
+- **Baselines:** sample-town, asset-gallery and night-town (desktop) regenerated. The diff (`artifacts/wp-23/diff-*.png`, old ones in `baselines-before/`) shows only the dock's 9th Streets card, the new pieces, the mailbox in the garage's spot and a few trees in the sample town whose ±12 % jitter moved (the tulips' variant pick advances the seeded stream). The mobile baselines still pass (the changes stay under the 1 % tolerance in the phone's view), so they were not regenerated.
+- **Evidence:** `artifacts/wp-23/` (in-game shots `g-*.png`, icons sheet, inspector captures, baseline diffs).
 
 ### WP-22 as built (branch `wp-22-birds`; vs `docs/plans/wp-22-birds.md`)
 Current facts: `03-architecture.md` §Birds. Owner request 2026-09-29 (birds only; squirrels dropped after the analysis).
@@ -318,6 +341,7 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
 - 2026-09-28 — **Night grid colours**: the lines blend from white to a dim moon blue at night, the night boost is 0.25 (was 0.6), and the grid shader takes the scene fog and output colour conversion, so it sits in the night scene like it does on the day lawn.
 - 2026-09-29 — **Name your town (WP-20)**, owner request. The name belongs to the town (the save's optional `name`, no version bump; unnamed = "Tiny Town"), not to the settings. It is asked before every new town (the destructive confirm stays a separate step), never on Continue; renames come from the top-left pill or the menu, are autosaved and not undoable. Suggestions come from the owner's `public/data/default_town_names.json` (fetched, not bundled) through a per-load seeded stream (`seed()` pins it), the one exception to the fixed-seed rule. The title and loading screens keep the game's logo. The photo file name uses the town's slug (a small addition the owner may drop).
 - 2026-09-29 — **Town files (WP-21)**, owner request: download the town as `<slug>-YYYY-MM-DD-HHMM.tinytown.json` and open it again anywhere, with a confirm before replacing. Owner picks: on phones the actions sit in the Menu (a seventh top-bar button doesn't fit one row), and the title gets an "Open a town file" link. An opened town is saved at once and isn't undoable. **Format promise:** save-format bumps used to ship without migrations; with towns living in files, a future bump must add a `SAVE_MIGRATIONS` step or old files stop opening.
+- 2026-09-29 — **New build items (WP-23)**, owner request from the asset research: 8 new tools, the garage removed, categories may hold up to 12 tools (digits for the first nine). Removing an object kind needs no save bump: `parseSave` drops unknown kinds. The Kenney Nature Kit (rejected in v0.1) is usable through a compose-script material fix; only its flowers ship so far.
 - 2026-09-29 — **three.js in a vendor chunk** (WP-20): the fix for the 900 kB main-chunk warning, instead of the lazy `lil-gui` import.
 - 2026-09-28 — **Town photo (WP-19)**, owner request: a camera at the top right saves the town as a framed picture. Owner picks: what's on screen (not an auto-framed "whole town" shot), a Polaroid with the title, the date and a sun/moon icon (**no homes/residents line, no time-of-day words**), and a preview with Download only (Share removed after review). The photo is rendered to the game canvas at a raised pixel ratio and copied in the same task, not rendered off-screen, so tone mapping and colours match the screen. No shutter sound until the owner supplies or approves one.
 - 2026-09-28 — **Music resumes where it left off (WP-18)**, owner request: short sessions kept hearing only the intro. The position `{ track, time }` has its own key, `tiny-town:music:v1`, not the settings, because it is throwaway data written often. The seek happens on `loadedmetadata`, not through a `#t=` media fragment: it is simpler, and it can't change how the loop wraps. The end guard uses the real `duration`, so no track length is stored.
