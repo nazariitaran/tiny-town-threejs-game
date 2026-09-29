@@ -31,6 +31,7 @@ export type ObjectKind =
   | 'lamppost'
   | 'bus-stop'
   | 'postbox'
+  | 'mailbox'
   // Homes
   | 'cottage'
   | 'townhouse'
@@ -38,26 +39,31 @@ export type ObjectKind =
   | 'family-home'
   | 'garage-house'
   | 'big-house'
-  | 'garage'
   // Town
   | 'corner-shop'
+  | 'donut-shop'
   | 'supermarket'
   | 'church'
   | 'swimming-pool'
   | 'fountain'
+  | 'tiered-fountain'
   // Nature
   | 'oak'
   | 'pine'
   | 'birch'
   | 'bush'
+  | 'tulips'
   // Garden
   | 'planter'
   | 'bench'
+  | 'long-bench'
+  | 'garden-table'
   | 'swing'
+  | 'slide'
   | 'barbecue';
 
 /** Things that run along cell edges (Garden). */
-export type EdgeKind = 'hedge' | 'fence-low' | 'fence-tall';
+export type EdgeKind = 'hedge' | 'fence-low' | 'fence-tall' | 'fence-gate';
 
 export type Rotation = 0 | 1 | 2 | 3;
 

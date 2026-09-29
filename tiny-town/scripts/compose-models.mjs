@@ -29,6 +29,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = path.join(root, 'assets-src');
 const OUT = path.join(root, 'public/assets/models/composed');
 const kit = (pack, file) => path.join(SRC, pack, 'Models/GLB format', file);
+// The Nature Kit keeps its GLBs in "GLTF format" (flat colours, no textures).
+const natureKit = (file) => path.join(SRC, 'nature-kit', 'Models/GLTF format', file);
 const poly = (file) => path.join(SRC, 'polypizza', file);
 
 // ---------------------------------------------------------------- GLB I/O
@@ -171,6 +173,81 @@ function flatMaterials(glb) {
   return glb;
 }
 
+/** sRGB hex ('#rrggbb') → linear glTF baseColorFactor. */
+const linearFactor = (hex) => [0, 2, 4].map((i) => Math.pow(parseInt(hex.slice(1 + i, 3 + i), 16) / 255, 2.2)).concat(1);
+
+/**
+ * Replace the base colour of named materials (sRGB hex). A recoloured material loses its base-colour
+ * texture, so it renders as one flat colour.
+ */
+function recolor(glb, colors) {
+  for (const m of glb.json.materials || []) {
+    const hex = colors[m.name];
+    if (!hex) continue;
+    const pbr = (m.pbrMetallicRoughness ||= {});
+    pbr.baseColorFactor = linearFactor(hex);
+    delete pbr.baseColorTexture;
+  }
+  return pruneTextures(glb);
+}
+
+/** Drop every primitive drawn with one of the named materials (e.g. a model's own ground slab). */
+function dropMaterials(glb, names) {
+  const j = glb.json;
+  const drop = new Set((j.materials || []).flatMap((m, i) => (names.includes(m.name) ? [i] : [])));
+  for (const mesh of j.meshes) mesh.primitives = mesh.primitives.filter((p) => !drop.has(p.material));
+  const empty = new Set(j.meshes.flatMap((m, i) => (m.primitives.length ? [] : [i])));
+  for (const n of j.nodes) if (n.mesh !== undefined && empty.has(n.mesh)) delete n.mesh;
+  return glb;
+}
+
+/** Remove textures and images no material references any more (their bytes stay in the buffer). */
+function pruneTextures(glb) {
+  const j = glb.json;
+  const used = new Set();
+  const visit = (ti) => ti && used.add(ti.index);
+  for (const m of j.materials || []) {
+    visit(m.pbrMetallicRoughness?.baseColorTexture);
+    visit(m.pbrMetallicRoughness?.metallicRoughnessTexture);
+    for (const k of ['normalTexture', 'occlusionTexture', 'emissiveTexture']) visit(m[k]);
+  }
+  if (!j.textures || used.size === j.textures.length) return glb;
+  const texMap = new Map();
+  const textures = [];
+  j.textures.forEach((t, i) => { if (used.has(i)) { texMap.set(i, textures.length); textures.push(t); } });
+  const remap = (ti) => (ti ? { ...ti, index: texMap.get(ti.index) } : ti);
+  for (const m of j.materials || []) {
+    const pbr = m.pbrMetallicRoughness;
+    if (pbr?.baseColorTexture) pbr.baseColorTexture = remap(pbr.baseColorTexture);
+    if (pbr?.metallicRoughnessTexture) pbr.metallicRoughnessTexture = remap(pbr.metallicRoughnessTexture);
+    for (const k of ['normalTexture', 'occlusionTexture', 'emissiveTexture']) if (m[k]) m[k] = remap(m[k]);
+  }
+  const imgUsed = new Set(textures.map((t) => t.source));
+  const imgMap = new Map();
+  const images = [];
+  (j.images || []).forEach((im, i) => { if (imgUsed.has(i)) { imgMap.set(i, images.length); images.push(im); } });
+  for (const t of textures) t.source = imgMap.get(t.source);
+  if (textures.length) { j.textures = textures; j.images = images; } else { delete j.textures; delete j.images; delete j.samplers; }
+  return glb;
+}
+
+/**
+ * Kenney Nature Kit look fix (it was rejected in v0.1 for this): every material is a plain colour
+ * with metallicFactor 1, and the factors are sRGB values stored as if linear. Metalness 0, the factors
+ * converted sRGB → linear, and the kit's teal leaves remapped to the Platformer greens.
+ */
+const NATURE_GREENS = { grass: '#4fae5c', leafsGreen: '#4fae5c', leafsDark: '#3d9a55' };
+function natureMaterials(glb) {
+  for (const m of glb.json.materials || []) {
+    const pbr = (m.pbrMetallicRoughness ||= {});
+    const f = pbr.baseColorFactor || [1, 1, 1, 1];
+    pbr.baseColorFactor = NATURE_GREENS[m.name] ? linearFactor(NATURE_GREENS[m.name]) : [...f.slice(0, 3).map((c) => Math.pow(c, 2.2)), f[3] ?? 1];
+    pbr.metallicFactor = 0;
+    pbr.roughnessFactor = 1;
+  }
+  return glb;
+}
+
 // ---------------------------------------------------------------- primitives
 // Minimal flat-shaded mesh builder -> glTF (no textures, one material per part).
 function primitiveGlb(shapes, generator) {
@@ -266,13 +343,6 @@ const recipes = {
   'fence-small': () => merge([
     { file: kit('fantasy-town-kit', 'fence.glb'), name: 'fence', translation: [0, 0, 0.4625], rotY: 90, scale: [1, 0.37, 1] },
   ], GEN),
-  'fence-small-gate': () => merge([
-    { file: kit('fantasy-town-kit', 'fence-gate.glb'), name: 'gate', translation: [0, 0, 0.4625], rotY: 90, scale: [1, 0.37, 1] },
-  ], GEN),
-  // Garage: industrial-kit building-j re-centred (native pivot is off-centre); native scale kept.
-  garage: () => merge([
-    { file: kit('city-kit-industrial', 'building-j.glb'), name: 'garage', translation: [0.4353, 0, -0.274] },
-  ], GEN),
   // Postbox: red pillar box built from primitives (no CC0 match in the Kenney style).
   postbox: () => {
     const red = [214, 58, 52], dark = [52, 55, 72], black = [36, 38, 50], gold = [240, 190, 70];
@@ -307,6 +377,27 @@ const recipes = {
   barbecue: () => flatMaterials(merge([{ file: poly('bbq-kettle-red.glb'), name: 'grill', scale: 0.157 }], GEN)),
   // "Swing set" by Poly by Google (CC-BY 3.0): 0.42 tall, frame turned to run along X (0.56 long).
   swing: () => flatMaterials(merge([{ file: poly('swing-set-wood.glb'), name: 'swing', scale: 0.00367, rotY: 90 }], GEN)),
+  // ---- WP-23 additions -------------------------------------------------------
+  // "Donut Store" by J-Toastie (CC-BY 3.0): its own grey pavement slab ("Ground") is dropped so the shop
+  // stands on our ground. Front (awning, windows) faces -Z natively, like the Kenney kits.
+  // Its one texture (a window gradient) becomes flat glass, so the shop adds no texture to the budget.
+  'donut-shop': () => flatMaterials(recolor(dropMaterials(merge([{ file: poly('donut-store.glb'), name: 'donut-shop', scale: 0.4 }], GEN), ['Ground']), { Glass: '#8cc4e0' })),
+  // "Fountain" by Poly by Google (CC-BY 3.0): a round basin with a tiered centre. The native stone is
+  // near-black and the water olive, so both are recoloured to the Kenney fountain's stone and water.
+  'tiered-fountain': () => flatMaterials(recolor(merge([{ file: poly('fountain-tiered.glb'), name: 'fountain', scale: 0.107 }], GEN), {
+    lambert3SG: '#d8d2cc', lambert4SG: '#b9b1ab', lambert5SG: '#6fb6dc',
+  })),
+  // "Slide" by sirkitree (CC-BY 3.0): runs along X like the swing frame, about as tall as the swing.
+  slide: () => flatMaterials(merge([{ file: poly('slide-red.glb'), name: 'slide', scale: 2.2 }], GEN)),
+  // "Mailbox" by CreativeTrio (CC0): a kerbside mailbox on a post (small palette texture kept).
+  mailbox: () => flatMaterials(merge([{ file: poly('mailbox-post.glb'), name: 'mailbox', scale: 0.36 }], GEN)),
+  // Tulips: the Nature Kit's red, yellow and purple flower in one cell (0.5 units), in three shapes
+  // (A, B, C) for the object's variants. Native flowers are ~0.16 wide and 0.19–0.29 tall.
+  ...Object.fromEntries(['A', 'B', 'C'].map((shape, v) => [`tulips-${shape.toLowerCase()}`, () => natureMaterials(merge([
+    { file: natureKit(`flower_red${shape}.glb`), name: 'red', translation: [-0.1, 0, -0.08], rotY: 20 + 40 * v, scale: 1.15 },
+    { file: natureKit(`flower_yellow${shape}.glb`), name: 'yellow', translation: [0.11, 0, -0.05], rotY: 140 + 40 * v, scale: 1.15 },
+    { file: natureKit(`flower_purple${shape}.glb`), name: 'purple', translation: [-0.01, 0, 0.11], rotY: 260 + 40 * v, scale: 1.15 },
+  ], GEN))])),
 };
 
 const only = process.argv.slice(2);

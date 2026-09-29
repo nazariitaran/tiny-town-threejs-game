@@ -86,10 +86,10 @@ describe('catalog', () => {
     expect(files).toEqual(placing.map((tool) => `tool-${tool.id}.png`).sort());
   });
 
-  it('every category has at most 9 tools (digit shortcuts 1–9)', () => {
+  it('every category has at most 12 tools (WP-23: digits 1–9 reach the first nine; ~12 fill a desktop row)', () => {
     for (const { id } of TOOL_CATEGORIES) {
       expect(toolsInCategory(id).length, id).toBeGreaterThan(0);
-      expect(toolsInCategory(id).length, id).toBeLessThanOrEqual(9);
+      expect(toolsInCategory(id).length, id).toBeLessThanOrEqual(12);
     }
   });
 
@@ -178,10 +178,12 @@ describe('catalog', () => {
     const footprints = Object.fromEntries(Object.values(OBJECTS).map((def) => [def.kind, def.footprint]));
     expect(footprints).toEqual({
       roundabout: [6, 6], 'zebra-crossing': [2, 2], 'traffic-light': [1, 1], lamppost: [1, 1], 'bus-stop': [2, 1], postbox: [1, 1],
+      mailbox: [1, 1],
       cottage: [4, 4], townhouse: [3, 4], bungalow: [4, 4], 'family-home': [4, 4], 'garage-house': [4, 4], 'big-house': [5, 4],
-      garage: [1, 2], 'corner-shop': [3, 3], supermarket: [5, 4], church: [3, 4], 'swimming-pool': [4, 3], fountain: [2, 2],
-      oak: [2, 2], pine: [1, 1], birch: [1, 1], bush: [1, 1],
-      planter: [1, 1], bench: [1, 1], swing: [2, 1], barbecue: [1, 1],
+      'corner-shop': [3, 3], 'donut-shop': [3, 3], supermarket: [5, 4], church: [3, 4], 'swimming-pool': [4, 3], fountain: [2, 2],
+      'tiered-fountain': [3, 3],
+      oak: [2, 2], pine: [1, 1], birch: [1, 1], bush: [1, 1], tulips: [1, 1],
+      planter: [1, 1], bench: [1, 1], 'long-bench': [1, 1], 'garden-table': [1, 1], swing: [2, 1], slide: [2, 1], barbecue: [1, 1],
     });
   });
 
@@ -318,9 +320,8 @@ describe('proportions', () => {
     expect(h('oak') * 1.12).toBeLessThan(h('church'));
   });
 
-  it('the lamppost is taller than the garage and the bus stop, and below the eaves', () => {
+  it('the lamppost is taller than the bus stop, and below the eaves', () => {
     const lamp = h('lamppost');
-    expect(lamp).toBeGreaterThan(h('garage'));
     expect(lamp).toBeGreaterThan(h('bus-stop'));
     expect(lamp).toBeLessThan(h('cottage'));
     expect(lamp).toBeGreaterThan(0.6);

@@ -410,7 +410,7 @@ export class UiRoot {
         <section class="ui-panel" id="${id.creditsPanel}" data-view="credits" role="dialog" aria-modal="true" aria-labelledby="ui-credits-h">
           <h2 id="ui-credits-h">Credits</h2>
           <p>Most 3D models, item icons and all sounds by <strong>Kenney</strong> (kenney.nl), CC0.</p>
-          <p class="ui-credits-small">Also via Poly Pizza (poly.pizza): “Church” and “Swing set” by Poly by Google, CC-BY 3.0; “Grill” by Zsky, CC-BY 3.0; corner shop “Building” by Kay Lousberg, CC0. Scaled and recoloured for Tiny Town.</p>
+          <p class="ui-credits-small">Also via Poly Pizza (poly.pizza): “Church”, “Swing set” and “Fountain” by Poly by Google, CC-BY 3.0; “Grill” by Zsky, CC-BY 3.0; “Donut Store” by J-Toastie, CC-BY 3.0; “Slide” by sirkitree, CC-BY 3.0; corner shop “Building” by Kay Lousberg, CC0; “Mailbox” by CreativeTrio, CC0. Scaled and recoloured for Tiny Town.</p>
           <p>Music: <strong>Foundation of Gold</strong>, created for Tiny Town by its author.</p>
           <p>Font: <strong>Nunito</strong> by Vernon Adams, Cyreal and Jacques Le Bailly, SIL Open Font License.</p>
           <p>Made with three.js.</p>
@@ -913,8 +913,9 @@ export class UiRoot {
     if (!same) {
       tray.innerHTML = wanted
         .map(
-          (tool, i) => `<button type="button" class="ui-card" id="${UI_TEST_IDS.tool(tool.id)}" data-tool="${tool.id}" aria-pressed="false" aria-label="${tool.label}" title="${tool.label} (${i + 1})">
-          <img src="${assetUrl(tool.icon)}" alt="" width="64" height="64" draggable="false" onerror="this.style.visibility='hidden'" /><span class="ui-card-label">${tool.label}</span><kbd>${i + 1}</kbd></button>`,
+          // Digits 1–9 reach the first nine tools; later ones (WP-23) have no badge and no shortcut.
+          (tool, i) => `<button type="button" class="ui-card" id="${UI_TEST_IDS.tool(tool.id)}" data-tool="${tool.id}" aria-pressed="false" aria-label="${tool.label}" title="${i < 9 ? `${tool.label} (${i + 1})` : tool.label}">
+          <img src="${assetUrl(tool.icon)}" alt="" width="64" height="64" draggable="false" onerror="this.style.visibility='hidden'" /><span class="ui-card-label">${tool.label}</span>${i < 9 ? `<kbd>${i + 1}</kbd>` : ''}</button>`,
         )
         .join('');
       tray.scrollLeft = 0;

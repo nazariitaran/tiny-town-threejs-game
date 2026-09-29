@@ -8,10 +8,10 @@ import type { GroundKind, ObjectKind } from '../town/types';
 
 /**
  * What an object is, for stats and effects (not for the dock, which is catalog/tools.ts):
- * road = road feature · street = street furniture · home = has residents · outbuilding = garage ·
+ * road = road feature · street = street furniture · home = has residents ·
  * amenity = shops and civic buildings · tree / plant = living things · garden = yard furniture.
  */
-export type ObjectGroup = 'road' | 'street' | 'home' | 'outbuilding' | 'amenity' | 'tree' | 'plant' | 'garden';
+export type ObjectGroup = 'road' | 'street' | 'home' | 'amenity' | 'tree' | 'plant' | 'garden';
 
 export interface ObjectDef {
   kind: ObjectKind;
@@ -73,6 +73,7 @@ export const OBJECTS: Readonly<Record<ObjectKind, ObjectDef>> = {
   lamppost: def({ kind: 'lamppost', label: 'Lamppost', group: 'street', footprint: [1, 1], allowedGround: PROP_GROUND, residents: 0, models: ['lamppost'] }),
   'bus-stop': def({ kind: 'bus-stop', label: 'Bus stop', group: 'street', footprint: [2, 1], allowedGround: PROP_GROUND, requiresAdjacent: 'road', residents: 0, models: ['bus-stop'] }),
   postbox: def({ kind: 'postbox', label: 'Postbox', group: 'street', footprint: [1, 1], allowedGround: PROP_GROUND, residents: 0, models: ['postbox'] }),
+  mailbox: def({ kind: 'mailbox', label: 'Mailbox', group: 'street', footprint: [1, 1], allowedGround: PROP_GROUND, residents: 0, models: ['mailbox'] }),
   // Homes
   cottage: def({ kind: 'cottage', label: 'Cottage', group: 'home', footprint: [4, 4], allowedGround: OPEN_GROUND, residents: 2, models: ['cottage'] }),
   townhouse: def({ kind: 'townhouse', label: 'Townhouse', group: 'home', footprint: [3, 4], allowedGround: OPEN_GROUND, residents: 3, models: ['townhouse', 'townhouse-alt'] }),
@@ -80,22 +81,28 @@ export const OBJECTS: Readonly<Record<ObjectKind, ObjectDef>> = {
   'family-home': def({ kind: 'family-home', label: 'Family home', group: 'home', footprint: [4, 4], allowedGround: OPEN_GROUND, residents: 4, models: ['family-home'] }),
   'garage-house': def({ kind: 'garage-house', label: 'Suburban', group: 'home', footprint: [4, 4], allowedGround: OPEN_GROUND, residents: 4, models: ['garage-house-c', 'garage-house-o', 'garage-house-s', 'garage-house-u'] }),
   'big-house': def({ kind: 'big-house', label: 'Big house', group: 'home', footprint: [5, 4], allowedGround: OPEN_GROUND, residents: 5, models: ['big-house-d', 'big-house-n'] }),
-  garage: def({ kind: 'garage', label: 'Garage', group: 'outbuilding', footprint: [1, 2], allowedGround: PAVED_OK, residents: 0, models: ['garage'] }),
   // Town
   'corner-shop': def({ kind: 'corner-shop', label: 'Corner shop', group: 'amenity', footprint: [3, 3], allowedGround: PAVED_OK, residents: 0, models: ['corner-shop'] }),
+  'donut-shop': def({ kind: 'donut-shop', label: 'Donut shop', group: 'amenity', footprint: [3, 3], allowedGround: PAVED_OK, residents: 0, models: ['donut-shop'] }),
   supermarket: def({ kind: 'supermarket', label: 'Supermarket', group: 'amenity', footprint: [5, 4], allowedGround: PAVED_OK, residents: 0, models: ['supermarket'] }),
   church: def({ kind: 'church', label: 'Church', group: 'amenity', footprint: [3, 4], allowedGround: PAVED_OK, residents: 0, models: ['church'] }),
   'swimming-pool': def({ kind: 'swimming-pool', label: 'Pool', group: 'amenity', footprint: [4, 3], allowedGround: PROP_GROUND, residents: 0, models: ['swimming-pool'] }),
   fountain: def({ kind: 'fountain', label: 'Fountain', group: 'amenity', footprint: [2, 2], allowedGround: PROP_GROUND, residents: 0, models: ['fountain'] }),
+  'tiered-fountain': def({ kind: 'tiered-fountain', label: 'Tiered fountain', group: 'amenity', footprint: [3, 3], allowedGround: PROP_GROUND, residents: 0, models: ['tiered-fountain'] }),
   // Nature
   oak: def({ kind: 'oak', label: 'Oak', group: 'tree', footprint: [2, 2], allowedGround: PAVED_OK, residents: 0, models: ['oak'] }),
   pine: def({ kind: 'pine', label: 'Pine', group: 'tree', footprint: [1, 1], allowedGround: PAVED_OK, height: PINE_HEIGHT, residents: 0, models: ['pine'] }),
   birch: def({ kind: 'birch', label: 'Birch', group: 'tree', footprint: [1, 1], allowedGround: PAVED_OK, residents: 0, models: ['birch', 'birch-small'] }),
   bush: def({ kind: 'bush', label: 'Bush', group: 'plant', footprint: [1, 1], allowedGround: PAVED_OK, residents: 0, models: ['bush'] }),
+  // Three tulips (red, yellow, purple) in one cell; the variants are the Nature Kit's three flower shapes.
+  tulips: def({ kind: 'tulips', label: 'Tulips', group: 'plant', footprint: [1, 1], allowedGround: OPEN_GROUND, residents: 0, models: ['tulips-a', 'tulips-b', 'tulips-c'] }),
   // Garden
   planter: def({ kind: 'planter', label: 'Planter', group: 'garden', footprint: [1, 1], allowedGround: PROP_GROUND, residents: 0, models: ['planter'] }),
   bench: def({ kind: 'bench', label: 'Bench', group: 'garden', footprint: [1, 1], allowedGround: PROP_GROUND, residents: 0, models: ['bench'] }),
+  'long-bench': def({ kind: 'long-bench', label: 'Long bench', group: 'garden', footprint: [1, 1], allowedGround: PROP_GROUND, residents: 0, models: ['long-bench'] }),
+  'garden-table': def({ kind: 'garden-table', label: 'Table', group: 'garden', footprint: [1, 1], allowedGround: PROP_GROUND, residents: 0, models: ['garden-table'] }),
   swing: def({ kind: 'swing', label: 'Swing', group: 'garden', footprint: [2, 1], allowedGround: OPEN_GROUND, residents: 0, models: ['swing'] }),
+  slide: def({ kind: 'slide', label: 'Slide', group: 'garden', footprint: [2, 1], allowedGround: OPEN_GROUND, residents: 0, models: ['slide'] }),
   barbecue: def({ kind: 'barbecue', label: 'Barbecue', group: 'garden', footprint: [1, 1], allowedGround: PROP_GROUND, residents: 0, models: ['barbecue'] }),
 };
 

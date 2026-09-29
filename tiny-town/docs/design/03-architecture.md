@@ -97,7 +97,7 @@ Rules of the road:
 3. **Pure logic stays pure**: `src/town/**`, `src/render/roadTiles.ts`, `src/catalog/**` import no three.js and no DOM, so they are unit-testable in Node.
 4. **All randomness goes through the seeded RNG** passed into constructors (`Game.rng`). Never `Math.random()` (it breaks screenshots and bot runs).
 5. **One cell↔world mapping**: `game/config.ts`. Nobody re-derives it. Likewise every runtime asset URL goes through `assetUrl()`.
-6. **Keyboard ownership**: digits 1–9 (tool in the active category), Shift+1–5 (category), `?` (controls help) and `P` (take a photo, WP-19) belong to the UI (`ui/uiKeys.ts`, `UiRoot`); everything else (R, B, Esc, F/Home, WASD/arrows, Q/E, +/−, undo/redo) belongs to `ToolController`/`CameraController`.
+6. **Keyboard ownership**: digits 1–9 (the first nine tools of the active category; a category may hold up to 12, WP-23), Shift+1–5 (category), `?` (controls help) and `P` (take a photo, WP-19) belong to the UI (`ui/uiKeys.ts`, `UiRoot`); everything else (R, B, Esc, F/Home, WASD/arrows, Q/E, +/−, undo/redo) belongs to `ToolController`/`CameraController`.
 7. **Two RNG streams**: gameplay (`Game.rng`: variants) and cosmetic (`Game.fxRng`: audio/fx jitter, ambient cars), so a sound never changes the next house variant. A third, `nameRng`, draws only town-name suggestions (WP-20, §Save format).
 
 ## Frame update order (Game.update)
@@ -110,10 +110,11 @@ Rules of the road:
 - **Road markings (2026-09-28):** an object whose `ObjectDef.roadMarking` is set (only the zebra crossing) covers one road block (2 × 2 cells, block-aligned) that already is road and tiles as a straight, tee or cross (`rules`: "Zebra crossings go on a straight road or a junction"). It has no model of its own: the road tile under it draws its marked variant (`catalog/models.ts` `ZEBRA_PIECE_MODELS`: `road-crossing`, `road-tee-zebra`, `road-cross-zebra`); if the road around it later becomes a corner or end, the block draws plain. Placing / bulldozing it is just the object add / remove (the road stays); its road can't be repainted while it stands. Road connectivity and traffic ignore it. Junctions without a zebra draw their centre lines meeting (`road-intersection-line`, `road-crossroad-line`).
 - **Footprints** (`catalog/objects.ts`, cells at rotation 0):
   - roundabout 6×6;
-  - cottage, bungalow, family home and suburban home 4×4; big house and supermarket 5×4; townhouse and church 3×4; corner shop 3×3 (WP-17: homes and town buildings grew one cell each way);
-  - pool 4×3; fountain and oak 2×2 (the oak is the big tree);
-  - garage 1×2; bus stop and swing 2×1;
-  - traffic light, lamppost, postbox, pine, birch, bush, planter, bench and barbecue 1×1.
+  - cottage, bungalow, family home and suburban home 4×4; big house and supermarket 5×4; townhouse and church 3×4; corner shop and donut shop 3×3 (WP-17: homes and town buildings grew one cell each way);
+  - pool 4×3; tiered fountain 3×3; fountain and oak 2×2 (the oak is the big tree);
+  - bus stop, swing and slide 2×1;
+  - traffic light, lamppost, postbox, mailbox, pine, birch, bush, tulips, planter, bench, long bench, table and barbecue 1×1.
+  - WP-23 removed the garage (1×2) and its `outbuilding` object group.
   
   The tool centres a footprint on the pointer with `grid.anchorForPointer` (odd sizes on the hovered cell, even sizes on the nearest corner, clamped into the plot). Its `snap` parameter (v0.3) keeps a road feature's anchor on multiples of `ROAD_BLOCK`.
 - Layers per cell: **ground** (exactly one `GroundKind`, default `field`), **object** (0–1 object covering the cell; multi-cell footprints anchored at min corner), and **edges** (hedges and fences on cell borders, canonical `n`/`w` sides).
@@ -144,6 +145,8 @@ Variant choice (e.g. tree shape, house model, traffic-light style) uses the seed
 `SavedTownV4` (= `SavedTown`) in `town/types.ts`: versioned, 64 × 64 (width/depth are stored; a smaller save, e.g. a 48 × 48 town, is centred on the plot by a whole number of road blocks, so it keeps its world position), RLE ground, objects, edges, next id, optional camera pose. `serialize.ts` validates unknown input (never trusts localStorage), demotes partial road blocks to field, drops road features that are not block-aligned or not standing on road, and round-trips (tested). Autosave: debounced 1 s after `town:changed` (never on cause `'load'`; off after any test-hook `setState`), key `tiny-town:save:v1` (a slot name; it did not change with the format). Code uses `SavedTown`.
 
 **v4 (WP-17: bigger building footprints) has no migrations**, like v3: a v3 save would overlap under the new footprints, so it is rejected ("No migration from save version 3") and the game starts a fresh town. **v3 (v0.3) had no migrations either.** v0.3 renamed object and edge kinds (e.g. `tree-a` → `oak`, `townhouse-a` → `cottage`, `fence-small` → `fence-low`) and added road features. The owner asked for no backward compatibility, so `SAVE_MIGRATIONS` is empty: a v1 or v2 save is rejected ("No migration from save version 2"), `SaveStore.load()` returns null with `lastError` set, and the game starts a fresh town. The v1 → v2 migration, `migration.test.ts` and the `town/fixtures/v1-*.json` saves were deleted on purpose. The migration hook stays: to keep old saves loadable after a future change, add `SAVE_MIGRATIONS[4]`.
+
+**Catalog changes without a bump (WP-23).** New object and edge kinds (mailbox, donut shop, tiered fountain, tulips, long bench, table, slide; the gate edge) need no version bump, and neither did removing the garage: `parseSave` already drops unknown object and edge kinds, so a v4 save or town file with garages still opens, without them (`serialize.test.ts` pins this; the WP-21 format promise holds). An older build opening a newer file drops the kinds it doesn't know the same way.
 
 Settings (`muted`, `volume`, `grid`, `music`, `musicVolume`; defaults false / 0.8 / true / true / 0.5) under `tiny-town:settings:v1`; older settings without the music fields load with the defaults.
 
@@ -225,7 +228,7 @@ The mobile triangle budget was raised from 250k to 320k with the 64 × 64 plot (
 - `setCameraPose(pose)` (v0.3): moves the camera to `{targetX, targetZ, azimuth, polar, distance}` at once and renders, for screenshots of one spot (e.g. the asset gallery).
 - `setTimeOfDay(t | null)` (v0.3, WP-16): pins the time of day (0..1) and applies the look at once, even while paused for a screenshot; `null` releases the pin. Every test state pins afternoon (0.55) except `night-town` (0.82).
 
-The `sample-town` state uses every placing tool (34) with zero rejections: stats homes 8, residents 25, amenities 5, trees 5, roadTiles 40, props 15, fences 27 (the zebra crossing is on the main street). `asset-gallery` places all 26 object kinds (the zebra on the north–south straight of mask 5) at rotation 0, every edge kind, the ground swatches and the 16 road masks.
+The `sample-town` state uses every placing tool (41, WP-23) with zero rejections: stats homes 8, residents 25, amenities 7, trees 5, roadTiles 40, props 23, fences 28 (the zebra crossing is on the main street; a gate sits in the back garden's low fence). `asset-gallery` places all 32 object kinds (the zebra on the north–south straight of mask 5; the WP-23 pieces on a third row) at rotation 0, every edge kind (a gate inside the low-fence run), the ground swatches and the 16 road masks. `stress-town` puts a mailbox and trees where its 50 garages stood.
 
 `window.__THREE_GAME_DIAGNOSTICS__` is typed in `src/vite-env.d.ts` and rebuilt every frame by `Game.publishDiagnostics`. Its fields:
 

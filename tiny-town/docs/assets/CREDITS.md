@@ -2,7 +2,7 @@
 
 ## 3D Models
 
-Almost all 3D models in `public/assets/models/` are licensed **CC0 1.0 Universal** (public domain, http://creativecommons.org/publicdomain/zero/1.0/). Attribution is not required, but these credits are given with thanks. **Three models are CC-BY 3.0 and must be credited** (see "Poly Pizza models" below); they are the first CC-BY assets in the project (v0.3). Per-model details are in `docs/assets/models.md` and `docs/assets/models.json`. Each pack's original `License.txt` is kept next to the models in `public/assets/models/<pack>/License.txt` and in `assets-src/<pack>/`.
+Almost all 3D models in `public/assets/models/` are licensed **CC0 1.0 Universal** (public domain, http://creativecommons.org/publicdomain/zero/1.0/). Attribution is not required, but these credits are given with thanks. **Six models are CC-BY 3.0 and must be credited** (see "Poly Pizza models" below): the church, swing and barbecue (v0.3, the first CC-BY assets in the project) and the donut shop, tiered fountain and slide (WP-23). Per-model details are in `docs/assets/models.md` and `docs/assets/models.json`. Each pack's original `License.txt` is kept next to the models in `public/assets/models/<pack>/License.txt` and in `assets-src/<pack>/`.
 
 ### Kenney kits (CC0)
 
@@ -10,10 +10,10 @@ Almost all 3D models in `public/assets/models/` are licensed **CC0 1.0 Universal
 |---|---|---|---|
 | City Kit (Roads) 2.1 | Kenney (www.kenney.nl) | https://kenney.nl/assets/city-kit-roads | road-straight, road-bend, road-bend-sidewalk, road-bend-square, road-intersection, road-intersection-line, road-intersection-path, road-crossroad, road-crossroad-line, road-crossroad-path, road-end, road-end-round, road-square, road-crossing, road-driveway-single, road-roundabout, tile-low, light-curved, traffic-light, traffic-light-hanging; road-sign-street (inside bus-stop) |
 | City Kit (Suburban) 2.0 | Kenney | https://kenney.nl/assets/city-kit-suburban | building-type-a/-c/-d/-e/-i/-k/-m/-n/-o/-r/-s/-u, planter, path-long, path-short, path-stones-long, path-stones-short, tree-large, tree-small; fence (inside fence-tall); colour variation textures |
-| City Kit (Industrial) 2.0 | Kenney | https://kenney.nl/assets/city-kit-industrial | building-s; building-j (as composed/garage) |
 | City Kit (Commercial) 2.1 | Kenney | https://kenney.nl/assets/city-kit-commercial | building-e (supermarket); detail-overhang-wide (inside bus-stop); detail-parasol-a, detail-parasol-b (inside swimming-pool) |
 | Platformer Kit 4.1 | Kenney | https://kenney.nl/assets/platformer-kit | tree (also the bush), tree-pine, hedge, flowers, flowers-tall, grass, plant, rocks |
-| Fantasy Town Kit 2.0 | Kenney | https://kenney.nl/assets/fantasy-town-kit | lantern; fence, fence-gate (as composed/fence-small, fence-small-gate); fountain-round-detail (as composed/fountain); fountain-square (inside swimming-pool) |
+| Fantasy Town Kit 2.0 | Kenney | https://kenney.nl/assets/fantasy-town-kit | lantern, fence-gate (Gate), stall (Table), stall-bench (Long bench); fence (as composed/fence-small); fountain-round-detail (as composed/fountain); fountain-square (inside swimming-pool) |
+| Nature Kit 2.1 | Kenney | https://kenney.nl/assets/nature-kit | flower_red/yellow/purple A–C (inside composed/tulips-a/-b/-c, recoloured) |
 | Holiday Kit 2.0 | Kenney | https://kenney.nl/assets/holiday-kit | bench (garden bench, also inside bus-stop) |
 | Car Kit 3.1 | Kenney | https://kenney.nl/assets/car-kit | sedan, hatchback-sports, van, taxi |
 | Tiny Town (original) | this project | — | composed/postbox.glb (procedural primitives, CC0) |
@@ -30,19 +30,24 @@ CC-BY 3.0 (https://creativecommons.org/licenses/by/3.0/) requires attribution. U
 | `composed/swing.glb` | Swing set | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/e-IJdcqZH4p | "Swing set" by Poly by Google, via Poly Pizza, CC-BY 3.0 |
 | `composed/barbecue.glb` | Grill | Zsky | CC-BY 3.0 | https://poly.pizza/m/SIlnlrbQR7 | "Grill" by Zsky, via Poly Pizza, CC-BY 3.0 |
 | `composed/corner-shop.glb` | Building | Kay Lousberg (KayKit) | CC0 1.0 | https://poly.pizza/m/EL3ePInr1N | "Building" by Kay Lousberg, via Poly Pizza, CC0 |
+| `composed/donut-shop.glb` (WP-23) | Donut Store | J-Toastie | CC-BY 3.0 | https://poly.pizza/m/BvRLKgGwc6 | "Donut Store" by J-Toastie, via Poly Pizza, CC-BY 3.0 |
+| `composed/tiered-fountain.glb` (WP-23) | Fountain | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/7AydBrjR2Ss | "Fountain" by Poly by Google, via Poly Pizza, CC-BY 3.0 |
+| `composed/slide.glb` (WP-23) | Slide | sirkitree | CC-BY 3.0 | https://poly.pizza/m/8D47EdapzBW | "Slide" by sirkitree, via Poly Pizza, CC-BY 3.0 |
+| `composed/mailbox.glb` (WP-23) | Mailbox | CreativeTrio | CC0 1.0 | https://poly.pizza/m/2olZ0G8iur | "Mailbox" by CreativeTrio, via Poly Pizza, CC0 |
 
-All three CC-BY models were modified (rescaled, turned, flat materials). `composed/License.txt` carries the same lines next to the files.
+All six CC-BY models were modified (rescaled, turned, flat materials; the donut shop also lost its ground slab and window texture, the fountain was recoloured). `composed/License.txt` carries the same lines next to the files.
 
 ### Composed models
 
 The composed models (`public/assets/models/composed/`) are built by `scripts/compose-models.mjs`:
-- bus-stop, fences, garage, fountain and swimming-pool are rearranged or re-centred copies of the Kenney models above, and remain CC0;
+- bus-stop, fences, fountain and swimming-pool are rearranged or re-centred copies of the Kenney models above, and remain CC0;
+- tulips-a/-b/-c (WP-23) combine three Kenney Nature Kit flowers each, recoloured, and remain CC0;
 - postbox is an original primitive model, CC0;
-- church, swing and barbecue keep their CC-BY 3.0 licence; corner-shop stays CC0.
+- church, swing, barbecue, donut-shop, tiered-fountain and slide keep their CC-BY 3.0 licence; corner-shop and mailbox stay CC0.
 
 ### Icons
 
-The 34 tool icons in `public/assets/icons/tool-<id>.png` (128 px) were rendered in this project from the in-game models, using `scripts/render-icons.mjs` + `src/render/IconStudio.ts` (in-game models and materials). Icons of CC0 models are CC0. The Church, Swing and Barbecue icons are renders of the CC-BY models above and carry the same attribution. v0.3 deleted the old icons, including Kenney's 64 px preview renders of unused models.
+The 41 tool icons in `public/assets/icons/tool-<id>.png` (128 px) were rendered in this project from the in-game models, using `scripts/render-icons.mjs` + `src/render/IconStudio.ts` (in-game models and materials). Icons of CC0 models are CC0. The Church, Swing, Barbecue, Donut shop, Tiered fountain and Slide icons are renders of the CC-BY models above and carry the same attribution. v0.3 deleted the old icons, including Kenney's 64 px preview renders of unused models.
 
 ## Music
 

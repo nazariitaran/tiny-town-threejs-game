@@ -81,7 +81,6 @@ const GROUP_FX: Readonly<Record<ObjectGroup, FxClass>> = {
   road: 'road',
   street: 'prop',
   home: 'building',
-  outbuilding: 'building',
   amenity: 'building',
   tree: 'tree',
   plant: 'tree',
@@ -102,7 +101,7 @@ export function classify(id: string): FxClass {
 
 /**
  * WP-12: removal-poof ring radius for a (multi-cell) object: ≈ half its longer footprint side, so the
- * ring hugs a 3×3 cottage as well as a 1×2 garage; never below `min`.
+ * ring hugs a 3×3 cottage as well as a 2×1 swing; never below `min`.
  */
 export function footprintPoofRadius(kind: string, min: number): number {
   const def = Object.prototype.hasOwnProperty.call(OBJECTS, kind) ? OBJECTS[kind as ObjectKind] : undefined;

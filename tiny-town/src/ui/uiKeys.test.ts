@@ -21,8 +21,10 @@ describe('digit shortcuts', () => {
   it('selects the Nth tool of the active category', () => {
     expect(digitAction(key('Digit1'), 'streets', null)).toEqual({ type: 'tool', toolId: 'road' });
     expect(digitAction(key('Digit3'), 'homes', null)).toEqual({ type: 'tool', toolId: 'bungalow' });
-    expect(digitAction(key('Digit7'), 'homes', null)).toEqual({ type: 'tool', toolId: 'garage' });
-    expect(digitAction(key('Digit8'), 'garden', null)).toEqual({ type: 'tool', toolId: 'swing' });
+    expect(digitAction(key('Digit6'), 'homes', null)).toEqual({ type: 'tool', toolId: 'big-house' });
+    expect(digitAction(key('Digit9'), 'streets', null)).toEqual({ type: 'tool', toolId: 'mailbox' });
+    // WP-23: Garden holds 12 tools; 9 is the last one with a digit.
+    expect(digitAction(key('Digit9'), 'garden', null)).toEqual({ type: 'tool', toolId: 'garden-table' });
   });
 
   it('deselects when the active tool digit is pressed again', () => {
@@ -30,9 +32,9 @@ describe('digit shortcuts', () => {
   });
 
   it('ignores digits beyond the category size', () => {
-    expect(digitAction(key('Digit9'), 'streets', null)).toBeNull();
-    expect(digitAction(key('Digit6'), 'town', null)).toBeNull();
-    expect(digitAction(key('Digit9'), 'garden', null)).toBeNull();
+    expect(digitAction(key('Digit7'), 'homes', null)).toBeNull();
+    expect(digitAction(key('Digit8'), 'town', null)).toBeNull();
+    expect(digitAction(key('Digit8'), 'nature', null)).toBeNull();
   });
 
   it('Shift+1–5 switches category', () => {

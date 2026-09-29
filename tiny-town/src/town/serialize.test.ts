@@ -392,8 +392,8 @@ describe('parseSave sanitises and clamps', () => {
       ground: [['road', 30], ['pavement', 20]],
       objects: [
         { id: 3, kind: 'bus-stop', anchor: { x: 0, z: 2 }, rotation: 1, variant: 0 },
-        { id: 3, kind: 'garage', anchor: { x: 1, z: 2 }, rotation: 1, variant: 0 },
-        { id: 4, kind: 'garage', anchor: { x: 0, z: 1 }, rotation: 1, variant: 0 },
+        { id: 3, kind: 'swing', anchor: { x: 1, z: 2 }, rotation: 1, variant: 0 },
+        { id: 4, kind: 'swing', anchor: { x: 0, z: 1 }, rotation: 1, variant: 0 },
       ],
       edges: [{ kind: 'fence-low', edge: { x: 3, z: 1, side: 'n' } }],
       nextObjectId: -5,
@@ -481,5 +481,42 @@ describe('migration hook', () => {
         },
       }),
     ).toBeInstanceOf(Error);
+  });
+});
+
+describe('parseSave and the WP-23 catalog change (no version bump)', () => {
+  it('a version 4 save with a garage (a removed kind) still opens: the garage is dropped, the rest kept', () => {
+    const save = {
+      ...blank(),
+      objects: [
+        { id: 1, kind: 'cottage', anchor: { x: 2, z: 2 }, rotation: 0, variant: 0 },
+        { id: 2, kind: 'garage', anchor: { x: 7, z: 2 }, rotation: 0, variant: 0 },
+        { id: 3, kind: 'bench', anchor: { x: 9, z: 2 }, rotation: 0, variant: 0 },
+      ],
+      edges: [{ kind: 'fence-low', edge: { x: 3, z: 8, side: 'n' } }],
+      nextObjectId: 4,
+    };
+    const parsed = ok(parseSave(JSON.stringify(save)));
+    expect(parsed.version).toBe(4);
+    expect(parsed.objects.map((o) => o.kind)).toEqual(['cottage', 'bench']);
+    expect(parsed.edges).toHaveLength(1);
+    const editor = makeEditor();
+    editor.load(parsed);
+    expect(editor.state.stats()).toMatchObject({ homes: 1, props: 1, fences: 1 });
+  });
+
+  it('gates and the new objects round-trip through JSON unchanged', () => {
+    const editor = makeEditor();
+    const placed = [
+      editor.apply({ type: 'place-edge', kind: 'fence-gate', edge: { x: 4, z: 4, side: 'n' } }, 'fence-gate'),
+      editor.apply({ type: 'place-object', kind: 'tulips', cell: { x: 6, z: 6 }, rotation: 0 }, 'tulips'),
+      editor.apply({ type: 'place-object', kind: 'slide', cell: { x: 8, z: 6 }, rotation: 1 }, 'slide'),
+      editor.apply({ type: 'place-object', kind: 'donut-shop', cell: { x: 12, z: 6 }, rotation: 2 }, 'donut-shop'),
+    ];
+    expect(placed.every((r) => r.ok)).toBe(true);
+    const saved = serializeTown(editor.state, camera);
+    expect(saved.edges.map((e) => e.kind)).toEqual(['fence-gate']);
+    const parsed = ok(parseSave(JSON.stringify(saved)));
+    expect(parsed).toEqual(saved);
   });
 });
