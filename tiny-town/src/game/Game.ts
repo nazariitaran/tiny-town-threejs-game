@@ -11,6 +11,7 @@ import { Loop } from '../core/Loop';
 import { createRenderer, resizeRenderer } from '../core/Renderer';
 import { DebugTools, type DebugTuning } from '../debug/DebugTools';
 import { PlacementFx } from '../fx/PlacementFx';
+import { BirdSystem, isBirdSpecies } from '../life/BirdSystem';
 import { LifeSystem } from '../life/LifeSystem';
 import { SaveStore } from '../persistence/SaveStore';
 import { encodeTownFile, TOWN_FILE_MIME, townFileName } from '../persistence/townFile';
@@ -38,6 +39,9 @@ import { createGameBus, type GamePhase } from './events';
 // Every state pins the clock to afternoon (the v0.2 look) except 'night-town' (sample town at T_NIGHT).
 export const TEST_STATES = ['title', 'empty-build', 'sample-town', 'active-play', 'asset-gallery', 'stress-town', 'night-town'] as const;
 type TestState = (typeof TEST_STATES)[number];
+
+/** Birds (WP-22) run on their own stream, derived from the seed (they never draw from fxRng). */
+const BIRD_SEED_SALT = 0xb12d5eed;
 
 export class Game {
   readonly bus = createGameBus();
@@ -78,6 +82,9 @@ export class Game {
   private readonly fx: PlacementFx;
   private readonly life: LifeSystem;
   private readonly nightLights: NightLights;
+  /** Flocks over the town (WP-22). Spontaneous flocks stay off after a test state until a reload. */
+  private readonly birds: BirdSystem;
+  private birdsAuto = true;
   /** Day/night (WP-16): the clock, the sample it writes every frame, the last announced mode/phase. */
   private readonly clock: DayClock;
   private readonly daySample = createDaySample();
@@ -118,6 +125,8 @@ export class Game {
     // Ambient cars use the cosmetic stream so they never shift gameplay variants.
     this.life = new LifeSystem(this.scene, this.town, this.bus, fxRand, this.debug);
     this.nightLights = new NightLights(this.scene, this.library, this.town, this.bus, this.life, this.quality, this.debug);
+    this.birds = new BirdSystem(this.scene, this.town, this.seedValue ^ BIRD_SEED_SALT, this.debug);
+    this.installBirdDebug();
     this.clock = new DayClock(this.saves.getSettings().timeMode);
     this.installClockDebug();
     this.audio = new AudioManager(this.bus, fxRand, this.saves);
@@ -185,6 +194,7 @@ export class Game {
     this.fx.dispose();
     this.nightLights.dispose();
     this.life.dispose();
+    this.birds.dispose();
     this.audio.dispose();
     this.ui.dispose();
     this.environment.dispose();
@@ -254,6 +264,9 @@ export class Game {
       this.cameraController.update(delta);
       this.townRenderer.update(animDelta);
       this.life.update(animDelta);
+      // No spontaneous flocks under the OS "reduce motion" setting (a test hook's reduced motion stops the clock anyway).
+      this.birds.setAuto(this.birdsAuto && this.prefersReducedMotion?.matches !== true);
+      this.birds.update(animDelta);
       // The clock runs only while building (frozen on the title, in the menu, under reduced motion).
       if (this.phase === 'building') this.clock.advance(animDelta);
       this.applyDaylight();
@@ -339,6 +352,15 @@ export class Game {
     this.debug.folder('Clock')?.add(this.clock, 'dayLengthS', 10, 1200, 1).name('day length (s)');
   }
 
+  /** `?debug&flock=N`: a flock every N seconds (evidence captures, playtests). Debug only. */
+  private installBirdDebug(): void {
+    if (!this.debug.enabled) return;
+    const every = Number(new URLSearchParams(window.location.search).get('flock'));
+    if (!Number.isFinite(every) || every <= 0) return;
+    this.birds.setIntervalOverride(every);
+    this.birds.reset(this.seedValue ^ BIRD_SEED_SALT);
+  }
+
   /** Change the day/night mode: persisted; the clock sweeps to it (snaps under reduced motion). */
   private setTimeMode(mode: TimeMode): void {
     this.clock.setMode(mode, this.reducedMotion || this.prefersReducedMotion?.matches === true);
@@ -358,6 +380,7 @@ export class Game {
     this.environment.applyDaylight(this.daySample);
     this.nightLights.update(this.daySample);
     this.life.setNight(this.daySample.night);
+    this.birds.setDaylight(this.daySample.night, this.daySample.phase);
     this.announceDaytime();
   }
 
@@ -390,6 +413,10 @@ export class Game {
     this.applyDaylight();
     this.townRenderer.settle();
     this.life.settle();
+    // No surprise flock in a test state (baselines, draw-call checks): spawnFlock() launches one.
+    this.birdsAuto = false;
+    this.birds.setAuto(false);
+    this.birds.reset(this.seedValue ^ BIRD_SEED_SALT);
   }
 
   private installTestHooks(): void {
@@ -401,6 +428,7 @@ export class Game {
         this.rng = createSeededRandom(value);
         this.fxRng = createSeededRandom(value ^ 0x9e3779b9);
         this.nameRng = createSeededRandom(value ^ 0x51f15eed);
+        this.birds.reset(value ^ BIRD_SEED_SALT);
       },
       setState: async (name: string) => {
         if (!(TEST_STATES as readonly string[]).includes(name)) throw new Error(`Unknown test state: ${name}`);
@@ -420,6 +448,7 @@ export class Game {
           this.fx.stabilize();
           this.townRenderer.settle();
           this.life.settle();
+          this.birds.settle();
         }
         this.render();
         this.publishDiagnostics();
@@ -430,6 +459,13 @@ export class Game {
         this.cameraController.setPose(pose);
         this.render();
         this.publishDiagnostics();
+      },
+      spawnFlock: (species?: string) => {
+        if (species !== undefined && !isBirdSpecies(species)) throw new Error(`spawnFlock: unknown species: ${species}`);
+        const birds = this.birds.spawnFlock(species);
+        this.render();
+        this.publishDiagnostics();
+        return birds;
       },
       setTimeOfDay: (t: number | null) => {
         if (t !== null && !Number.isFinite(t)) throw new Error(`setTimeOfDay: not a number: ${t}`);
@@ -466,6 +502,7 @@ export class Game {
       save: { available: this.saves.available, pending: this.saves.pending, lastError: this.saves.lastError },
       fx: this.fx.getDiagnostics(),
       life: this.life.getDiagnostics(),
+      birds: this.birds.getDiagnostics(),
       daytime: {
         mode: this.clock.mode,
         t: this.daySample.t,

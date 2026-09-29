@@ -28,7 +28,7 @@ Clause → proof in code (acceptance for the vertical slice):
 - **1–5 min change:** a street appears (roads auto-connect), houses line it, fences and lampposts dress it, trees soften it, cars start driving on it.
 - **Better player does:** plans street grids, uses drag-painting, rotates buildings to face roads, layers pavement/fences/props for charm.
 - **Next decision communicated by:** ghost preview, valid/invalid tint, contextual hint line, road auto-tiling preview.
-- **Light "reward" hooks:** tiny ambient life that responds to what you built — cars drive on connected roads (WP-10, built), trees and meadows sway (WP-08, built), lamps glow at dusk (WP-10 stretch, not built; now part of the WP-16 day/night cycle, v0.3).
+- **Light "reward" hooks:** tiny ambient life that responds to what you built — cars drive on connected roads (WP-10, built), trees and meadows sway (WP-08, built), lamps glow at dusk (WP-10 stretch, not built; now part of the WP-16 day/night cycle, v0.3), and now and then a flock of birds flies over the town, a little more often in a leafy one (WP-22).
 
 ## Target feeling
 Calm, tactile, cute. Every click lands with a soft "thock" and a springy pop. Nothing ever punishes the player.
