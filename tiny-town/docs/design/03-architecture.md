@@ -273,19 +273,19 @@ Plan: `docs/plans/wp-22-birds.md`.
 - **Cost:** 60–90 ms per photo on an M-series laptop (capture + frame + encode). The JPEG is 0.2–0.4 MB at 2536 × 1688 (desktop) or 1188 × 2670 (Pixel 7).
 
 ## Budgets (full 64×64-cell town, desktop 1280×720; mobile 390×844)
-The `stress-town` state is the gate. "Measured" gives the latest number and says where it came from. **v0.4 (64 × 64 plot, tall trees, WP-19) was measured on the production preview on 2026-09-28**; `docs/release.md` §Budgets has the full table, the earlier versions and the method (full Chromium, real GPU; mobile = Pixel 7 emulation). Until WP-25 phones got a hidden cheaper tier (1024 shadows, a quarter of the decor ring, no env lighting), so the mobile numbers below were measured on that tier; **since WP-25 phones start on Medium like desktop** (see the triangle row).
+The `stress-town` state is the gate. "Measured" gives the latest number and says where it came from. **v0.5 (WP-20 to WP-25) was measured on the production preview on 2026-09-30, desktop and phone both on Medium**; `docs/release.md` §Budgets has the full table, the earlier versions and the method (full Chromium, real GPU; mobile = Pixel 7 emulation). Until WP-25 phones got a hidden cheaper tier (1024 shadows, a quarter of the decor ring, no env lighting), so the mobile numbers below were measured on that tier; **since WP-25 phones start on Medium like desktop** (see the triangle row).
 The mobile triangle budget was raised from 250k to 320k with the 64 × 64 plot (owner decision, 2026-09-28): a full town holds 1.78× the area (100 homes instead of 64), with the same content per cell.
 
 | Metric | Budget desktop | Budget mobile | Measured (desktop / mobile) |
 | --- | --- | --- | --- |
-| Draw calls | ≤ 150 | ≤ 120 | v0.4 (production preview): day 31 / 31; night (t 0.82) 34 / 33. v0.3 (48 × 48): day 32 / 32, night 35 / 34 |
-| Triangles | ≤ 400k | ≤ 320k (250k until the 64 × 64 plot) | **WP-25 (dev server, stress town, 2026-09-30): Pixel 7 on Medium (the new phone default) 324.1k, over the 320k budget by ~4k (open owner decision, `docs/progress.md` "WP-25 as built"); Low 289.3k; desktop (1512 × 982 viewport) Medium / High 332.3k, Low 297.5k.** v0.4 (production preview, phones on the old cheaper tier): day 358.2k / 293.2k; night 354.3k / 289.2k. v0.3 (48 × 48): day 306.1k / 237.0k |
-| Textures | ≤ 30 | ≤ 30 | Stress town 14 / 13, sample town 27 / 26 (v0.4 production preview; includes the day/night glow masks) |
+| Draw calls | ≤ 150 | ≤ 120 | v0.5 (production preview): day 31–33 / 31; night (t 0.82) 34–36 / 34; sample town 86–88 / 86. v0.4: day 31 / 31; night 34 / 33 |
+| Triangles | ≤ 400k | ≤ 320k (250k until the 64 × 64 plot) | **v0.5 (production preview, Medium, stress town): day 328.3k–332.4k / 328.3k, night 324.3k / 324.3k–326.4k: the phone is over the 320k budget by up to ~8k (open owner decision, `docs/progress.md` "WP-25 as built").** WP-25 (dev server): Pixel 7 (412 × 839) Medium 324.1k, Low 289.3k; desktop (1512 × 982) Medium / High 332.3k, Low 297.5k. v0.4 (production preview, phones on the old cheaper tier): day 358.2k / 293.2k; night 354.3k / 289.2k. v0.3 (48 × 48): day 306.1k / 237.0k |
+| Textures | ≤ 30 | ≤ 30 | Stress town 14 / 14, sample town 28 / 28 (v0.5 production preview; includes the day/night glow masks) |
 | Shadow maps | 1 × 2048 | 1 × 2048 (1024 until WP-25) | per preset (`Environment.applyGraphics`): Low 1024, Medium / High 2048 |
 | DPR cap | Medium 1.5 (2 until WP-24) | Medium 1.5 | per preset (`GRAPHICS_PROFILES.maxDpr`): Low 1, Medium 1.5, High 2; canvas pixel ratio = `min(devicePixelRatio × renderScale, maxDpr)` (`effectivePixelRatio`), so Low renders at 0.75 on DPR-1 screens |
-| Frame time (M-series laptop, headless full Chromium) | ≤ 8 ms | — | 1.46 ms day / 1.51 ms night on the stress town (v0.4 production preview, uncapped); v0.3: 1.38 / 1.37 ms; v0.1: 1.36 ms |
+| Frame time (M-series laptop, headless full Chromium) | ≤ 8 ms | — | v0.5 (production preview, CPU ms per rendered frame, stress town): 1.39 ms building (60 fps) / 1.94 ms idle (30 fps); sample town 1.68 / 2.88 ms. Up to v0.4 this row was the uncapped frame interval (v0.4: 1.46 ms day / 1.51 ms night), which WP-24's caps no longer allow; method in `docs/release.md` |
 | Frame rate cap (WP-24) | 60 active / 30 idle | 60 / 30 | `FrameBudget` (§Frame budget); Low 30 / 30 |
-| Initial download (JS + CSS + font + models + SFX + icons + name list) | ≤ 8 MB | ≤ 8 MB | 4.78 MB over the network before the title (v0.4 production preview); `dist/` 4.99 MB without maps or music. The 4.68 MB music track is streamed after Start and isn't part of the initial download |
+| Initial download (JS + CSS + font + models + SFX + icons + name list) | ≤ 8 MB | ≤ 8 MB | 5.26 MB over the network before the title (v0.5 production preview; v0.4: 4.78 MB); `dist/` 5.07 MB without maps or music. The 4.68 MB music track is streamed after Start and isn't part of the initial download |
 
 ## Test hooks and diagnostics
 `window.__THREE_GAME_TEST_HOOKS__` (installed in production too; policy in `docs/release.md`):

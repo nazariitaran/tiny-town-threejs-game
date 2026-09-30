@@ -1,10 +1,10 @@
 # Tiny Town — Implementation Plan (hand-off)
 
-This plan took the scaffold to a finished v1 of **Tiny Town**, a cosy sandbox city builder that runs in the browser, then to v0.2, and now to v0.3 (WP-15, in progress). It is written for implementation agents working **in parallel**. Each work package (WP) has its own files, contracts, dependencies and **verifiable acceptance checks**.
+This plan took the scaffold to a finished v1 of **Tiny Town**, a cosy sandbox city builder that runs in the browser, then through v0.2 to v0.5 (tagged 2026-09-30). It is written for implementation agents working **in parallel**. Each work package (WP) has its own files, contracts, dependencies and **verifiable acceptance checks**.
 
 Read `CLAUDE.md` first (commands and hard rules), then `docs/progress.md` (current state), then the three design docs in `docs/design/`. To run the swarm (orchestrator prompt, worker template, branches, ports, merge runbook), see `docs/HANDOVER.md`.
 
-> **How to read this file (updated 2026-09-27, v0.2 on `main`, v0.3 in the working tree).** Every WP here is **done and merged** except **WP-15 (v0.3), which is current and in progress**; `docs/progress.md` has SHAs and status.
+> **How to read this file (updated 2026-09-30, v0.5 cut on `main`).** Every WP here is **done and merged** (WP-12 to WP-14 in v0.2, WP-15 and WP-16 in v0.3, WP-17 to WP-19 in v0.4, WP-20 to WP-25 in v0.5); `docs/progress.md` has SHAs and status. The table below was written for v0.3; where it says "current" about WP-15, read "historical".
 >
 > | Section | Status |
 > | --- | --- |
@@ -392,7 +392,7 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
 - **Work split:** 17a Scale & layouts (port 5218) and 17b Shop lights (5219) run in parallel; then 17c QA (5221).
 
 ### WP-18 — Music resumes where it left off
-- **Status: merged** into `main` (`40822f8`, owner-approved 2026-09-28; no version label yet). Gates on the branch: `npm run verify` green (22 files, 427 unit tests); `npm run test:e2e` 110 passed, 14 skipped, 0 failed.
+- **Status: merged** into `main` (`40822f8`, owner-approved 2026-09-28; part of v0.4). Gates on the branch: `npm run verify` green (22 files, 427 unit tests); `npm run test:e2e` 110 passed, 14 skipped, 0 failed.
 - **Why:** each page load started the 9:45 track at 0:00, so short sessions only ever heard the intro.
 - **Scope:**
   - Save `{ track, time }` under `tiny-town:music:v1` when the page is hidden, on `pagehide`, and every 15 s of playback. Nothing is saved before `canplay` or while seeking.
@@ -433,7 +433,7 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
   - Manual, not automatable here: what Download does on iOS Safari (Files) and Android Chrome; long-press "Save to Photos" on the iOS preview.
 
 ### WP-20 — Name your town
-- **Status: merged** into `main` (owner-approved 2026-09-29 after one amendment: no note under the dialog heading). Built on the branch `wp-20-town-name` (from `ac820b8`; dev server 5230, tests 5231). No version label (owner). Plan: `docs/plans/wp-20-town-name.md`; as built: `docs/progress.md` "WP-20 as built".
+- **Status: merged** into `main` (owner-approved 2026-09-29 after one amendment: no note under the dialog heading; part of v0.5). Built on the branch `wp-20-town-name` (from `ac820b8`; dev server 5230, tests 5231). Plan: `docs/plans/wp-20-town-name.md`; as built: `docs/progress.md` "WP-20 as built".
 - **Why:** owner request (2026-09-29): "name my town, so I can feel more personal connection to it".
 - **Owner asks:** a popup before starting a town, a name of up to 30 characters, pre-filled with a random name from `public/data/default_town_names.json`; the name replaces the game name in the top-left corner and goes on the photo card; the player can edit it.
 - **Design:** the name is part of the town save (optional `SavedTownV4.name`, no version bump; an unnamed save is "Tiny Town"). New towns are named in a dialog (Start building with no save; New town after its confirm); Continue skips it. Rename from the top-left pill or Menu → Rename town; not undoable, autosaved. Suggestions come from the fetched list through a per-load seeded stream (`seed()` pins it). The photo card's title is the name (shrunk, then cut, to fit) and the file is `<slug>-YYYY-MM-DD-HHMM.jpg`.
@@ -441,7 +441,7 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
 - **Acceptance:** see the plan. `npm run verify` green; `tests/town-name.spec.ts` (desktop + mobile); full e2e green; desktop baselines unchanged, phone top-bar baselines regenerated with the masked diff; main chunk under 900 kB.
 
 ### WP-21 — Download and open a town file
-- **Status: merged** into `main` (owner-approved 2026-09-29, all planning decisions accepted, including the save-format migration promise). Built on the branch `wp-21-town-file` (from `c7e9a40`; dev server 5230, tests 5231). Plan: `docs/plans/wp-21-town-file.md`; as built: `docs/progress.md` "WP-21 as built".
+- **Status: merged** into `main` (owner-approved 2026-09-29, all planning decisions accepted, including the save-format migration promise; part of v0.5). Built on the branch `wp-21-town-file` (from `c7e9a40`; dev server 5230, tests 5231). Plan: `docs/plans/wp-21-town-file.md`; as built: `docs/progress.md` "WP-21 as built".
 - **Why:** owner request (2026-09-29): keep favourite towns on a drive and resume any of them, any time, on any machine.
 - **Owner decisions:** a new button in the top-right stack offering Download and Open, with a confirmation that the current town will be replaced. On phones (≤ 440 px, where a seventh button doesn't fit one row) the same actions sit in the Menu. The title gets an "Open a town file" link.
 - **Design:** a JSON file `{ app: 'tiny-town', kind: 'town', format: 1, exportedAt, town: SavedTown }` named `<slug>-YYYY-MM-DD-HHMM.tinytown.json`; decoded by the pure `persistence/townFile.ts` through `parseSave`; `intent:export-town` → `town-file:ready` (same click); `intent:open-town { save }` loads, writes the save at once, and from the title starts the game.
@@ -449,7 +449,7 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
 - **Acceptance:** see the plan.
 
 ### WP-22 — Birds over the town
-- **Status: merged** into `main` (owner-approved 2026-09-29, all planning decisions accepted). Built on the branch `wp-22-birds` (from `d119d54`; dev server 5232, tests 5233). Plan: `docs/plans/wp-22-birds.md`; as built: `docs/progress.md` "WP-22 as built".
+- **Status: merged** into `main` (owner-approved 2026-09-29, all planning decisions accepted; part of v0.5). Built on the branch `wp-22-birds` (from `d119d54`; dev server 5232, tests 5233). Plan: `docs/plans/wp-22-birds.md`; as built: `docs/progress.md` "WP-22 as built".
 - **Why:** owner request (2026-09-29): "just occasionally some birds fly over the town". The owner read the squirrels-and-birds analysis and chose birds only (no squirrels).
 - **Decisions (the analysis's defaults, overridable at review):** no new flocks at night, more at dawn and dusk, a few more in a leafy town, flocks over the title screen too, no sound.
 - **Design:** a pure `life/FlockSim.ts` (schedule, Bézier paths over the plot, formations, flap/glide; its own seeded stream) and `life/BirdSystem.ts` (a procedural 18-triangle bird in one `InstancedMesh`, wings folded in the vertex shader, the same patch on the shadow depth material). Four species on the same bird: pigeons, starlings, geese (a V) and gulls. Test states switch spontaneous flocks off until a reload; `spawnFlock(species?)` launches one; `?debug&flock=N` sets an N-second wait.
@@ -457,7 +457,7 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
 - **Acceptance:** see the plan. `npm run verify` green; `tests/birds.spec.ts` (desktop + mobile); full e2e green with the visual baselines unchanged.
 
 ### WP-23 — New build items, garage removed
-- **Status: merged** into `main` (owner-approved 2026-09-29). Built on the branch `wp-23-new-items` (from `d119d54`, `main` merged in after WP-22; worktree `../ThreeJsGames-wt/wp-23-new-items`; dev server 5240, tests 5241). Plan: `docs/plans/wp-23-new-items.md`; as built: `docs/progress.md` "WP-23 as built".
+- **Status: merged** into `main` (owner-approved 2026-09-29; part of v0.5). Built on the branch `wp-23-new-items` (from `d119d54`, `main` merged in after WP-22; worktree `../ThreeJsGames-wt/wp-23-new-items`; dev server 5240, tests 5241). Plan: `docs/plans/wp-23-new-items.md`; as built: `docs/progress.md` "WP-23 as built".
 - **Why:** owner request (2026-09-29), after the asset research (`~/Desktop/tiny-town-inventory-research/`): more Town, Nature and Garden items, picked from the research sheets.
 - **Owner asks:** Fantasy Town table (`stall`), long bench (`stall-bench`) and gate (`fence-gate`); the Nature Kit's red, yellow and purple flowers, all three in one 0.5 cell; from Poly Pizza the donut shop, the tiered fountain, the slide and the mailbox; remove the garage. Accepted: more than 9 tools per category, tools past the ninth without a digit.
 - **Design:** 8 new tools (Mailbox in Streets; Tiered fountain and Donut shop in Town; Tulips in Nature; Gate, Long bench, Table and Slide in Garden; review amendment: the Gate removed, the tulips smaller, the Pool moved to Garden), the garage kind, model and icon removed, no save bump (unknown kinds are dropped on load), a 12-tool cap per category with digits for the first nine, a Nature Kit material fix in the compose script, CC-BY credits for three models.
@@ -465,7 +465,7 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
 - **Acceptance:** see the plan.
 
 ### WP-24 — Frame budget (performance)
-- **Status: merged** into `main` (owner-approved 2026-09-30). Built on the branch `wp-24-frame-budget` (from `f37725d`; worktree `../ThreeJsGames-wt/wp-24`, removed; dev server / tests 5299). As built: `docs/progress.md` "WP-24 as built".
+- **Status: merged** into `main` (owner-approved 2026-09-30; part of v0.5). Built on the branch `wp-24-frame-budget` (from `f37725d`; worktree `../ThreeJsGames-wt/wp-24`, removed; dev server / tests 5299). As built: `docs/progress.md` "WP-24 as built".
 - **Why:** owner report (2026-09-29): after building for a while the frame rate drops and the fans spin up; switching away from Chrome and back helps a little. The investigation (report on the owner's Desktop, `tiny-town-performance/REPORT.md`) found no leak or accumulation: the game was GPU-bound, rendering a full DPR 2 + 4× MSAA frame with a full shadow pass on every refresh (120 Hz on a ProMotion Mac), ~70% of an M2 Max GPU in a big town. A hidden tab stops rAF, so the chip cooled.
 - **Owner asks:** implement the biggest wins (frame cap, DPR, shadow map on demand); remove the unused town stats event.
 - **Design:** §Frame budget in `docs/design/03-architecture.md`: 60 fps while interacting, 30 fps after 4 s idle; the sun's shadow map redrawn only when a caster changed (cars 15 Hz, birds 30 Hz); desktop DPR cap 2 → 1.5 (since WP-25: the Medium preset); `town:stats` removed (no subscribers; it recomputed `TownState.stats()` for every cell of a drag).
@@ -473,7 +473,7 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
 - **Acceptance:** `npm run verify`; the full e2e suite incl. the darwin baselines unchanged; `tests/perf.spec.ts` (idle cap, input restores 60, still town = no shadow redraws, placing redraws, DPR 1.5 on a DPR-2 screen); before/after GPU measurements on the stress town (progress.md).
 
 ### WP-25 — Graphics settings (Low / Medium / High) and a tabbed menu
-- **Status: built on the branch `wp-24-frame-budget`** (on top of WP-24; 25a `wp-25a-graphics` and 25b `wp-25b-menu-tabs` merged in `f470eab`, then the 25c integration and QA on `wp-25c-integration`; ports 5301 / 5302 / 5303); merged into `main` with WP-24 (owner-approved 2026-09-30). Plan: `docs/plans/wp-25-graphics-and-menu-tabs.md`; as built: `docs/progress.md` "WP-25 as built".
+- **Status: built on the branch `wp-24-frame-budget`** (on top of WP-24; 25a `wp-25a-graphics` and 25b `wp-25b-menu-tabs` merged in `f470eab`, then the 25c integration and QA on `wp-25c-integration`; ports 5301 / 5302 / 5303); merged into `main` with WP-24 (owner-approved 2026-09-30; part of v0.5). Plan: `docs/plans/wp-25-graphics-and-menu-tabs.md`; as built: `docs/progress.md` "WP-25 as built".
 - **Why:** owner request (2026-09-30), after the graphics-settings assessment (`~/Desktop/tiny-town-graphics-settings/REPORT.md`): let the player choose how much the game costs, and stop guessing from the touch screen, which gave phones a different look (no environment lighting, a hemisphere boost, a quarter of the decor ring).
 - **Owner asks:** Low / Medium / High in the menu, saved; Medium the default on every device; the Lambert material and MSAA off on Low; the menu split into tabs so the new setting fits.
 - **Design:** §Graphics presets in `docs/design/03-architecture.md` (the table in the contract file `src/game/graphics.ts`: DPR cap, MSAA, material, shadow-map size, decor share, sky octaves, frame caps, lamp halos; MSAA and the material need a reload, the rest applies at once; `?graphics=` override; `intent:set-graphics` / `intent:reload-graphics` / `graphics:changed`; diagnostics `quality` + `graphics`) and §5.1 Menu tabs in `02-interaction-and-ui.md` (Town · Graphics · Sound · Help, WAI-ARIA tabs, the remembered tab, Back to the same tab, the reload notice).

@@ -2,8 +2,18 @@
 
 Only the integrator (WP-01) edits this file. Workers report in their hand-off. This is the recovery point: after any interruption, re-read it together with `docs/HANDOVER.md`.
 
-## Current state (2026-09-28)
-- **Version: v0.4 cut on `main`** (2026-09-28, package 0.4.0, tag `v0.4`; not deployed). v0.4 = everything after `v0.3`:
+## Current state (2026-09-30)
+- **Version: v0.5 cut on `main`** (2026-09-30, package 0.5.0; the owner tagged `v0.5` on the WP-24 + WP-25 merge `e45f664`; not deployed). v0.5 = everything after `v0.4`. Player-facing notes: `CHANGELOG.md`.
+  - **WP-20**: name your town;
+  - **WP-21**: download and open a town file;
+  - **WP-22**: birds over the town;
+  - **WP-23**: new build items, garage removed (40 placing tools);
+  - **WP-24**: frame budget (60 / 30 fps caps, sun shadow map on demand, car shadows 30 Hz);
+  - **WP-25**: graphics presets Low / Medium / High (Low render scale on DPR-1 screens) and the tabbed menu.
+  - Save format unchanged (v4), so v0.4 saves and town files open as they are.
+  - Gates on `main` at `e45f664` (package 0.5.0): `npm run verify` green (30 files, 529 unit tests, build OK); e2e against the production preview: 198 tests, 176 passed, 22 skipped by design, 0 failed. Production-preview measurements and release checks: `docs/release.md` (v0.5 column).
+  - **Open at release:** the mobile triangle budget on Medium (WP-25 owner decision, below). The v0.5 preview measured 328.3k on the stress town (Pixel 7 emulation, 412 × 915).
+- **v0.4** (2026-09-28, package 0.4.0, tag `v0.4`). v0.4 = everything after `v0.3`:
   - **WP-17**: bigger homes and town buildings, smaller swing, only homes glow at night, save v4;
   - **the 64 × 64 plot** (`545c86c`), with the night-grid colours, plain junction centre lines, the Zebra crossing tool and right-click deselect;
   - **WP-18**: music resumes where it left off;
@@ -28,10 +38,10 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
 - **WP-17 is merged into `main`** (owner-approved; integration branch `building-sizes`; part of v0.4): bigger buildings, smaller swing, dark shops at night. See "WP-17 as built".
 - **Tall trees are merged into `main`** (owner-approved, no version tag; built on the branch `tall-trees`): pine ×2 taller (still 1 × 1), birch unchanged, and the oak now a big 2 × 2 tree at natural proportions (fixed per species, no player control). See "Tall trees as built".
 - **WP-19 Town photo is merged into `main`** (owner-approved 2026-09-28, after two amendments; built on the branch `wp-19-photo`, branched from `691dfd8`): a top-bar camera / `P` saves the current view as a Polaroid JPEG, via a preview with Download. See "WP-19 as built".
-- **WP-20 Name your town is merged into `main`** (owner-approved 2026-09-29 after one amendment: no note under the dialog heading; built on the branch `wp-20-town-name` from `ac820b8`); no version label (owner). See "WP-20 as built".
-- **WP-21 Town file is merged into `main`** (owner-approved 2026-09-29 with all planning decisions, including the save-format migration promise; built on the branch `wp-21-town-file` from `c7e9a40`). See "WP-21 as built".
-- **WP-23 New build items is merged into `main`** (owner-approved 2026-09-29; built on the branch `wp-23-new-items` from `d119d54`, with `main` merged in after WP-22): 8 new tools, the garage removed, up to 12 tools per category. See "WP-23 as built".
-- **WP-24 Frame budget and WP-25 Graphics settings + tabbed menu are merged on `main`** (owner-approved 2026-09-30; built on the branch `wp-24-frame-budget`; no version label). WP-25 leaves one open owner decision: the mobile triangle budget (324k on Medium vs 320k). See "WP-25 as built" and "WP-24 as built".
+- **WP-20 Name your town is merged into `main`** (owner-approved 2026-09-29 after one amendment: no note under the dialog heading; built on the branch `wp-20-town-name` from `ac820b8`); part of v0.5. See "WP-20 as built".
+- **WP-21 Town file is merged into `main`** (owner-approved 2026-09-29 with all planning decisions, including the save-format migration promise; built on the branch `wp-21-town-file` from `c7e9a40`; part of v0.5). See "WP-21 as built".
+- **WP-23 New build items is merged into `main`** (owner-approved 2026-09-29; built on the branch `wp-23-new-items` from `d119d54`, with `main` merged in after WP-22): 7 new tools (the gate was removed at review), the garage removed, up to 12 tools per category; part of v0.5. See "WP-23 as built".
+- **WP-24 Frame budget and WP-25 Graphics settings + tabbed menu are merged on `main`** (owner-approved 2026-09-30; built on the branch `wp-24-frame-budget`; part of v0.5). WP-25 leaves one open owner decision: the mobile triangle budget (324k on Medium vs 320k). See "WP-25 as built" and "WP-24 as built".
 - **Where current facts live:**
   - grid, rules, save, modules, diagnostics and budgets: `docs/design/03-architecture.md`;
   - asset scales and footprints: `docs/assets/models.md`;
@@ -432,9 +442,10 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
 - At the default phone pose a cell is about 10.6 px, so small props need a pinch-zoom on touch.
 
 **Release measurements**
-- v0.3 (package 0.3.0) was re-measured on the production preview on 2026-09-27 (`docs/release.md` §Budgets; evidence in `artifacts/v03-release/`). Every budget is met.
-- The main JS chunk was 887 kB (v0.3) and 898 kB (v0.4). WP-20 split three.js into its own chunk: main 264 kB + `three` 642 kB, so the 900 kB warning is far off (the release table in `docs/release.md` still shows the v0.4 numbers).
-- The sample town uses 28 of 30 textures.
+- v0.5 (package 0.5.0) was measured on the production preview on 2026-09-30 (`docs/release.md` §Budgets, v0.5 column; evidence in `artifacts/v05-release/`). Every budget is met except the mobile triangles on Medium (open decision above).
+- Since WP-24 the WP-11 frame-time method (mean rAF interval with vsync off) no longer measures a frame: the loop skips most callbacks. v0.5 reports CPU ms per *rendered* frame instead (`artifacts/v05-release/frame-cost.mjs`); see `docs/release.md`.
+- The main JS chunk was 887 kB (v0.3) and 898 kB (v0.4). WP-20 split three.js into its own chunk: v0.5 main 298 kB + `three` 642 kB, so the 900 kB warning is far off.
+- The sample town uses 28 of 30 textures and 86–88 draw calls by day, 90 in the night town (v0.4: 57 / 61; WP-23 measured 87 with its new pieces). Budget 150 / 120.
 
 **Audio**
 - No human has listened to the SFX or the music.
