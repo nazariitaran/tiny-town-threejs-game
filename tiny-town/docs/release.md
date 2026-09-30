@@ -108,6 +108,26 @@ Numbers are labelled with their version and source.
   - `dist/` without maps or music is 5.07 MB, up from 5.05 MB.
 - **Errors:** 0 console or page errors in every run on both builds.
 
+**The 1080p laptop case (2026-09-30, production preview, branch at `15bbf0a` vs `main` `f37725d`).**
+- **Setup:** a 1920 × 970 viewport at DPR 1 (a 1920 × 1080 screen at 100% scaling), a 60 Hz display emulated.
+- **Two GPUs:**
+  - the M2 Max, which confirms the canvas sizes and the caps;
+  - SwiftShader (software rendering). It stands in for a weak laptop GPU, far slower than any real one, so only the ratios count.
+- **Render cost** = `renderer.render` plus `gl.finish()`, as the median ms per frame.
+- **Evidence:** `artifacts/wp-25/p1080/`.
+
+| Build / preset | Canvas | M2 Max fps (active / idle) | SwiftShader ms/frame, sample town | SwiftShader ms/frame, stress town |
+| --- | --- | --- | --- | --- |
+| `main` (before) | 1920 × 970 | 60 / 60 | 315 | 632 |
+| Low (render scale 0.75, no MSAA, Lambert) | **1440 × 727** | 30 / 30 | **74** | **159** |
+| Medium | 1920 × 970 | 60 / 30 | 312 | 608 |
+| High | 1920 × 970 | 60 / 30 | 310 | 606 |
+
+- **Low is ~4× cheaper per frame** than Medium on a 1080p screen, thanks to the render scale.
+- **Medium and High are identical on DPR-1 screens:** both caps are above 1.
+- **Medium costs the same per frame as `main`.** On a 60 Hz laptop the gain is the 30 fps idle cap and fewer shadow redraws, not a cheaper frame.
+- 0 errors in every run.
+
 **64 × 64 plot (2026-09-28, dev server; superseded by the v0.4 production-preview column above, full Chromium on the real GPU; mobile = Pixel 7 emulation on the pre-WP-25 phone tier).** Stress town: day 31 calls / 362.4k triangles desktop, 31 / 291.3k mobile; night (t 0.82) 34 / 356.5k and 33 / 289.3k. The town itself is ~236k (100 homes on the bigger plot). The mobile triangle budget was raised to 320k for the bigger plot (owner decision). Not yet re-measured on the production preview.
 
 **v0.4 release checks (production preview and a sub-path static host, 2026-09-28).**
