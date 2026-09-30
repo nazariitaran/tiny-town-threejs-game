@@ -1,6 +1,6 @@
 # Tiny Town — Architecture & Contracts
 
-> **Status: current for v0.3 on `main` (WP-15 catalog + WP-16 day/night), 2026-09-27; v0.3 is not yet released. Updated 2026-09-30 for WP-24 (frame budget) and WP-25 (graphics presets, tabbed menu) on the branch `wp-24-frame-budget` (not merged).** This is the source of truth for the grid, rules, save format, module map, diagnostics and budgets. If this file and the code disagree, the code wins; fix this file.
+> **Status: current for v0.5 on `main` (package 0.5.0, tag `v0.5`, 2026-09-30): WP-15 to WP-25 are all merged, including WP-24 (frame budget) and WP-25 (graphics presets, tabbed menu).** This is the source of truth for the grid, rules, save format, module map, diagnostics and budgets. If this file and the code disagree, the code wins; fix this file.
 
 ## Stack
 TypeScript (strict) · Vite 8 · three.js r184 (`three/addons/*` for MapControls, GLTFLoader) · Web Audio (SFX buffers; music streamed via `HTMLAudioElement`) · lil-gui (`?debug`) · Vitest (pure logic) · Playwright (browser, `channel: 'chromium'`, 1 worker). No physics engine: the game is grid-based and has no simulation that needs one. The build puts three.js in its own vendor chunk (`vite.config.ts`, WP-20), so the game's own chunk stays far below the 900 kB warning limit.
