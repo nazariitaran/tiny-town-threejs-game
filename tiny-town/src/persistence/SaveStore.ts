@@ -95,7 +95,7 @@ export interface SaveStoreOptions {
 }
 
 /** window.localStorage if it exists and accepts a write, else null. Never throws. */
-export function detectLocalStorage(): StorageLike | null {
+function detectLocalStorage(): StorageLike | null {
   try {
     const storage = (globalThis as { localStorage?: StorageLike }).localStorage;
     if (!storage || typeof storage.setItem !== 'function') return null;

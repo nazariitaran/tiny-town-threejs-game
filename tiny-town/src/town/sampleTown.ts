@@ -20,7 +20,7 @@ export interface DemoTownResult {
 }
 
 /** The sample town and the asset gallery are laid out on this many cells (the v0.2 plot). */
-export const DEMO_LAYOUT_SIZE = 48;
+const DEMO_LAYOUT_SIZE = 48;
 
 /**
  * Cells the 48 × 48 demo layouts are shifted by so they sit centred on the plot (8 on the 64 × 64

@@ -38,7 +38,7 @@ const PICK_HINT_MOUSE = 'Pick something below, then click the map to build';
 const PICK_HINT_TOUCH = 'Pick an item below · two fingers move the view';
 
 /** Catalog hints are written for mouse + keys; reword them for touch (no key cues). */
-export function touchHint(hint: string): string {
+function touchHint(hint: string): string {
   return hint
     .replace(/ · R to rotate$/, ' · tap Rotate to turn it')
     .replace(/^Click or drag/, 'Tap or drag')

@@ -25,7 +25,7 @@ import {
   terrainHeight,
 } from './terrainShape';
 
-export const TERRAIN_PALETTE = {
+const TERRAIN_PALETTE = {
   field: '#84c27c',
   fieldAlt: '#8dc882',
   kerbTop: '#e6cf9e',
