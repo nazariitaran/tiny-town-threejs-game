@@ -109,7 +109,7 @@ Rules of the road:
 7. **Two RNG streams**: gameplay (`Game.rng`: variants) and cosmetic (`Game.fxRng`: audio/fx jitter, ambient cars), so a sound never changes the next house variant. A third, `nameRng`, draws only town-name suggestions (WP-20, §Save format).
 
 ## Frame update order (Game.update)
-`resizeRenderer` → `ToolController.update` → `CameraController.update` → `TownRenderer.update(animDelta)` → `LifeSystem.update(animDelta)` → `BirdSystem.update(animDelta)` (WP-22) → `DayClock.advance(animDelta)` (building phase only) → `Game.applyDaylight()` (`Environment.applyDaylight`, `NightLights.update`, `LifeSystem.setNight`, `daytime:changed` on a mode/phase change) → `Environment.update(animDelta, animElapsed)` → `PlacementFx.update(animDelta)` → frame-budget activity (camera glide, tweens) → diagnostics → render (the shadow scheduler decides whether the sun's map is redrawn, §Frame budget). With `setReducedMotion(true)`, `animDelta`/`animElapsed` are 0. With `setPausedForScreenshot(true)`, nothing updates but rendering continues.
+`resizeRenderer` → `ToolController.update` → `CameraController.update` → `TownRenderer.update(animDelta)` → `LifeSystem.update(animDelta)` → `BirdSystem.update(animDelta)` (WP-22) → `DayClock.advance(animDelta)` (building phase only) → `Game.applyDaylight()` (`Environment.applyDaylight`, `NightLights.update`, `LifeSystem.setNight`, `daytime:changed` on a mode/phase change) → `Environment.update(animDelta, animElapsed)` → `PlacementFx.update(animDelta)` → frame-budget activity (camera glide, tweens) → render (the shadow scheduler decides whether the sun's map is redrawn, §Frame budget). With `setReducedMotion(true)`, `animDelta`/`animElapsed` are 0. With `setPausedForScreenshot(true)`, nothing updates but rendering continues.
 
 ## Grid
 - Plot `64 × 64` cells (`PLOT_WIDTH/DEPTH`), `CELL_SIZE = 0.5` world units per cell, centred on the origin, so the plot is 32 × 32 world units (2026-09-28; WP-12 had 48 × 48 cells = 24 × 24 units, v0.1 24 × 24 one-unit cells). World-space tunables were scaled with it: grid fade 30 → 75, title orbit 44, decor belt 60–120, night fog 13 / 225, framing side insets −42 desktop / −412 phone (same zoom as on 48 × 48, so the plot's side corners start just off-screen). Toy scale: 1 world unit ≈ 8 m, a cell ≈ 4 m. Cell `{x, z}` centre = `cellToWorld`; a footprint's centre = `footprintCentreWorld`; `worldToGridPoint` gives fractional grid coordinates.
@@ -299,7 +299,7 @@ The mobile triangle budget was raised from 250k to 320k with the 64 × 64 plot (
 
 The `sample-town` state uses every placing tool (40, WP-23) with zero rejections: stats homes 8, residents 25, amenities 7, trees 5, roadTiles 40, props 23, fences 28 (the zebra crossing is on the main street). `asset-gallery` places all 32 object kinds (the zebra on the north–south straight of mask 5; the WP-23 pieces on a third row) at rotation 0, every edge kind, the ground swatches and the 16 road masks. `stress-town` puts a mailbox and trees where its 50 garages stood.
 
-`window.__THREE_GAME_DIAGNOSTICS__` is typed in `src/vite-env.d.ts` and rebuilt every frame by `Game.publishDiagnostics`. Its fields:
+`window.__THREE_GAME_DIAGNOSTICS__` is typed in `src/vite-env.d.ts`. It is a getter (`Game.installDiagnostics`): every read builds a fresh snapshot of the current state (`Game.diagnostics()`), so rendered frames never pay for it. Its fields:
 
 | Field | Contents |
 | --- | --- |

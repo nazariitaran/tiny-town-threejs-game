@@ -44,7 +44,7 @@ If they're missing, re-create them from the methods described below.
 | --- | --- | --- |
 | lil-gui tuning panel | only with `?debug` | keep |
 | `__THREE_GAME_TEST_HOOKS__` | installed, inert until called | **keep in production** (see below) |
-| `__THREE_GAME_DIAGNOSTICS__` | rebuilt every frame (includes `save`, `fx`, `life`, `audio.music`) | keep, because tests read it. Follow-up: reuse one object instead of allocating per frame |
+| `__THREE_GAME_DIAGNOSTICS__` | a getter: built only when read (includes `save`, `fx`, `life`, `audio.music`); no per-frame cost since the post-v0.5 cleanup | keep, because tests read it |
 | Other diagnostics globals | none | The `__THREE_GAME_FX_DIAGNOSTICS__` / `__THREE_GAME_LIFE_DIAGNOSTICS__` shims were removed in `f06d012`; don't add new globals |
 | console output | none during load → build (0 logs) | keep it that way; `console.error` only on load failure, one `console.warn` per audio failure |
 | lil-gui code | bundled (≈ 30 kB min) even without `?debug` | follow-up: lazy-import it in `DebugTools` |
