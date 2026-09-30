@@ -8,6 +8,7 @@
  *
  * UI code never mutates game state directly; it emits intents and renders facts.
  */
+import type { GraphicsPreset } from './graphics';
 import type { SfxEvent } from '../audio/sfx';
 import type { ToolId } from '../catalog/tools';
 import type { Cell, Edge, Rotation, SavedTown, TownChange } from '../town/types';
@@ -51,6 +52,10 @@ export type GameEvents = {
   'intent:cycle-time-mode': void;
   /** HUD camera button / P key → game: photograph the town (WP-19; building phase only, opens the photo preview). */
   'intent:take-photo': void;
+  /** WP-25: Menu → Graphics picked a preset (saved; the live parts apply at once). */
+  'intent:set-graphics': { preset: GraphicsPreset };
+  /** WP-25: "Reload to apply" — flush the save and reload so antialias / material take effect. */
+  'intent:reload-graphics': void;
 
   // ---- facts (game → everyone) ----------------------------------------
   'phase:changed': { phase: GamePhase; previous: GamePhase };
@@ -84,6 +89,11 @@ export type GameEvents = {
   'audio:changed': { muted: boolean; volume: number };
   /** audio → UI: current music settings. */
   'music:changed': { enabled: boolean; volume: number };
+  /**
+   * WP-25: the graphics preset (at boot and after every change). `reloadRequired` = the page runs
+   * with a different antialias / material than `preset` wants (see graphics.ts needsReload).
+   */
+  'graphics:changed': { preset: GraphicsPreset; reloadRequired: boolean };
   /** Day/night (WP-16): emitted when the mode or the phase changes (and once at boot), never per frame. */
   'daytime:changed': { mode: TimeMode; phase: DayPhase };
 
