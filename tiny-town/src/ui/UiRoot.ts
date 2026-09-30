@@ -253,7 +253,7 @@ export class UiRoot {
       <section class="ui-screen ui-title" data-phase="title" aria-label="Title">
         <div class="ui-title-card">
           <h1 class="ui-mark ui-mark-big">${mark}</h1>
-          <p class="ui-tagline">Build your own cosy dream town.</p>
+          <p class="ui-tagline">Build your own cosy dream town</p>
         </div>
         <div class="ui-title-bottom">
           <div class="ui-title-actions">
