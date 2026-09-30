@@ -9,7 +9,7 @@ A cosy browser city-builder sandbox (three.js + TypeScript + Vite). Start here. 
   - WP-12: 48 × 48 grid of 0.5-unit cells, roads in 2 × 2 blocks, multi-cell houses, save v2 with migration. (The plot is **64 × 64** cells since 2026-09-28; see `docs/design/03-architecture.md` §Grid.)
   - WP-13: streamed background music.
   - WP-14: stats pill removed; the top bar is one row.
-- **v0.3, part 1: WP-15 "New building blocks & categories"**, merged on `main` (`ea54bb5`).
+- **v0.3, part 1: WP-15 "New building blocks & categories"**, merged on `main` (`2e4604f`).
   - Five dock categories: Streets / Homes / Town / Nature / Garden (Shift+1–5); 33 placing tools plus Bulldoze (34 with the Zebra crossing, 2026-09-28: a road marking drawn by the road tile under it; see `03-architecture.md` §Grid).
   - New items, among them the roundabout (a block-aligned "road feature" object), traffic lights, more homes, town buildings and garden items.
   - Renamed ids (`oak`, `pine`, `birch`, `cottage`, `townhouse`, `family-home`, `fence-low`); tool icons are `public/assets/icons/tool-<id>.png`.
@@ -50,7 +50,7 @@ Skills live in `../.claude/skills/`. Load them when your WP says so: `threejs-ga
 ## Commands
 ```bash
 npm run dev            # http://127.0.0.1:5188  (add ?debug for the lil-gui tuning panels)
-npm run verify         # typecheck + unit tests + production build  ← must pass before hand-off
+npm run verify         # local-path check + typecheck + unit tests + production build  ← must pass before hand-off
 npm run typecheck      # tsc --noEmit
 npm run test:unit      # vitest, src/**/*.test.ts (pure logic, Node)
 npm run test:e2e       # playwright, tests/*.spec.ts, desktop-chrome + mobile-chrome (starts its own dev server)
@@ -69,7 +69,7 @@ node scripts/compose-models.mjs              # rebuild public/assets/models/comp
 - Browser checks (Playwright, `inspect:canvas`, `render-icons`) need a session where Chromium can launch. Inside a nono sandbox Chromium segfaults. If that happens, say so in your hand-off; don't skip the check.
 - **Ports.** The dev server, Playwright, the canvas inspector and `render-icons` all honour the `PORT` env var (default 5188, strict). `vite preview` uses `PORT − 1000`. Parallel agents each use their assigned port: `PORT=5203 npm run dev`, `PORT=5203 npm run test:e2e`, `PORT=5203 npm run inspect:canvas -- ...`. Never kill a dev server you didn't start.
 - **Worktrees.** `node_modules/`, `assets-src/` and `artifacts/` are gitignored, so none of them exist in a fresh worktree.
-  - Run `npm install --cache <repo-parent>/ThreeJsGames/.npm-cache`.
+  - Run `npm install --cache "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.npm-cache"`. It resolves to the main checkout's shared cache from any worktree.
   - Read raw assets from the main checkout's `tiny-town/assets-src/` by absolute path.
   - Evidence under `artifacts/` is local only. **Copy `artifacts/<wp>/` into the main checkout before `git worktree remove --force`, which deletes it.** WP-07's audio recording was lost this way.
 

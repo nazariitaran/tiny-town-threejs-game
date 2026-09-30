@@ -25,7 +25,7 @@
 - **Model scale:** use a uniform scale, so a building fills its new lot like today with the same "front yard" feel. That is roughly ×(new/old) on the depth axis: 3 → 4 gives ×1.33, and 2 → 3 wide keeps the depth ratio. Re-tune the z-offset nudge that leaves a front yard. The final numbers are the WP's call, judged in screenshots.
 - **Save format → v4, no migration.** Old saves with smaller footprints would overlap and be rejected by `parseSave` anyway. This follows the owner's v0.3 rule of no backward compatibility: a v3 save starts a fresh town. `SAVE_MIGRATIONS` stays empty.
 
-## Work split (integration branch `building-sizes`, from `main` `29c782b`)
+## Work split (integration branch `building-sizes`, from `main` `3e8c240`)
 - **Integrator contract commit (done):** removed `glow` from `supermarket` and `church` in `catalog/models.ts`. The corner shop never glowed.
 - **Wave 1, in parallel:**
 

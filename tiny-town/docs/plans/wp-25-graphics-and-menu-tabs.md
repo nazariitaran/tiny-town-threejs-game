@@ -3,7 +3,7 @@
 **Status:** the approved plan (owner request 2026-09-30), built on top of WP-24 on the branch `wp-24-frame-budget`. This file is the plan, not the as-built record: that goes in `docs/progress.md`.
 
 **Inputs:**
-- The owner's assessment, `~/Desktop/tiny-town-graphics-settings/REPORT.md` (measured 2026-09-27 at `5797105`, before WP-12/WP-24).
+- The owner's assessment, `~/Desktop/tiny-town-graphics-settings/REPORT.md` (measured 2026-09-27 at `e34a534`, before WP-12/WP-24).
 - The WP-24 performance report, `~/Desktop/tiny-town-performance/REPORT.md`.
 
 ## 1. What changed since the assessment

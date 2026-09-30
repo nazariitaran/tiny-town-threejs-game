@@ -3,7 +3,7 @@
 Only the integrator (WP-01) edits this file. Workers report in their hand-off. This is the recovery point: after any interruption, re-read it together with `docs/HANDOVER.md`.
 
 ## Current state (2026-09-30)
-- **Version: v0.5 cut on `main`** (2026-09-30, package 0.5.0; the owner tagged `v0.5` on the WP-24 + WP-25 merge `e45f664`; not deployed). v0.5 = everything after `v0.4`. Player-facing notes: `CHANGELOG.md`.
+- **Version: v0.5 cut on `main`** (2026-09-30, package 0.5.0; the owner tagged `v0.5` on the WP-24 + WP-25 merge `b1395e1`; not deployed). v0.5 = everything after `v0.4`. Player-facing notes: `CHANGELOG.md`.
   - **WP-20**: name your town;
   - **WP-21**: download and open a town file;
   - **WP-22**: birds over the town;
@@ -11,25 +11,25 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
   - **WP-24**: frame budget (60 / 30 fps caps, sun shadow map on demand, car shadows 30 Hz);
   - **WP-25**: graphics presets Low / Medium / High (Low render scale on DPR-1 screens) and the tabbed menu.
   - Save format unchanged (v4), so v0.4 saves and town files open as they are.
-  - Gates on `main` at `e45f664` (package 0.5.0): `npm run verify` green (30 files, 529 unit tests, build OK); e2e against the production preview: 198 tests, 176 passed, 22 skipped by design, 0 failed. Production-preview measurements and release checks: `docs/release.md` (v0.5 column).
+  - Gates on `main` at `b1395e1` (package 0.5.0): `npm run verify` green (30 files, 529 unit tests, build OK); e2e against the production preview: 198 tests, 176 passed, 22 skipped by design, 0 failed. Production-preview measurements and release checks: `docs/release.md` (v0.5 column).
   - **Open at release:** the mobile triangle budget on Medium (WP-25 owner decision, below). The v0.5 preview measured 328.3k on the stress town (Pixel 7 emulation, 412 × 915).
 - **v0.4** (2026-09-28, package 0.4.0, tag `v0.4`). v0.4 = everything after `v0.3`:
   - **WP-17**: bigger homes and town buildings, smaller swing, only homes glow at night, save v4;
-  - **the 64 × 64 plot** (`545c86c`), with the night-grid colours, plain junction centre lines, the Zebra crossing tool and right-click deselect;
+  - **the 64 × 64 plot** (`c5440ff`), with the night-grid colours, plain junction centre lines, the Zebra crossing tool and right-click deselect;
   - **WP-18**: music resumes where it left off;
   - **tall trees**: taller pine, big 2 × 2 oak;
   - **WP-19**: the town photo.
-  - Gates on `main` after the WP-19 merge (`0b83a88`): `npm run verify` green (23 files, 442 unit tests, build OK); `npm run test:e2e` 134 tests, 116 passed, 18 skipped by design, 0 failed (7.5 min). Production-preview measurements and release checks: `docs/release.md` (v0.4 column).
-- **v0.3** (tag `v0.3`). v0.3 = WP-15 (new building blocks, `ea54bb5`) + WP-16 (day/night, integration branch `v0.3-day-night`, owner-approved and merged into `main` 2026-09-27). v0.2's integration commit is `30fe85b`.
-- **v0.1** is the M3 "v1" build at `3f9c6cf`. v0.2 adds three owner requests on top:
+  - Gates on `main` after the WP-19 merge (`f72a8bd`): `npm run verify` green (23 files, 442 unit tests, build OK); `npm run test:e2e` 134 tests, 116 passed, 18 skipped by design, 0 failed (7.5 min). Production-preview measurements and release checks: `docs/release.md` (v0.4 column).
+- **v0.3** (tag `v0.3`). v0.3 = WP-15 (new building blocks, `2e4604f`) + WP-16 (day/night, integration branch `v0.3-day-night`, owner-approved and merged into `main` 2026-09-27). v0.2's integration commit is `4ee0741`.
+- **v0.1** is the M3 "v1" build at `e955d5d`. v0.2 adds three owner requests on top:
   - **WP-12**: 48 × 48 grid of 0.5-unit cells, roads as 2 × 2 blocks, multi-cell houses, save v2 with a v1 → v2 migration.
   - **WP-13**: streamed background music with settings.
   - **WP-14**: the stats pill is gone; the top bar is one row.
 - **Gates on `main` (2026-09-27):**
   - `npm run verify` is green: 19 test files, 294 unit tests, build OK.
   - `npm run test:e2e`: 82 tests, of which 70 pass and 12 are skipped by design (desktop-only or mobile-only).
-  - The 6 visual baselines (darwin) were regenerated after WP-12 (`30fe85b`).
-- **WP-15 gates on `main` (`ea54bb5`, 2026-09-27 WP-16 preflight):**
+  - The 6 visual baselines (darwin) were regenerated after WP-12 (`4ee0741`).
+- **WP-15 gates on `main` (`2e4604f`, 2026-09-27 WP-16 preflight):**
   - `npm run verify` is green: 18 files, 336 unit tests, build OK.
   - `npm run test:e2e`: 70 passed, 12 skipped, 4 failed in one full run (19 min). The failures were browser-launch/test timeouts, texture-load errors under load, and a music-time check. All 4 passed when re-run in isolation (twice).
 - **WP-16 day/night is complete:** the owner approved it on 2026-09-27 and `v0.3-day-night` is merged into `main`. See "WP-16 as built" below.
@@ -37,10 +37,10 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
   - Worktrees `wp-16a/b/c` removed after their evidence was copied to `artifacts/wp-16a/`, `wp-16b/`, `wp-16c/`.
 - **WP-17 is merged into `main`** (owner-approved; integration branch `building-sizes`; part of v0.4): bigger buildings, smaller swing, dark shops at night. See "WP-17 as built".
 - **Tall trees are merged into `main`** (owner-approved, no version tag; built on the branch `tall-trees`): pine ×2 taller (still 1 × 1), birch unchanged, and the oak now a big 2 × 2 tree at natural proportions (fixed per species, no player control). See "Tall trees as built".
-- **WP-19 Town photo is merged into `main`** (owner-approved 2026-09-28, after two amendments; built on the branch `wp-19-photo`, branched from `691dfd8`): a top-bar camera / `P` saves the current view as a Polaroid JPEG, via a preview with Download. See "WP-19 as built".
-- **WP-20 Name your town is merged into `main`** (owner-approved 2026-09-29 after one amendment: no note under the dialog heading; built on the branch `wp-20-town-name` from `ac820b8`); part of v0.5. See "WP-20 as built".
-- **WP-21 Town file is merged into `main`** (owner-approved 2026-09-29 with all planning decisions, including the save-format migration promise; built on the branch `wp-21-town-file` from `c7e9a40`; part of v0.5). See "WP-21 as built".
-- **WP-23 New build items is merged into `main`** (owner-approved 2026-09-29; built on the branch `wp-23-new-items` from `d119d54`, with `main` merged in after WP-22): 7 new tools (the gate was removed at review), the garage removed, up to 12 tools per category; part of v0.5. See "WP-23 as built".
+- **WP-19 Town photo is merged into `main`** (owner-approved 2026-09-28, after two amendments; built on the branch `wp-19-photo`, branched from `abae251`): a top-bar camera / `P` saves the current view as a Polaroid JPEG, via a preview with Download. See "WP-19 as built".
+- **WP-20 Name your town is merged into `main`** (owner-approved 2026-09-29 after one amendment: no note under the dialog heading; built on the branch `wp-20-town-name` from `eaef139`); part of v0.5. See "WP-20 as built".
+- **WP-21 Town file is merged into `main`** (owner-approved 2026-09-29 with all planning decisions, including the save-format migration promise; built on the branch `wp-21-town-file` from `aab1865`; part of v0.5). See "WP-21 as built".
+- **WP-23 New build items is merged into `main`** (owner-approved 2026-09-29; built on the branch `wp-23-new-items` from `493635d`, with `main` merged in after WP-22): 7 new tools (the gate was removed at review), the garage removed, up to 12 tools per category; part of v0.5. See "WP-23 as built".
 - **WP-24 Frame budget and WP-25 Graphics settings + tabbed menu are merged on `main`** (owner-approved 2026-09-30; built on the branch `wp-24-frame-budget`; part of v0.5). WP-25 leaves one open owner decision: the mobile triangle budget (324k on Medium vs 320k). See "WP-25 as built" and "WP-24 as built".
 - **Where current facts live:**
   - grid, rules, save, modules, diagnostics and budgets: `docs/design/03-architecture.md`;
@@ -53,48 +53,48 @@ The SHA is the merge commit on `main`; the WP's own commit is in brackets. Every
 
 | WP | Title | Status | Merge (commit) | Notes |
 | --- | --- | --- | --- | --- |
-| Wave 0 | Scaffold | ✅ | `3c3abd1`, `9a4e084` | walking skeleton, contracts, assets, swarm docs, PORT env |
-| M0 | Preflight | ✅ | `bf77054` | first real-browser run: verify, e2e, inspector m0; no blockers |
-| WP-02 | Town logic & persistence | ✅ | `43f59e4` (`13479ad`) | rule table, History cap 200, serialize/parseSave, SaveStore, silent applyBatch |
-| WP-03 | Rendering | ✅ | `1c3e9d2`; fix1 `4db704c`; fix2 `bf206eb` (`7ef0d3d`) | instanced pools, pop-in, road tiles; fix2 re-rendered the tool icons in-game (`scripts/render-icons.mjs`) |
-| WP-04 | World & look | ✅ | `9d2ec05`; fix1 `e3ff916` | sky, light, diorama terrain, decor ring, shader grid, hedgerow frame |
-| WP-05 | Interaction | ✅ | `025d271`; fix-ups `161a498`, `4a633c9`, `c5a6ce9`, `0c00b69` | camera, tools, ghost, touch; aspect-aware framing (`framing.ts`); visible valid ghost |
-| WP-06 | UI | ✅ | `8541064`; fix1 `9f7e769`; fix2 `923ed19` | dock, top bar, overlays, mobile; fix2 made the hint centring transform-free so CSS minify could return |
-| WP-07 | Audio polish | ✅ | `4f96d99`; fix-ups `bd6eeba`, `f948df8` | SFX rebuilt, metal prop clink, stroke pitch rise; shims removed |
-| WP-08 | Feel & VFX | ✅ | `3702808`; fix1 `f10f881` | pooled dust/sparkle/poof, wind sway; fix1 soft billboard dust, ≤ 3 FX draw calls |
-| WP-09a | QA harness | ✅ | `b2d3124` | smoke + real-input build-flow specs, `tests/helpers.ts` |
-| WP-09b | Baselines + bot | ✅ | `52ef019`, `13c7810` | seeded bot playtest; 6 darwin baselines; a missing baseline fails |
-| WP-10 | Ambient life | ✅ | `5cc59ba`; wired `142cd95` | ≤ 6 cars (BatchedMesh, +1 main +1 shadow call); dusk toggle not built |
-| WP-11 | Release | ✅ | `2c7e2e9` | relative base, hidden sourcemaps, test-hook policy, measured budgets (`docs/release.md`) |
-| M1 / M2 / M3 | Checkpoints | ✅ | `66ff92c` / `cc915cb` / `3f9c6cf` | `docs/checkpoints/m1.md`, `m2.md`, `m3.md` (historical) |
-| WP-14 | Remove stats pill | ✅ | `d0aa182` (`8d91b1b`) | `StatsHud` deleted; one-row top bar (48 px row desktop / 52 px phones); hint 10 px under it |
-| WP-13 | Background music | ✅ | `1fab73f` (`e76d1a8`) | `src/audio/MusicPlayer.ts`; streamed after Start; music on/off + volume; −3 dB menu duck |
-| WP-12 | Scale & grid density | ✅ | `fbbef2a` (plan `2f6446d`, docs `cf4123b`) | see "WP-12 as built" below |
-| WP-15 | New building blocks & categories (v0.3) | ✅ | `ea54bb5` (`27add32`) | see "WP-15 as built" below |
-| WP-18 | Music resumes where it left off | ✅ merged to `main` (owner-approved 2026-09-28) | `40822f8` (`98c7ca8`) | `src/audio/musicPosition.ts`; saved on hide / `pagehide` / every 15 s; seek on `loadedmetadata`; 5 s end guard |
-| WP-19 | Town photo | ✅ merged to `main` (owner-approved 2026-09-28) | merge on `main` (`c62376e`, `841536f`, `0c35597`, `92435c1`) | `src/photo/**`; camera button / `P` → menu phase → one frame at long edge 2400 px → Polaroid JPEG → preview (Download) |
-| WP-24 | Frame budget (performance) | ✅ merged to `main` (owner-approved 2026-09-30) | merge on `main` (`6125399`; branch `wp-24-frame-budget`) | 60 fps active / 30 fps idle cap (`core/FrameBudget.ts`), sun shadow map on demand (`render/ShadowScheduler.ts`; cars 30 Hz (15 until `ef1164f`), birds 30 Hz), desktop DPR 2 → 1.5, `town:stats` removed; diagnostics `perf` |
-| WP-25 | Graphics settings (Low / Medium / High) and a tabbed menu | ✅ merged to `main` (owner-approved 2026-09-30) | merge on `main` (via `wp-24-frame-budget`: 25b `19508fd`, 25a `f470eab`, 25c `7ef8ed4`; render scale `15bbf0a`) | `game/graphics.ts` presets (Medium default everywhere), Lambert + no MSAA on Low (reload), live DPR / shadows / decor / sky / fps / halos, saved setting, `?graphics=`; menu tabs Town · Graphics · Sound · Help; diagnostics `graphics`; mobile baselines re-captured. **Open:** mobile triangles 324k vs 320k |
-| WP-22 | Birds over the town | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`a5b42bf`) | `src/life/FlockSim.ts` (pure) + `BirdSystem.ts`; a flock every 45–110 s (none at night), 4 species, procedural 18-tri bird, flapping shadows; `spawnFlock` hook, `?debug&flock=N` |
-| WP-23 | New build items, garage removed | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`7fd5b9f`; review amendment on the branch) | 7 new tools (mailbox, tiered fountain, donut shop, tulips, long bench, table, slide; the gate was removed at review), garage removed, pool moved to Garden, ≤ 12 tools per category (digits for the first nine), Nature Kit material fix |
-| WP-21 | Download and open a town file | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`941988c`) | `src/persistence/townFile.ts`; top-bar folder (> 440 px) / Menu → Town file (phones) / title link; `.tinytown.json`; confirm before replacing; saved at once |
-| WP-20 | Name your town | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`be8c752` + amendment) | `src/town/townName.ts`; name dialog before every new town, rename from the top-left pill / menu; saved in `SavedTownV4.name`; photo caption + file name; three.js vendor chunk |
-| WP-16 | Day/night cycle (v0.3) | ✅ merged to `main` (owner-approved) | contract `7aefe67`, `af576a1`; 16a `42f0590` (`a4965c9`); 16b `a849f35` (`d6f97e3`); 16c `1a0c360` (`eb2c2d8`) | see "WP-16 as built" below |
+| Wave 0 | Scaffold | ✅ | `3c3abd1`, `d48d4db` | walking skeleton, contracts, assets, swarm docs, PORT env |
+| M0 | Preflight | ✅ | `59af3fa` | first real-browser run: verify, e2e, inspector m0; no blockers |
+| WP-02 | Town logic & persistence | ✅ | `dbc7626` (`0bb5e21`) | rule table, History cap 200, serialize/parseSave, SaveStore, silent applyBatch |
+| WP-03 | Rendering | ✅ | `26b7ec1`; fix1 `e687a8d`; fix2 `0227d8c` (`10ee895`) | instanced pools, pop-in, road tiles; fix2 re-rendered the tool icons in-game (`scripts/render-icons.mjs`) |
+| WP-04 | World & look | ✅ | `7684585`; fix1 `3e7afe1` | sky, light, diorama terrain, decor ring, shader grid, hedgerow frame |
+| WP-05 | Interaction | ✅ | `8f5f3ee`; fix-ups `966e94c`, `ae7561d`, `33361f9`, `944b05e` | camera, tools, ghost, touch; aspect-aware framing (`framing.ts`); visible valid ghost |
+| WP-06 | UI | ✅ | `d7522e4`; fix1 `dd052d0`; fix2 `59c4807` | dock, top bar, overlays, mobile; fix2 made the hint centring transform-free so CSS minify could return |
+| WP-07 | Audio polish | ✅ | `32edaf5`; fix-ups `be2cffd`, `aa40403` | SFX rebuilt, metal prop clink, stroke pitch rise; shims removed |
+| WP-08 | Feel & VFX | ✅ | `8c5676d`; fix1 `2c502d7` | pooled dust/sparkle/poof, wind sway; fix1 soft billboard dust, ≤ 3 FX draw calls |
+| WP-09a | QA harness | ✅ | `5ff633f` | smoke + real-input build-flow specs, `tests/helpers.ts` |
+| WP-09b | Baselines + bot | ✅ | `f797a58`, `4671877` | seeded bot playtest; 6 darwin baselines; a missing baseline fails |
+| WP-10 | Ambient life | ✅ | `0dccaf8`; wired `69e0f53` | ≤ 6 cars (BatchedMesh, +1 main +1 shadow call); dusk toggle not built |
+| WP-11 | Release | ✅ | `d03ece2` | relative base, hidden sourcemaps, test-hook policy, measured budgets (`docs/release.md`) |
+| M1 / M2 / M3 | Checkpoints | ✅ | `7804563` / `cf6f000` / `e955d5d` | `docs/checkpoints/m1.md`, `m2.md`, `m3.md` (historical) |
+| WP-14 | Remove stats pill | ✅ | `88c78f6` (`9ebe044`) | `StatsHud` deleted; one-row top bar (48 px row desktop / 52 px phones); hint 10 px under it |
+| WP-13 | Background music | ✅ | `b60fd56` (`7802976`) | `src/audio/MusicPlayer.ts`; streamed after Start; music on/off + volume; −3 dB menu duck |
+| WP-12 | Scale & grid density | ✅ | `d4b3058` (plan `3fffe7e`, docs `176e3dd`) | see "WP-12 as built" below |
+| WP-15 | New building blocks & categories (v0.3) | ✅ | `2e4604f` (`cac4433`) | see "WP-15 as built" below |
+| WP-18 | Music resumes where it left off | ✅ merged to `main` (owner-approved 2026-09-28) | `b31f8f6` (`b6752da`) | `src/audio/musicPosition.ts`; saved on hide / `pagehide` / every 15 s; seek on `loadedmetadata`; 5 s end guard |
+| WP-19 | Town photo | ✅ merged to `main` (owner-approved 2026-09-28) | merge on `main` (`87caaa6`, `e9178e8`, `72a79d6`, `ec65d3c`) | `src/photo/**`; camera button / `P` → menu phase → one frame at long edge 2400 px → Polaroid JPEG → preview (Download) |
+| WP-24 | Frame budget (performance) | ✅ merged to `main` (owner-approved 2026-09-30) | merge on `main` (`e11081b`; branch `wp-24-frame-budget`) | 60 fps active / 30 fps idle cap (`core/FrameBudget.ts`), sun shadow map on demand (`render/ShadowScheduler.ts`; cars 30 Hz (15 until `8888da3`), birds 30 Hz), desktop DPR 2 → 1.5, `town:stats` removed; diagnostics `perf` |
+| WP-25 | Graphics settings (Low / Medium / High) and a tabbed menu | ✅ merged to `main` (owner-approved 2026-09-30) | merge on `main` (via `wp-24-frame-budget`: 25b `97918fb`, 25a `d5ad3ee`, 25c `7cb9c96`; render scale `7dd308d`) | `game/graphics.ts` presets (Medium default everywhere), Lambert + no MSAA on Low (reload), live DPR / shadows / decor / sky / fps / halos, saved setting, `?graphics=`; menu tabs Town · Graphics · Sound · Help; diagnostics `graphics`; mobile baselines re-captured. **Open:** mobile triangles 324k vs 320k |
+| WP-22 | Birds over the town | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`884a508`) | `src/life/FlockSim.ts` (pure) + `BirdSystem.ts`; a flock every 45–110 s (none at night), 4 species, procedural 18-tri bird, flapping shadows; `spawnFlock` hook, `?debug&flock=N` |
+| WP-23 | New build items, garage removed | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`86cdf11`; review amendment on the branch) | 7 new tools (mailbox, tiered fountain, donut shop, tulips, long bench, table, slide; the gate was removed at review), garage removed, pool moved to Garden, ≤ 12 tools per category (digits for the first nine), Nature Kit material fix |
+| WP-21 | Download and open a town file | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`a17c3d7`) | `src/persistence/townFile.ts`; top-bar folder (> 440 px) / Menu → Town file (phones) / title link; `.tinytown.json`; confirm before replacing; saved at once |
+| WP-20 | Name your town | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`691ec28` + amendment) | `src/town/townName.ts`; name dialog before every new town, rename from the top-left pill / menu; saved in `SavedTownV4.name`; photo caption + file name; three.js vendor chunk |
+| WP-16 | Day/night cycle (v0.3) | ✅ merged to `main` (owner-approved) | contract `6293a40`, `9d9b84b`; 16a `389cd21` (`e71d78e`); 16b `30cc649` (`743112c`); 16c `2fd1d7f` (`e9919d7`) | see "WP-16 as built" below |
 
 **Integrator (WP-01) commits worth knowing:**
 
 | Commit | Change |
 | --- | --- |
-| `8b07141` | Wave-1 contract requests + SaveStore wiring |
-| `d52bc36` | Dropped the `tests/*.template.ts` exclude; the templates are gone |
-| `13ed451` | Diagnostics `hover` carries `valid`/`reason` |
-| `2c7b5f8` | Diagnostics `fx` |
-| `142cd95` | Diagnostics `life` |
-| `bc1ae5b` | Removed the `__THREE_GAME_FX_DIAGNOSTICS__` / `__THREE_GAME_LIFE_DIAGNOSTICS__` shim globals |
-| `8f6db9d` | Inspector `--mobile` = the full 390 × 844 viewport |
-| `f813b04` | CSS minification back on |
-| `51d074d` | Baselines after WP-14; owner-supplied asset rule |
-| `30fe85b` | Post-WP-12 integration: `SavedTown` rename in SaveStore (the deprecated `SavedTownV1` alias removed), phone top inset 76, tool icons re-rendered, baselines regenerated |
+| `34e39c7` | Wave-1 contract requests + SaveStore wiring |
+| `f2778c3` | Dropped the `tests/*.template.ts` exclude; the templates are gone |
+| `577152c` | Diagnostics `hover` carries `valid`/`reason` |
+| `b3d3102` | Diagnostics `fx` |
+| `69e0f53` | Diagnostics `life` |
+| `f06d012` | Removed the `__THREE_GAME_FX_DIAGNOSTICS__` / `__THREE_GAME_LIFE_DIAGNOSTICS__` shim globals |
+| `c63886f` | Inspector `--mobile` = the full 390 × 844 viewport |
+| `1ece424` | CSS minification back on |
+| `18572ed` | Baselines after WP-14; owner-supplied asset rule |
+| `4ee0741` | Post-WP-12 integration: `SavedTown` rename in SaveStore (the deprecated `SavedTownV1` alias removed), phone top inset 76, tool icons re-rendered, baselines regenerated |
 
 ### WP-12 as built (vs `docs/plans/wp-12-scale.md`)
 The plan was approved and implemented. The as-built facts are in `03-architecture.md` §Grid / §Placement rules / §Save format and in `models.md` §Grid and scale. Where the build differs from the plan:
@@ -121,13 +121,13 @@ The plan was approved and implemented. The as-built facts are in `03-architectur
 - `IconStudio` frames cells and road blocks using `CELL_SIZE`. The integrator re-rendered the tool icons after the merge.
 
 **Timing**
-- WP-12 was merged after WP-13/14 (`9a8379f` merged main into the WP-12 branch).
+- WP-12 was merged after WP-13/14 (`0d0ef3e` merged main into the WP-12 branch).
 
 ### WP-25 as built (branch `wp-24-frame-budget`; vs `docs/plans/wp-25-graphics-and-menu-tabs.md`)
 - **Production preview (2026-09-30):** whole-GPU use on the stress town at an emulated 120 Hz goes from 59–73% on `main` to Medium 32–35% active / 18–20% idle, Low 10%, and High 42–45% / 24%. The full table and method are in `docs/release.md` §Budgets.
 - **Car shadows 15 → 30 Hz (2026-09-30, owner request):** at 15 Hz a moving car's shadow visibly lagged. Re-measured on the production preview: Medium 33–35% building / 20–21% idle (was 32–35% / 18–20%). `docs/release.md` §Budgets.
 - **1080p laptop (DPR 1, 2026-09-30):** Low now renders at 0.75 of the screen's density (`renderScale`; 1440 × 727 on 1080p) and is ~4× cheaper per frame than Medium on a software-GPU stand-in. Medium and High are identical on DPR-1 screens. Table: `docs/release.md` §Budgets.
-Owner request (2026-09-30), after the graphics-settings assessment (`~/Desktop/tiny-town-graphics-settings/REPORT.md`). Current facts: `03-architecture.md` §Graphics presets and `02-interaction-and-ui.md` §5.1 Menu tabs. Three parallel parts: **25a** the engine (branch `wp-25a-graphics`), **25b** the tabbed menu (`wp-25b-menu-tabs`), both merged into `wp-24-frame-budget` (`f470eab`), then **25c** integration and QA (`wp-25c-integration`).
+Owner request (2026-09-30), after the graphics-settings assessment (`~/Desktop/tiny-town-graphics-settings/REPORT.md`). Current facts: `03-architecture.md` §Graphics presets and `02-interaction-and-ui.md` §5.1 Menu tabs. Three parallel parts: **25a** the engine (branch `wp-25a-graphics`), **25b** the tabbed menu (`wp-25b-menu-tabs`), both merged into `wp-24-frame-budget` (`d5ad3ee`), then **25c** integration and QA (`wp-25c-integration`).
 - **Built:**
   - Presets Low / Medium / High (`src/game/graphics.ts`), **Medium the default on every device**. The hidden touch-screen tier (`QualityTier`, `MAX_DPR`, `Environment.setQuality`, the low-tier hemisphere boost and quarter decor ring) is gone, so phones now get the desktop look.
   - Boot parts (reload): MSAA from the boot preset (`createRenderer`), and the Lambert material on Low (`render/materials.ts` `toLambert`, applied in ModelLibrary, TownRenderer, terrain, cars, birds and the ghost; shader patches still apply; env lighting still lights Lambert).
@@ -176,7 +176,7 @@ Owner report (2026-09-29): the frame rate drops and the fans spin up after build
   Architecture: §Frame budget.
 - **Measured** (stress town, whole-machine GPU utilisation from `ioreg`, full Chromium on the real GPU, M2 Max, 1512 × 982 viewport at DPR 2, Auto clock running, emulated display rate):
 
-  | display | `main` (`f37725d`) | WP-24 interacting (60 fps) | WP-24 idle (30 fps) |
+  | display | `main` (`6f0fe45`) | WP-24 interacting (60 fps) | WP-24 idle (30 fps) |
   | --- | --- | --- | --- |
   | 120 Hz | 66–74% | 33–36% | 18–19% |
   | 60 Hz | 47–50% | 32–36% | 19% |
@@ -287,7 +287,7 @@ Current facts: `03-architecture.md` §Town photo; UI in `02-interaction-and-ui.m
   - Pixel 7 emulation (412 × 915): ratio 2.62, JPEG 1188 × 2670, 290 KB, 78 ms;
   - the ghost test: the on-screen block difference with vs without a supermarket ghost is 120.7; between the two photos it is 0.00;
   - production preview (`vite preview`, 1280 × 720): 2536 × 1688, 355 KB, 71 ms; the lazy `PhotoFrame` chunk loads through the relative base.
-- **Bundle:** the main chunk went from 890.92 kB (`main`, `691dfd8`) to 900.11 kB, over the 900 kB warning limit. `PhotoFrame` is now loaded on the first photo (a 2.08 kB chunk), leaving the main chunk at **899.47 kB** (898.21 kB after the Share button was removed). It's under the limit, but with no headroom; most of the photo cost is UI markup, glyphs and CSS, which must be in the main chunk. **The next feature needs a split first**; the lazy `lil-gui` import (about 30 kB) is the known one.
+- **Bundle:** the main chunk went from 890.92 kB (`main`, `abae251`) to 900.11 kB, over the 900 kB warning limit. `PhotoFrame` is now loaded on the first photo (a 2.08 kB chunk), leaving the main chunk at **899.47 kB** (898.21 kB after the Share button was removed). It's under the limit, but with no headroom; most of the photo cost is UI markup, glyphs and CSS, which must be in the main chunk. **The next feature needs a split first**; the lazy `lil-gui` import (about 30 kB) is the known one.
 - **Gates** (branch, 2026-09-28):
   - `npm run verify` green: 23 files, 440 unit tests, build OK.
   - `npm run test:e2e`: 134 tests, 116 passed, 18 skipped by design, 0 failed (7.9 min). That run predates the lazy import; after it, `tests/photo.spec.ts` was re-run: 6 passed, 4 skipped. Earlier, `--repeat-each=3` gave 18 / 18.
@@ -296,7 +296,7 @@ Current facts: `03-architecture.md` §Town photo; UI in `02-interaction-and-ui.m
 - **Not verified here:** what Download does on a real iPhone (Files) and Android phone, and long-press "Save to Photos" on the iOS preview, need a device check.
 
 ### WP-17 as built (branch `building-sizes`; vs `docs/plans/wp-17-building-sizes.md`)
-- **Merges:** plan + contract `3a950d1` → 17b (shop lights) → 17a (scale & layouts) → 17c (QA).
+- **Merges:** plan + contract `b53ab04` → 17b (shop lights) → 17a (scale & layouts) → 17c (QA).
 - **Footprints:**
   - cottage / bungalow / family home / suburban: 4×4;
   - townhouse: 3×4;
@@ -328,7 +328,7 @@ Current facts: `03-architecture.md` §Town photo; UI in `02-interaction-and-ui.m
 
 ### WP-16 as built (v0.3, branch `v0.3-day-night`; vs `docs/plans/wp-16-day-night.md`)
 Current facts: `03-architecture.md` §Day/night, `02-interaction-and-ui.md` (time button, `T`, grid at night, brand badge ≤ 440 px), `models.md` (cars face +Z).
-- **Merges** (integration branch): contract `7aefe67` + `af576a1` → 16a `42f0590` → church glow `9348eaf` → reduced-motion snap `2224422` → 16b a849f35 → 16c 1a0c360.
+- **Merges** (integration branch): contract `6293a40` + `9d9b84b` → 16a `389cd21` → church glow `a318b97` → reduced-motion snap `fedbb74` → 16b 30cc649 → 16c 2fd1d7f.
 - **Deviations from the plan:**
   - **16a night keyframe:** moon `#8aa2ff` ×0.95, hemisphere `#3c54b4`/`#1c2444` ×0.85, fog `#22325a`, env **0**; plus night fog near/far blending to 10/170. The plan's values read teal and too flat.
   - **16a other keyframes:** midday key ×3.1; extra keyframes at pre-dawn, sunrise, sunset and blue hour.
@@ -397,7 +397,7 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
   - `sourcemap: 'hidden'` (don't deploy `*.map`);
   - test hooks **stay in production** but must have no side effects on install (policy in `docs/release.md`);
   - diagnostics shim globals removed.
-- 2026-09-26 — **CSS minify**: WP-11 turned it off because lightningcss drops `translate:` next to `transform:`. WP-06 fix2 removed that combination from `.ui-hint`, and it was turned back **on** in `f813b04`. Rule: never combine `translate:` and `transform:` in one CSS rule.
+- 2026-09-26 — **CSS minify**: WP-11 turned it off because lightningcss drops `translate:` next to `transform:`. WP-06 fix2 removed that combination from `.ui-hint`, and it was turned back **on** in `1ece424`. Rule: never combine `translate:` and `transform:` in one CSS rule.
 - 2026-09-26 (process) — Copy `artifacts/<wp>/` into the main checkout **before** `git worktree remove --force`. Removing the wp-07 worktree deleted its gitignored audio recording (`playtest-audio.wav`), which can't be recovered.
 - 2026-09-27 (v0.2) — **Grid 48 × 48 at `CELL_SIZE` 0.5**. The plot stays 24 × 24 world units, so camera, terrain, decor ring and budgets stay valid. Toy scale: 1 unit ≈ 8 m.
 - 2026-09-27 — **Roads are aligned 2 × 2 blocks.** One Kenney tile covers a block, and a block is all road or no road. Cars drive on the 24 × 24 block grid, and `stats.roadTiles` counts blocks.
@@ -464,7 +464,7 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
 - `tests/helpers.ts` imports `UI_TEST_IDS` via `src/ui/UiRoot.ts` in Node. `UiRoot.ts` must stay free of CSS and asset side effects; the ids live in `src/ui/testIds.ts`.
 
 **Stale code comments** (owners, when they next touch these files)
-- The `events.ts`, `UiRoot.ts` and `types.ts` comments listed here before were fixed in `0e760b5`.
+- The `events.ts`, `UiRoot.ts` and `types.ts` comments listed here before were fixed in `d78186f`.
 
 **v0.3 before release**
 - Done 2026-09-27: production-preview measurements (all budgets met) and `package.json` 0.3.0.

@@ -16,7 +16,7 @@ PORT=5188 npm run preview      # serves dist/ on PORT-1000 (4188) — test THIS,
 - **Sourcemaps.** `sourcemap: 'hidden'` writes `.map` files for debugging, but the JS has no `sourceMappingURL`, so browsers never fetch them. Don't deploy them.
 - **CSS minify is ON** (Vite's default lightningcss).
   - WP-11 turned it off because lightningcss 1.32 drops `translate:` when the same rule also sets `transform:`, which de-centred the hint pill in production only.
-  - WP-06 fix2 made `.ui-hint` transform-free, and minify was re-enabled in `f813b04`.
+  - WP-06 fix2 made `.ui-hint` transform-free, and minify was re-enabled in `1ece424`.
   - **Rule:** never combine `translate:` and `transform:` in one CSS rule. Run the visual baselines against the preview after CSS changes.
 - **Music.** `dist/assets/music/foundation-of-gold.mp3` (4.68 MB) ships with the build.
   - It is **not** part of the initial download: an `<audio>` element streams it, and its `src` is set on the first Start/Continue.
@@ -45,7 +45,7 @@ If they're missing, re-create them from the methods described below.
 | lil-gui tuning panel | only with `?debug` | keep |
 | `__THREE_GAME_TEST_HOOKS__` | installed, inert until called | **keep in production** (see below) |
 | `__THREE_GAME_DIAGNOSTICS__` | rebuilt every frame (includes `save`, `fx`, `life`, `audio.music`) | keep, because tests read it. Follow-up: reuse one object instead of allocating per frame |
-| Other diagnostics globals | none | The `__THREE_GAME_FX_DIAGNOSTICS__` / `__THREE_GAME_LIFE_DIAGNOSTICS__` shims were removed in `bc1ae5b`; don't add new globals |
+| Other diagnostics globals | none | The `__THREE_GAME_FX_DIAGNOSTICS__` / `__THREE_GAME_LIFE_DIAGNOSTICS__` shims were removed in `f06d012`; don't add new globals |
 | console output | none during load → build (0 logs) | keep it that way; `console.error` only on load failure, one `console.warn` per audio failure |
 | lil-gui code | bundled (≈ 30 kB min) even without `?debug` | follow-up: lazy-import it in `DebugTools` |
 
@@ -56,7 +56,7 @@ Test hooks stay in production because the canvas inspector, the e2e suite and th
 
 ## Budgets (targets in `docs/design/03-architecture.md`)
 Numbers are labelled with their version and source.
-- **v0.5 was measured on the production preview** on 2026-09-30, package version 0.5.0, at `e45f664` (the `v0.5` tag), with the WP-11 setup: `vite preview`, headless full Chromium, ANGLE Metal on an M2 Max; desktop 1280 × 720 at DPR 1, mobile Pixel 7 emulation 412 × 915 at DPR 2.625. Both are on **Medium**, the default on every device since WP-25, so the mobile column is no longer a cheaper tier. Evidence (local only): `artifacts/v05-release/` (`release-*.json`, `profile-*.json`, `frame-*.json`, `e2e-preview.txt` and the scripts).
+- **v0.5 was measured on the production preview** on 2026-09-30, package version 0.5.0, at `b1395e1` (the `v0.5` tag), with the WP-11 setup: `vite preview`, headless full Chromium, ANGLE Metal on an M2 Max; desktop 1280 × 720 at DPR 1, mobile Pixel 7 emulation 412 × 915 at DPR 2.625. Both are on **Medium**, the default on every device since WP-25, so the mobile column is no longer a cheaper tier. Evidence (local only): `artifacts/v05-release/` (`release-*.json`, `profile-*.json`, `frame-*.json`, `e2e-preview.txt` and the scripts).
   - **Frame time is measured differently from v0.5 on.** WP-24 caps the loop at 60 fps active / 30 fps idle by skipping rAF callbacks, so `profile.mjs`'s mean rAF interval with vsync off is now the browser's callback rate (~560 Hz), not a frame. `frame-cost.mjs` reports the rAF CPU time per **rendered** frame (diagnostics `frame`), the rendered fps and sun-shadow redraws per second, over 4 s idle and 4 s with the pointer moving. It is CPU time (update + render submit), not GPU time; the GPU side is in the WP-24 + WP-25 tables below.
   - **Triangles vary from frame to frame** by a few thousand since WP-24, because `renderer.info` counts the sun-shadow pass only on frames that redraw it. The rows give the range seen across runs.
 - **WP-25 (2026-09-30, not released): phones no longer get a cheaper look of their own.** Up to v0.4 the game guessed from the touch screen and gave phones a hidden cheaper tier (1024 shadow map, a quarter of the decor ring, no environment lighting); the "mobile" columns below were measured on it. Since WP-25 every device starts on the Medium preset (the desktop look), and the player can pick Low or High in Menu → Graphics (`03-architecture.md` §Graphics presets). Dev-server numbers per preset and the open mobile triangle question: `docs/progress.md` "WP-25 as built". The next release must re-measure the mobile column on Medium.
@@ -82,7 +82,7 @@ Numbers are labelled with their version and source.
 | Initial download before the title (network) | ≤ 8 MB | 3.14 MB over the network; 3.28 MB in `dist/` without maps | 3.29 MB in `dist/` without maps **and without the 4.68 MB music file**, which streams after Start. WP-13 measured on the dev server: 2.38 MB before Start with no music requests | **4.70 MB** over the network before the title (170 requests, 0.3–0.37 s to the title); 4.98 MB after Start with every dock category opened. The music streams after Start and is not counted. `dist/` without maps or music: 4.94 MB (models 3.59, JS/CSS/HTML 0.91, icons 0.26, fonts 0.14, SFX 0.05) | **4.78 MB** over the network before the title (177 requests, 0.33–0.39 s to the title); 5.06 MB after Start with every dock category opened. Music not counted (streams after Start). `dist/` without maps or music: 4.99 MB | **5.26 MB** over the network before the title (195 requests, 0.31–0.36 s to the title); 5.56 MB after Start with every dock category opened. Growth since v0.4: models +0.40 MB (8 more GLBs, WP-23), icons +0.05 MB, the town-name list 9 kB (WP-20). Music not counted. `dist/` without maps or music: 5.07 MB |
 | Main JS chunk | code-split if > 900 kB | 830 kB (221 kB gzip) → no split | 843 kB (225 kB gzip) → no split | **887 kB** (240 kB gzip) → no split yet, but only 13 kB under the threshold | **898.66 kB** (243.9 kB gzip) plus the lazy `PhotoFrame` chunk (2.08 kB) → no split yet, but only 1.3 kB under the threshold: **split before adding more** (lazy `lil-gui` ≈ 30 kB) | **298.3 kB** (94.0 kB gzip) + the `three` vendor chunk 641.7 kB (162.0 kB gzip; split in WP-20) + the lazy `PhotoFrame` 2.2 kB → far under the threshold |
 
-**WP-24 + WP-25 on the production preview (2026-09-30, branch `wp-24-frame-budget` at `7ef8ed4`, not released) vs `main` (`f37725d`, the v0.4 code plus WP-20–23).**
+**WP-24 + WP-25 on the production preview (2026-09-30, branch `wp-24-frame-budget` at `7cb9c96`, not released) vs `main` (`6f0fe45`, the v0.4 code plus WP-20–23).**
 - **Method:** `npm run build` + `vite preview` for each build.
   - Headless full Chromium on the real GPU (ANGLE Metal, M2 Max), viewport 1512 × 982 at DPR 2 (the owner's MacBook Pro 14"), vsync off.
   - rAF paced at 120 Hz to emulate a ProMotion display; stress town, the Auto clock running.
@@ -116,7 +116,7 @@ Numbers are labelled with their version and source.
   - While building that is within the noise; idle is about 1–3 points higher, because at 30 fps the car shadow now redraws every frame.
   - Raw results: `artifacts/wp-25/prod/gpu-branch-30hz.jsonl`.
 
-**The 1080p laptop case (2026-09-30, production preview, branch at `15bbf0a` vs `main` `f37725d`).**
+**The 1080p laptop case (2026-09-30, production preview, branch at `7dd308d` vs `main` `6f0fe45`).**
 - **Setup:** a 1920 × 970 viewport at DPR 1 (a 1920 × 1080 screen at 100% scaling), a 60 Hz display emulated.
 - **Two GPUs:**
   - the M2 Max, which confirms the canvas sizes and the caps;

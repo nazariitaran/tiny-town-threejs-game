@@ -1,6 +1,6 @@
 # WP-20 — Name your town (plan, 2026-09-29)
 
-> **Approved plan, implemented and merged into `main`** (owner-approved 2026-09-29; built on the branch `wp-20-town-name` from `ac820b8`). This is the plan, not the as-built record. No version label (owner: "no version number for now"). As-built facts go to `03-architecture.md`, `02-interaction-and-ui.md` and `progress.md` ("WP-20 as built").
+> **Approved plan, implemented and merged into `main`** (owner-approved 2026-09-29; built on the branch `wp-20-town-name` from `eaef139`). This is the plan, not the as-built record. No version label (owner: "no version number for now"). As-built facts go to `03-architecture.md`, `02-interaction-and-ui.md` and `progress.md` ("WP-20 as built").
 
 ## Owner request (2026-09-29)
 > As a user, I want to be able to name my town, so I can feel more personal connection to it.

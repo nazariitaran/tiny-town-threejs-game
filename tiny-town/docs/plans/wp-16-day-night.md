@@ -18,7 +18,7 @@ The town cycles between day and night. At night the town answers: windows light 
 5. **Saving:** the time of day is **not saved**. Auto mode always starts in the morning. The chosen mode (`timeMode`) is a setting and persists.
 
 ## Revision after WP-15 merged (integrator, 2026-09-27)
-The first draft was measured while WP-15 was still uncommitted. Since WP-15 merged (`ea54bb5`), the assets were re-measured from UVs in Node. This revision changes the draft as follows:
+The first draft was measured while WP-15 was still uncommitted. Since WP-15 merged (`2e4604f`), the assets were re-measured from UVs in Node. This revision changes the draft as follows:
 - **Atlas grid is 16 × 4, not 8 × 4.** Every Kenney atlas here is 512 × 512 in cells of 32 × 128 px, and columns 2k/2k+1 are usually a light/dark pair. Masks are therefore **16 × 4** `DataTexture`s, and every cell index below is in 16-column terms.
 - **Traffic lenses do not glow by day.** The sample town has 2 traffic lights and the asset gallery has 1, so a daytime glow would break the "existing baselines unchanged" rule. Lens glow scales with `night` only.
 - **The top-bar time button changes 4 baselines.** It sits in the building-phase top bar, so it changes the `sample-town` and `asset-gallery` baselines (desktop and mobile).
@@ -31,7 +31,7 @@ The first draft was measured while WP-15 was still uncommitted. Since WP-15 merg
 - **The integrator's contract commit is complete and compiles.** It adds working stubs, so the branch runs and looks exactly like v0.3 before any worker merges. It also takes the `timeMode` setting (SaveStore + test) and the `T` key (`ToolController`) off the workers' plates.
 - **The clock runs only while building** (frozen on the title screen, in the menu and under reduced motion). **Test hooks apply the look at once**, even while paused for a screenshot.
 
-## Why this design (facts measured 2026-09-27 on `ea54bb5`)
+## Why this design (facts measured 2026-09-27 on `2e4604f`)
 - **The build camera looks steeply down**, so players rarely see the sky; it mainly shows on the title screen. Night has to read from ground lighting, fog colour and light sources. Pools of lamplight on the ground carry most of the mood at the default zoom.
 - **Kenney atlases:** 512 × 512, **16 columns × 4 rows** of 32 × 128 px cells, each a vertical 2-tone gradient. Suburban and commercial leave row 0 empty; roads, industrial and cars use it. The same cell index means different colours in different kits.
 

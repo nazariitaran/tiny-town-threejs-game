@@ -11,7 +11,7 @@
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
     "test": "vitest run && playwright test",
-    "verify": "npm run typecheck && npm run test:unit && npm run build",
+    "verify": "node scripts/check-no-local-paths.mjs && npm run typecheck && npm run test:unit && npm run build",
     "verify:visual": "playwright test tests/visual.spec.ts",
     "inspect:canvas": "node scripts/inspect-threejs-canvas.mjs",
     "inspect:models": "node scripts/inspect-models.mjs",

@@ -325,7 +325,7 @@ The `sample-town` state uses every placing tool (40, WP-23) with zero rejections
 | `renderer` | three.js calls, triangles, geometries, textures; the canvas inspector reads this |
 | `canvas` | |
 
-There are no other diagnostics globals; the `__THREE_GAME_FX_DIAGNOSTICS__` / `__THREE_GAME_LIFE_DIAGNOSTICS__` shims were removed in `bc1ae5b`.
+There are no other diagnostics globals; the `__THREE_GAME_FX_DIAGNOSTICS__` / `__THREE_GAME_LIFE_DIAGNOSTICS__` shims were removed in `f06d012`.
 
 Playwright projects are `desktop-chrome` (1280×720) and `mobile-chrome` (Pixel 7 emulation, touch). Both run full Chromium (`channel: 'chromium'`) with 1 worker. The canvas inspector's `--mobile` mode is a 390 × 844 touch viewport.
 

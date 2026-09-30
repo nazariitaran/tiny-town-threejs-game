@@ -16,7 +16,7 @@ Source of truth for *what* to build: `docs/PLAN.md`. Source of truth for *how* t
 
 1. **Start from a clean, committed `main`** (`git status` clean in `ThreeJsGames/`). Worktrees branch from the latest commit, so anything uncommitted is invisible to workers. New WP sections must be committed to `docs/PLAN.md` before you fan out.
 2. **Run the orchestrator where Chromium can launch.** Start that Claude Code session outside the nono sandbox, or with a profile that allows Chromium's profile directories. Subagents inherit the parent's sandbox, and almost every WP needs a browser for its acceptance checks.
-3. **Start the session from the repo root:** `cd <repo-parent>/ThreeJsGames && claude`.
+3. **Start the session from the repo root:** `cd` into your clone (the folder that holds `tiny-town/` and `.claude/`), then run `claude`.
 4. **Paste §1.** For a new iteration, first edit the wave list in the prompt and §3 to the new WPs. Expect a wave to take a few hours of agent time. The orchestrator reports back at each checkpoint.
 
 ---
@@ -38,8 +38,10 @@ Skim tiny-town/docs/design/01-design-brief.md and 02-interaction-and-ui.md.
 Load the skill `threejs-game-director` (it routes to the other threejs-* skills).
 
 REPO FACTS
-- Repo root: <repo-parent>/ThreeJsGames (branch main).
-- Game: tiny-town/. Skills: .claude/skills/. npm cache: <repo-parent>/ThreeJsGames/.npm-cache
+- Repo root: <REPO ROOT> (branch main). <REPO ROOT> is the absolute path printed by
+  `git rev-parse --show-toplevel` in this session; substitute it wherever this runbook or the
+  §2 template says <REPO ROOT>.
+- Game: tiny-town/. Skills: .claude/skills/. npm cache: <REPO ROOT>/.npm-cache
   (use `npm install --cache <that path>` if ~/.npm is not writable).
 - node_modules/ and tiny-town/assets-src/ (raw asset packs, 179 MB) are gitignored and
   exist only in the main checkout. Worktrees must `npm install` and must read assets-src
@@ -131,7 +133,7 @@ STANDING RULES
 
 ## 2. Worker prompt template
 
-The orchestrator fills `<…>` from §3. You can also paste a filled copy into a separate session yourself (Option B), after creating the worktree by hand.
+The orchestrator fills `<…>` from §3, and `<REPO ROOT>` from §1 REPO FACTS. You can also paste a filled copy into a separate session yourself (Option B), after creating the worktree by hand.
 
 ````text
 You are a worker on "Tiny Town", a three.js + TypeScript sandbox city builder, assigned
@@ -141,12 +143,12 @@ parallel in their own worktrees; you must stay inside your own files so everythi
 WORKSPACE
 - Your worktree: <ABSOLUTE WORKTREE PATH>   (branch <BRANCH>). Work ONLY here.
   The game lives in <ABSOLUTE WORKTREE PATH>/tiny-town. Never edit the main checkout.
-- First: cd into it, then `cd tiny-town && npm install --cache <repo-parent>/ThreeJsGames/.npm-cache`
+- First: cd into it, then `cd tiny-town && npm install --cache <REPO ROOT>/.npm-cache`
   (node_modules is not in git). Then `npm run verify` to confirm a green baseline.
 - Your port: <PORT>. Always prefix: `PORT=<PORT> npm run dev` / `PORT=<PORT> npm run test:e2e`
   / `PORT=<PORT> npm run inspect:canvas -- --run-id <wp-id-lower> --out artifacts/<wp-id-lower> ...`.
   Never kill a server you didn't start; stop yours when done.
-- Raw asset packs (if you need them): <repo-parent>/ThreeJsGames/tiny-town/assets-src/ (read by absolute path; don't copy the whole folder).
+- Raw asset packs (if you need them): <REPO ROOT>/tiny-town/assets-src/ (read by absolute path; don't copy the whole folder).
 
 READ BEFORE CODING
 1. tiny-town/CLAUDE.md (commands, hard rules, hand-off checklist)
@@ -220,7 +222,7 @@ FINAL MESSAGE (your hand-off to the integrator) — use exactly these headings:
 Fix-up rounds reused the WP's branch or a suffixed one (e.g. `wp-05-ghost-fix3`, `wp-06-ui-fix2`, `wp-08-fx-fix1`).
 
 Paths are relative to the repo root; give workers the absolute path:
-`<repo-parent>/ThreeJsGames-wt/<wp>`.
+`<REPO ROOT>/../ThreeJsGames-wt/<wp>`, with the `..` resolved.
 
 **Extra brief lines** (v0.1; paste verbatim into `<EXTRA BRIEF>`, or write new ones in the same style):
 

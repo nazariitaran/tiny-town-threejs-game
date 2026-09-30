@@ -1,6 +1,6 @@
 # WP-12 — Scale, proportions & grid density (plan; integrator-approved 2026-09-27)
 
-> **Approved plan (implemented and merged in `fbbef2a`, v0.2).** This is the pre-implementation contract, not the as-built record. As-built facts are in `docs/design/03-architecture.md` (§Grid, §Placement rules, §Save format) and `docs/assets/models.md` (§Grid and scale). The deviations from this plan are listed in `docs/progress.md` under "WP-12 as built": extra migration fallback, trimmed stress town, framing side −260, road tile at the block centre, and the IconStudio re-render. `artifacts/wp-12/` is local-only (gitignored).
+> **Approved plan (implemented and merged in `d4b3058`, v0.2).** This is the pre-implementation contract, not the as-built record. As-built facts are in `docs/design/03-architecture.md` (§Grid, §Placement rules, §Save format) and `docs/assets/models.md` (§Grid and scale). The deviations from this plan are listed in `docs/progress.md` under "WP-12 as built": extra migration fallback, trimmed stress town, framing side −260, road tile at the block centre, and the IconStudio re-render. `artifacts/wp-12/` is local-only (gitignored).
 
 This plan was produced by the WP-12 planning agent and approved by the integrator. It is the implementer's contract. Where it says "optional", the implementer may cut it in the stated order.
 
@@ -155,7 +155,7 @@ The ground stays per cell, with one invariant: a block is either all road or has
   - Cell pitch at the default pose, |cellToClient(24,24) − cellToClient(25,24)|: ≥ 12 px on desktop and ≥ 9 px on mobile.
 - **Desktop frame time** ≤ 8 ms (method as in WP-11).
 - **Real-input e2e:** green on both projects. Build-flow: a road stroke x 16–31 on row 24 gives `roadTiles` 8; then a cottage, undo/redo, and a bulldoze drag that removes 4.
-- **Side-by-side:** `artifacts/wp-12/proportions-{before,after}.png`, taken from a worktree at `3f9c6cf` versus the new build, same camera, on the gallery objects row and a sample-town street. Add a table of the bounding boxes `catalog.test` logs.
+- **Side-by-side:** `artifacts/wp-12/proportions-{before,after}.png`, taken from a worktree at `e955d5d` versus the new build, same camera, on the gallery objects row and a sample-town street. Add a table of the bounding boxes `catalog.test` logs.
 - **Baselines:** sample-town and asset-gallery change on both desktop and mobile; title probably doesn't. The integrator regenerates all 6 after WP-14 (stats removal) also lands.
 
 ## Risks and cut order
