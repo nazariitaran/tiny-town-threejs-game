@@ -79,6 +79,35 @@ Numbers are labelled with their version and source.
 | Initial download before the title (network) | ≤ 8 MB | 3.14 MB over the network; 3.28 MB in `dist/` without maps | 3.29 MB in `dist/` without maps **and without the 4.68 MB music file**, which streams after Start. WP-13 measured on the dev server: 2.38 MB before Start with no music requests | **4.70 MB** over the network before the title (170 requests, 0.3–0.37 s to the title); 4.98 MB after Start with every dock category opened. The music streams after Start and is not counted. `dist/` without maps or music: 4.94 MB (models 3.59, JS/CSS/HTML 0.91, icons 0.26, fonts 0.14, SFX 0.05) | **4.78 MB** over the network before the title (177 requests, 0.33–0.39 s to the title); 5.06 MB after Start with every dock category opened. Music not counted (streams after Start). `dist/` without maps or music: 4.99 MB |
 | Main JS chunk | code-split if > 900 kB | 830 kB (221 kB gzip) → no split | 843 kB (225 kB gzip) → no split | **887 kB** (240 kB gzip) → no split yet, but only 13 kB under the threshold | **898.66 kB** (243.9 kB gzip) plus the lazy `PhotoFrame` chunk (2.08 kB) → no split yet, but only 1.3 kB under the threshold: **split before adding more** (lazy `lil-gui` ≈ 30 kB) |
 
+**WP-24 + WP-25 on the production preview (2026-09-30, branch `wp-24-frame-budget` at `7ef8ed4`, not released) vs `main` (`f37725d`, the v0.4 code plus WP-20–23).**
+- **Method:** `npm run build` + `vite preview` for each build.
+  - Headless full Chromium on the real GPU (ANGLE Metal, M2 Max), viewport 1512 × 982 at DPR 2 (the owner's MacBook Pro 14"), vsync off.
+  - rAF paced at 120 Hz to emulate a ProMotion display; stress town, the Auto clock running.
+  - Whole-GPU `Device Utilization %` from `ioreg`: the median over 8 s, 2 rounds.
+    - *Active:* the pointer moves every 250 ms.
+    - *Idle:* no input for over 4 s.
+  - The machine at rest reads 0–3%.
+- **Evidence** (local only): `artifacts/wp-25/prod/` has the scripts and the raw `gpu-main.jsonl`, `gpu-branch.jsonl` and `tris-branch.jsonl`.
+
+| Build / preset | Canvas | Renders (active / idle) | GPU active | GPU idle | Draw calls | Triangles |
+| --- | --- | --- | --- | --- | --- | --- |
+| `main` (before WP-24) | 3024 × 1964 | 120 / 120 fps | 59–69% | 64–73% | 33 | 332.3k |
+| Low | 1512 × 982, no MSAA, Lambert | 30 / 30 fps | 10% | 10% | 33 | 297.5k |
+| **Medium** (default) | 2268 × 1473 | 60 / 30 fps | **32–35%** | **18–20%** | 33 | 332.3k |
+| High | 3024 × 1964 | 60 / 30 fps | 42–45% | 24% | 33 | 332.3k |
+
+- **Phone** (Pixel 7 emulation, 412 × 839 CSS px at DPR 2.625), stress town / sample town triangles:
+  - Medium: 324.1k / 191.4k, canvas 618 × 1258;
+  - Low: 289.3k / 156.7k, canvas 412 × 839;
+  - High: 324.1k / 191.4k, canvas 824 × 1678.
+
+  Medium and High are over the 320k mobile budget by 4.1k; that is an open owner decision (`docs/progress.md` WP-25).
+- **Bundle:**
+  - main chunk 297.9 kB (93.9 kB gzip), up from 284.4 kB (90.1 kB gzip) on `main`;
+  - the three.js chunk is unchanged at 641.7 kB;
+  - `dist/` without maps or music is 5.07 MB, up from 5.05 MB.
+- **Errors:** 0 console or page errors in every run on both builds.
+
 **64 × 64 plot (2026-09-28, dev server; superseded by the v0.4 production-preview column above, full Chromium on the real GPU; mobile = Pixel 7 emulation on the pre-WP-25 phone tier).** Stress town: day 31 calls / 362.4k triangles desktop, 31 / 291.3k mobile; night (t 0.82) 34 / 356.5k and 33 / 289.3k. The town itself is ~236k (100 homes on the bigger plot). The mobile triangle budget was raised to 320k for the bigger plot (owner decision). Not yet re-measured on the production preview.
 
 **v0.4 release checks (production preview and a sub-path static host, 2026-09-28).**

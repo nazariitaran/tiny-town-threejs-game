@@ -114,6 +114,7 @@ The plan was approved and implemented. The as-built facts are in `03-architectur
 - WP-12 was merged after WP-13/14 (`9a8379f` merged main into the WP-12 branch).
 
 ### WP-25 as built (branch `wp-24-frame-budget`; vs `docs/plans/wp-25-graphics-and-menu-tabs.md`)
+- **Production preview (2026-09-30):** whole-GPU use on the stress town at an emulated 120 Hz goes from 59–73% on `main` to Medium 32–35% active / 18–20% idle, Low 10%, and High 42–45% / 24%. The full table and method are in `docs/release.md` §Budgets.
 Owner request (2026-09-30), after the graphics-settings assessment (`~/Desktop/tiny-town-graphics-settings/REPORT.md`). Current facts: `03-architecture.md` §Graphics presets and `02-interaction-and-ui.md` §5.1 Menu tabs. Three parallel parts: **25a** the engine (branch `wp-25a-graphics`), **25b** the tabbed menu (`wp-25b-menu-tabs`), both merged into `wp-24-frame-budget` (`f470eab`), then **25c** integration and QA (`wp-25c-integration`).
 - **Built:**
   - Presets Low / Medium / High (`src/game/graphics.ts`), **Medium the default on every device**. The hidden touch-screen tier (`QualityTier`, `MAX_DPR`, `Environment.setQuality`, the low-tier hemisphere boost and quarter decor ring) is gone, so phones now get the desktop look.
