@@ -572,6 +572,8 @@
 .ui-tabbar {
   display: flex;
   align-items: center;
+  /* The row stays centred under a tray wider than it (and so still when the category changes). */
+  justify-content: center;
   gap: 6px;
   min-width: 0;
 }
@@ -584,7 +586,7 @@
 }
 
 .ui-tabs {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
 }
 
 .ui-tab,
@@ -1523,5 +1525,19 @@
   .ui-tab,
   .ui-mode {
     font-size: 0.66rem;
+  }
+}
+
+/* Rotate is a touch control: with a mouse and keyboard, R (and Shift+R) rotates and the dock
+   keeps only Bulldoze. Touch screens have no R key, so they keep the button. */
+@media (hover: hover) and (pointer: fine) {
+  .ui-mode-rotate {
+    display: none;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (max-width: 760px) {
+  .ui-modes {
+    flex: 1 1 0;
   }
 }

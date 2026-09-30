@@ -215,12 +215,18 @@ test('every grown building lands on the footprint its ghost shows (real input, d
   await dragCells(page, [8, 24], [39, 24], 20);
   await expectDiagnostics(page, { town: { roadTiles: 16 }, history: { undoDepth: 1 } }, 'road along rows 24–25, x 8–39');
 
+  // The dock's Rotate button is a touch control; with a mouse and keyboard it is hidden and R rotates.
+  if (mobile) await expect(byId(page, UI_TEST_IDS.rotate)).toBeVisible();
+  else await expect(byId(page, UI_TEST_IDS.rotate)).toBeHidden();
   const placed: Array<{ kind: ObjectKind; anchor: Cell; rotation: Rotation }> = [];
   for (const { kind, anchor, rotated } of GROWN) {
     await selectTool(page, kind);
-    // Rotation persists across tools: squares stay at 0; the first non-square one presses Rotate once.
-    if (rotated && (await diagnostics(page)).rotation === 0) await byId(page, UI_TEST_IDS.rotate).click();
-    // Diagnostics publish once per frame: wait for the Rotate press to show up.
+    // Rotation persists across tools: squares stay at 0; the first non-square one rotates once.
+    if (rotated && (await diagnostics(page)).rotation === 0) {
+      if (mobile) await byId(page, UI_TEST_IDS.rotate).click();
+      else await page.keyboard.press('r');
+    }
+    // Wait for the rotation to show up in the diagnostics.
     await expect.poll(async () => (await diagnostics(page)).rotation % 2, { message: `${kind}: ${rotated ? 'turned a quarter' : 'unrotated'}` }).toBe(rotated ? 1 : 0);
     const rotation = (await diagnostics(page)).rotation as Rotation;
     const [w, d] = rotatedFootprint(objectDef(kind).footprint, rotation);

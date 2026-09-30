@@ -294,7 +294,7 @@ export class UiRoot {
             </div>
             <span class="ui-sep" aria-hidden="true"></span>
             <div class="ui-modes" role="group" aria-label="Modes">
-              <button type="button" class="ui-mode" id="${id.rotate}" aria-label="Rotate" title="Rotate (R)"><span class="ui-rot">${GLYPHS.rotate}</span><span class="ui-mode-label">Rotate</span></button>
+              <button type="button" class="ui-mode ui-mode-rotate" id="${id.rotate}" aria-label="Rotate" title="Rotate (R)"><span class="ui-rot">${GLYPHS.rotate}</span><span class="ui-mode-label">Rotate</span></button>
               <button type="button" class="ui-mode ui-mode-danger" id="${id.bulldoze}" data-tool="bulldoze" aria-label="Bulldoze" aria-pressed="false" title="Bulldoze (B)">${GLYPHS.bulldoze}<span class="ui-mode-label">Bulldoze</span></button>
             </div>
           </div>
