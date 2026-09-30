@@ -357,6 +357,11 @@ export class GhostPreview {
     material.emissive.copy(this.tint);
     material.emissiveIntensity = solid ? 0.06 : state === 'valid' ? 0.2 : calm ? 0.12 : 0.5;
     material.opacity = solid ? 0.95 : calm ? this.tuning.modelOpacity : 0.78;
+    // Ground ghosts (a road piece, a zebra) lie exactly on the tile they replace, in every state:
+    // pull them towards the camera in depth so they don't z-fight with it.
+    material.polygonOffset = this.modelSolid;
+    material.polygonOffsetFactor = this.modelSolid ? -1 : 0;
+    material.polygonOffsetUnits = this.modelSolid ? -4 : 0;
   }
 }
 
