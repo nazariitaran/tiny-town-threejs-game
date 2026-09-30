@@ -35,6 +35,14 @@ const HINT_MS = 3500;
 const PICK_HINT_MOUSE = 'Pick something below, then click the map to build';
 const PICK_HINT_TOUCH = 'Pick an item below · two fingers move the view';
 
+/** An external link in the Credits panel (a new tab, so the game keeps running). */
+function link(href: string, text: string): string {
+  return `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+}
+
+const CC0 = link('https://creativecommons.org/publicdomain/zero/1.0/', 'CC0');
+const CC_BY = link('https://creativecommons.org/licenses/by/3.0/', 'CC BY 3.0');
+
 /** Catalog hints are written for mouse + keys; reword them for touch (no key cues). */
 function touchHint(hint: string): string {
   return hint
@@ -245,7 +253,7 @@ export class UiRoot {
       <section class="ui-screen ui-title" data-phase="title" aria-label="Title">
         <div class="ui-title-card">
           <h1 class="ui-mark ui-mark-big">${mark}</h1>
-          <p class="ui-tagline">Paint roads, plant trees, grow a cosy town.</p>
+          <p class="ui-tagline">Build your own cosy dream town.</p>
         </div>
         <div class="ui-title-bottom">
           <div class="ui-title-actions">
@@ -286,7 +294,7 @@ export class UiRoot {
             </div>
             <span class="ui-sep" aria-hidden="true"></span>
             <div class="ui-modes" role="group" aria-label="Modes">
-              <button type="button" class="ui-mode" id="${id.rotate}" aria-label="Rotate" title="Rotate (R)"><span class="ui-rot">${GLYPHS.rotate}</span><span class="ui-mode-label">Rotate</span></button>
+              <button type="button" class="ui-mode ui-mode-rotate" id="${id.rotate}" aria-label="Rotate" title="Rotate (R)"><span class="ui-rot">${GLYPHS.rotate}</span><span class="ui-mode-label">Rotate</span></button>
               <button type="button" class="ui-mode ui-mode-danger" id="${id.bulldoze}" data-tool="bulldoze" aria-label="Bulldoze" aria-pressed="false" title="Bulldoze (B)">${GLYPHS.bulldoze}<span class="ui-mode-label">Bulldoze</span></button>
             </div>
           </div>
@@ -461,13 +469,37 @@ export class UiRoot {
           <button type="button" class="ui-link" id="${id.fileConfirmKeep}"></button>
         </section>
 
-        <section class="ui-panel" id="${id.creditsPanel}" data-view="credits" role="dialog" aria-modal="true" aria-labelledby="ui-credits-h">
+        <section class="ui-panel ui-credits" id="${id.creditsPanel}" data-view="credits" role="dialog" aria-modal="true" aria-labelledby="ui-credits-h">
           <h2 id="ui-credits-h">Credits</h2>
-          <p>Most 3D models, item icons and all sounds by <strong>Kenney</strong> (kenney.nl), CC0.</p>
-          <p class="ui-credits-small">Also via Poly Pizza (poly.pizza): “Church”, “Swing set” and “Fountain” by Poly by Google, CC-BY 3.0; “Grill” by Zsky, CC-BY 3.0; “Donut Store” by J-Toastie, CC-BY 3.0; “Slide” by sirkitree, CC-BY 3.0; corner shop “Building” by Kay Lousberg, CC0; “Mailbox” by CreativeTrio, CC0. Scaled and recoloured for Tiny Town.</p>
-          <p>Music: <strong>Foundation of Gold</strong>, created for Tiny Town by its author.</p>
-          <p>Font: <strong>Nunito</strong> by Vernon Adams, Cyreal and Jacques Le Bailly, SIL Open Font License.</p>
-          <p>Made with three.js.</p>
+          <section aria-labelledby="ui-credits-models">
+            <h3 id="ui-credits-models">3D models</h3>
+            <p>Most models and the item icons: ${link('https://kenney.nl/assets', 'Kenney')} city, nature, platformer, fantasy town, holiday and car kits, ${CC0}.</p>
+            <p>From ${link('https://poly.pizza', 'Poly Pizza')}, scaled and recoloured for Tiny Town:</p>
+            <ul class="ui-credits-list">
+              <li>${link('https://poly.pizza/m/0Oe72PEPCK6', 'Church')}, ${link('https://poly.pizza/m/e-IJdcqZH4p', 'Swing set')} and ${link('https://poly.pizza/m/7AydBrjR2Ss', 'Fountain')} by Poly by Google, ${CC_BY}</li>
+              <li>${link('https://poly.pizza/m/SIlnlrbQR7', 'Grill')} by Zsky, ${CC_BY}</li>
+              <li>${link('https://poly.pizza/m/BvRLKgGwc6', 'Donut Store')} by J-Toastie, ${CC_BY}</li>
+              <li>${link('https://poly.pizza/m/8D47EdapzBW', 'Slide')} by sirkitree, ${CC_BY}</li>
+              <li>${link('https://poly.pizza/m/EL3ePInr1N', 'Building')} (the corner shop) by Kay Lousberg, ${CC0}</li>
+              <li>${link('https://poly.pizza/m/2olZ0G8iur', 'Mailbox')} by CreativeTrio, ${CC0}</li>
+            </ul>
+          </section>
+          <section aria-labelledby="ui-credits-sounds">
+            <h3 id="ui-credits-sounds">Sound effects</h3>
+            <p>${link('https://kenney.nl', 'Kenney')} interface, UI, impact and RPG audio packs, ${CC0}.</p>
+          </section>
+          <section aria-labelledby="ui-credits-music">
+            <h3 id="ui-credits-music">Music</h3>
+            <p><strong>Foundation of Gold</strong>, created for Tiny Town by its author.</p>
+          </section>
+          <section aria-labelledby="ui-credits-font">
+            <h3 id="ui-credits-font">Font</h3>
+            <p>${link('https://github.com/googlefonts/nunito', 'Nunito')} by Vernon Adams, Cyreal and Jacques Le Bailly, ${link('https://openfontlicense.org', 'SIL Open Font License 1.1')}.</p>
+          </section>
+          <section aria-labelledby="ui-credits-software">
+            <h3 id="ui-credits-software">Software</h3>
+            <p>Built with ${link('https://threejs.org', 'three.js')} and other open-source software: ${link(assetUrl('licenses.txt'), 'open-source licences')}.</p>
+          </section>
           <button type="button" class="ui-btn" id="${id.creditsClose}" data-back>Back</button>
         </section>
       </div>

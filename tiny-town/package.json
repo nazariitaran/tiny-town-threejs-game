@@ -11,11 +11,12 @@
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
     "test": "vitest run && playwright test",
-    "verify": "node scripts/check-no-local-paths.mjs && npm run typecheck && npm run test:unit && npm run build",
+    "verify": "node scripts/check-no-local-paths.mjs && node scripts/gen-licenses.mjs --check && npm run typecheck && npm run test:unit && npm run build",
     "verify:visual": "playwright test tests/visual.spec.ts",
     "inspect:canvas": "node scripts/inspect-threejs-canvas.mjs",
     "inspect:models": "node scripts/inspect-models.mjs",
-    "gen:sfx": "node scripts/gen-sfx-table.mjs"
+    "gen:sfx": "node scripts/gen-sfx-table.mjs",
+    "gen:licenses": "node scripts/gen-licenses.mjs"
   },
   "dependencies": {
     "@fontsource-variable/nunito": "^5.3.0",

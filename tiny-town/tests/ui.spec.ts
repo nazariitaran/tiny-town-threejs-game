@@ -453,7 +453,7 @@ test('menu music rows: ≥ 44 px targets inside the panel, keyboard reachable, s
     expect(r.x + r.width).toBeLessThanOrEqual(box.x + box.width + 0.5);
   }
   // The Music label toggles the switch (whole row is the target).
-  await page.getByText('Music', { exact: true }).click();
+  await page.getByLabel('Sound', { exact: true }).getByText('Music', { exact: true }).click();
   await expect(page.locator(id(UI_TEST_IDS.music))).not.toBeChecked();
   await expect(page.locator(id(UI_TEST_IDS.musicVolume))).toBeDisabled();
   await page.locator(id(UI_TEST_IDS.music)).click();

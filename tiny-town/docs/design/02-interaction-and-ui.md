@@ -46,7 +46,7 @@ Constraints (tunable in `?debug`):
 | Bulldoze | Red highlight on what will be removed (object > edge > ground; a whole footprint or road block) | Remove (any footprint cell removes the object; a road cell clears its block) | Remove along drag | Commit |
 | None (pointer) | Subtle cell highlight | Left-drag pans | — | — |
 
-- **Rotate**: `R` (clockwise) / `Shift+R` (counter-clockwise), or the on-screen Rotate button (`intent:rotate` direction 1 = clockwise). A rotation swaps the footprint's width and depth (e.g. a 2×3 townhouse covers 3×2 at rotation 1), and the ghost re-centres on the pointer. Rotation persists until changed. The ghost animates the turn (100 ms).
+- **Rotate**: `R` (clockwise) / `Shift+R` (counter-clockwise), or, on touch screens, the dock's Rotate button (`intent:rotate` direction 1 = clockwise; hidden with a mouse and keyboard since 2026-09-30, where R does the job). A rotation swaps the footprint's width and depth (e.g. a 2×3 townhouse covers 3×2 at rotation 1), and the ghost re-centres on the pointer. Rotation persists until changed. The ghost animates the turn (100 ms).
 - **Tree heights are fixed, not chosen:** pine stands ×2 of its kit model, birch keeps its natural height (`ObjectDef.height`); pine and birch stretch in height only, so they still cover one cell. The **oak** is a big round tree on a 2 × 2 cell lot (a road block's size), drawn at natural proportions; its ghost frame covers the whole lot and a drag scatters oaks two cells apart. A tall tree hides about 1.3 × its height of the view behind it at the default camera.
 - **Esc**: deselect the tool (back to pointer); with no tool, it opens the menu. Right-click never places; a right click (no drag, under 5 px) also deselects the tool, while a right drag still pans the camera.
 - **Tool selection** (UI-owned, `src/ui/uiKeys.ts`): `1`–`9` pick the Nth tool of the **active** category, and pressing the active tool's digit again deselects it. `Shift+1`–`5` switch category (Streets / Homes / Town / Nature / Garden). Uses `event.code`, so layouts and Shift don't change the mapping. `B` = bulldoze, `?` = controls help, `T` = cycle the time of day (Auto → Day → Night; `ToolController`, building phase only), `P` = take a photo (WP-19; UI-owned, building phase only, no modifiers, so Ctrl/Cmd+P still prints).
@@ -87,7 +87,7 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
 │   ┌──────────────────────────────────────────────────────────────┐   │
 │   │ [img][img][img][img]  … item tray for the active category …  │   │  item tray (cards: rendered icon + label + key)
 │   ├──────────────────────────────────────────────────────────────┤   │
-│   │ (Streets) (Homes) (Town) (Nature) (Garden) │ [⟲ Rotate] [⌫ Bulldoze] │  category tabs + mode buttons
+│   │    (Streets) (Homes) (Town) (Nature) (Garden) │ [⌫ Bulldoze]    │  category tabs + mode buttons (centred)
 │   └──────────────────────────────────────────────────────────────┘   │
 └──────────────────────────────────────────────────────────────────────┘
 ```
@@ -104,7 +104,8 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
   | Garden (5) | things people build in a yard or park | Garden path, Hedge, Low fence, Tall fence, Planter, Bench, Long bench, Table, Barbecue, Swing, Slide, Pool |
 
   Inside a category the tools run **surfaces → lines → objects** (ground paint, then edges, then placed items). **WP-23 (owner decision, 2026-09-29):** a category holds at most **12** tools (about what fits a desktop row; the tray scrolls sideways where it doesn't). Digits 1–9 pick the first nine; tools past the ninth (today Garden's Swing, Slide and Pool) have no number badge, no "(n)" in their tooltip and no key. `catalog.test.ts` checks the order and the cap. An item card is a 44 px icon (the in-project render of the in-game model, `scripts/render-icons.mjs`), a short label and a number-key badge. The selected card is raised with an accent outline. Clicking the active item again deselects it.
-- **Mode buttons** (right end of the dock): Rotate (shows the current rotation arrow) and Bulldoze (toggles; red accent when active).
+- **Tab row** (2026-09-30, owner request): the category tabs and the mode buttons form one row centred under the tray, so it stays in the same place whatever the category's tray width.
+- **Mode buttons** (after the tabs): Bulldoze (toggles; red accent when active) and, on touch screens only, Rotate (shows the current rotation arrow). With a mouse and keyboard (`(hover: hover) and (pointer: fine)`) Rotate is hidden: `R` / `Shift+R` rotate, the item hint says so, and Help lists it. Phones and tablets have no R key, so they keep the button.
 - **Top bar**: one row. The row is 48 px tall (`--topbar-h`; 52 px on phones), so it ends 60 / 64 px below the safe-area top.
   - Left: the **town name pill** (WP-20): the brick house badge and the player's town name (bold, ellipsised when too long; desktop caps the pill at 40 % of the width). It is a button: click / tap it to rename the town. v0.2 (WP-14) removed the live stats pill as redundant; `TownState.stats()` and diagnostics `town` remain for tests.
   - Right: Undo and Redo (disabled when unavailable), then the **Town file** folder (WP-21; wider than 440 px only), the **photo camera** (WP-19, key `P`), the **time-of-day button** (v0.3, WP-16), the sound toggle (mute), and Menu. Volume and music settings are in the menu's Sound tab.
