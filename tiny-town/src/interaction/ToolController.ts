@@ -667,6 +667,10 @@ export class ToolController {
         quarterTurns: marking ? 0 : this.rotation,
         state: ghostState,
         parts: [marking ?? { model: objectDefinition.models[0], scaleY: heightScale(objectDefinition) }],
+        // A road marking previews the marked road tile in its real colours inside the frame (like the
+        // road tool), without the mint fill washing out the stripes; invalid keeps the red fill.
+        solid: marking !== null,
+        fillOpacity: marking && ghostState !== 'invalid' ? 0 : undefined,
         tileScale: rotatedFootprint(objectDefinition.footprint, this.rotation),
       });
     } else if (edge) {
@@ -703,6 +707,7 @@ export class ToolController {
         quarterTurns: marking ? 0 : object.rotation,
         state: 'remove',
         parts: [marking ?? { model: def.models[object.variant % def.models.length], scaleY: heightScale(def) }],
+        solid: marking !== null, // lies on the road tile: no z-fighting (the red tint stays)
         tileScale: rotatedFootprint(def.footprint, object.rotation),
         snap: true,
       });
