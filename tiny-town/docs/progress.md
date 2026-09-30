@@ -31,6 +31,7 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
 - **WP-20 Name your town is merged into `main`** (owner-approved 2026-09-29 after one amendment: no note under the dialog heading; built on the branch `wp-20-town-name` from `ac820b8`); no version label (owner). See "WP-20 as built".
 - **WP-21 Town file is merged into `main`** (owner-approved 2026-09-29 with all planning decisions, including the save-format migration promise; built on the branch `wp-21-town-file` from `c7e9a40`). See "WP-21 as built".
 - **WP-23 New build items is merged into `main`** (owner-approved 2026-09-29; built on the branch `wp-23-new-items` from `d119d54`, with `main` merged in after WP-22): 8 new tools, the garage removed, up to 12 tools per category. See "WP-23 as built".
+- **WP-24 Frame budget and WP-25 Graphics settings + tabbed menu are built on the branch `wp-24-frame-budget`**, waiting for the owner's review (not merged into `main`). WP-25 leaves one open owner decision: the mobile triangle budget (324k on Medium vs 320k). See "WP-25 as built" and "WP-24 as built".
 - **Where current facts live:**
   - grid, rules, save, modules, diagnostics and budgets: `docs/design/03-architecture.md`;
   - asset scales and footprints: `docs/assets/models.md`;
@@ -62,7 +63,8 @@ The SHA is the merge commit on `main`; the WP's own commit is in brackets. Every
 | WP-15 | New building blocks & categories (v0.3) | ✅ | `ea54bb5` (`27add32`) | see "WP-15 as built" below |
 | WP-18 | Music resumes where it left off | ✅ merged to `main` (owner-approved 2026-09-28) | `40822f8` (`98c7ca8`) | `src/audio/musicPosition.ts`; saved on hide / `pagehide` / every 15 s; seek on `loadedmetadata`; 5 s end guard |
 | WP-19 | Town photo | ✅ merged to `main` (owner-approved 2026-09-28) | merge on `main` (`c62376e`, `841536f`, `0c35597`, `92435c1`) | `src/photo/**`; camera button / `P` → menu phase → one frame at long edge 2400 px → Polaroid JPEG → preview (Download) |
-| WP-24 | Frame budget (performance) | 🔍 built on `wp-24-frame-budget`, waiting for owner review (not merged) | — | 60 fps active / 30 fps idle cap (`core/FrameBudget.ts`), sun shadow map on demand (`render/ShadowScheduler.ts`; cars 15 Hz, birds 30 Hz), high-tier DPR 2 → 1.5, `town:stats` removed; diagnostics `perf` |
+| WP-24 | Frame budget (performance) | 🔍 built on `wp-24-frame-budget`, waiting for owner review (not merged) | — | 60 fps active / 30 fps idle cap (`core/FrameBudget.ts`), sun shadow map on demand (`render/ShadowScheduler.ts`; cars 15 Hz, birds 30 Hz), desktop DPR 2 → 1.5, `town:stats` removed; diagnostics `perf` |
+| WP-25 | Graphics settings (Low / Medium / High) and a tabbed menu | 🔍 built on `wp-24-frame-budget`, waiting for owner review (not merged) | — (25a + 25b merged into the branch in `f470eab`; 25c on `wp-25c-integration`) | `game/graphics.ts` presets (Medium default everywhere), Lambert + no MSAA on Low (reload), live DPR / shadows / decor / sky / fps / halos, saved setting, `?graphics=`; menu tabs Town · Graphics · Sound · Help; diagnostics `graphics`; mobile baselines re-captured. **Open:** mobile triangles 324k vs 320k |
 | WP-22 | Birds over the town | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`a5b42bf`) | `src/life/FlockSim.ts` (pure) + `BirdSystem.ts`; a flock every 45–110 s (none at night), 4 species, procedural 18-tri bird, flapping shadows; `spawnFlock` hook, `?debug&flock=N` |
 | WP-23 | New build items, garage removed | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`7fd5b9f`; review amendment on the branch) | 7 new tools (mailbox, tiered fountain, donut shop, tulips, long bench, table, slide; the gate was removed at review), garage removed, pool moved to Garden, ≤ 12 tools per category (digits for the first nine), Nature Kit material fix |
 | WP-21 | Download and open a town file | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`941988c`) | `src/persistence/townFile.ts`; top-bar folder (> 440 px) / Menu → Town file (phones) / title link; `.tinytown.json`; confirm before replacing; saved at once |
@@ -94,7 +96,7 @@ The plan was approved and implemented. The as-built facts are in `03-architectur
 
 **Stress town**
 - Trimmed to fit the mobile budget: birch and pine instead of oak, open-field lots and fewer props.
-- The decor ring's low-tier share went from 0.6 to 0.25 (`DecorRing.LOW_TIER_SHARE`).
+- The decor ring's share on phones (the hidden touch-screen tier, removed in WP-25) went from 0.6 to 0.25.
 - Measured by the WP-12 inspector (dev server, 2026-09-27): 30 draw calls and 311k triangles on desktop; 30 calls and 243.5k triangles on mobile, against a 250k budget.
 
 **Framing**
@@ -111,6 +113,40 @@ The plan was approved and implemented. The as-built facts are in `03-architectur
 **Timing**
 - WP-12 was merged after WP-13/14 (`9a8379f` merged main into the WP-12 branch).
 
+### WP-25 as built (branch `wp-24-frame-budget`; vs `docs/plans/wp-25-graphics-and-menu-tabs.md`)
+Owner request (2026-09-30), after the graphics-settings assessment (`~/Desktop/tiny-town-graphics-settings/REPORT.md`). Current facts: `03-architecture.md` §Graphics presets and `02-interaction-and-ui.md` §5.1 Menu tabs. Three parallel parts: **25a** the engine (branch `wp-25a-graphics`), **25b** the tabbed menu (`wp-25b-menu-tabs`), both merged into `wp-24-frame-budget` (`f470eab`), then **25c** integration and QA (`wp-25c-integration`).
+- **Built:**
+  - Presets Low / Medium / High (`src/game/graphics.ts`), **Medium the default on every device**. The hidden touch-screen tier (`QualityTier`, `MAX_DPR`, `Environment.setQuality`, the low-tier hemisphere boost and quarter decor ring) is gone, so phones now get the desktop look.
+  - Boot parts (reload): MSAA from the boot preset (`createRenderer`), and the Lambert material on Low (`render/materials.ts` `toLambert`, applied in ModelLibrary, TownRenderer, terrain, cars, birds and the ghost; shader patches still apply; env lighting still lights Lambert).
+  - Live parts (`Game.applyGraphics`): DPR cap, shadow-map size, an evenly spread decor subset (`DecorRing.setFraction`; nearest-first dropped the trees in front of the title camera), sky octaves (a define, one recompile), frame caps, lamp halos.
+  - The setting in `tiny-town:settings:v1` (`graphics`, validated); `?graphics=` override (not saved; dropped by Reload now); `intent:set-graphics`, `intent:reload-graphics` (flush + reload), `graphics:changed` (at boot after UiRoot, and after every change).
+  - Diagnostics: `quality` = the preset; `graphics` with the real context's `antialias` and the measured `material`.
+  - The tabbed menu: Resume above a Town · Graphics · Sound · Help tab bar (WAI-ARIA tabs, roving tabindex, arrows / Home / End), the tab remembered for the page session, Back from a sub-view to the same tab, a steady panel size; the Graphics tab (Quality radios rendered from the fact, the preset's description, the reload notice with Reload now, Show grid). `tests/helpers.ts` `openMenuTab`; every menu-driving spec opens the right tab first.
+- **25c integration fixes:**
+  - The 25b Graphics-tab test failed on both projects on the merged build. Root cause (test, not product): it read `diagnostics.graphics` right after the click, but diagnostics are published once per frame, so it saw the previous preset while the UI, answered synchronously by `graphics:changed`, already showed Low. It now waits for the engine's answer and requires Low with the reload notice (the no-engine fallback is gone).
+  - No product bug was found: `npm run verify` was green on the merged build, and every other e2e test passed (170 passed, 22 skipped, those 2 failed).
+- **Measured** (25a probes, `artifacts/wp-25/probes/`: whole-GPU utilisation from `ioreg`, stress town, full Chromium on the real GPU, M2 Max, 1512 × 982 viewport at DPR 2, 120 Hz emulated, 2 rounds; draw calls 33 on every preset):
+
+  | preset | GPU active (medians) | GPU idle | fps active / idle | canvas | triangles | MSAA / material |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | Low | 8% / 8% | 8% / 8% | 30 / 30 | 1512 × 982 (DPR 1) | 297,542 | off / Lambert |
+  | Medium | 32% / 32% | 17% / 18% | 60 / 30 | 2268 × 1473 (DPR 1.5) | 332,314 | on / Standard |
+  | High | 42% / 44% | 23% / 23% | 60 / 30 | 3024 × 1964 (DPR 2) | 332,314 | on / Standard |
+
+  The machine idles at 0–1%. For comparison, WP-24 measured 33–36% active and 18–19% idle on the same setup (then DPR 1.5, i.e. today's Medium), and `main` before WP-24 66–74%.
+- **Phones (Pixel 7 emulation, 412 × 839 at DPR 2.625, dev server; `mobile-tris.jsonl`, re-run by 25c on the merged build with identical results):** stress town **Medium 324,096 triangles** / 31 calls (canvas 618 × 1258 at DPR 1.5, 282 decor instances), Low 289,324 (169 decor instances, DPR 1), High 324,096 (DPR 2). Sample town: Medium / High 191,425, Low 156,653 (82 calls). The whole Medium − Low difference is the decor ring (113 instances ≈ 34.8k triangles, ~308 per instance; the title shows the same 34.8k).
+- **Open owner decision: the mobile triangle budget.** Phones on Medium draw 324,096 triangles in the stress town, ~4k (1.3%) over the 320k mobile budget. The preset table and the budget were **not** changed. Options:
+  1. **Raise the mobile budget to 330k** (keeps phones = desktop look; ~6k headroom, so new big content needs another look);
+  2. **Medium `decorFraction` 0.9 on its own** (≈ 29 fewer decor instances ≈ 315k, an estimate from the per-instance average, not measured; the ring gets slightly sparser on every device, and Medium no longer equals the pre-WP-25 desktop look, so the desktop baselines would change);
+  3. **Default phones to Low** (289.3k; but that brings back a device guess, and Low is Lambert, no MSAA, DPR 1 and 30 fps).
+- **Mobile baselines re-captured** (25c): all four mobile PNGs (title, sample-town, asset-gallery, night-town). They were stale: captured on the hidden phone tier and before the WP-23 items, but still inside the 1% tolerance. Old / new / |diff| × 8 side-by-sides (`artifacts/wp-25/mobile-baselines/*-old-new-diff.png`, plus a night zoom) show only the intended changes: the environment lighting (a slightly different green), the full decor ring (the hedges at the top edge, more title trees), lamp halos at night, and the WP-23 items (donut shop, tiered fountain, table, bench, slide). The top bar and the dock are pixel-identical. The desktop baselines are byte-identical. Note: Playwright ≥ 1.50 only rewrites failing snapshots with `--update-snapshots`; a deliberate re-capture of passing ones needs `--update-snapshots=all`.
+- **Tests:**
+  - `npm run verify`: 30 files, 528 unit tests, build OK.
+  - New `tests/graphics-menu.spec.ts` (25c, both projects, real input only): Medium → Low in the menu (live DPR 1 / 30-30 fps / 1024 shadows / 60% decor / no halos, saved, notice + Reload now) → Reload now → Continue restores the same town (road + cottage) booted on Low with no MSAA in the real context and Lambert → Medium → notice → reload → Standard + MSAA; Medium → High live with no notice; keyboard arrows through the presets (desktop). `--repeat-each=3`: 18/18.
+  - Full e2e after 25c (`wp-25c-integration`, PORT 5303, 12.5 min): **198 tests, 176 passed, 22 skipped by design (per-project skips), 0 failed**, including all 8 darwin baselines. On the merged build before 25c: 194 tests, 170 passed, 22 skipped, 2 failed (the Graphics-tab test above).
+- **Evidence** (local only): `artifacts/wp-25/` (25a preset screenshots and probes, `menu/` tab screenshots incl. `graphics-low-reload-desktop-chrome.png` / `-mobile-chrome.png` from the real engine, `mobile-baselines/`).
+- **Not verified:** real phones and a production-preview measurement; GPU numbers on a phone-sized viewport.
+
 ### WP-24 as built (branch `wp-24-frame-budget`; vs `docs/PLAN.md` WP-24)
 Owner report (2026-09-29): the frame rate drops and the fans spin up after building for a while; switching away from Chrome helps a little. Investigation: `~/Desktop/tiny-town-performance/REPORT.md` (probes in `probes/`).
 - **Diagnosis:**
@@ -119,7 +155,7 @@ Owner report (2026-09-29): the frame rate drops and the fans spin up after build
 - **Built:**
   - frame pacing (`core/Loop.ts` `paceFrame` + `core/FrameBudget.ts`): 60 fps active, 30 fps after 4 s idle;
   - the shadow map on demand (`render/ShadowScheduler.ts`; `shadowMap.autoUpdate = false`; cars 15 Hz, birds 30 Hz; test hooks, screenshot pauses and photos always redraw);
-  - high-tier `MAX_DPR` 2 → 1.5;
+  - the desktop DPR cap 2 → 1.5 (since WP-25 the Medium preset's cap);
   - `town:stats` removed;
   - diagnostics `perf`;
   - lil-gui `Performance` folder.
@@ -158,7 +194,7 @@ Owner request (2026-09-29), picked from the asset research on the owner's Deskto
   - The mailbox is ×0.36 of the source (0.35 tall), not postbox height: at postbox height it read as a stick.
   - The tulips were ×1.15 in the first cut (filling the cell); the owner found them huge, so they are ×0.7 now (≈ 0.33 × 0.18, lower than the bush).
 - **Budgets** (dev server, canvas inspector, 2026-09-29; `artifacts/wp-23/inspect-*`):
-  - stress town: desktop 31 calls, 330.3k triangles (v0.4: 358.2k); mobile (low tier) 31 calls, 261.2k (v0.4: 293.2k; budget 320k). Mailboxes and trees replaced its 50 garages.
+  - stress town: desktop 31 calls, 330.3k triangles (v0.4: 358.2k); mobile (the pre-WP-25 phone tier) 31 calls, 261.2k (v0.4: 293.2k; budget 320k). Mailboxes and trees replaced its 50 garages.
   - sample town: 87 / 87 calls, 192.2k / 127.2k triangles, **28 / 27 textures** (desktop / mobile; budget 30; v0.4: 27 / 26). The new pieces add the Fantasy Town colormap and the mailbox palette; the garage's atlas is gone; the donut shop's window texture was flattened (29 before).
 - **Gates (worktree, 2026-09-29):** `npm run verify` green (25 files, 479 unit tests, build OK; main chunk 274 kB). Full `npm run test:e2e` (156 tests): 132 passed, 18 skipped by design, 6 failed, all expected: two `ui.spec.ts` checks with the old tool counts/digits (updated; `ui.spec.ts` then 20 passed, 4 skipped) and the three desktop baselines that show the new items. The new `tests/new-items.spec.ts` passes on desktop and mobile.
 - **Baselines:** sample-town, asset-gallery and night-town (desktop) regenerated. The diff (`artifacts/wp-23/diff-*.png`, old ones in `baselines-before/`) shows only the dock's 9th Streets card, the new pieces, the mailbox in the garage's spot and a few trees in the sample town whose ±12 % jitter moved (the tulips' variant pick advances the seeded stream). The mobile baselines still pass (the changes stay under the 1 % tolerance in the phone's view), so they were not regenerated.
@@ -177,7 +213,7 @@ Current facts: `03-architecture.md` §Birds. Owner request 2026-09-29 (birds onl
   - shadows flap and glide over the grass and roofs.
 - **Measured** (stress town, dev server, 2 flocks = 16 birds in the air):
   - desktop: 31 → **32 calls**, 362,404 → 362,692 triangles (**+288** = 16 × 18);
-  - Pixel 7 emulation (low tier): 31 → 32 calls. Triangles move by ±4k from the cars driving in and out of view (287.2k–291.3k with no birds), so the birds' +288 is inside that noise.
+  - Pixel 7 emulation (the pre-WP-25 phone tier): 31 → 32 calls. Triangles move by ±4k from the cars driving in and out of view (287.2k–291.3k with no birds), so the birds' +288 is inside that noise.
   - Frame time was vsync-bound (8.33 ms at 120 Hz) with or without birds; the uncapped figure wasn't measured.
 - **Gates** (branch, 2026-09-29):
   - `npm run verify` green: 26 files, **496 unit tests** (19 new in `src/life/birds.test.ts`), build OK; main chunk 281.9 kB.
@@ -222,7 +258,7 @@ Current facts: `03-architecture.md` §Save format (town name, name suggestions) 
 - **Gates** (branch, 2026-09-29):
   - `npm run verify` green: 24 files, 469 unit tests (27 new: name rules, list parsing incl. the shipped JSON, pick, slug, editor name/rename/load, save name parse, rename autosave, caption fit, file name), build OK with no chunk warning.
   - `npm run test:e2e`: 146 tests, 127 passed, 18 skipped by design, 1 failed: the mobile `sample-town` baseline (expected, see below). `tests/town-name.spec.ts` (12 tests, desktop + mobile) also passed `--repeat-each=2` (24 / 24). Log: `artifacts/wp-20/e2e-full.log`.
-  - Baselines: the three phone top-bar baselines (sample-town, asset-gallery, night-town) were regenerated one at a time; the masked diff (top bar + 12 px pad, threshold 0) finds **0 px changed outside the top bar** in each (4.2–4.7k px inside it). The **committed mobile `sample-town` baseline had been captured in the flaky no-touch state** (the "click the map" hint and high-tier hedges; see Open issues), so it was checked against a correct touch-state capture instead of the old file. Desktop baselines are unchanged (a strict pixel compare finds 1 anti-aliased pixel in the house badge; not committed). All 8 baselines pass afterwards. Old baselines and diff images: `artifacts/wp-20/baselines-before/`, `masked-diff/`.
+  - Baselines: the three phone top-bar baselines (sample-town, asset-gallery, night-town) were regenerated one at a time; the masked diff (top bar + 12 px pad, threshold 0) finds **0 px changed outside the top bar** in each (4.2–4.7k px inside it). The **committed mobile `sample-town` baseline had been captured in the flaky no-touch state** (the "click the map" hint and the desktop decor hedges of the pre-WP-25 tiers; see Open issues), so it was checked against a correct touch-state capture instead of the old file. Desktop baselines are unchanged (a strict pixel compare finds 1 anti-aliased pixel in the house badge; not committed). All 8 baselines pass afterwards. Old baselines and diff images: `artifacts/wp-20/baselines-before/`, `masked-diff/`.
 - **Not verified here:** real iOS / Android (the on-screen keyboard over the dialog, autocapitalisation).
 
 ### WP-19 as built (branch `wp-19-photo`, merged; vs `docs/PLAN.md` WP-19)
@@ -359,7 +395,10 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
   - Events `intent:set-music`, `intent:set-music-volume`, `music:changed` are in `events.ts`; the temporary `musicEvents.ts` is gone.
 - 2026-09-27 — **Stats pill removed** as redundant. `TownState.stats()`, `town:stats` and diagnostics `town` remain for tests.
 - 2026-09-30 — **`town:stats` event removed** (WP-24, owner request): nothing subscribed, and it recomputed `TownState.stats()` for every cell of a drag. `TownState.stats()` and diagnostics `town` stay (tests, bird scheduling).
-- 2026-09-30 — **Frame budget** (WP-24): 60 fps active / 30 fps idle, the shadow map redrawn on demand, high-tier DPR 1.5. The game was GPU-bound at the display's refresh rate; see §Frame budget in `03-architecture.md`.
+- 2026-09-30 — **Frame budget** (WP-24): 60 fps active / 30 fps idle, the shadow map redrawn on demand, desktop DPR 1.5. The game was GPU-bound at the display's refresh rate; see §Frame budget in `03-architecture.md`.
+- 2026-09-30 — **Graphics presets replace the hidden touch-screen tier** (WP-25, owner request): the player picks Low / Medium / High in Menu → Graphics, saved in the settings. The touch-screen guess gave phones different colours (no environment lighting, a hemisphere boost) and fewer decor trees; it is gone. MSAA and the material need a reload ("Reload now"); everything else applies at once.
+- 2026-09-30 — **Medium is the default on every device** (WP-25): Medium = the pre-WP-25 desktop look (DPR 1.5, MSAA, Standard, 2048 shadows, full decor, 60 / 30 fps). Phones therefore draw ~324k triangles in the stress town against the 320k budget: open owner decision ("WP-25 as built").
+- 2026-09-30 — **Lambert on Low** (WP-25): the Kenney look is flat colour with roughness ≈ 1, so Lambert looks nearly the same as Standard at ~⅔ of the cost; with MSAA off, DPR 1 and 30 fps, Low measured 8% GPU against Medium's 32% (active) on the stress town.
 - 2026-09-27 — **Owner-supplied assets are allowed.** The background music "Foundation of Gold" was created by the owner with ElevenLabs. Agents still never call generation services.
 - 2026-09-27 (v0.3) — **Dock categories answer "what am I building?"**: Streets (the road network and kerb furniture), Homes (where people live, plus garages), Town (shops and shared civic places), Nature (things that grow: ground cover, trees, bushes), Garden (things people build in a yard or park: paths, hedges, fences, furniture). Inside a category: surfaces → lines → objects. At most 9 tools per category, so every tool has a digit; Shift+1–5 switch category. Ids name what a thing is, not its model file.
 - 2026-09-27 (v0.3) — **Roundabouts are road-feature objects**, not a road-tile piece. Auto-tiling only picks straights, corners, tees, crossroads and ends, and a roundabout spans 3 × 3 blocks. So it is an object with `ObjectDef.roadFeature`: block-aligned anchor, placing paints its footprint to road, bulldozing turns it back to field, and its road can't be repainted while it stands. The renderer draws its model instead of the tiles; roads join it only at its four arms; cars use the arms and the centre (ring path), not the corners.
@@ -384,7 +423,7 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
 
 ## Open issues
 **Mobile budget**
-- 64 × 64 plot: the stress town is 291.3k triangles on mobile (Pixel 7 emulation, dev server, 2026-09-28), headroom ~29k under the new 320k budget. Any new content with a large triangle count needs a budget check.
+- **WP-25 (open owner decision):** phones now start on Medium, and the stress town draws **324,096 triangles** on Pixel 7 emulation (dev server, 2026-09-30), ~4k over the 320k mobile budget. Options: see "WP-25 as built". Until WP-25 (the hidden phone tier) it was 291.3k (64 × 64 plot, 2026-09-28). Any new content with a large triangle count needs a budget check.
 
 **Touch precision**
 - At the default phone pose a cell is about 10.6 px, so small props need a pinch-zoom on touch.
@@ -399,7 +438,7 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
 - The WP-07 recording is lost. The WP-13 listen captures exist locally in `artifacts/wp-13/`.
 
 **Tests and platforms**
-- **Phone emulation is flaky here** (seen 2026-09-28, WP-19): Pixel 7 emulation in full Chromium sometimes starts a page without touch (`(pointer: coarse)` false, `maxTouchPoints` 0), even on a static SVG. The game then picks the **high** tier and the mouse hint. The run is otherwise green, and a baseline regenerated in that state looks subtly wrong (decor hedges at the top, the "click the map" hint). Always masked-diff a regenerated mobile baseline against the old one; regenerate again if anything outside the expected area changed. One of the 6 WP-19 baselines needed 3 tries; after the WP-19 merge (on top of tall trees), asset-gallery mobile needed 4 and night-town mobile 10. It hits single-test runs in a fresh browser most, so regenerate one baseline at a time in a retry loop with the masked diff as the check.
+- **Phone emulation is flaky here** (seen 2026-09-28, WP-19): Pixel 7 emulation in full Chromium sometimes starts a page without touch (`(pointer: coarse)` false, `maxTouchPoints` 0), even on a static SVG. The game then shows the mouse hint ("click the map"); before WP-25 it also switched to the desktop look (decor hedges at the top). Since WP-25 the look is the preset, not a touch guess, so only the hint can differ. The run is otherwise green, and a baseline regenerated in that state looks subtly wrong. Always masked-diff a regenerated mobile baseline against the old one; regenerate again if anything outside the expected area changed. One of the 6 WP-19 baselines needed 3 tries; after the WP-19 merge (on top of tall trees), asset-gallery mobile needed 4 and night-town mobile 10. It hits single-test runs in a fresh browser most, so regenerate one baseline at a time in a retry loop with the masked diff as the check.
 - In the first full e2e run of WP-19, both dev servers (the test server and a manual one) died together about 1 min into the bot playtest, and every later test failed with `ERR_CONNECTION_REFUSED`. The re-runs were clean. Cause unknown; it looked environmental.
 - The visual baselines are darwin only; a Linux CI job would fail until it commits its own set.
 - Not tested on real iOS or Android devices.

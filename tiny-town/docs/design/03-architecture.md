@@ -1,6 +1,6 @@
 # Tiny Town — Architecture & Contracts
 
-> **Status: current for v0.3 on `main` (WP-15 catalog + WP-16 day/night), 2026-09-27; v0.3 is not yet released.** This is the source of truth for the grid, rules, save format, module map, diagnostics and budgets. If this file and the code disagree, the code wins; fix this file.
+> **Status: current for v0.3 on `main` (WP-15 catalog + WP-16 day/night), 2026-09-27; v0.3 is not yet released. Updated 2026-09-30 for WP-24 (frame budget) and WP-25 (graphics presets, tabbed menu) on the branch `wp-24-frame-budget` (not merged).** This is the source of truth for the grid, rules, save format, module map, diagnostics and budgets. If this file and the code disagree, the code wins; fix this file.
 
 ## Stack
 TypeScript (strict) · Vite 8 · three.js r184 (`three/addons/*` for MapControls, GLTFLoader) · Web Audio (SFX buffers; music streamed via `HTMLAudioElement`) · lil-gui (`?debug`) · Vitest (pure logic) · Playwright (browser, `channel: 'chromium'`, 1 worker). No physics engine: the game is grid-based and has no simulation that needs one. The build puts three.js in its own vendor chunk (`vite.config.ts`, WP-20), so the game's own chunk stays far below the 900 kB warning limit.
@@ -15,6 +15,8 @@ src/
   game/events.ts        [C]   typed EventBus + GameEvents                 integrator
   game/config.ts        [C]   plot size, CELL_SIZE, cell↔world mapping,   integrator
                               assetUrl, storage keys
+  game/graphics.ts      [C]   WP-25 graphics presets: GRAPHICS_PROFILES,  integrator
+                              needsReload, GRAPHICS_UI (menu copy)
   catalog/tools.ts      [C]   dock tools (ids, category, drag mode, icon) integrator
   catalog/objects.ts    [C]   object defs (footprint, allowed ground,     integrator
                               group, roadFeature…)
@@ -35,6 +37,8 @@ src/
   core/Loop.ts, Renderer.ts   rAF loop + frame pacing; WebGLRenderer setup/resize   integrator / WP-04 (Renderer.ts)
   core/FrameBudget.ts         WP-24: 60 fps active / 30 fps idle cap           integrator
   render/ModelLibrary.ts      GLB load + normalise                        WP-03
+  render/materials.ts         WP-25: Standard → Lambert conversion        WP-25a
+                              (toLambert), the lit material family
   render/TownRenderer.ts      incremental instanced drawing + pop-in,     WP-03
                               MODEL_STYLES look overrides
   render/InstancePool.ts, tween.ts   instance pools; pop-in easing        WP-03
@@ -152,7 +156,7 @@ Variant choice (e.g. tree shape, house model, traffic-light style) uses the seed
 
 **Catalog changes without a bump (WP-23).** New object kinds (mailbox, donut shop, tiered fountain, tulips, long bench, table, slide) need no version bump, and neither did removing the garage: `parseSave` already drops unknown object and edge kinds, so a v4 save or town file with garages still opens, without them (`serialize.test.ts` pins this; the WP-21 format promise holds). An older build opening a newer file drops the kinds it doesn't know the same way.
 
-Settings (`muted`, `volume`, `grid`, `music`, `musicVolume`; defaults false / 0.8 / true / true / 0.5) under `tiny-town:settings:v1`; older settings without the music fields load with the defaults.
+Settings (`muted`, `volume`, `grid`, `music`, `musicVolume`, `timeMode`, `graphics`; defaults false / 0.8 / true / true / 0.5 / `auto` / `medium`) under `tiny-town:settings:v1`; older settings without a field load with its default, and an unknown `graphics` value falls back to `medium` (WP-25).
 
 **Town name (WP-20).** `SavedTownV4.name` is optional, so it needed no version bump: 1–30 characters (Unicode code points), control characters removed, whitespace collapsed and trimmed (`town/townName.ts` `sanitizeTownName`). `parseSave` keeps a sanitised name and drops one that isn't a string or ends up blank; a save without a name loads as `DEFAULT_TOWN_NAME` ("Tiny Town"), which is also the name after any test-state reset. `TownEditor` holds the name: `reset(name?)`, `load(save)` and `rename(name)` set it and emit `town:named { name, cause: 'load' | 'reset' | 'rename' }`; `serialize()` writes it. Renaming is not undoable. SaveStore autosaves on `town:named` with cause `rename` (debounced like an edit); a new town's name is written with its first edit, or its first rename. Events: `intent:start { mode, name? }` (the name of a `'new'` town), `intent:new-town { name }`, `intent:rename-town { name }`.
 
@@ -178,8 +182,35 @@ Music position (WP-18) `{ track, time }` under `tiny-town:music:v1` (`MUSIC_POSI
 The world never stops animating (cars, birds, wind, clouds), so every frame is a full frame. Before WP-24 the game rendered one on every display refresh (120 per second on a ProMotion Mac) at DPR 2 with 4× MSAA and a full shadow pass, which kept an M2 Max GPU ~70% busy in a big town (measurements: WP-24 in `docs/progress.md`).
 - **Frame pacing** (`core/Loop.ts` `paceFrame`, `core/FrameBudget.ts`): the loop renders at most `activeFps` (60) while the player interacts and `idleFps` (30) after `idleAfterS` (4 s) without activity. Activity = pointer, wheel, touch or key input on the window, a moving camera (glide/damping; not the title screen's auto-orbit), town pop-in tweens and a developing photo. Skipped rAF ticks run neither update nor render; `delta` is the time since the last rendered tick. Pacing follows a fixed grid, so a 144 Hz display still averages 60. A hidden tab stops rAF altogether (browser).
 - **Shadow map on demand** (`render/ShadowScheduler.ts`): `renderer.shadowMap.autoUpdate = false`. The map is redrawn on the next frame after `town:changed`, after `Environment.shadowVersion` changes (key light re-aimed or refitted, map resized), and on every frame while TownRenderer tweens run. Moving casters that aren't the town refresh at their own rate: cars `carHz` 15, a flock `birdHz` 30. A still town with no cars or birds draws no shadow pass at all. Test hooks, frames paused for a screenshot and photos always redraw the map first, so captures are exact.
-- **DPR**: the high tier is capped at 1.5, like the low tier (`MAX_DPR`); MSAA stays on.
-- `?debug` → lil-gui `Performance`: active/idle fps (0 = the display's rate), idle delay, car/bird shadow Hz. Diagnostics: `perf`.
+- **DPR**: the cap comes from the graphics preset (§Graphics presets): Low 1, Medium 1.5 (the default; WP-24 lowered desktop from 2 to 1.5), High 2.
+- **Caps per preset**: Low 30 / 30, Medium and High 60 / 30 (`GraphicsProfile.activeFps` / `idleFps`, applied to `FrameBudget.tuning`).
+- `?debug` → lil-gui `Performance`: active/idle fps (0 = the display's rate), idle delay, car/bird shadow Hz. A preset change overwrites the sliders. Diagnostics: `perf`.
+
+## Graphics presets (WP-25)
+Plan: `docs/plans/wp-25-graphics-and-menu-tabs.md`; as built and measurements: `docs/progress.md` "WP-25 as built". The player picks **Low / Medium / High** in Menu → Graphics. **Every device starts on Medium**; there is no device guess any more (before WP-25 a touch screen silently got a cheaper look with different lighting).
+
+The table is `GRAPHICS_PROFILES` in `src/game/graphics.ts` (a contract file):
+
+| | Low | **Medium (default)** | High | Applies |
+| --- | --- | --- | --- | --- |
+| DPR cap (`maxDpr`) | 1 | 1.5 | 2 | live (resize) |
+| MSAA (`antialias`) | off | on | on | **reload** |
+| Lit material (`material`) | Lambert | Standard | Standard | **reload** |
+| Sun shadow map (`shadowMapSize`) | 1024 | 2048 | 2048 | live (`shadowVersion` bump) |
+| Decor-ring trees (`decorFraction`) | 60%, spread evenly | 100% | 100% | live |
+| Sky cloud fbm octaves (`skyOctaves`) | 3 | 5 | 5 | live (one sky recompile) |
+| Frame cap active / idle | 30 / 30 | 60 / 30 | 60 / 30 | live |
+| Lamp halos at night (`lampHalos`) | off | on | on | live |
+
+Environment lighting (the RoomEnvironment PMREM) and shadows are on at every level, so the three presets share one set of colours.
+- **Boot preset** = the `?graphics=low|medium|high` URL override (tests and evidence; not saved; an invalid value is ignored), else the saved `GameSettings.graphics` (validated with `isGraphicsPreset`), else `DEFAULT_GRAPHICS` (`medium`). `Game.bootGraphics` fixes MSAA (`createRenderer(canvas, { antialias })`) and the material family (`new ModelLibrary(material)`).
+- **Live parts:** `Game.applyGraphics(profile)`, at boot and on every change: `tuning.maxDpr` + resize; `Environment.applyGraphics` (shadow-map size, decor share, sky octaves); `FrameBudget.tuning` active / idle fps; `NightLights.setLampHalos` (the halo layer is always built and only shown when on).
+- **Lambert** (`render/materials.ts` `toLambert`): with `material: 'lambert'` every lit `MeshStandardMaterial` is converted when it is created (ModelLibrary's GLTF materials, so the town, decor ring and ghost follow; TownRenderer slabs and style clones; terrain; cars; birds), keeping map, colour, emissive / emissiveMap / emissiveIntensity, vertex colours, transparency, side, alphaTest, name and userData. The wind-sway, window-stagger and wing-flap shader patches are applied after the conversion; `scene.environment` still lights Lambert in r184, so Low is close to Medium, not flat. Placement FX chips were always Lambert.
+- **Decor share < 1** (`DecorRing.setFraction`): a deterministic, evenly strided subset of each mesh (round-down of n × fraction kept), so every arc of the ring, including the part in front of the orbiting title camera, keeps about that share.
+- **Instant vs reload:** `needsReload(booted, next)` is true when MSAA or the material differs from what the page booted with (Medium ↔ High never needs one; anything ↔ Low does). The menu then shows "Some changes apply after a reload" with **Reload now**.
+- **Events:** `intent:set-graphics { preset }` → `Game.setGraphics`: save (`saves.setSettings({ graphics })`, written at once), apply the live parts, emit `graphics:changed { preset, reloadRequired }`. The fact is also emitted once at boot, after `UiRoot` exists; the menu's radios render only from it. `intent:reload-graphics` → `saves.flush()` (a pending town autosave is written) and `location.reload()`; a `?graphics=` override is dropped from the URL first (`location.replace`), so the saved preset wins on the reload.
+- **Diagnostics:** `quality` = the current preset; `graphics` = `{ preset, booted, reloadRequired, antialias, material, maxDpr, shadowMapSize, decorFraction, decorInstances, skyOctaves, activeFps, idleFps, lampHalos }`. `antialias` is read from the real WebGL context; `material` is measured over the scene after load and after every test state (`standard` | `lambert` | `mixed` | `none`).
+- **Tests:** `tests/graphics.spec.ts` (each preset's row through `?graphics=`, saved preset boot, DPR caps at DPR 2), `tests/graphics-menu.spec.ts` (the menu end to end: Low → saved → Reload now → same town on Low with no MSAA and Lambert → Medium → reload; High live without a notice), `tests/menu-tabs.spec.ts` (the Graphics tab UI).
 
 ## Day/night (v0.3, WP-16)
 Plan and rationale: `docs/plans/wp-16-day-night.md`. The as-built deviations are in `docs/progress.md` ("WP-16 as built").
@@ -202,7 +233,7 @@ Plan and rationale: `docs/plans/wp-16-day-night.md`. The as-built deviations are
   - Emissive intensity is exactly 0 when `night` = 0, so the day look, icons and baselines are unchanged.
 - **Ground light** (`render/NightLights.ts`): a lamp registry fed by `town:changed`, plus three instanced additive layers, all hidden when night < 0.05. No real PointLights.
   - lamp pools: +1 draw call;
-  - lamp halos: +1, high tier only;
+  - lamp halos: +1, Medium and High only (`lampHalos`, WP-25);
   - headlight beams: +1, ≤ 6 cars;
   - fireflies over open meadow cells: +1.
 - **Life:** `LifeSystem.setNight(n)` → `TrafficSim.setDensity(1 − 0.5·n)`, so there are fewer cars at night. Car Kit cars face native +Z (`FRONT_ROTATION` 0 since v0.3).
@@ -240,18 +271,18 @@ Plan: `docs/plans/wp-22-birds.md`.
 - **Cost:** 60–90 ms per photo on an M-series laptop (capture + frame + encode). The JPEG is 0.2–0.4 MB at 2536 × 1688 (desktop) or 1188 × 2670 (Pixel 7).
 
 ## Budgets (full 64×64-cell town, desktop 1280×720; mobile 390×844)
-The `stress-town` state is the gate. "Measured" gives the latest number and says where it came from. **v0.4 (64 × 64 plot, tall trees, WP-19) was measured on the production preview on 2026-09-28**; `docs/release.md` §Budgets has the full table, the earlier versions and the method (full Chromium, real GPU; mobile = Pixel 7 emulation, which gets the low tier: check `quality` in each mobile profile, the emulation is flaky).
+The `stress-town` state is the gate. "Measured" gives the latest number and says where it came from. **v0.4 (64 × 64 plot, tall trees, WP-19) was measured on the production preview on 2026-09-28**; `docs/release.md` §Budgets has the full table, the earlier versions and the method (full Chromium, real GPU; mobile = Pixel 7 emulation). Until WP-25 phones got a hidden cheaper tier (1024 shadows, a quarter of the decor ring, no env lighting), so the mobile numbers below were measured on that tier; **since WP-25 phones start on Medium like desktop** (see the triangle row).
 The mobile triangle budget was raised from 250k to 320k with the 64 × 64 plot (owner decision, 2026-09-28): a full town holds 1.78× the area (100 homes instead of 64), with the same content per cell.
 
 | Metric | Budget desktop | Budget mobile | Measured (desktop / mobile) |
 | --- | --- | --- | --- |
 | Draw calls | ≤ 150 | ≤ 120 | v0.4 (production preview): day 31 / 31; night (t 0.82) 34 / 33. v0.3 (48 × 48): day 32 / 32, night 35 / 34 |
-| Triangles | ≤ 400k | ≤ 320k (250k until the 64 × 64 plot) | v0.4 (production preview): day 358.2k / 293.2k; night 354.3k / 289.2k (mobile headroom ~27k). v0.3 (48 × 48): day 306.1k / 237.0k |
+| Triangles | ≤ 400k | ≤ 320k (250k until the 64 × 64 plot) | **WP-25 (dev server, stress town, 2026-09-30): Pixel 7 on Medium (the new phone default) 324.1k, over the 320k budget by ~4k (open owner decision, `docs/progress.md` "WP-25 as built"); Low 289.3k; desktop (1512 × 982 viewport) Medium / High 332.3k, Low 297.5k.** v0.4 (production preview, phones on the old cheaper tier): day 358.2k / 293.2k; night 354.3k / 289.2k. v0.3 (48 × 48): day 306.1k / 237.0k |
 | Textures | ≤ 30 | ≤ 30 | Stress town 14 / 13, sample town 27 / 26 (v0.4 production preview; includes the day/night glow masks) |
-| Shadow maps | 1 × 2048 | 1 × 1024 | as budgeted (`Environment.setQuality`: high 2048, low 1024) |
-| DPR cap | 1.5 (2 until WP-24) | 1.5 | `MAX_DPR` in `config.ts` |
+| Shadow maps | 1 × 2048 | 1 × 2048 (1024 until WP-25) | per preset (`Environment.applyGraphics`): Low 1024, Medium / High 2048 |
+| DPR cap | Medium 1.5 (2 until WP-24) | Medium 1.5 | per preset (`GRAPHICS_PROFILES.maxDpr`): Low 1, Medium 1.5, High 2 |
 | Frame time (M-series laptop, headless full Chromium) | ≤ 8 ms | — | 1.46 ms day / 1.51 ms night on the stress town (v0.4 production preview, uncapped); v0.3: 1.38 / 1.37 ms; v0.1: 1.36 ms |
-| Frame rate cap (WP-24) | 60 active / 30 idle | 60 / 30 | `FrameBudget` (§Frame budget) |
+| Frame rate cap (WP-24) | 60 active / 30 idle | 60 / 30 | `FrameBudget` (§Frame budget); Low 30 / 30 |
 | Initial download (JS + CSS + font + models + SFX + icons + name list) | ≤ 8 MB | ≤ 8 MB | 4.78 MB over the network before the title (v0.4 production preview); `dist/` 4.99 MB without maps or music. The 4.68 MB music track is streamed after Start and isn't part of the initial download |
 
 ## Test hooks and diagnostics
@@ -279,7 +310,8 @@ The `sample-town` state uses every placing tool (40, WP-23) with zero rejections
 | `history` | `canUndo` / `canRedo` / `undoDepth` / `redoDepth` |
 | `invalidCount` | |
 | `camera` | pose |
-| `quality` | |
+| `quality` | WP-25: the current graphics preset (`low` \| `medium` \| `high`) |
+| `graphics` | WP-25: `{preset, booted, reloadRequired, antialias, material, maxDpr, shadowMapSize, decorFraction, decorInstances, skyOctaves, activeFps, idleFps, lampHalos}` (§Graphics presets); `antialias` from the real context, `material` measured over the scene |
 | `audio` | `muted` / `volume` / `unlocked` / `loaded` / `starts`, plus `music`: `{enabled, volume, playing, loaded, requested, ducked, time, loops, resumedFrom}` |
 | `save` | `{available, pending, lastError}` |
 | `fx` | `FxDiagnostics`: active, drawCalls, spawned, dropped, reducedMotion, windTime, windStrength |
@@ -295,6 +327,6 @@ There are no other diagnostics globals; the `__THREE_GAME_FX_DIAGNOSTICS__` / `_
 
 Playwright projects are `desktop-chrome` (1280×720) and `mobile-chrome` (Pixel 7 emulation, touch). Both run full Chromium (`channel: 'chromium'`) with 1 worker. The canvas inspector's `--mobile` mode is a 390 × 844 touch viewport.
 
-Stable DOM ids for tests are `UI_TEST_IDS` in `src/ui/testIds.ts`, which has no side effects and is re-exported by `UiRoot.ts`. Examples: `btn-start`, `tool-<id>`, `cat-<category>`, `btn-undo`, `btn-redo`, `btn-mute`, `btn-rotate`, `tool-bulldoze`, the menu ids, `chk-music` / `range-music`, the photo ids (`btn-photo`, `ui-photo`, `ui-photo-img`, `btn-photo-download`, `btn-photo-close`), the town name ids (WP-20: `btn-town-name` (the top-left pill), `btn-rename-town`, `ui-town-name` (the dialog, `data-mode` new / rename), `input-town-name`, `btn-town-name-shuffle`, `btn-town-name-cancel`, `btn-town-name-ok`), and the town file ids (WP-21: `btn-town-file` (top bar, > 440 px), `btn-town-file-menu` (menu, ≤ 440 px), `btn-title-open-file`, `ui-town-file`, `btn-town-file-download`, `btn-town-file-open`, `btn-town-file-close`, `input-town-file`, `ui-town-file-confirm`, `btn-town-file-cancel`, `btn-town-file-replace`, `btn-town-file-keep`). A tool button exists only while its category is active.
+Stable DOM ids for tests are `UI_TEST_IDS` in `src/ui/testIds.ts`, which has no side effects and is re-exported by `UiRoot.ts`. Examples: `btn-start`, `tool-<id>`, `cat-<category>`, `btn-undo`, `btn-redo`, `btn-mute`, `btn-rotate`, `tool-bulldoze`, the menu ids, `chk-music` / `range-music`, the photo ids (`btn-photo`, `ui-photo`, `ui-photo-img`, `btn-photo-download`, `btn-photo-close`), the town name ids (WP-20: `btn-town-name` (the top-left pill), `btn-rename-town`, `ui-town-name` (the dialog, `data-mode` new / rename), `input-town-name`, `btn-town-name-shuffle`, `btn-town-name-cancel`, `btn-town-name-ok`), and the town file ids (WP-21: `btn-town-file` (top bar, > 440 px), `btn-town-file-menu` (menu, ≤ 440 px), `btn-title-open-file`, `ui-town-file`, `btn-town-file-download`, `btn-town-file-open`, `btn-town-file-close`, `input-town-file`, `ui-town-file-confirm`, `btn-town-file-cancel`, `btn-town-file-replace`, `btn-town-file-keep`), and the menu tab and graphics ids (WP-25: `MENU_TABS` = town / graphics / sound / help, `tab-menu-<tab>`, `panel-menu-<tab>`, `ui-graphics` (the Quality radio group), `radio-graphics-<preset>`, `btn-graphics-reload`). A tool button exists only while its category is active; a menu control is visible only while its tab is selected (`tests/helpers.ts` `openMenuTab`).
 
-Visual baselines live in `tests/visual-regression.spec.ts-snapshots/`: 6 PNGs covering title, sample-town and asset-gallery × desktop and mobile. They are **darwin only**, and a missing baseline fails.
+Visual baselines live in `tests/visual-regression.spec.ts-snapshots/`: 8 PNGs covering title, sample-town, asset-gallery and night-town × desktop and mobile (the mobile four re-captured for WP-25, when phones moved to Medium). They are **darwin only**, and a missing baseline fails.

@@ -1,6 +1,6 @@
 # Tiny Town — Interaction & UI Design
 
-> Status: current for v0.2 (48 × 48 grid, 64 × 64 since 2026-09-28, multi-cell footprints, music settings, one-row top bar), updated for v0.3: the WP-15 catalog (five dock categories, 33 tools, roundabouts; 34 with the zebra crossing, 2026-09-28) and the WP-16 day/night controls (time button, menu row, `T`). v0.3 is not yet released. Code references: `src/interaction/*` (WP-05), `src/ui/*` (WP-06), `src/catalog/tools.ts`.
+> Status: current for v0.2 (48 × 48 grid, 64 × 64 since 2026-09-28, multi-cell footprints, music settings, one-row top bar), updated for v0.3: the WP-15 catalog (five dock categories, 33 tools, roundabouts; 34 with the zebra crossing, 2026-09-28) and the WP-16 day/night controls (time button, menu row, `T`). v0.3 is not yet released. Updated 2026-09-30 for WP-25 (the tabbed menu and its Graphics tab; branch `wp-24-frame-budget`, not merged). Code references: `src/interaction/*` (WP-05), `src/ui/*` (WP-06), `src/catalog/tools.ts`.
 
 ## 1. Camera
 
@@ -12,7 +12,7 @@ Isometric-feeling **perspective** camera (FOV ~35°) orbiting a target on the gr
 | Orbit (yaw) | Middle-drag · Alt/Option + left-drag · Q / E (animated 45° steps) | Two-finger twist |
 | Tilt | Alt + left-drag vertical | — (fixed) |
 | Zoom | Wheel (zoom-to-cursor) · + / − | Pinch |
-| Reset view | Home / `F` | Toolbar "reset view" button in menu |
+| Reset view | Home / `F` | Menu → Help → Reset view |
 
 Constraints (tunable in `?debug`):
 - Polar angle clamped **30°–70°** from vertical (never flat-on-ground, never top-down-only).
@@ -107,12 +107,12 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
 - **Mode buttons** (right end of the dock): Rotate (shows the current rotation arrow) and Bulldoze (toggles; red accent when active).
 - **Top bar**: one row. The row is 48 px tall (`--topbar-h`; 52 px on phones), so it ends 60 / 64 px below the safe-area top.
   - Left: the **town name pill** (WP-20): the brick house badge and the player's town name (bold, ellipsised when too long; desktop caps the pill at 40 % of the width). It is a button: click / tap it to rename the town. v0.2 (WP-14) removed the live stats pill as redundant; `TownState.stats()` and diagnostics `town` remain for tests.
-  - Right: Undo and Redo (disabled when unavailable), then the **Town file** folder (WP-21; wider than 440 px only), the **photo camera** (WP-19, key `P`), the **time-of-day button** (v0.3, WP-16), the sound toggle (mute), and Menu. Volume and music settings are in the menu.
+  - Right: Undo and Redo (disabled when unavailable), then the **Town file** folder (WP-21; wider than 440 px only), the **photo camera** (WP-19, key `P`), the **time-of-day button** (v0.3, WP-16), the sound toggle (mute), and Menu. Volume and music settings are in the menu's Sound tab.
   - The time button cycles Auto → Day → Night (`intent:cycle-time-mode`; key `T`). Its glyph is sun + moon, sun or moon, and its label reads "Time of day: Auto". It renders from `daytime:changed`. The mode is a saved setting; the time of day is not.
 - **Hint line**: a contextual one-liner for the active tool's gesture. It sits top-centre, 10 px under the top bar, fades after about 3.5 s, and stops appearing after 3 uses of that tool.
 - **Cursor tooltip**: the invalid-placement reason, anchored near the pointer but never under it, and never over the dock or top bar.
 - Nothing overlaps the centre of the view. The dock is ≤ 150 px tall on desktop.
-- **Grid overlay** (menu "Show grid"): line opacity is capped at `GRID_MAX_OPACITY` (0.14; design cap ≤ 20%) by day. At night it may exceed the cap: opacity × (1 + `GRID_NIGHT.boost`·night), with boost 0.6 (v0.3, WP-16a), so building at night stays as easy as by day.
+- **Grid overlay** (Menu → Graphics → "Show grid"): line opacity is capped at `GRID_MAX_OPACITY` (0.14; design cap ≤ 20%) by day. At night it may exceed the cap: opacity × (1 + `GRID_NIGHT.boost`·night), with boost 0.6 (v0.3, WP-16a), so building at night stays as easy as by day.
 - **Day/night (v0.3):** building works the same at any time of day. The ghost, the footprint frame and the grid stay clearly visible at night.
 
 ### Mobile (≤ 760 px wide or `pointer: coarse`)
@@ -129,13 +129,24 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
 | **Title** | Big "Tiny Town" mark (the game's logo, never the town's name) over the live, slowly orbiting scene. Buttons: **Start building** (primary), which reads **Continue** when a save exists; **New town**, shown only when a save exists; small **Open a town file** (WP-21: straight to the file picker, then the Town file confirm) and Credits links | Assets ready → user clicks. Continue goes straight in; Start building (no save) and New town (after its confirm) open **Name your town** first. The click that enters the game (Continue, or the name dialog's Start building) unlocks audio and starts the streamed music |
 | **Name your town** (WP-20; over the title, or the menu phase with the name view) | "Name your town" (new town) or "Rename your town": a text field (≤ 30 characters, live "n / 30" counter) pre-filled with a random name from `public/data/default_town_names.json` (new) or the current name (rename); a **die** button draws another random name; **Cancel** and **Start building** / **Save**. Enter submits, Esc cancels; a blank name can't be submitted. Desktop focuses the field with the text selected; touch focuses the button, so the keyboard opens only when the field is tapped | New town: from the title's Start building (no save) or after "Start a new town?" → Clear (title or menu); nothing is cleared until the name is confirmed. Rename: the top-left pill (Cancel returns to building) or Menu → Rename town (Cancel returns to the menu). Renaming is not undoable and is autosaved |
 | **Building** | Dock, top bar, hint line | Main state |
-| **Menu** (overlay; the sim keeps rendering; music ducks −3 dB; the day clock pauses) | Headed by the **town's name** (WP-20). Resume · Controls · Reset view · Volume · **Music** on/off · **Music volume** · Show grid · **Time of day** (Auto / Day / Night segmented control) · **Town file** (phones ≤ 440 px only, WP-21) · **Rename town** · New town (confirm, then Name your town) · Credits | ☰, or Esc when no tool is selected |
+| **Menu** (overlay; the sim keeps rendering; music ducks −3 dB; the day clock pauses) | Headed by the **town's name** (WP-20), then **Resume**, then (WP-25) a tab bar **Town · Graphics · Sound · Help** (glyph over label) with one panel per tab (§5.1) | ☰, or Esc when no tool is selected |
 | **Photo** (WP-19; the menu phase with the photo view instead of the menu: same pause, duck and dim) | A white flash (none under reduced motion), then the photo as a slightly tilted Polaroid with a strip of washi tape: "Developing…" on a warm grey print, then the picture fades up from pale sepia. **Download** and **Back to town** (no Share button, owner decision) | Camera button or `P` while building → Esc / Back to town returns to building (the tool stays selected) |
 | **Town file** (WP-21; the menu phase with the file view, like the photo) | "Town file": **Download this town** (primary; the live town as `<slug>-YYYY-MM-DD-HHMM.tinytown.json`), **Open a town file…** (the system picker, `.json`, ≤ 2 MB), a status line ("Saved as …", or why a file can't be opened, in brick) and **Back to town** / **Back**. On the title (after a bad file) Download is hidden | The top-bar folder (Back returns to building) or Menu → Town file on phones (Back returns to the menu); the title link on a bad file |
 | **Town file confirm** (WP-21) | "Open Bumbleford?", "Saved on 29 Sep 2026.", then "Puddleton will be replaced. Download it first if you want to keep it." (in the game) or "Your saved town will be replaced." (title with a save). **Cancel** (focused) and **Replace town** (brick), or **Open town** (green) when nothing is replaced; in the game a **Download Puddleton first** link. The file's town, name and camera replace the current ones (not undoable) and are saved at once | After a good file is picked. Cancel / Esc return to the panel (title: close). Replace from the title also starts the game (unlocks audio, morning) |
 | **Confirm dialog** | "Start a new town? Your current town will be cleared." Cancel / Clear (Clear opens Name your town; WP-20) | From menu, or the title's New town |
 | **Controls help** | Two-column gesture list (mouse+keys / touch) | From menu, `?` key |
 | **Error** | Friendly message if WebGL or asset loading fails, with retry | Fatal load error |
+
+### 5.1 Menu tabs (WP-25)
+- **Tabs and contents** (every control keeps its id from before WP-25):
+  - **Town**: Time of day (Auto / Day / Night segmented control); **Town file** (phones ≤ 440 px only, WP-21); **Rename town** · **New town** (confirm, then Name your town).
+  - **Graphics**: **Quality**, a Low / Medium / High segmented radio group like Time of day; under it the selected preset's one-line description (`GRAPHICS_UI`); while a reload is needed, the notice "Some changes apply after a reload" with **Reload now**; **Show grid**.
+  - **Sound**: Volume, Music on/off, Music volume.
+  - **Help**: Controls, Reset view, Credits.
+- **Graphics wiring:** the radios, the description and the notice render only from the last `graphics:changed` fact (Game emits it at boot and after every change); picking a preset emits `intent:set-graphics` and applies the live parts at once. The notice appears when the choice changes MSAA or the material from what the page booted with (anything ↔ Low); Medium ↔ High never needs it. **Reload now** emits `intent:reload-graphics`: the town save is flushed and the page reloads to the title, where Continue brings the same town back on the new preset. The choice is saved in the settings; the default is Medium on every device. Rules and numbers: `03-architecture.md` §Graphics presets.
+- **Keyboard** (WAI-ARIA tabs, automatic activation): the tab bar is one Tab stop (roving `tabindex`, the selected tab); ←/→ move and wrap, Home / End jump to the first / last tab; Tab moves into the open panel and Shift+Tab comes back to the selected tab. Arrows inside a radio group move its choice, as usual. The arrows never reach the camera while the menu is open.
+- **Remembered tab:** the menu opens on the tab used last in this page session (Town after a load or reload). Back from a sub-view (Controls, Credits, the New town confirm, Rename, Town file) and Esc from one return to the menu **on the same tab**, with focus on the control that opened it; `?` opens Controls from building, and Esc from there lands on the remembered tab.
+- **Steady size:** every panel sits in the same grid cell, so the menu is as tall as the tallest tab and doesn't jump when the tab changes; on short screens the panel area scrolls. It fits 390 × 844 and the Pixel 7 viewport with no sideways scroll and no clipped labels (`tests/menu-tabs.spec.ts`).
 
 ## 6. Visual language
 

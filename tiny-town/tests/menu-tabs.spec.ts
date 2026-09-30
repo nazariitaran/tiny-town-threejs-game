@@ -6,10 +6,9 @@
  * steady panel size, the Graphics radios / description / reload notice rendering from the last
  * `graphics:changed` fact, and the phone layout (390 × 844 and Pixel 7).
  *
- * Nothing in the tests can emit a fact on the game bus, so the Graphics checks read what the
- * engine last said from diagnostics (`graphics`, added by WP-25a) and fall back to the UI default
- * (Medium, no reload) while no engine answers. The full flow (Low → saved → reload → MSAA off +
- * Lambert → Medium → reload) is WP-25c's end-to-end spec.
+ * The Graphics checks compare the tab with what the engine last said (diagnostics `graphics`,
+ * WP-25a): picking Low must come back as Low with the reload notice. The full flow (Low → saved →
+ * reload → MSAA off + Lambert → Medium → reload) is `graphics-menu.spec.ts` (WP-25c).
  */
 import { mkdirSync } from 'node:fs';
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
@@ -32,10 +31,10 @@ const tab = (page: Page, t: MenuTab) => byId(page, ids.menuTab(t));
 const panel = (page: Page, t: MenuTab) => byId(page, ids.menuTabPanel(t));
 const phase = async (page: Page) => (await diagnostics(page)).phase;
 
-/** What the engine last said (diagnostics.graphics, WP-25a); `null` while no engine publishes it. */
-async function engineGraphics(page: Page): Promise<{ preset: GraphicsPreset; reloadRequired: boolean } | null> {
-  const diag = (await diagnostics(page)) as { graphics?: { preset: GraphicsPreset; reloadRequired: boolean } };
-  return diag.graphics ?? null;
+/** What the engine last said (diagnostics.graphics, WP-25a). */
+async function engineGraphics(page: Page): Promise<{ preset: GraphicsPreset; reloadRequired: boolean }> {
+  const { preset, reloadRequired } = (await diagnostics(page)).graphics;
+  return { preset, reloadRequired };
 }
 
 async function press(info: TestInfo, target: Locator): Promise<void> {
@@ -218,10 +217,10 @@ test('Graphics tab: Quality radios, description and reload notice follow the las
   const description = page.locator('#ui-graphics-desc');
   const notice = page.locator('.ui-graphics-reload');
 
-  /** The radios show the engine's last fact, or the default Medium while there is none. */
+  /** The radios show the engine's last fact. */
   const expectRendered = async (label: string) => {
     const fact = await engineGraphics(page);
-    const shown = fact?.preset ?? DEFAULT_GRAPHICS;
+    const shown = fact.preset;
     for (const preset of GRAPHICS_PRESETS) {
       const radio = byId(page, ids.graphicsOption(preset));
       if (preset === shown) await expect(radio, `${label}: ${preset}`).toBeChecked();
@@ -229,7 +228,7 @@ test('Graphics tab: Quality radios, description and reload notice follow the las
     }
     await expect(description).toHaveText(GRAPHICS_UI[shown].description);
     await expect(group).toHaveAttribute('aria-describedby', 'ui-graphics-desc');
-    if (fact?.reloadRequired) {
+    if (fact.reloadRequired) {
       await expect(notice).toBeVisible();
       await expect(notice).toContainText('Some changes apply after a reload');
       await expect(byId(page, ids.graphicsReload)).toHaveText('Reload now');
@@ -241,8 +240,7 @@ test('Graphics tab: Quality radios, description and reload notice follow the las
   };
 
   // Default: Medium checked, its description, no reload notice (nothing to reload for yet).
-  const boot = await expectRendered('boot');
-  expect(boot?.reloadRequired ?? false).toBe(false);
+  expect(await expectRendered('boot')).toEqual({ preset: DEFAULT_GRAPHICS, reloadRequired: false });
 
   // Segments: labels from GRAPHICS_UI, inside the panel, ≥ 44 px on touch.
   const menu = (await byId(page, ids.menuPanel).boundingBox())!;
@@ -255,16 +253,17 @@ test('Graphics tab: Quality radios, description and reload notice follow the las
     expect(box.height).toBeGreaterThanOrEqual(info.project.name === 'mobile-chrome' ? 44 : 36);
   }
 
-  // Picking Low emits intent:set-graphics; the radios then show whatever the engine answered.
-  // With WP-25a the answer is Low (+ the reload notice, since Low changes MSAA and the material);
-  // without an engine nothing answers, so Medium stays checked (the UI never renders the intent).
+  // Picking Low emits intent:set-graphics; the engine answers Low with the reload notice (Low
+  // changes MSAA and the material), and the radios render that answer.
   await press(info, group.locator('.ui-seg-opt', { hasText: GRAPHICS_UI.low.label }));
-  const afterLow = await expectRendered('after Low');
-  if (afterLow) expect(afterLow).toEqual({ preset: 'low', reloadRequired: true });
+  await expect.poll(() => engineGraphics(page)).toEqual({ preset: 'low', reloadRequired: true });
+  await expectRendered('after Low');
+  await expect(notice).toBeVisible();
 
   await press(info, group.locator('.ui-seg-opt', { hasText: GRAPHICS_UI.medium.label }));
-  const afterMedium = await expectRendered('after Medium');
-  if (afterMedium) expect(afterMedium).toEqual({ preset: 'medium', reloadRequired: false });
+  await expect.poll(() => engineGraphics(page)).toEqual({ preset: 'medium', reloadRequired: false });
+  await expectRendered('after Medium');
+  await expect(notice).toBeHidden();
 
   // Show grid moved here and still works.
   const grid = byId(page, ids.grid);
