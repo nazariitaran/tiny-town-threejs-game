@@ -152,6 +152,11 @@ export class BirdSystem {
     return count;
   }
 
+  /** A flock is drawn into the sun's shadow map (WP-24: it refreshes at its own rate while birds fly). */
+  get castsShadows(): boolean {
+    return this.mesh.visible && this.mesh.castShadow && this.mesh.count > 0;
+  }
+
   getDiagnostics(): BirdDiagnostics {
     const stats = this.sim.stats;
     const drawn = this.mesh.visible ? 1 : 0;

@@ -66,6 +66,11 @@ const DAYLIGHT_TUNING = {
 
 export class Environment {
   readonly sun: THREE.DirectionalLight;
+  /**
+   * Bumped whenever the sun's shadow must be redrawn from scratch: re-aimed / refitted, or the map
+   * resized (WP-24: the renderer's shadow map no longer redraws every frame).
+   */
+  shadowVersion = 0;
   private readonly root = new THREE.Group();
   private readonly hemi: THREE.HemisphereLight;
   private readonly sky: Sky;
@@ -147,6 +152,7 @@ export class Environment {
       // Force the renderer to reallocate the shadow render target at the new size.
       this.sun.shadow.map?.dispose();
       this.sun.shadow.map = null;
+      this.shadowVersion += 1;
     }
     if (tier === 'high') {
       this.envMap ??= this.createEnvMap();
@@ -232,6 +238,7 @@ export class Environment {
    * its orthographic shadow camera tightly around the plot. Reuses scratch objects.
    */
   private fitSunShadow(): void {
+    this.shadowVersion += 1;
     this.sun.target.position.set(0, 0, 0);
     this.sun.position.copy(this.fittedDir).multiplyScalar(SHADOW_DISTANCE);
 

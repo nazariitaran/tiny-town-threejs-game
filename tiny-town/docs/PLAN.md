@@ -464,6 +464,14 @@ Each WP lists **Owns** (the only files it may edit), **Reads** (contracts it bui
 - **Files:** contract: `town/types.ts`, `catalog/{objects,models,tools}.ts`; `town/serialize.ts`, `town/sampleTown.ts`; `render/TownRenderer.ts` (gate style), `render/IconStudio.ts`, `fx/fxRecipes.ts`; `ui/UiRoot.ts` (badges, credits); `scripts/compose-models.mjs`; new GLBs and icons; tests; docs.
 - **Acceptance:** see the plan.
 
+### WP-24 — Frame budget (performance)
+- **Status: built on the branch `wp-24-frame-budget`** (from `f37725d`; worktree `../ThreeJsGames-wt/wp-24`; dev server / tests 5299), waiting for the owner's review. Not merged. As built: `docs/progress.md` "WP-24 as built".
+- **Why:** owner report (2026-09-29): after building for a while the frame rate drops and the fans spin up; switching away from Chrome and back helps a little. The investigation (report on the owner's Desktop, `tiny-town-performance/REPORT.md`) found no leak or accumulation: the game was GPU-bound, rendering a full DPR 2 + 4× MSAA frame with a full shadow pass on every refresh (120 Hz on a ProMotion Mac), ~70% of an M2 Max GPU in a big town. A hidden tab stops rAF, so the chip cooled.
+- **Owner asks:** implement the biggest wins (frame cap, DPR, shadow map on demand); remove the unused town stats event.
+- **Design:** §Frame budget in `docs/design/03-architecture.md`: 60 fps while interacting, 30 fps after 4 s idle; the sun's shadow map redrawn only when a caster changed (cars 15 Hz, birds 30 Hz); high-tier DPR cap 2 → 1.5; `town:stats` removed (no subscribers; it recomputed `TownState.stats()` for every cell of a drag).
+- **Files:** `core/Loop.ts`, new `core/FrameBudget.ts`, `core/Renderer.ts`, new `render/ShadowScheduler.ts`; `game/Game.ts`, `game/config.ts`, `game/events.ts`, `vite-env.d.ts` (diagnostics `perf`); small getters in `render/TownRenderer.ts`, `life/LifeSystem.ts`, `life/BirdSystem.ts`, `world/Environment.ts` (`shadowVersion`); `town/TownEditor.ts`; tests (`src/core/frameBudget.test.ts`, `src/render/ShadowScheduler.test.ts`, `tests/perf.spec.ts`); docs.
+- **Acceptance:** `npm run verify`; the full e2e suite incl. the darwin baselines unchanged; `tests/perf.spec.ts` (idle cap, input restores 60, still town = no shadow redraws, placing redraws, DPR 1.5 on a DPR-2 screen); before/after GPU measurements on the stress town (progress.md).
+
 ## 5. Checkpoints (integrator runs these on merged main)
 
 > Historical: M1, M2 and M3 all passed on 2026-09-26 (`docs/checkpoints/m1.md`–`m3.md`). Reuse the procedure for future checkpoints.

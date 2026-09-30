@@ -7,6 +7,7 @@
  */
 import * as THREE from 'three';
 import { AudioManager } from '../audio/AudioManager';
+import { FrameBudget } from '../core/FrameBudget';
 import { Loop } from '../core/Loop';
 import { createRenderer, resizeRenderer } from '../core/Renderer';
 import { DebugTools, type DebugTuning } from '../debug/DebugTools';
@@ -22,6 +23,7 @@ import { ModelLibrary } from '../render/ModelLibrary';
 import { captureView } from '../photo/capture';
 import { photoFileName } from '../photo/photoLayout';
 import { NightLights } from '../render/NightLights';
+import { ShadowScheduler } from '../render/ShadowScheduler';
 import { TownRenderer } from '../render/TownRenderer';
 import { TownEditor } from '../town/TownEditor';
 import { TownState } from '../town/TownState';
@@ -48,9 +50,19 @@ export class Game {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(35, 1, 0.1, 900);
+  /** WP-24: 60 fps while the player interacts, 30 fps when idle (the world never stops animating). */
+  private readonly frameBudget = new FrameBudget();
+  /** WP-24: the sun's shadow map is redrawn only when a caster changed (autoUpdate is off). */
+  private readonly shadows = new ShadowScheduler();
+  private shadowVersion = -1;
+  /** Seconds since the previous rendered frame (for the shadow scheduler). */
+  private frameDelta = 0;
+  private readonly lastCameraPosition = new THREE.Vector3();
+  private readonly lastCameraQuaternion = new THREE.Quaternion();
   private readonly loop = new Loop(
     (delta, elapsed) => this.update(delta, elapsed),
     () => this.render(),
+    () => this.frameBudget.targetFps,
   );
   private readonly quality: QualityTier = window.matchMedia('(pointer: coarse)').matches ? 'low' : 'high';
   private readonly tuning: DebugTuning = { exposure: 1.0, maxDpr: MAX_DPR[this.quality], showStats: false };
@@ -171,6 +183,9 @@ export class Game {
     this.bus.on('build:invalid', () => {
       this.invalidCount += 1;
     });
+    this.bus.on('town:changed', () => this.shadows.invalidate());
+    this.frameBudget.attach(window);
+    this.installPerfDebug();
 
     if (!this.gridPreferred) this.bus.emit('intent:toggle-grid', { visible: false }); // sync the UI switch
     this.announceDaytime(); // sync the UI time button with the stored mode
@@ -185,6 +200,7 @@ export class Game {
 
   dispose(): void {
     this.loop.stop();
+    this.frameBudget.detach();
     window.removeEventListener('pagehide', this.onPageHide);
     this.saves.flush();
     this.saves.dispose();
@@ -221,7 +237,6 @@ export class Game {
       this.environment.populate(this.library);
       this.nightLights.populate();
       this.applyDaylight();
-      this.bus.emit('town:stats', this.town.stats());
       this.setPhase('title');
     } catch (error) {
       console.error(error);
@@ -256,6 +271,7 @@ export class Game {
   /** Fixed update order: input/tools → camera → town visuals → world → fx. */
   private update(delta: number, elapsed: number): void {
     this.frame += 1;
+    this.frameDelta = delta;
     resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr);
     if (!this.pausedForScreenshot) {
       const animDelta = this.reducedMotion ? 0 : delta;
@@ -273,11 +289,59 @@ export class Game {
       this.environment.update(animDelta, animElapsed);
       this.fx.update(animDelta);
     }
+    this.trackActivity();
     this.publishDiagnostics();
   }
 
+  /** Frame loop render: the shadow map is redrawn only when the scheduler says so (WP-24). */
   private render(): void {
+    if (this.environment.shadowVersion !== this.shadowVersion) {
+      this.shadowVersion = this.environment.shadowVersion;
+      this.shadows.invalidate();
+    }
+    const moving = !this.pausedForScreenshot && !this.reducedMotion;
+    // Paused for a screenshot: always a fresh map, so captures never show a throttled car shadow.
+    if (this.pausedForScreenshot) this.shadows.invalidate();
+    this.renderer.shadowMap.needsUpdate = this.shadows.step(this.frameDelta, {
+      settling: this.townRenderer.isAnimating,
+      cars: moving && this.life.castsShadows,
+      birds: moving && this.birds.castsShadows,
+    });
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /** One-off render from a test hook: state may have jumped, so the shadow map is redrawn too. */
+  private renderNow(): void {
+    this.shadows.invalidate();
+    this.frameDelta = 0;
+    this.render();
+  }
+
+  /**
+   * WP-24 frame budget: input keeps the loop at the active rate (FrameBudget listens for it); so do
+   * a gliding camera (damping after a drag, a reset tween) and town pop-in tweens. The title
+   * screen's slow auto-orbit doesn't count: the title idles at the idle rate.
+   */
+  private trackActivity(): void {
+    const camera = this.camera;
+    const cameraMoved = !camera.position.equals(this.lastCameraPosition) || !camera.quaternion.equals(this.lastCameraQuaternion);
+    if (cameraMoved) {
+      this.lastCameraPosition.copy(camera.position);
+      this.lastCameraQuaternion.copy(camera.quaternion);
+    }
+    if ((cameraMoved && this.phase !== 'title') || this.townRenderer.isAnimating || this.photo.developing) this.frameBudget.markActive();
+  }
+
+  /** `?debug`: lil-gui `Performance` folder (frame caps, idle delay, shadow refresh rates). */
+  private installPerfDebug(): void {
+    const folder = this.debug.folder('Performance');
+    if (!folder) return;
+    const budget = this.frameBudget.tuning;
+    folder.add(budget, 'activeFps', 0, 120, 5).name('active fps (0 = display)');
+    folder.add(budget, 'idleFps', 0, 120, 5).name('idle fps (0 = display)');
+    folder.add(budget, 'idleAfterS', 0.5, 30, 0.5).name('idle after (s)');
+    folder.add(this.shadows.tuning, 'carHz', 1, 60, 1).name('car shadow Hz');
+    folder.add(this.shadows.tuning, 'birdHz', 1, 60, 1).name('bird shadow Hz');
   }
 
   /**
@@ -300,6 +364,7 @@ export class Game {
     };
     let shot: ReturnType<typeof captureView>;
     try {
+      this.renderer.shadowMap.needsUpdate = true; // the photo never shows a throttled shadow
       shot = captureView(this.renderer, this.scene, this.camera);
     } catch (error) {
       fail(error);
@@ -433,7 +498,7 @@ export class Game {
       setState: async (name: string) => {
         if (!(TEST_STATES as readonly string[]).includes(name)) throw new Error(`Unknown test state: ${name}`);
         await this.applyTestState(name as TestState);
-        this.render();
+        this.renderNow();
         this.publishDiagnostics();
         return { state: name };
       },
@@ -450,20 +515,20 @@ export class Game {
           this.life.settle();
           this.birds.settle();
         }
-        this.render();
+        this.renderNow();
         this.publishDiagnostics();
       },
       hideDebugUi: (hidden: boolean) => this.debug.setHidden(hidden),
       cellToClient: (x: number, z: number) => this.picker.cellToClient({ x, z }),
       setCameraPose: (pose) => {
         this.cameraController.setPose(pose);
-        this.render();
+        this.renderNow();
         this.publishDiagnostics();
       },
       spawnFlock: (species?: string) => {
         if (species !== undefined && !isBirdSpecies(species)) throw new Error(`spawnFlock: unknown species: ${species}`);
         const birds = this.birds.spawnFlock(species);
-        this.render();
+        this.renderNow();
         this.publishDiagnostics();
         return birds;
       },
@@ -471,7 +536,7 @@ export class Game {
         if (t !== null && !Number.isFinite(t)) throw new Error(`setTimeOfDay: not a number: ${t}`);
         this.clock.pin(t);
         this.applyDaylight();
-        this.render();
+        this.renderNow();
         this.publishDiagnostics();
       },
     };
@@ -513,6 +578,7 @@ export class Game {
         ...this.nightLights.getDiagnostics(),
       },
       photo: { ...this.photo },
+      perf: { targetFps: this.frameBudget.targetFps, idle: this.frameBudget.idle, shadowRenders: this.shadows.renders },
       renderer: {
         calls: info.render.calls,
         triangles: info.render.triangles,

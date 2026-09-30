@@ -62,6 +62,7 @@ The SHA is the merge commit on `main`; the WP's own commit is in brackets. Every
 | WP-15 | New building blocks & categories (v0.3) | ✅ | `ea54bb5` (`27add32`) | see "WP-15 as built" below |
 | WP-18 | Music resumes where it left off | ✅ merged to `main` (owner-approved 2026-09-28) | `40822f8` (`98c7ca8`) | `src/audio/musicPosition.ts`; saved on hide / `pagehide` / every 15 s; seek on `loadedmetadata`; 5 s end guard |
 | WP-19 | Town photo | ✅ merged to `main` (owner-approved 2026-09-28) | merge on `main` (`c62376e`, `841536f`, `0c35597`, `92435c1`) | `src/photo/**`; camera button / `P` → menu phase → one frame at long edge 2400 px → Polaroid JPEG → preview (Download) |
+| WP-24 | Frame budget (performance) | 🔍 built on `wp-24-frame-budget`, waiting for owner review (not merged) | — | 60 fps active / 30 fps idle cap (`core/FrameBudget.ts`), sun shadow map on demand (`render/ShadowScheduler.ts`; cars 15 Hz, birds 30 Hz), high-tier DPR 2 → 1.5, `town:stats` removed; diagnostics `perf` |
 | WP-22 | Birds over the town | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`a5b42bf`) | `src/life/FlockSim.ts` (pure) + `BirdSystem.ts`; a flock every 45–110 s (none at night), 4 species, procedural 18-tri bird, flapping shadows; `spawnFlock` hook, `?debug&flock=N` |
 | WP-23 | New build items, garage removed | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`7fd5b9f`; review amendment on the branch) | 7 new tools (mailbox, tiered fountain, donut shop, tulips, long bench, table, slide; the gate was removed at review), garage removed, pool moved to Garden, ≤ 12 tools per category (digits for the first nine), Nature Kit material fix |
 | WP-21 | Download and open a town file | ✅ merged to `main` (owner-approved 2026-09-29) | merge on `main` (`941988c`) | `src/persistence/townFile.ts`; top-bar folder (> 440 px) / Menu → Town file (phones) / title link; `.tinytown.json`; confirm before replacing; saved at once |
@@ -109,6 +110,38 @@ The plan was approved and implemented. The as-built facts are in `03-architectur
 
 **Timing**
 - WP-12 was merged after WP-13/14 (`9a8379f` merged main into the WP-12 branch).
+
+### WP-24 as built (branch `wp-24-frame-budget`; vs `docs/PLAN.md` WP-24)
+Owner report (2026-09-29): the frame rate drops and the fans spin up after building for a while; switching away from Chrome helps a little. Investigation: `~/Desktop/tiny-town-performance/REPORT.md` (probes in `probes/`).
+- **Diagnosis:**
+  - No leak or accumulation. After a 480-edit real-input session, the frame cost equalled a fresh reload of the same town.
+  - The game was GPU-bound at the display's refresh rate: DPR 2 + 4× MSAA plus a full shadow pass on every frame, 120 per second on ProMotion. A hidden tab stops rAF, so the chip cooled.
+- **Built:**
+  - frame pacing (`core/Loop.ts` `paceFrame` + `core/FrameBudget.ts`): 60 fps active, 30 fps after 4 s idle;
+  - the shadow map on demand (`render/ShadowScheduler.ts`; `shadowMap.autoUpdate = false`; cars 15 Hz, birds 30 Hz; test hooks, screenshot pauses and photos always redraw);
+  - high-tier `MAX_DPR` 2 → 1.5;
+  - `town:stats` removed;
+  - diagnostics `perf`;
+  - lil-gui `Performance` folder.
+
+  Architecture: §Frame budget.
+- **Measured** (stress town, whole-machine GPU utilisation from `ioreg`, full Chromium on the real GPU, M2 Max, 1512 × 982 viewport at DPR 2, Auto clock running, emulated display rate):
+
+  | display | `main` (`f37725d`) | WP-24 interacting (60 fps) | WP-24 idle (30 fps) |
+  | --- | --- | --- | --- |
+  | 120 Hz | 66–74% | 33–36% | 18–19% |
+  | 60 Hz | 47–50% | 32–36% | 19% |
+
+  Shadow redraws with cars driving: ~15 per second instead of one per frame. A still town with no cars or flock redraws nothing.
+- **Checks:**
+  - `npm run verify`: 514 unit tests, including the new `src/core/frameBudget.test.ts` and `src/render/ShadowScheduler.test.ts`.
+  - Full e2e: 152 passed, 20 skipped (per-project skips), 0 failed. All 8 darwin baselines are unchanged: the desktop project runs at DPR 1, and paused screenshots always redraw the shadow map.
+  - `tests/perf.spec.ts`, repeated 3×: 12/12.
+- **Trade-offs and follow-ups:**
+  - Car and bird shadows update at 15 / 30 Hz (tunable).
+  - Ambient life animates at 30 fps once idle.
+  - Retina renders at 1.5× instead of 2×; MSAA stays on.
+  - Not done (see the report, P2): diagnostics are still rebuilt every frame; the macOS Cmd + held pan key can get stuck; a menu setting for the frame cap; adaptive resolution.
 
 ### WP-23 as built (branch `wp-23-new-items`; vs `docs/plans/wp-23-new-items.md`)
 Owner request (2026-09-29), picked from the asset research on the owner's Desktop (`tiny-town-inventory-research/`).
@@ -325,6 +358,8 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
   - Settings `music` / `musicVolume`.
   - Events `intent:set-music`, `intent:set-music-volume`, `music:changed` are in `events.ts`; the temporary `musicEvents.ts` is gone.
 - 2026-09-27 — **Stats pill removed** as redundant. `TownState.stats()`, `town:stats` and diagnostics `town` remain for tests.
+- 2026-09-30 — **`town:stats` event removed** (WP-24, owner request): nothing subscribed, and it recomputed `TownState.stats()` for every cell of a drag. `TownState.stats()` and diagnostics `town` stay (tests, bird scheduling).
+- 2026-09-30 — **Frame budget** (WP-24): 60 fps active / 30 fps idle, the shadow map redrawn on demand, high-tier DPR 1.5. The game was GPU-bound at the display's refresh rate; see §Frame budget in `03-architecture.md`.
 - 2026-09-27 — **Owner-supplied assets are allowed.** The background music "Foundation of Gold" was created by the owner with ElevenLabs. Agents still never call generation services.
 - 2026-09-27 (v0.3) — **Dock categories answer "what am I building?"**: Streets (the road network and kerb furniture), Homes (where people live, plus garages), Town (shops and shared civic places), Nature (things that grow: ground cover, trees, bushes), Garden (things people build in a yard or park: paths, hedges, fences, furniture). Inside a category: surfaces → lines → objects. At most 9 tools per category, so every tool has a digit; Shift+1–5 switch category. Ids name what a thing is, not its model file.
 - 2026-09-27 (v0.3) — **Roundabouts are road-feature objects**, not a road-tile piece. Auto-tiling only picks straights, corners, tees, crossroads and ends, and a roundabout spans 3 × 3 blocks. So it is an object with `ObjectDef.roadFeature`: block-aligned anchor, placing paints its footprint to road, bulldozing turns it back to field, and its road can't be repainted while it stands. The renderer draws its model instead of the tiles; roads join it only at its four arms; cars use the arms and the centre (ring path), not the corners.

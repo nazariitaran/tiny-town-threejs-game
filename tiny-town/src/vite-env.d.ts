@@ -61,6 +61,12 @@ interface ThreeGameDiagnostics {
     developing: boolean;
     last: { width: number; height: number; bytes: number; pixelRatio: number; ms: number } | null;
   };
+  /**
+   * Frame budget (WP-24). targetFps = the loop's cap this frame (60 active, 30 idle; 0 = display
+   * rate); idle = no input, camera glide or tween for FrameBudget.idleAfterS; shadowRenders =
+   * sun shadow-map redraws since boot (the map is redrawn only when a caster changed).
+   */
+  perf: { targetFps: number; idle: boolean; shadowRenders: number };
   renderer: {
     calls: number;
     triangles: number;

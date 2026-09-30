@@ -10,7 +10,7 @@
  */
 import type { SfxEvent } from '../audio/sfx';
 import type { ToolId } from '../catalog/tools';
-import type { Cell, Edge, Rotation, SavedTown, TownChange, TownStats } from '../town/types';
+import type { Cell, Edge, Rotation, SavedTown, TownChange } from '../town/types';
 import type { DayPhase, TimeMode } from '../world/dayCycle';
 
 export type GamePhase = 'loading' | 'title' | 'building' | 'menu' | 'error';
@@ -62,7 +62,6 @@ export type GameEvents = {
 
   /** Applied town mutations (after placement, bulldoze, undo, redo, load). Renderer consumes this. */
   'town:changed': { changes: readonly TownChange[]; cause: 'edit' | 'undo' | 'redo' | 'load' | 'reset' };
-  'town:stats': TownStats;
   /**
    * The town's name (WP-20): after a load (the save's name, or the default), a reset (New town,
    * test states) or a rename. The top bar renders it; SaveStore autosaves on 'rename'.

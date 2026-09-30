@@ -12,6 +12,8 @@ export function createRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer {
   renderer.toneMappingExposure = 1.05;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
+  // WP-24: Game redraws the shadow map only when something that casts has changed (ShadowScheduler).
+  renderer.shadowMap.autoUpdate = false;
   return renderer;
 }
 

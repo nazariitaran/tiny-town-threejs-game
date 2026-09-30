@@ -305,6 +305,11 @@ export class TownRenderer {
     this.flush();
   }
 
+  /** Pop-in / shrink-out tweens are running (WP-24: the shadow map and frame budget follow them). */
+  get isAnimating(): boolean {
+    return this.animating.size > 0;
+  }
+
   /** Peak pop-in scale for the current tuning (debug/diagnostics). */
   get popPeak(): number {
     return easeOutBackPeak(this.tuning.overshoot);

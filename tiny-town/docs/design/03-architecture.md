@@ -32,7 +32,8 @@ src/
                               (pure, tested)
   persistence/SaveStore.ts    localStorage autosave + settings            WP-02
   persistence/townFile.ts     town file encode/decode, file name (pure)   WP-21
-  core/Loop.ts, Renderer.ts   rAF loop; WebGLRenderer setup/resize        integrator / WP-04 (Renderer.ts)
+  core/Loop.ts, Renderer.ts   rAF loop + frame pacing; WebGLRenderer setup/resize   integrator / WP-04 (Renderer.ts)
+  core/FrameBudget.ts         WP-24: 60 fps active / 30 fps idle cap           integrator
   render/ModelLibrary.ts      GLB load + normalise                        WP-03
   render/TownRenderer.ts      incremental instanced drawing + pop-in,     WP-03
                               MODEL_STYLES look overrides
@@ -83,7 +84,7 @@ There is no `StatsHud`: the stats pill was removed in v0.2 (WP-14).
       ▲                │                              │ ok: TownState.applyChanges + History
  UiRoot ─intent:*─►    │ tool:changed / hover:changed │
       ▲                ▼                              ▼
-      └──── facts ◄── EventBus ◄── town:changed · town:stats · build:placed/removed/invalid · history:changed
+      └──── facts ◄── EventBus ◄── town:changed · build:placed/removed/invalid · history:changed
                          │
       TownRenderer ◄─────┤ town:changed      (incremental redraw, road neighbours re-tiled)
       LifeSystem   ◄─────┤ town:changed      (road graph; cars despawn when their road goes)
@@ -104,7 +105,7 @@ Rules of the road:
 7. **Two RNG streams**: gameplay (`Game.rng`: variants) and cosmetic (`Game.fxRng`: audio/fx jitter, ambient cars), so a sound never changes the next house variant. A third, `nameRng`, draws only town-name suggestions (WP-20, §Save format).
 
 ## Frame update order (Game.update)
-`resizeRenderer` → `ToolController.update` → `CameraController.update` → `TownRenderer.update(animDelta)` → `LifeSystem.update(animDelta)` → `BirdSystem.update(animDelta)` (WP-22) → `DayClock.advance(animDelta)` (building phase only) → `Game.applyDaylight()` (`Environment.applyDaylight`, `NightLights.update`, `LifeSystem.setNight`, `daytime:changed` on a mode/phase change) → `Environment.update(animDelta, animElapsed)` → `PlacementFx.update(animDelta)` → diagnostics → render. With `setReducedMotion(true)`, `animDelta`/`animElapsed` are 0. With `setPausedForScreenshot(true)`, nothing updates but rendering continues.
+`resizeRenderer` → `ToolController.update` → `CameraController.update` → `TownRenderer.update(animDelta)` → `LifeSystem.update(animDelta)` → `BirdSystem.update(animDelta)` (WP-22) → `DayClock.advance(animDelta)` (building phase only) → `Game.applyDaylight()` (`Environment.applyDaylight`, `NightLights.update`, `LifeSystem.setNight`, `daytime:changed` on a mode/phase change) → `Environment.update(animDelta, animElapsed)` → `PlacementFx.update(animDelta)` → frame-budget activity (camera glide, tweens) → diagnostics → render (the shadow scheduler decides whether the sun's map is redrawn, §Frame budget). With `setReducedMotion(true)`, `animDelta`/`animElapsed` are 0. With `setPausedForScreenshot(true)`, nothing updates but rendering continues.
 
 ## Grid
 - Plot `64 × 64` cells (`PLOT_WIDTH/DEPTH`), `CELL_SIZE = 0.5` world units per cell, centred on the origin, so the plot is 32 × 32 world units (2026-09-28; WP-12 had 48 × 48 cells = 24 × 24 units, v0.1 24 × 24 one-unit cells). World-space tunables were scaled with it: grid fade 30 → 75, title orbit 44, decor belt 60–120, night fog 13 / 225, framing side insets −42 desktop / −412 phone (same zoom as on 48 × 48, so the plot's side corners start just off-screen). Toy scale: 1 world unit ≈ 8 m, a cell ≈ 4 m. Cell `{x, z}` centre = `cellToWorld`; a footprint's centre = `footprintCentreWorld`; `worldToGridPoint` gives fractional grid coordinates.
@@ -172,6 +173,13 @@ Music position (WP-18) `{ track, time }` under `tiny-town:music:v1` (`MUSIC_POSI
 - Ambient cars (`LifeSystem`) are one `BatchedMesh`: +1 main-pass and +1 shadow draw call.
 - Birds (`BirdSystem`, WP-22) are one `InstancedMesh` of a procedural 18-triangle bird (≤ 16 instances, per-instance colour and wing angles `aFlap`; the wings fold in the vertex shader, on the lit and the shadow depth material): +1 main-pass and +1 shadow call while a flock is up, 0 with an empty sky.
 - FX (`PlacementFx`) use pooled particles in 3 meshes (soft dust, chips/leaves/petals, sparkles): at most 3 draw calls, and none when idle.
+
+## Frame budget (WP-24)
+The world never stops animating (cars, birds, wind, clouds), so every frame is a full frame. Before WP-24 the game rendered one on every display refresh (120 per second on a ProMotion Mac) at DPR 2 with 4× MSAA and a full shadow pass, which kept an M2 Max GPU ~70% busy in a big town (measurements: WP-24 in `docs/progress.md`).
+- **Frame pacing** (`core/Loop.ts` `paceFrame`, `core/FrameBudget.ts`): the loop renders at most `activeFps` (60) while the player interacts and `idleFps` (30) after `idleAfterS` (4 s) without activity. Activity = pointer, wheel, touch or key input on the window, a moving camera (glide/damping; not the title screen's auto-orbit), town pop-in tweens and a developing photo. Skipped rAF ticks run neither update nor render; `delta` is the time since the last rendered tick. Pacing follows a fixed grid, so a 144 Hz display still averages 60. A hidden tab stops rAF altogether (browser).
+- **Shadow map on demand** (`render/ShadowScheduler.ts`): `renderer.shadowMap.autoUpdate = false`. The map is redrawn on the next frame after `town:changed`, after `Environment.shadowVersion` changes (key light re-aimed or refitted, map resized), and on every frame while TownRenderer tweens run. Moving casters that aren't the town refresh at their own rate: cars `carHz` 15, a flock `birdHz` 30. A still town with no cars or birds draws no shadow pass at all. Test hooks, frames paused for a screenshot and photos always redraw the map first, so captures are exact.
+- **DPR**: the high tier is capped at 1.5, like the low tier (`MAX_DPR`); MSAA stays on.
+- `?debug` → lil-gui `Performance`: active/idle fps (0 = the display's rate), idle delay, car/bird shadow Hz. Diagnostics: `perf`.
 
 ## Day/night (v0.3, WP-16)
 Plan and rationale: `docs/plans/wp-16-day-night.md`. The as-built deviations are in `docs/progress.md` ("WP-16 as built").
@@ -241,8 +249,9 @@ The mobile triangle budget was raised from 250k to 320k with the 64 × 64 plot (
 | Triangles | ≤ 400k | ≤ 320k (250k until the 64 × 64 plot) | v0.4 (production preview): day 358.2k / 293.2k; night 354.3k / 289.2k (mobile headroom ~27k). v0.3 (48 × 48): day 306.1k / 237.0k |
 | Textures | ≤ 30 | ≤ 30 | Stress town 14 / 13, sample town 27 / 26 (v0.4 production preview; includes the day/night glow masks) |
 | Shadow maps | 1 × 2048 | 1 × 1024 | as budgeted (`Environment.setQuality`: high 2048, low 1024) |
-| DPR cap | 2 | 1.5 | `MAX_DPR` in `config.ts` |
+| DPR cap | 1.5 (2 until WP-24) | 1.5 | `MAX_DPR` in `config.ts` |
 | Frame time (M-series laptop, headless full Chromium) | ≤ 8 ms | — | 1.46 ms day / 1.51 ms night on the stress town (v0.4 production preview, uncapped); v0.3: 1.38 / 1.37 ms; v0.1: 1.36 ms |
+| Frame rate cap (WP-24) | 60 active / 30 idle | 60 / 30 | `FrameBudget` (§Frame budget) |
 | Initial download (JS + CSS + font + models + SFX + icons + name list) | ≤ 8 MB | ≤ 8 MB | 4.78 MB over the network before the title (v0.4 production preview); `dist/` 4.99 MB without maps or music. The 4.68 MB music track is streamed after Start and isn't part of the initial download |
 
 ## Test hooks and diagnostics
@@ -277,6 +286,7 @@ The `sample-town` state uses every placing tool (40, WP-23) with zero rejections
 | `life` | `LifeDiagnostics`: loaded, cars, target, drivableCells, spawned, despawned, waiting, drawCalls, … |
 | `birds` | WP-22 `BirdDiagnostics`: `auto` (spontaneous flocks on), flocks, birds, spawned (since the last reset), nextFlockIn (s), species[], drawCalls, shadowDrawCalls, positions `[{x, y, z}]` |
 | `daytime` | v0.3: `{mode, t, phase, pinned, night, lightsOn, lamps, drawCalls}`. `drawCalls` = what NightLights adds (0 by day) |
+| `perf` | WP-24: `{targetFps, idle, shadowRenders}`: the loop's cap this frame (60 active, 30 idle), whether it is idling, sun shadow-map redraws since boot |
 | `photo` | WP-19: `{taken, developing, last}`. `last` = `{width, height, bytes, pixelRatio, ms}` of the latest framed JPEG, or null |
 | `renderer` | three.js calls, triangles, geometries, textures; the canvas inspector reads this |
 | `canvas` | |

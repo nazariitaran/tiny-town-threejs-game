@@ -91,8 +91,11 @@ export function assetUrl(path: string): string {
 
 export type QualityTier = 'high' | 'low';
 
-/** Max device pixel ratio per tier (see technical-art budgets). */
-export const MAX_DPR: Readonly<Record<QualityTier, number>> = { high: 2, low: 1.5 };
+/**
+ * Max device pixel ratio per tier (see technical-art budgets). WP-24: high 2 → 1.5. On a Retina
+ * Mac, DPR 2 with 4× MSAA was the largest single GPU cost (−35% GPU time per frame at 1.5).
+ */
+export const MAX_DPR: Readonly<Record<QualityTier, number>> = { high: 1.5, low: 1.5 };
 
 export const SAVE_STORAGE_KEY = 'tiny-town:save:v1';
 export const SETTINGS_STORAGE_KEY = 'tiny-town:settings:v1';

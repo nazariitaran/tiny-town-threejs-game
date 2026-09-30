@@ -255,6 +255,11 @@ export class LifeSystem {
     this.sync(0);
   }
 
+  /** Cars are drawn into the sun's shadow map (WP-24: it refreshes at its own rate while they drive). */
+  get castsShadows(): boolean {
+    return this.mesh !== null && this.mesh.castShadow && this.tuning.visible && this.sim.cars.length > 0;
+  }
+
   getDiagnostics(): LifeDiagnostics {
     return { ...this.diag, carCells: this.diag.carCells.map((c) => ({ ...c })) };
   }

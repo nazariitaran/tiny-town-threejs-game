@@ -7,9 +7,9 @@
  *  - preview(action)                  dry run for ghosts; never mutates, consumes no id/RNG.
  *  - beginStroke() → apply(action, toolId)* → endStroke()
  *                                     everything in one stroke is ONE undo entry. Inside a stroke,
- *                                     apply() emits town:changed/town:stats/build:* per cell but
+ *                                     apply() emits town:changed/build:* per cell but
  *                                     history:changed only once, at endStroke().
- *  - applyBatch(items, { silent })    many actions → one town:changed, one town:stats, one undo
+ *  - applyBatch(items, { silent })    many actions → one town:changed, one undo
  *                                     entry (or joins the open stroke). silent: no build:* events
  *                                     (no sound/FX spam for demo towns).
  *  - undo() / redo()                  cause 'undo' / 'redo'.
@@ -105,8 +105,8 @@ export class TownEditor {
   }
 
   /**
-   * Apply many actions as one edit: one town:changed (cause 'edit') with all changes, one
-   * town:stats, one undo entry (or appended to the open stroke). Rejected items are skipped and
+   * Apply many actions as one edit: one town:changed (cause 'edit') with all changes, one undo
+   * entry (or appended to the open stroke). Rejected items are skipped and
    * reported; later items see the effects of earlier ones.
    */
   applyBatch(items: readonly BatchItem[], options: BatchOptions = {}): BatchResult {
@@ -252,7 +252,6 @@ export class TownEditor {
 
   private publish(changes: readonly TownChange[], cause: TownCause): void {
     this.bus.emit('town:changed', { changes, cause });
-    this.bus.emit('town:stats', this.state.stats());
     // Inside a stroke history only changes at endStroke(), so don't spam per cell.
     if (!this.stroke) this.emitHistory();
   }
