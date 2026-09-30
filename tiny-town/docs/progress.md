@@ -42,6 +42,14 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
 - **WP-21 Town file is merged into `main`** (owner-approved 2026-09-29 with all planning decisions, including the save-format migration promise; built on the branch `wp-21-town-file` from `aab1865`; part of v0.5). See "WP-21 as built".
 - **WP-23 New build items is merged into `main`** (owner-approved 2026-09-29; built on the branch `wp-23-new-items` from `493635d`, with `main` merged in after WP-22): 7 new tools (the gate was removed at review), the garage removed, up to 12 tools per category; part of v0.5. See "WP-23 as built".
 - **WP-24 Frame budget and WP-25 Graphics settings + tabbed menu are merged on `main`** (owner-approved 2026-09-30; built on the branch `wp-24-frame-budget`; part of v0.5). WP-25 leaves one open owner decision: the mobile triangle budget (Medium: 324.1k on the WP-25 dev server, 328.3k on the v0.5 production preview, vs 320k). See "WP-25 as built" and "WP-24 as built".
+- **Code-review cleanup is on the branch `code-review-cleanup`** (from `2f3ecf8`, 2026-09-30; **not merged**, waiting for owner approval). No behaviour change for players:
+  - architecture banner current for v0.5; mobile triangle numbers say which build measured them;
+  - dead code removed (`utils/dispose.ts`, `SFX_EVENTS`, `GlyphId`, `footprintOf`), same-file-only helpers unexported;
+  - `__THREE_GAME_DIAGNOSTICS__` is a getter built on read (no per-frame cost); test hooks no longer re-publish;
+  - tests: `ui.spec.ts` uses `helpers.trackErrors`, `UI_TEST_IDS` imported from `ui/testIds.ts` (no longer re-exported by `UiRoot`), one Node GLTF loader `src/testing/gltfNode.ts`;
+  - `render/roadTiles.ts` → `town/roadTiles.ts` (ends the catalog ↔ render import cycle); `MODEL_STYLES` → `render/modelStyles.ts`;
+  - `ShadowScheduler`: cars + birds together use the faster rate (both 30 Hz today).
+  - Gates on the branch: `npm run verify` green (30 files, 530 unit tests, build OK, main chunk 298.3 kB); `npm run test:e2e` (dev server) 198 tests, 176 passed, 22 skipped by design, 0 failed (11.4 min).
 - **Where current facts live:**
   - grid, rules, save, modules, diagnostics and budgets: `docs/design/03-architecture.md`;
   - asset scales and footprints: `docs/assets/models.md`;
@@ -477,7 +485,7 @@ Contract: `docs/PLAN.md` §WP-15. Current facts are in `03-architecture.md`, `02
 - Optional performance work (budgets are already met):
   - `shadowMap.autoUpdate = false`, with cars not casting shadows (−17% GPU);
   - lazy `lil-gui` import (−30 kB);
-  - reuse the diagnostics object instead of rebuilding it every frame;
+  - ~~reuse the diagnostics object instead of rebuilding it every frame;~~ diagnostics are built on read (`code-review-cleanup`);
   - `compileAsync` warm-up for the first-placement hitch.
 - ~~Dusk mode (the WP-10 stretch goal).~~ Superseded by the WP-16 day/night cycle (v0.3).
 - Day/night follow-ups:
