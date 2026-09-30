@@ -16,6 +16,7 @@ import { objectDef } from '../src/catalog/objects';
 import { footprintCells, rotatedFootprint } from '../src/town/grid';
 import type { Cell, ObjectKind, Rotation } from '../src/town/types';
 import { UI_TEST_IDS } from '../src/ui/UiRoot';
+import type { MenuTab } from '../src/ui/testIds';
 
 export { UI_TEST_IDS };
 
@@ -272,4 +273,20 @@ function subset<T extends object>(source: T, keys: Partial<T>): Partial<T> {
 /** Attach a JSON blob (metrics, diagnostics trail) to the test report. */
 export async function attachJson(testInfo: TestInfo, name: string, value: unknown): Promise<void> {
   await testInfo.attach(name, { body: JSON.stringify(value, null, 2), contentType: 'application/json' });
+}
+
+/**
+ * Menu tabs (WP-25): open the menu if it is closed (☰, building phase), then select `tab` with a real
+ * click and wait for its panel. Every menu control lives on one tab (Town / Graphics / Sound / Help).
+ */
+export async function openMenuTab(page: Page, tab: MenuTab): Promise<void> {
+  const menu = page.locator(`#${UI_TEST_IDS.menuPanel}`);
+  if (!(await menu.isVisible())) {
+    await page.locator(`#${UI_TEST_IDS.menu}`).click();
+    await expect(menu).toBeVisible();
+  }
+  const button = page.locator(`#${UI_TEST_IDS.menuTab(tab)}`);
+  if ((await button.getAttribute('aria-selected')) !== 'true') await button.click();
+  await expect(button).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator(`#${UI_TEST_IDS.menuTabPanel(tab)}`)).toBeVisible();
 }

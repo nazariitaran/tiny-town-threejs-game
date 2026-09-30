@@ -10,7 +10,7 @@
 import { mkdirSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { TIME_MODES, T_AFTERNOON, T_MORNING, T_NIGHT, type TimeMode } from '../src/world/dayCycle';
-import { applyState, byId, canvasPoint, diagnostics, gotoTitle, selectTool, startBuilding, trackErrors, UI_TEST_IDS, waitFrames } from './helpers';
+import { applyState, byId, canvasPoint, diagnostics, gotoTitle, openMenuTab, selectTool, startBuilding, trackErrors, UI_TEST_IDS, waitFrames } from './helpers';
 
 // Enabled in WP-16c phase 2 (16a + 16b merged into v0.3-day-night).
 const NIGHT_LOOK = true;
@@ -193,7 +193,7 @@ test('menu "Time of day" row sets the mode and follows the button', async ({ pag
   const errors = trackErrors(page);
   await gotoTitle(page);
   await startBuilding(page);
-  await byId(page, UI_TEST_IDS.menu).click();
+  await openMenuTab(page, 'town');
   const group = byId(page, UI_TEST_IDS.timeModeGroup);
   await expect(group).toBeVisible();
   // Measure after the panel's pop-in (a scale animation) has finished.
@@ -226,7 +226,7 @@ test('menu "Time of day" row sets the mode and follows the button', async ({ pag
     await expectMode(page, 'day');
     await page.keyboard.press('Escape');
     await expect.poll(async () => (await diagnostics(page)).phase).toBe('building');
-    await byId(page, UI_TEST_IDS.menu).click();
+    await openMenuTab(page, 'town');
   }
 
   // The row follows a change made elsewhere (the top-bar button, via daytime:changed).
@@ -236,7 +236,7 @@ test('menu "Time of day" row sets the mode and follows the button', async ({ pag
   await timeButton(page).click();
   const after = TIME_MODES[(TIME_MODES.indexOf(before) + 1) % TIME_MODES.length];
   await expectMode(page, after);
-  await byId(page, UI_TEST_IDS.menu).click();
+  await openMenuTab(page, 'town');
   await expect(byId(page, UI_TEST_IDS.timeModeOption(after))).toBeChecked();
   mkdirSync(OUT, { recursive: true });
   await byId(page, UI_TEST_IDS.menuPanel).screenshot({ path: `${OUT}/menu-time-of-day-${info.project.name}.png` });
@@ -246,7 +246,7 @@ test('menu "Time of day" row sets the mode and follows the button', async ({ pag
 test('help lists the T key', async ({ page }) => {
   await gotoTitle(page);
   await startBuilding(page);
-  await byId(page, UI_TEST_IDS.menu).click();
+  await openMenuTab(page, 'help');
   await byId(page, UI_TEST_IDS.help).click();
   const help = byId(page, UI_TEST_IDS.helpPanel);
   await expect(help).toBeVisible();

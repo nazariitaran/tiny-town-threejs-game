@@ -35,6 +35,11 @@ export const GLYPHS = {
   dice: svg(
     '<rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="8.6" cy="8.6" r="1.35" fill="currentColor" stroke="none"/><circle cx="15.4" cy="8.6" r="1.35" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.35" fill="currentColor" stroke="none"/><circle cx="8.6" cy="15.4" r="1.35" fill="currentColor" stroke="none"/><circle cx="15.4" cy="15.4" r="1.35" fill="currentColor" stroke="none"/>',
   ),
+  // Menu tabs (WP-25): the Graphics tab and its Quality row (a framed landscape), the Help tab's Controls (a keyboard).
+  graphics: svg('<rect x="3" y="4.5" width="18" height="15" rx="2.5"/><circle cx="15.5" cy="9.5" r="1.8"/><path d="m3.5 17.5 5.5-5.5 4.5 4.5"/><path d="m12 15 2.5-2.5 6 6"/>'),
+  keys: svg(
+    '<rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01"/><path d="M10 10h.01"/><path d="M14 10h.01"/><path d="M17.5 10h.01"/><path d="M8 14h8"/>',
+  ),
   // Day/night modes (WP-16c): the top-bar time button and the menu's "Time of day" row.
   /** Auto: a sun whose core is a crescent moon (the cycle runs by itself). */
   timeAuto: svg(
