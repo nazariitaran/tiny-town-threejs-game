@@ -50,7 +50,7 @@ Skills live in `../.claude/skills/`. Load them when your WP says so: `threejs-ga
 ## Commands
 ```bash
 npm run dev            # http://127.0.0.1:5188  (add ?debug for the lil-gui tuning panels)
-npm run verify         # local-path check + typecheck + unit tests + production build  ← must pass before hand-off
+npm run verify         # local-path check + licences check + typecheck + unit tests + production build  ← must pass before hand-off
 npm run typecheck      # tsc --noEmit
 npm run test:unit      # vitest, src/**/*.test.ts (pure logic, Node)
 npm run test:e2e       # playwright, tests/*.spec.ts, desktop-chrome + mobile-chrome (starts its own dev server)
@@ -61,6 +61,7 @@ npm run build && npm run preview   # production build, served on PORT−1000 (de
 npm run inspect:canvas -- --state sample-town --run-id <id> --out artifacts/<id> [--mobile]   # needs a dev server; --mobile = 390×844
 npm run inspect:models # re-measure/verify the GLBs in public/assets/models (prints a report; add --three to load them via GLTFLoader)
 npm run gen:sfx        # regenerate src/audio/sfxTable.ts from docs/assets/audio.json
+npm run gen:licenses   # regenerate public/licenses.txt (runtime dependencies + licence texts; verify fails if stale)
 node scripts/render-icons.mjs [--size 128]   # re-render the 40 tool icons (tool-<id>.png) from in-game models (needs a dev server on PORT)
 node scripts/compose-models.mjs              # rebuild public/assets/models/composed/*.glb (needs assets-src/, incl. assets-src/polypizza/)
 ```

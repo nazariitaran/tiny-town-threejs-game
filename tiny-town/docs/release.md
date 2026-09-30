@@ -5,7 +5,7 @@ Written by WP-11 (v0.1) and updated for each release since (latest: v0.5, 2026-0
 ## Build and deploy
 ```bash
 npm ci
-npm run verify                 # typecheck + unit tests + production build → dist/
+npm run verify                 # local-path + licences checks, typecheck, unit tests, production build → dist/
 PORT=5188 npm run preview      # serves dist/ on PORT-1000 (4188) — test THIS, not the dev server
 ```
 `dist/` is a fully static site with no server logic, environment variables or API keys. Upload everything in `dist/` **except `assets/*.map`** to any static host (GitHub Pages, Netlify, S3, itch.io).
@@ -24,6 +24,7 @@ PORT=5188 npm run preview      # serves dist/ on PORT-1000 (4188) — test THIS,
 - **Browser support.** WebGL2 browsers (three r184).
   - Tested: Chromium desktop 1280×720 and Pixel 7 emulation, plus the inspector's 390×844 mobile mode.
   - Real iOS Safari and Android devices have not been tested.
+- **Favicon and licences.** `dist/` root carries `favicon.svg`, `favicon.ico`, `apple-touch-icon.png` and `licenses.txt` (the shipped libraries' licence texts, linked from Credits); they come from `public/`. After a dependency change run `npm run gen:licenses` (verify fails otherwise).
 - **HTTPS** is recommended, although audio unlock and `localStorage` saves also work on http.
 
 ## Testing the production build

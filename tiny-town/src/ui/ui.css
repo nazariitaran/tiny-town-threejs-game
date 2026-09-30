@@ -792,8 +792,45 @@
   color: var(--ink-soft);
 }
 
-.ui-panel p.ui-credits-small {
-  font-size: 0.82rem;
+/* Credits: one group per kind (3D models, sounds, music, font, software); links open a new tab. */
+.ui-credits {
+  gap: 14px;
+}
+
+.ui-credits > section {
+  display: grid;
+  gap: 4px;
+}
+
+.ui-credits h3 {
+  margin: 0;
+}
+
+.ui-credits p,
+.ui-credits-list {
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.ui-credits-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding-left: 1.1em;
+  color: var(--ink-soft);
+}
+
+.ui-panel a {
+  border-radius: 4px;
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.ui-panel a:hover {
+  color: var(--brick);
 }
 
 .ui-row {
