@@ -32,6 +32,8 @@ src/
   town/sampleTown.ts          demo towns: sample, asset gallery, stress   WP-02
   town/townName.ts            town name rules, suggestion pick, slug      WP-20
                               (pure, tested)
+  town/roadTiles.ts           road auto-tiling on the block grid, road-   WP-03
+                              feature helpers (arms, centre) (pure)
   persistence/SaveStore.ts    localStorage autosave + settings            WP-02
   persistence/townFile.ts     town file encode/decode, file name (pure)   WP-21
   core/Loop.ts, Renderer.ts   rAF loop + frame pacing; WebGLRenderer setup/resize   integrator / WP-04 (Renderer.ts)
@@ -39,11 +41,10 @@ src/
   render/ModelLibrary.ts      GLB load + normalise                        WP-03
   render/materials.ts         WP-25: Standard → Lambert conversion        WP-25a
                               (toLambert), the lit material family
-  render/TownRenderer.ts      incremental instanced drawing + pop-in,     WP-03
-                              MODEL_STYLES look overrides
+  render/TownRenderer.ts      incremental instanced drawing + pop-in      WP-03
+  render/modelStyles.ts       MODEL_STYLES look overrides (tint, warm     WP-03
+                              atlas, non-uniform scale)
   render/InstancePool.ts, tween.ts   instance pools; pop-in easing        WP-03
-  render/roadTiles.ts         road auto-tiling on the block grid, road-   WP-03
-                              feature helpers (arms, centre) (pure)
   render/nightGlow.ts         glow masks + GlowRegistry, window stagger    WP-16b
                               shader patch (v0.3)
   render/NightLights.ts, lampRegistry.ts, fireflies.ts               WP-16b
@@ -103,7 +104,7 @@ There is no `StatsHud`: the stats pill was removed in v0.2 (WP-14).
 Rules of the road:
 1. **Only `TownEditor` mutates town state.** Every change list keeps its primary change last (build events derive from it). Everything else reads via `TownStateReader` or listens to `town:changed`.
 2. **UI emits intents and renders facts**; it never calls game objects directly.
-3. **Pure logic stays pure**: `src/town/**`, `src/render/roadTiles.ts`, `src/catalog/**` import no three.js and no DOM, so they are unit-testable in Node.
+3. **Pure logic stays pure**: `src/town/**` (including `town/roadTiles.ts`) and `src/catalog/**` import no three.js and no DOM, so they are unit-testable in Node.
 4. **All randomness goes through the seeded RNG** passed into constructors (`Game.rng`). Never `Math.random()` (it breaks screenshots and bot runs).
 5. **One cell↔world mapping**: `game/config.ts`. Nobody re-derives it. Likewise every runtime asset URL goes through `assetUrl()`.
 6. **Keyboard ownership**: digits 1–9 (the first nine tools of the active category; a category may hold up to 12, WP-23), Shift+1–5 (category), `?` (controls help) and `P` (take a photo, WP-19) belong to the UI (`ui/uiKeys.ts`, `UiRoot`); everything else (R, B, Esc, F/Home, WASD/arrows, Q/E, +/−, undo/redo) belongs to `ToolController`/`CameraController`.

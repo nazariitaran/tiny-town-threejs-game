@@ -9,7 +9,7 @@ import * as THREE from 'three';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { CELL_SIZE, ROAD_TILE_SIZE } from '../game/config';
 import { CAR_FILES, CAR_SCALE } from '../life/LifeSystem';
-import { MODEL_STYLES } from '../render/TownRenderer';
+import { MODEL_STYLES } from '../render/modelStyles';
 import { EDGE_MODELS, GROUND_MODELS, MODELS, ROAD_PIECE_MODELS, type ModelId } from './models';
 import { heightScale, OBJECT_KINDS, OBJECTS } from './objects';
 import { TOOL_CATEGORIES, TOOLS, toolsInCategory, type ToolLayer } from './tools';
@@ -40,7 +40,7 @@ beforeAll(async () => {
   }
 }, 60_000);
 
-/** Size as drawn: normalised size × TownRenderer's MODEL_STYLES non-uniform scale. */
+/** Size as drawn: normalised size × render/modelStyles.ts MODEL_STYLES non-uniform scale. */
 function drawn(id: ModelId): THREE.Vector3 {
   const size = sizes.get(id)!.clone();
   const style = MODEL_STYLES[id]?.scale;

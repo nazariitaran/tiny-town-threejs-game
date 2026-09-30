@@ -39,7 +39,7 @@ import {
 } from '../game/config';
 import type { GameBus } from '../game/events';
 import type { ModelLibrary } from '../render/ModelLibrary';
-import { roadMask, roadTileFor } from '../render/roadTiles';
+import { roadMask, roadTileFor } from '../town/roadTiles';
 import {
   anchorForPointer,
   cellKey,

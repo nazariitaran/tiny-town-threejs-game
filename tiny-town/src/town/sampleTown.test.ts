@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { TOOLS } from '../catalog/tools';
 import { PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
 import { createGameBus } from '../game/events';
-import { roadMask } from '../render/roadTiles';
+import { roadMask } from './roadTiles';
 import { createSeededRandom } from '../utils/random';
 import { OBJECT_KINDS } from '../catalog/objects';
 import { buildAssetGallery, buildSampleTown, buildStressTown, demoOffset, GALLERY_OBJECTS, galleryMaskBlock } from './sampleTown';

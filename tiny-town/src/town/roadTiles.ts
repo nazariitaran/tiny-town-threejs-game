@@ -15,8 +15,8 @@
  * feature's facing side (its "arm"), so a road running past a roundabout doesn't tee into its kerb.
  */
 import { objectDef } from '../catalog/objects';
-import { NEIGHBOURS, ROAD_BLOCK, roadBlockAnchor, rotatedFootprint } from '../town/grid';
-import type { Cell, PlacedObject, Rotation, TownStateReader } from '../town/types';
+import { NEIGHBOURS, ROAD_BLOCK, roadBlockAnchor, rotatedFootprint } from './grid';
+import type { Cell, PlacedObject, Rotation, TownStateReader } from './types';
 
 export type RoadPiece = 'straight' | 'corner' | 'tee' | 'cross' | 'end' | 'single';
 

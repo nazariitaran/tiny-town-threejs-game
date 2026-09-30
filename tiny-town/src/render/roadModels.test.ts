@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { MODELS, ROAD_PIECE_MODELS, type ModelId } from '../catalog/models';
 import { createGlbLoader } from '../testing/gltfNode';
-import { roadTileFor } from './roadTiles';
+import { roadTileFor } from '../town/roadTiles';
 
 const points = new Map<ModelId, THREE.Vector3[]>();
 

@@ -167,8 +167,8 @@ RULES
   if necessary, add a clearly marked local shim inside YOUR files meanwhile.
 - Keep the public APIs Game.ts uses (constructors, methods) compatible, or list the exact
   change as a contract request.
-- No Math.random (use the injected rng). No three.js/DOM in src/town/**, src/catalog/**,
-  src/render/roadTiles.ts runtime code. Keep test hooks real.
+- No Math.random (use the injected rng). No three.js/DOM in src/town/** or src/catalog/**
+  runtime code. Keep test hooks real.
 - Build in small verified increments; keep the game runnable at every step.
 <EXTRA BRIEF>
 

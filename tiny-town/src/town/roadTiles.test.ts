@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { TownState } from '../town/TownState';
-import type { TownChange } from '../town/types';
+import { TownState } from './TownState';
+import type { TownChange } from './types';
 import { E, isFeatureArm, isFeatureCentre, N, roadFeatureAt, roadMask, roadTileFor, rotateMask, S, underRoadFeature, W } from './roadTiles';
 
 describe('road auto-tiling', () => {

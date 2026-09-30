@@ -33,7 +33,7 @@ import { DIR_X, DIR_Z, lanePath, opposite, ringPath, samplePath, type Dir, type 
 import { roadBlockCentreWorld } from '../game/config';
 import { objectDef } from '../catalog/objects';
 import { ROAD_BLOCK } from '../town/grid';
-import { isFeatureArm, isFeatureCentre, roadFeatureAt } from '../render/roadTiles';
+import { isFeatureArm, isFeatureCentre, roadFeatureAt } from '../town/roadTiles';
 
 export const MAX_CARS = 6;
 export const CELLS_PER_CAR = 6;

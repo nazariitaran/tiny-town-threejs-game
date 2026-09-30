@@ -3,7 +3,7 @@
  * Source/licence/measurements for every file: docs/assets/models.json + models.md.
  * WP-03 may tune the numeric fields (scale, rotationOffset, offset) — report changes in hand-off.
  */
-import type { RoadPiece } from '../render/roadTiles';
+import type { RoadPiece } from '../town/roadTiles';
 import type { EdgeKind, GroundKind, Rotation } from '../town/types';
 
 export interface ModelSpec {
@@ -43,7 +43,7 @@ const HOME_SCALE = 4 / 3;
 // Values from docs/assets/models.json (measured by scripts/inspect-models.mjs).
 // Kenney city/industrial models face −Z natively ⇒ rotationOffset 2.
 // Road pieces' native connections (straight W+E, corner W+S, tee W+E+S, end E) are turned
-// onto the canonical set in render/roadTiles.ts (straight N+S, corner E+S, tee E+S+W, end S).
+// onto the canonical set in town/roadTiles.ts (straight N+S, corner E+S, tee E+S+W, end S).
 export const MODELS = {
   // ---- Streets
   // Roads: one tile = one aligned 2 × 2 cell road block (ROAD_TILE_SIZE = 1 world unit), lanes ≈ 0.37.
