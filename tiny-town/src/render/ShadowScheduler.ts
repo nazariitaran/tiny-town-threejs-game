@@ -48,7 +48,8 @@ export class ShadowScheduler {
     this.sinceRedraw += Math.max(delta, 0);
     let redraw = this.dirty || frame.settling;
     if (!redraw) {
-      const hz = frame.birds ? this.tuning.birdHz : frame.cars ? this.tuning.carHz : 0;
+      // Cars and birds together: the faster of the two rates, so neither caster's shadow lags.
+      const hz = Math.max(frame.birds ? this.tuning.birdHz : 0, frame.cars ? this.tuning.carHz : 0);
       redraw = hz > 0 && this.sinceRedraw >= 1 / hz - PERIOD_SLACK_S;
     }
     if (redraw) {

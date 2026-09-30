@@ -38,10 +38,20 @@ describe('ShadowScheduler', () => {
     expect(run(s, 30, 1 / 30, { ...STILL, cars: true })).toBe(s.tuning.carHz);
   });
 
-  it('refreshes at birdHz while a flock flies (faster than cars)', () => {
+  it('refreshes at birdHz while a flock flies', () => {
     const s = new ShadowScheduler();
     s.step(1 / 60, STILL);
-    expect(run(s, 60, 1 / 60, { ...STILL, cars: true, birds: true })).toBe(s.tuning.birdHz);
+    expect(run(s, 60, 1 / 60, { ...STILL, birds: true })).toBe(s.tuning.birdHz);
+  });
+
+  it('uses the faster rate while cars drive and a flock flies', () => {
+    const s = new ShadowScheduler();
+    s.tuning.carHz = 30;
+    s.tuning.birdHz = 15;
+    s.step(1 / 60, STILL);
+    expect(run(s, 60, 1 / 60, { ...STILL, cars: true, birds: true })).toBe(30);
+    s.tuning.carHz = 10;
+    expect(run(s, 60, 1 / 60, { ...STILL, cars: true, birds: true })).toBe(15);
   });
 
   it('never exceeds the frame rate', () => {
