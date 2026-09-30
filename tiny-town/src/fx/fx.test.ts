@@ -109,7 +109,7 @@ describe('fx recipes', () => {
   it('classifies every tool into an effect class', () => {
     const classes = Object.fromEntries(TOOLS.filter((t) => t.id !== 'bulldoze').map((t) => [t.id, classify(t.id)]));
     expect(classes).toEqual({
-      road: 'road', pavement: 'path', walkway: 'path', grass: 'lawn', meadow: 'meadow',
+      road: 'road', pavement: 'path', grass: 'lawn', meadow: 'meadow',
       // group road → road; street / garden → prop; home / amenity → building; tree / plant → tree.
       roundabout: 'road',
       'zebra-crossing': 'road',
@@ -117,7 +117,7 @@ describe('fx recipes', () => {
       cottage: 'building', townhouse: 'building', bungalow: 'building', 'family-home': 'building',
       'garage-house': 'building', 'big-house': 'building',
       'corner-shop': 'building', 'donut-shop': 'building', supermarket: 'building', church: 'building', 'swimming-pool': 'building',
-      fountain: 'building', 'tiered-fountain': 'building',
+      'tiered-fountain': 'building',
       oak: 'tree', pine: 'tree', birch: 'tree', bush: 'tree', tulips: 'tree',
       hedge: 'fence', 'fence-low': 'fence', 'fence-tall': 'fence',
       planter: 'prop', bench: 'prop', 'long-bench': 'prop', 'garden-table': 'prop', swing: 'prop', slide: 'prop', barbecue: 'prop',
@@ -127,6 +127,9 @@ describe('fx recipes', () => {
   it('classifies removed kinds the same way, and unknown ids as props', () => {
     expect(classify('roundabout')).toBe('road');
     expect(classify('hedge')).toBe('fence');
+    // Retired tools (no dock button; their kinds still load from old towns).
+    expect(classify('walkway')).toBe('path');
+    expect(classify('fountain')).toBe('building');
     expect(classify('toString')).toBe('prop');
     expect(classify('castle')).toBe('prop');
   });

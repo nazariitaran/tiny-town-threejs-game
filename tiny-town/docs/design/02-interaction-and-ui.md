@@ -97,13 +97,15 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
 
   | Tab (Shift+) | Holds | Tools, in tray order (digits 1–9 reach the first nine) |
   | --- | --- | --- |
-  | Streets (1) | the road network and everything at the kerb | Road, Pavement, Roundabout, Zebra (Zebra crossing), Traffic light, Lamppost, Bus stop, Postbox, Mailbox |
-  | Homes (2) | where people live | Cottage, Townhouse, Bungalow, Family home, Suburban, Big house |
-  | Town (3) | shops and civic places everyone shares | Fountain, Tiered fountain, Corner shop, Donut shop, Church, Supermarket |
+  | Streets (1) | the road network | Road, Pavement, Roundabout, Zebra (Zebra crossing), Traffic light |
+  | Homes (2) | where people live (and their mailbox) | Cottage, Townhouse, Bungalow, Family home, Suburban, Big house, Mailbox |
+  | Town (3) | shops, civic places and the street furniture everyone shares | Tiered fountain, Corner shop, Donut shop, Church, Supermarket, Bus stop, Postbox, Lamppost |
   | Nature (4) | things that grow on their own | Grass, Wildflowers, Tulips, Bush, Oak, Pine, Birch |
-  | Garden (5) | things people build in a yard or park | Garden path, Hedge, Low fence, Tall fence, Planter, Bench, Long bench, Table, Barbecue, Swing, Slide, Pool |
+  | Garden (5) | things people build in a yard or park | Hedge, Low fence, Tall fence, Planter, Bench, Long bench, Table, Barbecue, Swing, Slide, Pool |
 
-  Inside a category the tools run **surfaces → lines → objects** (ground paint, then edges, then placed items). **WP-23 (owner decision, 2026-09-29):** a category holds at most **12** tools (about what fits a desktop row; the tray scrolls sideways where it doesn't). Digits 1–9 pick the first nine; tools past the ninth (today Garden's Swing, Slide and Pool) have no number badge, no "(n)" in their tooltip and no key. `catalog.test.ts` checks the order and the cap. An item card is a 44 px icon (the in-project render of the in-game model, `scripts/render-icons.mjs`), a short label and a number-key badge. The selected card is raised with an accent outline. Clicking the active item again deselects it.
+  **2026-09-30 (owner):** the mailbox moved to Homes; the lamppost, postbox and bus stop to Town; the **Fountain** and **Garden path** tools were retired. Retired tools leave the dock only: their kinds stay in the catalog (`RETIRED_TOOLS` in `catalog/tools.ts`), so towns that already have them (saves, town files, the demo towns) still load and draw them, and they can be bulldozed; the ground column "garden path" below still applies to those. Wildflowers now use the grass lawn colour (only the flower scatter differs).
+
+  Inside a category the tools run **surfaces → lines → objects** (ground paint, then edges, then placed items). **WP-23 (owner decision, 2026-09-29):** a category holds at most **12** tools (about what fits a desktop row; the tray scrolls sideways where it doesn't). Digits 1–9 pick the first nine; tools past the ninth (today Garden's Slide and Pool) have no number badge, no "(n)" in their tooltip and no key. `catalog.test.ts` checks the order and the cap. An item card is a 44 px icon (the in-project render of the in-game model, `scripts/render-icons.mjs`), a short label and a number-key badge. The selected card is raised with an accent outline. Clicking the active item again deselects it.
 - **Tab row** (2026-09-30, owner request): the category tabs and the mode buttons form one row centred under the tray, so it stays in the same place whatever the category's tray width.
 - **Mode buttons** (after the tabs): Bulldoze (toggles; red accent when active) and, on touch screens only, Rotate (shows the current rotation arrow). With a mouse and keyboard (`(hover: hover) and (pointer: fine)`) Rotate is hidden: `R` / `Shift+R` rotate, the item hint says so, and Help lists it. Phones and tablets have no R key, so they keep the button.
 - **Top bar**: one row. The row is 48 px tall (`--topbar-h`; 52 px on phones), so it ends 60 / 64 px below the safe-area top.

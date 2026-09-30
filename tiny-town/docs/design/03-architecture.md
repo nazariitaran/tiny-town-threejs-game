@@ -220,7 +220,7 @@ Environment lighting (the RoomEnvironment PMREM) and shadows are on at every lev
 Plan and rationale: `docs/plans/wp-16-day-night.md`. The as-built deviations are in `docs/progress.md` ("WP-16 as built").
 - **Clock** (`world/dayCycle.ts`, pure):
   - `t ∈ [0,1)` of a day: dawn 0–0.10, day 0.10–0.65, dusk 0.65–0.75, night 0.75–1.
-  - An Auto day is `DAY_LENGTH_S` = 600 s; `?debug&day=N` overrides it (debug only).
+  - An Auto day is `DAY_LENGTH_S` = 540 s, and each phase runs at its own speed (`PHASE_SPANS`, `advanceCycle`): dawn 1 min, day 5 min, dusk 1 min, night 2 min (owner, 2026-09-30; it was an even 600 s, so day 5.5 and night 2.5 min). `?debug&day=N` scales the whole day to N seconds with the same proportions (debug only).
   - Modes: Auto (starts at 0.12 on Start), Day (0.55), Night (0.82).
   - A mode switch sweeps `t` forward over 2.5 s. It snaps under reduced motion (the test hook or the OS setting).
   - The clock runs only in the building phase. The title always shows 0.55 unless pinned.
@@ -237,7 +237,7 @@ Plan and rationale: `docs/plans/wp-16-day-night.md`. The as-built deviations are
   - Emissive intensity is exactly 0 when `night` = 0, so the day look, icons and baselines are unchanged.
 - **Ground light** (`render/NightLights.ts`): a lamp registry fed by `town:changed`, plus three instanced additive layers, all hidden when night < 0.05. No real PointLights.
   - lamp pools: +1 draw call;
-  - lamp halos: +1, Medium and High only (`lampHalos`, WP-25);
+  - lamp halos: +1, Medium and High only (`lampHalos`, WP-25). A lamp shines down: the halo fades out above the lamp face, and the pool and halo sit `lampOutset` (0.03) out along the arm from the face's centre, near its tip (owner, 2026-09-30);
   - headlight beams: +1, ≤ 6 cars;
   - fireflies over open meadow cells: +1.
 - **Life:** `LifeSystem.setNight(n)` → `TrafficSim.setDensity(1 − 0.5·n)`, so there are fewer cars at night. Car Kit cars face native +Z (`FRONT_ROTATION` 0 since v0.3).

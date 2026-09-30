@@ -62,6 +62,8 @@ const INITIAL_LAMP_CAPACITY = 32;
 const DUSK_POOL_LEVEL = 0.55;
 
 export interface NightLightsTuning {
+  /** Model-space distance the light sits out from the lamp face's centre, along the arm (towards its tip). */
+  lampOutset: number;
   poolRadius: number;
   poolStrength: number;
   poolColor: string;
@@ -75,6 +77,9 @@ export interface NightLightsTuning {
 }
 
 export const DEFAULT_NIGHT_LIGHTS_TUNING: Readonly<NightLightsTuning> = {
+  // Owner (2026-09-30): the light a little nearer the arm's end. The lamp face runs 0.11–0.23 along
+  // the arm (after MODEL_STYLES); its centre is 0.17, so the light now sits about three quarters out.
+  lampOutset: 0.03,
   poolRadius: 1.05,
   poolStrength: 0.8,
   poolColor: '#ffcc66',
@@ -106,6 +111,8 @@ export class NightLights {
   private readonly layers = new Map<LayerKind, Layer>();
   private readonly geometries: THREE.BufferGeometry[] = [];
   private readonly head: Vec3Like = { ...FALLBACK_HEAD };
+  /** `head` moved `lampOutset` along the arm: where the pool and halo are centred (scratch, no allocations). */
+  private readonly light: Vec3Like = { ...FALLBACK_HEAD };
   private readonly previousBeforeRender: THREE.Object3D['onBeforeRender'];
   private fireflies: Fireflies | null = null;
   private fireflyLevel = 0;
@@ -298,8 +305,12 @@ export class NightLights {
     if (halos) this.ensureCapacity(halos, this.registry.count);
     const t = this.tuning;
     let i = 0;
+    const arm = Math.hypot(this.head.x, this.head.z) || 1;
+    this.light.x = this.head.x + (this.head.x / arm) * t.lampOutset;
+    this.light.y = this.head.y;
+    this.light.z = this.head.z + (this.head.z / arm) * t.lampOutset;
     for (const lamp of this.registry.values()) {
-      objectPointToWorld(lamp, this.head, this.world);
+      objectPointToWorld(lamp, this.light, this.world);
       this.matrix.makeScale(t.poolRadius * 2, 1, t.poolRadius * 2).setPosition(this.world.x, POOL_Y, this.world.z);
       pools.mesh.setMatrixAt(i, this.matrix);
       if (halos) {
@@ -444,6 +455,7 @@ export class NightLights {
       this.builtVersion = -1;
       this.applyColors();
     };
+    folder.add(this.tuning, 'lampOutset', -0.1, 0.1, 0.005).name('lamp light outset').onChange(relayout);
     folder.add(this.tuning, 'poolRadius', 0.3, 2.5, 0.05).name('pool radius').onChange(relayout);
     folder.add(this.tuning, 'poolStrength', 0, 1.5, 0.01).name('pool strength').onChange(relayout);
     folder.addColor(this.tuning, 'poolColor').name('pool colour').onChange(relayout);
@@ -524,11 +536,14 @@ void main() {
 }
 `;
 
+// Owner (2026-09-30): a street lamp shines down, so the glow fades out above the lamp face (vUv.y 0.5
+// is the face; up on screen is +y) and only the small bright core reaches just over the arm.
 const HALO_FRAGMENT = /* glsl */ `
 void main() {
   float d = length(vUv * 2.0 - 1.0);
   float a = 1.0 - smoothstep(0.0, 1.0, d);
-  a = (a * a * a + 0.6 * pow(max(1.0 - d * 2.2, 0.0), 2.0)) * uLevel;
+  float below = 1.0 - smoothstep(0.47, 0.6, vUv.y);
+  a = (a * a * a * below + 0.6 * pow(max(1.0 - d * 2.2, 0.0), 2.0) * mix(0.35, 1.0, below)) * uLevel;
   gl_FragColor = vec4(max(uColor * a + glowDither(a), 0.0), 1.0);
 }
 `;

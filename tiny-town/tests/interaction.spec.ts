@@ -269,9 +269,9 @@ test.describe('desktop mouse + keyboard', () => {
     let p = await cellPoint(page, 22, 20);
     await page.mouse.move(p.x, p.y, { steps: 3 });
     await shot('ghost-road-tile');
-    await selectTool(page, 'garden', 'walkway');
+    await selectTool(page, 'streets', 'pavement');
     await page.mouse.move(p.x + 2, p.y, { steps: 2 });
-    await shot('ghost-walkway-tile');
+    await shot('ghost-pavement-tile');
     await selectTool(page, 'nature', 'meadow');
     await page.mouse.move(p.x, p.y, { steps: 2 });
     await shot('ghost-meadow-tile');

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  advanceCycle,
   AFTERNOON,
   createDaySample,
   DAY_KEYFRAMES,
@@ -12,6 +13,7 @@ import {
   modeTarget,
   MOON_DIRECTION,
   nightAt,
+  PHASE_SPANS,
   phaseAt,
   sampleDay,
   sunElevation,
@@ -325,15 +327,40 @@ describe('DayClock', () => {
     expect(night.t).toBe(T_NIGHT);
   });
 
-  it('Auto advances by delta / dayLengthS and wraps; Day / Night hold', () => {
+  it('phases last 1 min dawn, 5 min day, 1 min dusk, 2 min night in Auto (owner, 2026-09-30)', () => {
+    expect(PHASE_SPANS.map((span) => [span.phase, span.seconds])).toEqual([['dawn', 60], ['day', 300], ['dusk', 60], ['night', 120]]);
+    expect(DAY_LENGTH_S).toBe(540);
+    // Phase by phase from midnight's end (t = 0 is the start of dawn)...
+    let t = advanceCycle(0, 60);
+    expect(t).toBeCloseTo(0.1, 12);
+    t = advanceCycle(t, 300);
+    expect(t).toBeCloseTo(0.65, 12);
+    t = advanceCycle(t, 60);
+    expect(t).toBeCloseTo(0.75, 12);
+    t = advanceCycle(t, 119.999);
+    expect(phaseAt(t)).toBe('night');
+    expect(advanceCycle(t, 0.002)).toBeLessThan(0.1);
+    // ...and across boundaries in one step: half of dusk + all of night + half of dawn.
+    expect(advanceCycle(0.7, 30 + 120 + 30)).toBeCloseTo(0.05, 12);
+    // Whole days change nothing; any t in [0, 1) stays in range.
+    expect(advanceCycle(0.3, DAY_LENGTH_S * 3)).toBeCloseTo(0.3, 12);
+    for (let i = 0; i < 200; i += 1) {
+      const next = advanceCycle(i / 200, i * 7.3);
+      expect(next).toBeGreaterThanOrEqual(0);
+      expect(next).toBeLessThan(1);
+    }
+  });
+
+  it('Auto advances through the phases and wraps; a debug day length scales them all; Day / Night hold', () => {
     const clock = new DayClock('auto');
-    clock.advance(DAY_LENGTH_S * 0.1);
-    expect(clock.t).toBeCloseTo(T_MORNING + 0.1, 12);
-    clock.advance(DAY_LENGTH_S * 0.9);
+    // T_MORNING is in the day phase: 0.55 of the cycle in 300 s.
+    clock.advance(30);
+    expect(clock.t).toBeCloseTo(T_MORNING + (30 * 0.55) / 300, 12);
+    clock.advance(DAY_LENGTH_S - 30);
     expect(clock.t).toBeCloseTo(T_MORNING, 9);
-    clock.dayLengthS = 20;
-    clock.advance(5);
-    expect(clock.t).toBeCloseTo(T_MORNING + 0.25, 9);
+    clock.dayLengthS = DAY_LENGTH_S / 10; // ?debug&day=54: ten times faster, same proportions
+    clock.advance(3);
+    expect(clock.t).toBeCloseTo(T_MORNING + (30 * 0.55) / 300, 9);
     for (const mode of ['day', 'night'] as const) {
       const held = new DayClock(mode);
       held.advance(123);
@@ -410,8 +437,8 @@ describe('DayClock', () => {
     const clock = new DayClock('day');
     clock.setMode('auto');
     expect(clock.t).toBe(T_AFTERNOON);
-    clock.advance(DAY_LENGTH_S * 0.01);
-    expect(clock.t).toBeCloseTo(T_AFTERNOON + 0.01, 12);
+    clock.advance(6); // the afternoon is in the day phase: 0.55 of the cycle in 300 s
+    expect(clock.t).toBeCloseTo(T_AFTERNOON + (6 * 0.55) / 300, 12);
 
     const sweeping = new DayClock('day');
     sweeping.setMode('night');
@@ -420,8 +447,10 @@ describe('DayClock', () => {
     sweeping.setMode('auto');
     expect(sweeping.t).toBe(mid);
     expect(sweeping.isSweeping).toBe(false);
-    sweeping.advance(DAY_LENGTH_S * 0.01);
-    expect(sweeping.t).toBeCloseTo(mid + 0.01, 12);
+    const expected = advanceCycle(mid, 6);
+    sweeping.advance(6);
+    expect(sweeping.t).toBeCloseTo(expected, 12);
+    expect(expected).toBeGreaterThan(mid);
 
     const same = new DayClock('night');
     same.setMode('night');
@@ -441,7 +470,7 @@ describe('DayClock', () => {
     expect(clock.t).toBe(0.25);
     clock.pin(null);
     expect(clock.isPinned).toBe(false);
-    expect(clock.t).toBeCloseTo(T_MORNING + 0.1, 12);
+    expect(clock.t).toBeCloseTo(advanceCycle(T_MORNING, DAY_LENGTH_S * 0.1), 12);
   });
 });
 

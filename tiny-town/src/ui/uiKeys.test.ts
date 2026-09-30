@@ -22,9 +22,11 @@ describe('digit shortcuts', () => {
     expect(digitAction(key('Digit1'), 'streets', null)).toEqual({ type: 'tool', toolId: 'road' });
     expect(digitAction(key('Digit3'), 'homes', null)).toEqual({ type: 'tool', toolId: 'bungalow' });
     expect(digitAction(key('Digit6'), 'homes', null)).toEqual({ type: 'tool', toolId: 'big-house' });
-    expect(digitAction(key('Digit9'), 'streets', null)).toEqual({ type: 'tool', toolId: 'mailbox' });
-    // WP-23: Garden holds 12 tools; 9 is the last one with a digit.
-    expect(digitAction(key('Digit9'), 'garden', null)).toEqual({ type: 'tool', toolId: 'barbecue' });
+    expect(digitAction(key('Digit5'), 'streets', null)).toEqual({ type: 'tool', toolId: 'traffic-light' });
+    expect(digitAction(key('Digit7'), 'homes', null)).toEqual({ type: 'tool', toolId: 'mailbox' });
+    expect(digitAction(key('Digit8'), 'town', null)).toEqual({ type: 'tool', toolId: 'lamppost' });
+    // Garden holds 11 tools (12 until the garden path was retired); 9 is the last one with a digit.
+    expect(digitAction(key('Digit9'), 'garden', null)).toEqual({ type: 'tool', toolId: 'swing' });
   });
 
   it('deselects when the active tool digit is pressed again', () => {
@@ -32,8 +34,9 @@ describe('digit shortcuts', () => {
   });
 
   it('ignores digits beyond the category size', () => {
-    expect(digitAction(key('Digit7'), 'homes', null)).toBeNull();
-    expect(digitAction(key('Digit7'), 'town', null)).toBeNull();
+    expect(digitAction(key('Digit6'), 'streets', null)).toBeNull();
+    expect(digitAction(key('Digit8'), 'homes', null)).toBeNull();
+    expect(digitAction(key('Digit9'), 'town', null)).toBeNull();
     expect(digitAction(key('Digit8'), 'nature', null)).toBeNull();
   });
 
