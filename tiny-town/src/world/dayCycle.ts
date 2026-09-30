@@ -22,8 +22,20 @@ export type DayPhase = 'dawn' | 'day' | 'dusk' | 'night';
 /** Cycle order of the HUD time button and the T key. */
 export const TIME_MODES: readonly TimeMode[] = ['auto', 'day', 'night'];
 
-/** Real seconds per day in Auto mode (owner decision: 10 minutes, 25% night). */
-export const DAY_LENGTH_S = 600;
+/**
+ * The phases in cycle order: where each ends (fraction of the day, see "Time" above) and how many
+ * real seconds it lasts in Auto. The looks are keyed to `t`, so the phases run at different speeds:
+ * owner decision (2026-09-30): 5 minutes of day and 2 of night, with a minute each of dawn and
+ * dusk, 9 minutes in all (it was an even 10 minutes, so day 5.5 and night 2.5).
+ */
+export const PHASE_SPANS: ReadonlyArray<{ readonly phase: DayPhase; readonly end: number; readonly seconds: number }> = [
+  { phase: 'dawn', end: 0.1, seconds: 60 },
+  { phase: 'day', end: 0.65, seconds: 300 },
+  { phase: 'dusk', end: 0.75, seconds: 60 },
+  { phase: 'night', end: 1, seconds: 120 },
+];
+/** Real seconds per day in Auto mode (the sum of PHASE_SPANS). */
+export const DAY_LENGTH_S = PHASE_SPANS.reduce((sum, span) => sum + span.seconds, 0);
 /** Auto mode starts here on Start (New or Continue). */
 export const T_MORNING = 0.12;
 /** Day mode, the title screen and every test state except night-town: today's look, exactly. */
@@ -121,11 +133,35 @@ export function createDaySample(): DaySample {
 
 /** Phase of a time of day (boundaries 0.10 / 0.65 / 0.75). */
 export function phaseAt(t: number): DayPhase {
-  const u = wrap01(t);
-  if (u < 0.1) return 'dawn';
-  if (u < 0.65) return 'day';
-  if (u < 0.75) return 'dusk';
-  return 'night';
+  return PHASE_SPANS[spanIndex(wrap01(t))].phase;
+}
+
+/** Index of the PHASE_SPANS entry that holds `u` ∈ [0, 1). */
+function spanIndex(u: number): number {
+  let i = 0;
+  while (i < PHASE_SPANS.length - 1 && u >= PHASE_SPANS[i].end) i += 1;
+  return i;
+}
+
+/**
+ * The Auto clock: `t` after `seconds` of real time, each phase at its own speed (PHASE_SPANS).
+ * Pure and allocation-free; whole days are skipped first, so any delta is at most one lap.
+ */
+export function advanceCycle(t: number, seconds: number): number {
+  let time = wrap01(t);
+  let left = seconds % DAY_LENGTH_S;
+  let i = spanIndex(time);
+  while (left > 0) {
+    const span = PHASE_SPANS[i];
+    const start = i === 0 ? 0 : PHASE_SPANS[i - 1].end;
+    const rate = (span.end - start) / span.seconds;
+    const toEnd = (span.end - time) / rate;
+    if (left < toEnd) return wrap01(time + left * rate);
+    left -= toEnd;
+    i = (i + 1) % PHASE_SPANS.length;
+    time = i === 0 ? 0 : span.end;
+  }
+  return time;
 }
 
 /** The fixed time a mode shows (Auto: the morning it starts at). */
@@ -167,7 +203,8 @@ export function sampleDay(t: number, out: DaySample): DaySample {
 }
 
 /**
- * The game clock. Auto advances `t` by delta / dayLengthS (default DAY_LENGTH_S); Day and Night hold their target.
+ * The game clock. Auto advances `t` through the phases at their own speeds (advanceCycle; a
+ * debug `dayLengthS` other than DAY_LENGTH_S scales them all); Day and Night hold their target.
  * Switching mode sweeps `t` forward to the new target over MODE_SWEEP_S (or snaps). A pin (tests,
  * title screen) overrides everything until released.
  */
@@ -232,7 +269,7 @@ export class DayClock {
       }
       return;
     }
-    if (this.currentMode === 'auto') this.time = wrap01(this.time + delta / this.dayLengthS);
+    if (this.currentMode === 'auto') this.time = advanceCycle(this.time, delta * (DAY_LENGTH_S / this.dayLengthS));
   }
 
   /** Change mode. `snap` jumps straight to the target (reduced motion); otherwise it sweeps. */
