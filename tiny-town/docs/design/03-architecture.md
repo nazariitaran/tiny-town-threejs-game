@@ -237,7 +237,7 @@ Plan and rationale: `docs/plans/wp-16-day-night.md`. The as-built deviations are
   - Emissive intensity is exactly 0 when `night` = 0, so the day look, icons and baselines are unchanged.
 - **Ground light** (`render/NightLights.ts`): a lamp registry fed by `town:changed`, plus three instanced additive layers, all hidden when night < 0.05. No real PointLights.
   - lamp pools: +1 draw call;
-  - lamp halos: +1, Medium and High only (`lampHalos`, WP-25);
+  - lamp halos: +1, Medium and High only (`lampHalos`, WP-25). A lamp shines down: the halo fades out above the lamp face, and the pool and halo sit `lampOutset` (0.03) out along the arm from the face's centre, near its tip (owner, 2026-09-30);
   - headlight beams: +1, ≤ 6 cars;
   - fireflies over open meadow cells: +1.
 - **Life:** `LifeSystem.setNight(n)` → `TrafficSim.setDensity(1 − 0.5·n)`, so there are fewer cars at night. Car Kit cars face native +Z (`FRONT_ROTATION` 0 since v0.3).
