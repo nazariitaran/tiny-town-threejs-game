@@ -126,7 +126,7 @@ describe('NightLights (headless)', () => {
     };
     const library = new ModelLibrary(); // nothing loaded: the lamp head falls back to the facts table
     const life = new LifeSystem(scene, town, bus, createSeededRandom(2));
-    const lights = new NightLights(scene, library, town, bus, life, 'high');
+    const lights = new NightLights(scene, library, town, bus, life);
     if (state === 'sample') buildSampleTown(editor);
     lights.populate();
     const render = () => scene.onBeforeRender(null as never, scene, null as never, null as never, null as never, null as never);
@@ -207,19 +207,33 @@ describe('NightLights (headless)', () => {
     expect(w.scene.getObjectsByProperty('name', 'night:pool').length).toBe(1);
   });
 
-  it('low tier has no halos; dispose restores the scene hook and removes the layer', () => {
+  it('lamp halos off (Low preset) hides them live; dispose restores the scene hook and removes the layer', () => {
     const { bus, town, editor } = setup();
     const scene = new THREE.Scene();
     const hook = scene.onBeforeRender;
+    const render = () => scene.onBeforeRender(null as never, scene, null as never, null as never, null as never, null as never);
     const life = new LifeSystem(scene, town, bus, createSeededRandom(2));
-    const lights = new NightLights(scene, new ModelLibrary(), town, bus, life, 'low');
+    const lights = new NightLights(scene, new ModelLibrary(), town, bus, life);
     buildSampleTown(editor);
     lights.populate();
-    expect(scene.getObjectByName('night:halo')).toBeUndefined();
+    render(); // warm-up
     const sample = createDaySample();
     sample.night = 1;
     lights.update(sample);
+    render();
+    expect(lights.getDiagnostics().drawCalls).toBe(3); // pools + halos + fireflies
+    expect((scene.getObjectByName('night:halo') as THREE.InstancedMesh).visible).toBe(true);
+    lights.setLampHalos(false);
+    expect(lights.halosEnabled).toBe(false);
+    lights.update(sample);
     expect(lights.getDiagnostics().drawCalls).toBe(2); // pools + fireflies
+    render();
+    expect(lights.getDiagnostics().drawCalls).toBe(2);
+    expect(scene.getObjectByName('night:halo')).toBeDefined(); // built, just not drawn
+    expect((scene.getObjectByName('night:halo') as THREE.InstancedMesh).visible).toBe(false);
+    lights.setLampHalos(true);
+    render();
+    expect((scene.getObjectByName('night:halo') as THREE.InstancedMesh).visible).toBe(true);
     expect(scene.getObjectByName('night:fireflies')).toBeDefined();
     lights.dispose();
     expect(scene.onBeforeRender).toBe(hook);

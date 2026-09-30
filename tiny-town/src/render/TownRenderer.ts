@@ -39,6 +39,7 @@ import type { GameBus } from '../game/events';
 import { cellKey, edgeKey, footprintCells, NEIGHBOURS, ROAD_BLOCK, roadBlockAnchor, rotatedFootprint } from '../town/grid';
 import type { Cell, GroundKind, PlacedEdge, PlacedObject, TownChange, TownStateReader } from '../town/types';
 import { InstancePool, type PoolSlot } from './InstancePool';
+import { createLitMaterial, type LitMaterial } from './materials';
 import type { ModelLibrary } from './ModelLibrary';
 import { roadMask, roadTileFor, underRoadFeature } from './roadTiles';
 import { easeOutBack, easeOutBackPeak, easeShrink, hash01 } from './tween';
@@ -659,7 +660,7 @@ export class TownRenderer {
         : style?.color
         ? template.parts.map((part) => {
             // Private recoloured clone (one per styled model, shared by all its instances).
-            const material = part.material.clone() as THREE.MeshStandardMaterial;
+            const material = part.material.clone() as LitMaterial; // Lambert on the Low preset (WP-25)
             material.map = null;
             material.color.set(style.color!);
             material.name = `${part.material.name}:style:${id}`;
@@ -703,7 +704,7 @@ export class TownRenderer {
       }
       geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
       this.ownedGeometries.push(geometry);
-      const material = new THREE.MeshStandardMaterial({ color, roughness: 1, vertexColors: true });
+      const material = createLitMaterial({ color, roughness: 1, vertexColors: true }, this.library.materialMode);
       material.name = `slab:${key}`;
       this.ownedMaterials.push(material);
       source = { key, parts: [{ geometry, material }], castShadow: false, triangles: [12] };
@@ -721,7 +722,7 @@ export class TownRenderer {
   private warmAtlasMaterial(base: THREE.Material): THREE.Material {
     const cached = this.warmMaterials.get(base);
     if (cached) return cached;
-    const source = (base as THREE.MeshStandardMaterial).map;
+    const source = (base as LitMaterial).map;
     const image = source?.image as (CanvasImageSource & { width: number; height: number }) | undefined;
     if (!source || !image || typeof document === 'undefined') return base;
     const canvas = document.createElement('canvas');
@@ -752,7 +753,7 @@ export class TownRenderer {
     texture.magFilter = source.magFilter;
     texture.minFilter = source.minFilter;
     this.ownedTextures.push(texture);
-    const material = base.clone() as THREE.MeshStandardMaterial;
+    const material = base.clone() as LitMaterial;
     material.map = texture;
     material.name = `${base.name}:warm`;
     this.ownedMaterials.push(material);

@@ -14,6 +14,9 @@
 import * as THREE from 'three';
 import type { DaySample, Rgb } from './dayCycle';
 
+/** fbm octaves of the full cloud look (the Medium / High presets). */
+export const SKY_FULL_OCTAVES = 5;
+
 /** A THREE.Color holding raw display-space (sRGB) components, for shaders that skip colour management. */
 export function displayColor(hex: string): THREE.Color {
   return new THREE.Color().setStyle(hex, THREE.LinearSRGBColorSpace);
@@ -67,14 +70,19 @@ float noise(vec2 p) {
   return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
              mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
 }
+// SKY_OCTAVES (define, WP-25 graphics presets): 5 = the full look; Low uses 3. Fewer octaves add
+// the dropped octaves' mean (a - 0.5^6 after the loop), so the cloud cover stays about the same.
 float fbm(vec2 p) {
   float s = 0.0;
   float a = 0.5;
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < SKY_OCTAVES; i++) {
     s += noise(p) * a;
     p = p * 2.02 + vec2(17.1, 9.3);
     a *= 0.5;
   }
+#if SKY_OCTAVES < 5
+  s += a - 0.015625;
+#endif
   return s;
 }
 float hash3(vec3 p) {
@@ -192,6 +200,7 @@ export class Sky {
       uniforms: this.uniforms,
       vertexShader,
       fragmentShader,
+      defines: { SKY_OCTAVES: SKY_FULL_OCTAVES },
       side: THREE.BackSide,
       depthWrite: false,
       toneMapped: false,
@@ -209,6 +218,19 @@ export class Sky {
 
   set cloudCover(value: number) {
     this.uniforms.uCloudCover.value = value;
+  }
+
+  /** fbm octaves in the clouds (1..5). A change recompiles the sky once (three caches both programs). */
+  get octaves(): number {
+    return this.mesh.material.defines.SKY_OCTAVES as number;
+  }
+
+  set octaves(value: number) {
+    const octaves = Math.min(SKY_FULL_OCTAVES, Math.max(1, Math.round(value)));
+    const material = this.mesh.material;
+    if (material.defines.SKY_OCTAVES === octaves) return;
+    material.defines.SKY_OCTAVES = octaves;
+    material.needsUpdate = true;
   }
 
   setTime(seconds: number): void {

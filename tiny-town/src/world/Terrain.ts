@@ -11,6 +11,7 @@
  */
 import * as THREE from 'three';
 import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
+import { createLitMaterial, type MaterialMode } from '../render/materials';
 import {
   FIELD_Y,
   KERB_TOP_Y,
@@ -76,8 +77,8 @@ class GeometryBuilder {
   }
 }
 
-/** The plot slab: subtly mottled field, cream kerb, soil faces. */
-export function createPlotBase(): THREE.Mesh {
+/** The plot slab: subtly mottled field, cream kerb, soil faces. `mode`: the lit material family (WP-25). */
+export function createPlotBase(mode: MaterialMode = 'standard'): THREE.Mesh {
   const g = new GeometryBuilder();
   const field = new THREE.Color(TERRAIN_PALETTE.field);
   const fieldAlt = new THREE.Color(TERRAIN_PALETTE.fieldAlt);
@@ -143,14 +144,14 @@ export function createPlotBase(): THREE.Mesh {
   }
 
   const geometry = g.build();
-  const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 }));
+  const mesh = new THREE.Mesh(geometry, createLitMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 }, mode));
   mesh.name = 'plot-field';
   mesh.receiveShadow = true;
   return mesh;
 }
 
 /** The meadow disc: polar grid, radial spacing growing with distance, vertex-coloured. */
-export function createOuterTerrain(): THREE.Mesh {
+export function createOuterTerrain(mode: MaterialMode = 'standard'): THREE.Mesh {
   const rings = 64;
   const segments = 128;
   const positions: number[] = [];
@@ -194,7 +195,7 @@ export function createOuterTerrain(): THREE.Mesh {
   geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
 
-  const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0 }));
+  const mesh = new THREE.Mesh(geometry, createLitMaterial({ vertexColors: true, roughness: 1, metalness: 0 }, mode));
   mesh.name = 'terrain-outer';
   mesh.receiveShadow = true;
   return mesh;

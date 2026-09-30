@@ -54,8 +54,9 @@ export async function waitFrames(page: Page, frames = 3): Promise<void> {
   await page.waitForFunction((target) => (window.__THREE_GAME_DIAGNOSTICS__?.frame ?? 0) >= target, start + frames);
 }
 
-export async function gotoTitle(page: Page): Promise<void> {
-  await page.goto('/');
+/** `query` (optional, e.g. '?graphics=low'): URL parameters for the boot (WP-25). */
+export async function gotoTitle(page: Page, query = ''): Promise<void> {
+  await page.goto(`/${query}`);
   await expect(page.locator('#game-canvas')).toBeVisible();
   await page.waitForFunction(() => window.__THREE_GAME_DIAGNOSTICS__?.phase === 'title', undefined, { timeout: 15_000 });
 }

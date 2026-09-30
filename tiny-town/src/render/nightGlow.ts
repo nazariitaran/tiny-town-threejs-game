@@ -7,6 +7,8 @@
  * glow. It becomes the material's standard `emissiveMap` with `emissive = #ffffff`, and only
  * `emissiveIntensity` changes with the time of day. Intensity is EXACTLY 0 when `night = 0`, so
  * daytime pixels, baselines and tool icons are untouched (0 × anything = 0 in the shader).
+ * Works the same on MeshLambertMaterial (the Low graphics preset, WP-25): same emissive inputs and
+ * the same `begin_vertex` / `emissivemap_fragment` chunks.
  *
  * GlowRegistry (one per ModelLibrary):
  *  - `createClone(source, kind)`: a private material clone with the kind's mask (ModelLibrary makes
@@ -24,6 +26,7 @@
 import * as THREE from 'three';
 import type { GlowKind } from '../catalog/models';
 import type { DaySample } from '../world/dayCycle';
+import type { LitMaterial } from './materials';
 
 /** Kenney atlas grid (docs/plans/wp-16-day-night.md, facts table). */
 export const ATLAS_COLUMNS = 16;
@@ -225,7 +228,8 @@ export function applyWindowStagger(material: THREE.Material, uniforms: WindowGlo
 
 // ---- Registry -------------------------------------------------------------------------------------
 
-type GlowMaterial = THREE.MeshStandardMaterial;
+/** Standard or Lambert (WP-25 Low preset): both carry emissive / emissiveMap / emissiveIntensity. */
+type GlowMaterial = LitMaterial;
 
 /** Levels of the light sources this frame (0..1), read by NightLights for pools / halos / beams. */
 export interface GlowLevels {
