@@ -42,7 +42,7 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
 - **WP-21 Town file is merged into `main`** (owner-approved 2026-09-29 with all planning decisions, including the save-format migration promise; built on the branch `wp-21-town-file` from `aab1865`; part of v0.5). See "WP-21 as built".
 - **WP-23 New build items is merged into `main`** (owner-approved 2026-09-29; built on the branch `wp-23-new-items` from `493635d`, with `main` merged in after WP-22): 7 new tools (the gate was removed at review), the garage removed, up to 12 tools per category; part of v0.5. See "WP-23 as built".
 - **WP-24 Frame budget and WP-25 Graphics settings + tabbed menu are merged on `main`** (owner-approved 2026-09-30; built on the branch `wp-24-frame-budget`; part of v0.5). WP-25 leaves one open owner decision: the mobile triangle budget (Medium: 324.1k on the WP-25 dev server, 328.3k on the v0.5 production preview, vs 320k). See "WP-25 as built" and "WP-24 as built".
-- **Code-review cleanup is on the branch `code-review-cleanup`** (from `2f3ecf8`, 2026-09-30; **not merged**, waiting for owner approval). No behaviour change for players:
+- **Code-review cleanup is merged on `main`** (owner-approved 2026-09-30, merge `19b1e36`; built on the branch `code-review-cleanup` from `2f3ecf8`; no version bump). No behaviour change for players:
   - architecture banner current for v0.5; mobile triangle numbers say which build measured them;
   - dead code removed (`utils/dispose.ts`, `SFX_EVENTS`, `GlyphId`, `footprintOf`), same-file-only helpers unexported;
   - `__THREE_GAME_DIAGNOSTICS__` is a getter built on read (no per-frame cost); test hooks no longer re-publish;
@@ -50,6 +50,9 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
   - `render/roadTiles.ts` → `town/roadTiles.ts` (ends the catalog ↔ render import cycle); `MODEL_STYLES` → `render/modelStyles.ts`;
   - `ShadowScheduler`: cars + birds together use the faster rate (both 30 Hz today).
   - Gates on the branch: `npm run verify` green (30 files, 530 unit tests, build OK, main chunk 298.3 kB); `npm run test:e2e` (dev server) 198 tests, 176 passed, 22 skipped by design, 0 failed (11.4 min).
+- **Zebra crossing ghost is merged on `main`** (owner request, owner-approved 2026-09-30, merge `9673508`; branch `zebra-ghost` from `2f3ecf8`; no version bump). The ghost used to be a translucent mint copy of the road piece under a mint fill, z-fighting with the road and washing out the stripes. A road marking now uses the solid ground-ghost look (the marked road tile in its real colours, no fill inside the frame; invalid keeps its red fill), and solid ghosts get a polygon offset in every state (also the road tool over a road and bulldoze over a zebra). Not done: the ghost's road atlas isn't warmed like the town's, so its kerbs stay slightly bluish (the road tool's ghost has always looked like this).
+  - Gates: `npm run verify` green on `main` after both merges (30 files, 530 unit tests, build OK); on the branch, `interaction`, `build-flow`, `new-items`, `visual`, `visual-regression` and `bot-playtest` e2e: 34 tests, 29 passed, 5 skipped by design, 0 failed.
+  - Owner question checked the same day: "houses are turned 180°". Not reproduced: at rotation 0 every home's front (door, porch, planters) faces +z, towards the default camera; ghost, placed model, dock icon and demo towns agree. Note: the tool rotation (R) is shared by all tools and kept until a reload, so a new house can start turned if R was pressed for another item.
 - **Where current facts live:**
   - grid, rules, save, modules, diagnostics and budgets: `docs/design/03-architecture.md`;
   - asset scales and footprints: `docs/assets/models.md`;
