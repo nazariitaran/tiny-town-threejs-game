@@ -17,6 +17,7 @@
 import * as THREE from 'three';
 import type { ModelId } from '../catalog/models';
 import { CELL_SIZE } from '../game/config';
+import { createLitMaterial, type LitMaterial } from '../render/materials';
 import type { ModelLibrary } from '../render/ModelLibrary';
 import { shortestAngle } from './strokeMath';
 
@@ -95,8 +96,8 @@ export class GhostPreview {
   /** Pooled model instances per id (a walkway ghost needs several arms). */
   private readonly pool = new Map<ModelId, THREE.Group[]>();
   private readonly active: THREE.Group[] = [];
-  private readonly ghostMaterials = new Map<THREE.Material, THREE.MeshStandardMaterial>();
-  private readonly baseColors = new Map<THREE.MeshStandardMaterial, THREE.Color>();
+  private readonly ghostMaterials = new Map<THREE.Material, LitMaterial>();
+  private readonly baseColors = new Map<LitMaterial, THREE.Color>();
   private readonly tint = new THREE.Color();
   private modelState: GhostState | null = null;
   private modelSolid = false;
@@ -310,11 +311,13 @@ export class GhostPreview {
     return list[index];
   }
 
-  private ghostMaterial(source: THREE.Material): THREE.MeshStandardMaterial {
+  private ghostMaterial(source: THREE.Material): LitMaterial {
     let ghost = this.ghostMaterials.get(source);
     if (ghost) return ghost;
-    const standard = source as THREE.MeshStandardMaterial;
-    ghost = new THREE.MeshStandardMaterial({
+    const standard = source as LitMaterial;
+    // Same lit family as the library (WP-25: Lambert on the Low preset; the rim patch hooks
+    // `#include <common>` / `opaque_fragment` and reads vViewPosition / normal, present in both).
+    ghost = createLitMaterial({
       map: standard.map ?? null,
       color: standard.color ? standard.color.clone() : new THREE.Color('#ffffff'),
       vertexColors: standard.vertexColors ?? false,
@@ -323,7 +326,7 @@ export class GhostPreview {
       transparent: true,
       opacity: this.tuning.modelOpacity,
       depthWrite: false,
-    });
+    }, this.library.materialMode);
     ghost.name = `ghost:${source.name}`;
     // Soft fresnel rim in the state colour (shared uniforms: one extra program for all ghosts).
     const uniforms = this.rimUniforms;
@@ -345,7 +348,7 @@ export class GhostPreview {
     return ghost;
   }
 
-  private applyTint(material: THREE.MeshStandardMaterial, state: GhostState): void {
+  private applyTint(material: LitMaterial, state: GhostState): void {
     const base = this.baseColors.get(material);
     const calm = state === 'valid' || state === 'neutral';
     const solid = calm && this.modelSolid;

@@ -14,7 +14,6 @@
  */
 import * as THREE from 'three';
 import { MODELS, type ModelId } from '../catalog/models';
-import type { QualityTier } from '../game/config';
 import { DEFAULT_POSE, type CameraPose } from '../interaction/CameraController';
 import type { ModelLibrary } from '../render/ModelLibrary';
 import { createSeededRandom } from '../utils/random';
@@ -57,11 +56,6 @@ export const DECOR_CLEAR_MARGIN = 1.2;
  * (46 / 105 on the 24-unit plot; scaled for the 32-unit, 64 × 64 plot.)
  */
 const BELT_INNER = 60;
-/**
- * Low tier draws this nearest-first share of each decor mesh (WP-12: 0.6 → 0.25, so a fully built
- * plot stays inside the mobile triangle budget, 320k on 64 × 64; the hedgerow frame is nearest, so it stays).
- */
-export const LOW_TIER_SHARE = 0.25;
 const BELT_OUTER = 120;
 /** Build-camera vertical FOV (Game.ts creates PerspectiveCamera(35, …)). */
 const BUILD_FOV = 35;
@@ -232,12 +226,34 @@ export function planDecor(): DecorInstance[] {
 
 const DECOR_MODELS: readonly DecorId[] = ['oak', 'pine', 'decor-rocks'];
 
+/**
+ * Which of `angles.length` instances to keep for a share `fraction` (0..1] of the ring, spread evenly
+ * around it (WP-25): instances are ranked by angle about the plot centre and every 1/fraction-th
+ * one is kept (an error-diffusion stride, so any arc keeps ≈ fraction of what it had). Deterministic;
+ * returns ascending indices into `angles`. fraction ≥ 1 keeps everything; ≤ 0 keeps nothing.
+ * (Nearest-first, the pre-WP-25 low tier, dropped the belt trees in front of the orbiting title camera.)
+ */
+export function evenDecorSubset(angles: readonly number[], fraction: number): number[] {
+  const n = angles.length;
+  if (!(fraction > 0)) return [];
+  if (fraction >= 1) return angles.map((_, i) => i);
+  const byAngle = angles.map((_, i) => i).sort((a, b) => angles[a] - angles[b] || a - b);
+  const kept: number[] = [];
+  for (let rank = 0; rank < n; rank += 1) {
+    // Keep rank r when floor((r + 1) f) steps up: exactly round-down(n f) kept, evenly strided.
+    if (Math.floor((rank + 1) * fraction + 1e-9) > Math.floor(rank * fraction + 1e-9)) kept.push(byAngle[rank]);
+  }
+  return kept.sort((a, b) => a - b);
+}
+
 export class DecorRing {
   readonly group = new THREE.Group();
   private readonly meshes: THREE.InstancedMesh[] = [];
-  /** Instance count per mesh at full quality (low tier draws a nearest-first prefix). */
-  private readonly fullCounts: number[] = [];
-  private tier: QualityTier = 'high';
+  /** Per mesh: every instance matrix (plan order) and each instance's angle about the plot centre. */
+  private readonly fullMatrices: Float32Array[] = [];
+  private readonly angles: number[][] = [];
+  /** Share of each mesh drawn (GraphicsProfile.decorFraction), spread evenly around the ring. */
+  private fraction = 1;
 
   constructor() {
     this.group.name = 'decor-ring';
@@ -268,6 +284,7 @@ export class DecorRing {
         mesh.castShadow = false;
         mesh.receiveShadow = false;
         const rescale = TEMPLATE_RESCALE[id];
+        this.angles.push(items.map((item) => Math.atan2(item.z, item.x)));
         items.forEach((item, index) => {
           const s = item.scale * rescale;
           const height = (template.bounds.max.y - template.bounds.min.y) * s * item.squash;
@@ -281,16 +298,26 @@ export class DecorRing {
         mesh.instanceMatrix.needsUpdate = true;
         mesh.computeBoundingSphere();
         this.meshes.push(mesh);
-        this.fullCounts.push(items.length);
+        this.fullMatrices.push((mesh.instanceMatrix.array as Float32Array).slice());
         this.group.add(mesh);
       }
     }
-    this.applyTier();
+    this.applyFraction();
   }
 
-  setQuality(tier: QualityTier): void {
-    this.tier = tier;
-    this.applyTier();
+  /**
+   * Draw this share (0..1] of every decor mesh, spread evenly around the ring (WP-25 graphics
+   * presets; Low = 0.6). A change rewrites the instance buffers once; 1 restores the full plan order.
+   */
+  setFraction(fraction: number): void {
+    const next = Math.min(1, Math.max(0, fraction));
+    if (next === this.fraction) return;
+    this.fraction = next;
+    this.applyFraction();
+  }
+
+  get decorFraction(): number {
+    return this.fraction;
   }
 
   /** Meshes don't own geometry/material (shared with ModelLibrary); only release instance buffers. */
@@ -298,9 +325,20 @@ export class DecorRing {
     this.clear();
   }
 
-  private applyTier(): void {
+  /** Pack the kept instances at the front of each buffer (an InstancedMesh draws the first `count`). */
+  private applyFraction(): void {
     this.meshes.forEach((mesh, i) => {
-      mesh.count = this.tier === 'low' ? Math.ceil(this.fullCounts[i] * LOW_TIER_SHARE) : this.fullCounts[i];
+      const full = this.fullMatrices[i];
+      const target = mesh.instanceMatrix.array as Float32Array;
+      if (this.fraction >= 1) {
+        target.set(full);
+        mesh.count = full.length / 16;
+      } else {
+        const kept = evenDecorSubset(this.angles[i], this.fraction);
+        kept.forEach((index, slot) => target.set(full.subarray(index * 16, index * 16 + 16), slot * 16));
+        mesh.count = kept.length;
+      }
+      mesh.instanceMatrix.needsUpdate = true;
     });
   }
 
@@ -310,6 +348,7 @@ export class DecorRing {
       mesh.dispose();
     }
     this.meshes.length = 0;
-    this.fullCounts.length = 0;
+    this.fullMatrices.length = 0;
+    this.angles.length = 0;
   }
 }

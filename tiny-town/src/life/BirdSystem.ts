@@ -12,7 +12,8 @@
  * hidden (0 calls) when the sky is empty. No asset, no licence, no per-frame allocation.
  *
  * Game.ts wiring (WP-22):
- *   this.birds = new BirdSystem(this.scene, this.town, this.seedValue ^ BIRD_SEED_SALT, this.debug);
+ *   this.birds = new BirdSystem(this.scene, this.town, this.seedValue ^ BIRD_SEED_SALT, this.debug, materialMode);
+ *     (materialMode: the WP-25 graphics preset's lit family; the flap patch works on Lambert too)
  *   update():        this.birds.update(animDelta)             (after life.update)
  *   applyDaylight(): this.birds.setDaylight(night, phase)
  *   applyTestState:  this.birds.reset(seed); this.birds.setAuto(false)   (until a reload)
@@ -22,6 +23,7 @@
  */
 import * as THREE from 'three';
 import type { DebugTools } from '../debug/DebugTools';
+import { createLitMaterial, type LitMaterial, type MaterialMode } from '../render/materials';
 import type { DayPhase } from '../world/dayCycle';
 import type { TownStateReader } from '../town/types';
 import { BIRD_SPECIES, FlockSim, MAX_BIRDS, SPECIES, type BirdSpecies } from './FlockSim';
@@ -53,7 +55,7 @@ export class BirdSystem {
   readonly sim: FlockSim;
   readonly mesh: THREE.InstancedMesh;
   private readonly geometry: THREE.BufferGeometry;
-  private readonly material: THREE.MeshStandardMaterial;
+  private readonly material: LitMaterial;
   private readonly depthMaterial: THREE.MeshDepthMaterial;
   private readonly flap: THREE.InstancedBufferAttribute;
   private colourVersion = -1;
@@ -71,20 +73,24 @@ export class BirdSystem {
     town: TownStateReader,
     seed: number,
     debug?: DebugTools,
+    materialMode: MaterialMode = 'standard',
   ) {
     this.sim = new FlockSim(seed, () => town.stats().trees);
     this.geometry = createBirdGeometry();
     this.flap = new THREE.InstancedBufferAttribute(new Float32Array(MAX_BIRDS * 2), 2);
     this.flap.setUsage(THREE.DynamicDrawUsage);
     this.geometry.setAttribute('aFlap', this.flap);
-    this.material = new THREE.MeshStandardMaterial({
-      name: 'life:birds',
-      vertexColors: true,
-      flatShading: true,
-      roughness: 0.9,
-      metalness: 0,
-      side: THREE.DoubleSide,
-    });
+    this.material = createLitMaterial(
+      {
+        name: 'life:birds',
+        vertexColors: true,
+        flatShading: true,
+        roughness: 0.9,
+        metalness: 0,
+        side: THREE.DoubleSide,
+      },
+      materialMode,
+    );
     applyWingFlap(this.material);
     this.depthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide });
     applyWingFlap(this.depthMaterial);

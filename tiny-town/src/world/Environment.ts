@@ -1,11 +1,12 @@
 /**
  * Sky, lighting, surrounding terrain, fog and the plot's grid overlay.
  *
- * WP-04 (World & look). Public API (constructor, populate, setQuality, setGridVisible, update,
+ * WP-04 (World & look). Public API (constructor, populate, applyGraphics, setGridVisible, update,
  * dispose, sun) is the contract Game.ts relies on.
  *
  * Look: a single "golden afternoon". Warm key sun (shadow frustum fitted to the plot), cool
- * hemisphere fill, a low-intensity RoomEnvironment PMREM for gentle speculars (high tier only).
+ * hemisphere fill, a low-intensity RoomEnvironment PMREM for gentle speculars / diffuse fill (every
+ * graphics preset since WP-25: Lambert on Low is lit by it too, so every device sees the same colours).
  * The plot is a raised diorama slab; the meadow undulates beyond it and rolls into hazy hills.
  * Fog colour == sky horizon colour, so distant ground melts into the horizon with no seam.
  *
@@ -16,7 +17,8 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import type { DebugTools } from '../debug/DebugTools';
-import type { QualityTier } from '../game/config';
+import type { GraphicsProfile } from '../game/graphics';
+import type { MaterialMode } from '../render/materials';
 import type { ModelLibrary } from '../render/ModelLibrary';
 import { DAY_KEYFRAMES, DAY_TUNING, type DayKeyframe, type DaySample } from './dayCycle';
 import { DecorRing } from './DecorRing';
@@ -41,8 +43,6 @@ export const LIGHTING = {
   hemiSky: '#cfe6ff',
   hemiGround: '#7d9a5c',
   hemiIntensity: 0.8,
-  /** Extra hemisphere fill on the low tier, standing in for the env map's diffuse light. */
-  hemiLowTierBoost: 0.35,
   envIntensity: 0.18,
   fogNear: 55,
   fogFar: 420,
@@ -80,14 +80,12 @@ export class Environment {
   private readonly decor = new DecorRing();
   private readonly fog: THREE.Fog;
   private envMap: THREE.Texture | null = null;
-  private tier: QualityTier = 'high';
+  /** Share of the decor ring drawn (GraphicsProfile.decorFraction), kept for populate(). */
+  private decorFraction = 1;
 
-  // Day/night state (WP-16a): the last applied time and the tier-dependent inputs.
+  // Day/night state (WP-16a): the last applied time.
   private appliedT = Number.NaN;
   private daylightDirty = false;
-  private hemiBase = LIGHTING.hemiIntensity;
-  private envLevel = LIGHTING.envIntensity;
-  private night = 0;
   /** Direction the key light and its shadow frustum are currently fitted to. */
   private readonly fittedDir = SUN_DIRECTION.clone();
   private readonly keyDir = new THREE.Vector3();
@@ -97,10 +95,12 @@ export class Environment {
   private readonly fitBox = new THREE.Box3();
   private readonly fitPoint = new THREE.Vector3();
 
+  /** `materialMode`: the lit material family of the terrain (WP-25, fixed at boot). */
   constructor(
     private readonly scene: THREE.Scene,
     private readonly renderer: THREE.WebGLRenderer,
     debug?: DebugTools,
+    materialMode: MaterialMode = 'standard',
   ) {
     this.root.name = 'environment';
     scene.add(this.root);
@@ -125,9 +125,14 @@ export class Environment {
     this.root.add(this.sun, this.sun.target);
     this.fitSunShadow();
 
+    // --- Environment lighting (every preset): gentle speculars and diffuse fill from a PMREM.
+    this.envMap = this.createEnvMap();
+    scene.environment = this.envMap;
+    scene.environmentIntensity = LIGHTING.envIntensity;
+
     // --- Ground.
-    this.terrain = createOuterTerrain();
-    this.plotBase = createPlotBase();
+    this.terrain = createOuterTerrain(materialMode);
+    this.plotBase = createPlotBase(materialMode);
     this.root.add(this.terrain, this.plotBase);
 
     this.grid = new GridOverlay();
@@ -140,13 +145,16 @@ export class Environment {
   /** Called once after models load: instanced distant tree/bush/rock ring (≤ 4 draw calls). */
   populate(library: ModelLibrary): void {
     this.decor.populate(library);
-    this.decor.setQuality(this.tier);
+    this.decor.setFraction(this.decorFraction);
   }
 
-  /** 'low': 1024 shadow map, no env map, thinner decor ring. Game applies the DPR cap (MAX_DPR[tier]). */
-  setQuality(tier: QualityTier): void {
-    this.tier = tier;
-    const size = tier === 'low' ? 1024 : 2048;
+  /**
+   * The live parts of a graphics preset (WP-25): sun shadow-map size (a resize bumps shadowVersion,
+   * so the map is redrawn), the decor-ring share (spread evenly) and the sky's cloud octaves (a
+   * one-off recompile). The env map stays on at every level. Game applies DPR and frame caps.
+   */
+  applyGraphics(profile: Readonly<Pick<GraphicsProfile, 'shadowMapSize' | 'decorFraction' | 'skyOctaves'>>): void {
+    const size = profile.shadowMapSize;
     if (this.sun.shadow.mapSize.x !== size) {
       this.sun.shadow.mapSize.set(size, size);
       // Force the renderer to reallocate the shadow render target at the new size.
@@ -154,14 +162,19 @@ export class Environment {
       this.sun.shadow.map = null;
       this.shadowVersion += 1;
     }
-    if (tier === 'high') {
-      this.envMap ??= this.createEnvMap();
-      this.scene.environment = this.envMap;
-    } else {
-      this.scene.environment = null;
-    }
-    this.applyTierLighting();
-    this.decor.setQuality(tier);
+    this.decorFraction = profile.decorFraction;
+    this.decor.setFraction(profile.decorFraction);
+    this.sky.octaves = profile.skyOctaves;
+  }
+
+  /** What is applied now (diagnostics). */
+  get graphicsState(): { shadowMapSize: number; decorFraction: number; decorInstances: number; skyOctaves: number } {
+    return {
+      shadowMapSize: this.sun.shadow.mapSize.x,
+      decorFraction: this.decor.decorFraction,
+      decorInstances: this.decor.instanceCount,
+      skyOctaves: this.sky.octaves,
+    };
   }
 
   setGridVisible(visible: boolean): void {
@@ -187,10 +200,8 @@ export class Environment {
     const n = s.night;
     this.fog.near = n > 0 ? LIGHTING.fogNear + (DAYLIGHT_TUNING.nightFogNear - LIGHTING.fogNear) * n : LIGHTING.fogNear;
     this.fog.far = n > 0 ? LIGHTING.fogFar + (DAYLIGHT_TUNING.nightFogFar - LIGHTING.fogFar) * n : LIGHTING.fogFar;
-    this.hemiBase = s.hemiIntensity;
-    this.envLevel = s.envIntensity;
-    this.night = s.night;
-    this.applyTierLighting();
+    this.hemi.intensity = s.hemiIntensity;
+    this.scene.environmentIntensity = s.envIntensity;
 
     this.sky.applyDaylight(s);
     this.grid.setNight(s.night);
@@ -224,13 +235,6 @@ export class Environment {
     this.envMap = null;
     if (this.scene.fog === this.fog) this.scene.fog = null;
     this.scene.remove(this.root);
-  }
-
-  /** Hemisphere (+ the low-tier boost, halved at night) and env intensity for the current tier. */
-  private applyTierLighting(): void {
-    const boost = this.tier === 'low' ? LIGHTING.hemiLowTierBoost * (1 - 0.5 * this.night) : 0;
-    this.hemi.intensity = this.hemiBase + boost;
-    if (this.scene.environment) this.scene.environmentIntensity = this.envLevel;
   }
 
   /**

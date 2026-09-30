@@ -1,9 +1,13 @@
 import * as THREE from 'three';
 
-export function createRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer {
+/**
+ * `antialias` (MSAA) is fixed for the context's lifetime: it comes from the boot graphics preset
+ * (WP-25; off on Low), and changing it needs a page reload.
+ */
+export function createRenderer(canvas: HTMLCanvasElement, options: { antialias: boolean } = { antialias: true }): THREE.WebGLRenderer {
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    antialias: true,
+    antialias: options.antialias,
     alpha: false,
     powerPreference: 'high-performance',
   });

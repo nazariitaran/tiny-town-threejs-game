@@ -19,7 +19,30 @@ interface ThreeGameDiagnostics {
   /** Count of build:invalid events since boot. */
   invalidCount: number;
   camera: import('./interaction/CameraController').CameraPose;
-  quality: import('./game/config').QualityTier;
+  /** The graphics preset now applied (WP-25; was the hidden touch-screen tier before). */
+  quality: import('./game/graphics').GraphicsPreset;
+  /**
+   * Graphics preset (WP-25). preset = applied now; booted = what the page started with (fixes MSAA
+   * and the material family); reloadRequired = needsReload(booted, preset). antialias / material are
+   * what the page really runs with (the context's attributes; the lit material family in the scene,
+   * 'mixed' would be a bug). The rest is what is applied now: DPR cap, sun shadow-map size, decor-ring
+   * share and instances drawn, sky fbm octaves, frame caps, lamp halos at night.
+   */
+  graphics: {
+    preset: import('./game/graphics').GraphicsPreset;
+    booted: import('./game/graphics').GraphicsPreset;
+    reloadRequired: boolean;
+    antialias: boolean;
+    material: 'standard' | 'lambert' | 'mixed' | 'none';
+    maxDpr: number;
+    shadowMapSize: number;
+    decorFraction: number;
+    decorInstances: number;
+    skyOctaves: number;
+    activeFps: number;
+    idleFps: number;
+    lampHalos: boolean;
+  };
   audio: {
     muted: boolean;
     volume: number;

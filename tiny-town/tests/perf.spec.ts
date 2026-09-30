@@ -3,7 +3,7 @@
  *  1. With no input the loop idles at 30 fps; a key press brings it back to 60 at once.
  *  2. The sun's shadow map is redrawn on demand: a still town (no cars, no flock) redraws nothing
  *     frame after frame, and placing a tree redraws it.
- *  3. On a Retina screen (DPR 2) the high tier renders at DPR 1.5.
+ *  3. On a Retina screen (DPR 2) Medium (the default preset) renders at DPR 1.5.
  */
 import { expect, test, type Page } from '@playwright/test';
 import { applyState, clickCell, diagnostics, selectTool, trackErrors, gotoTitle, waitFrames } from './helpers';
@@ -52,7 +52,7 @@ test('idle frame cap and on-demand shadow map', async ({ page }) => {
 test.describe('Retina screen', () => {
   test.use({ deviceScaleFactor: 2 });
 
-  test('the high tier renders at DPR 1.5', async ({ page }) => {
+  test('Medium (the default preset) renders at DPR 1.5', async ({ page }) => {
     await gotoTitle(page);
     await applyState(page, 'empty-build');
     await waitFrames(page, 2);

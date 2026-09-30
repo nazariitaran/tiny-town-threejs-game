@@ -89,13 +89,8 @@ export function assetUrl(path: string): string {
   return `${import.meta.env.BASE_URL}${path.replace(/^\//, '')}`;
 }
 
-export type QualityTier = 'high' | 'low';
-
-/**
- * Max device pixel ratio per tier (see technical-art budgets). WP-24: high 2 → 1.5. On a Retina
- * Mac, DPR 2 with 4× MSAA was the largest single GPU cost (−35% GPU time per frame at 1.5).
- */
-export const MAX_DPR: Readonly<Record<QualityTier, number>> = { high: 1.5, low: 1.5 };
+// WP-25: the hidden touch-screen QualityTier / MAX_DPR are gone; the player's graphics preset
+// (game/graphics.ts GRAPHICS_PROFILES, saved in the settings) sets the DPR cap and the rest.
 
 export const SAVE_STORAGE_KEY = 'tiny-town:save:v1';
 export const SETTINGS_STORAGE_KEY = 'tiny-town:settings:v1';

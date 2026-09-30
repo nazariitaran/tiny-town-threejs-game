@@ -11,7 +11,8 @@
  * Cars sit on the road tile top (ROAD_TOP_Y) and keep to the right-hand lane.
  *
  * Game.ts wiring (integrator; see the WP-10 hand-off):
- *   this.life = new LifeSystem(this.scene, this.town, this.bus, fxRand, this.debug);
+ *   this.life = new LifeSystem(this.scene, this.town, this.bus, fxRand, this.debug, materialMode);
+ *     (materialMode: the WP-25 graphics preset's lit material family; Lambert on Low)
  *   load():   await this.life.load();                       (after library.loadAll)
  *   update(): this.life.update(animDelta);                  (after townRenderer.update)
  *   applyTestState / setReducedMotion(true): this.life.settle();
@@ -28,6 +29,7 @@
  */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { litMaterial, type LitMaterial, type MaterialMode } from '../render/materials';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { DebugTools } from '../debug/DebugTools';
 import { assetUrl, worldToCell } from '../game/config';
@@ -133,6 +135,7 @@ export class LifeSystem {
     bus: GameBus,
     rng: () => number,
     debug?: DebugTools,
+    private readonly materialMode: MaterialMode = 'standard',
   ) {
     this.sim = new TrafficSim(town, rng);
     this.sim.onRemove = (car) => this.releaseVisual(car);
@@ -164,7 +167,8 @@ export class LifeSystem {
       (extra as THREE.MeshStandardMaterial).map?.dispose();
       extra.dispose();
     }
-    const shared = material as THREE.MeshStandardMaterial;
+    // Low graphics preset (WP-25): the same material as Lambert (keeps the atlas; emissive set below).
+    const shared = litMaterial(material as THREE.Material, this.materialMode) as LitMaterial;
     if (shared.map) {
       shared.map.colorSpace = THREE.SRGBColorSpace;
       shared.map.anisotropy = 8;
@@ -217,7 +221,7 @@ export class LifeSystem {
     this.night = n;
     const before = this.sim.cars.length;
     this.sim.setDensity(1 - NIGHT_TRAFFIC_DROP * n);
-    if (this.material) (this.material as THREE.MeshStandardMaterial).emissiveIntensity = glowIntensity('headlights', n, this.headlightTuning);
+    if (this.material) (this.material as LitMaterial).emissiveIntensity = glowIntensity('headlights', n, this.headlightTuning);
     // Draw the new car set at once (test hooks render without an update while paused).
     if (this.sim.cars.length !== before) this.sync(0);
   }
@@ -274,7 +278,7 @@ export class LifeSystem {
       this.mesh.dispose();
     }
     if (this.material) {
-      (this.material as THREE.MeshStandardMaterial).map?.dispose();
+      (this.material as LitMaterial).map?.dispose();
       this.material.dispose();
     }
     this.glowMask?.dispose();

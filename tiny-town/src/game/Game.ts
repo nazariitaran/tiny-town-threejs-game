@@ -34,8 +34,10 @@ import { UiRoot } from '../ui/UiRoot';
 import { createSeededRandom, entropySeed } from '../utils/random';
 import { createDaySample, DayClock, sampleDay, T_AFTERNOON, T_NIGHT, TIME_MODES, type DayPhase, type TimeMode } from '../world/dayCycle';
 import { Environment } from '../world/Environment';
-import { assetUrl, MAX_DPR, PLOT_DEPTH, PLOT_WIDTH, type QualityTier } from './config';
+import { assetUrl, PLOT_DEPTH, PLOT_WIDTH } from './config';
 import { createGameBus, type GamePhase } from './events';
+import { GRAPHICS_PROFILES, isGraphicsPreset, needsReload, type GraphicsPreset, type GraphicsProfile } from './graphics';
+import { materialFamily } from '../render/materials';
 
 /** Named states for __THREE_GAME_TEST_HOOKS__.setState (canvas inspector, visual tests, bots). */
 // Every state pins the clock to afternoon (the v0.2 look) except 'night-town' (sample town at T_NIGHT).
@@ -44,6 +46,14 @@ type TestState = (typeof TEST_STATES)[number];
 
 /** Birds (WP-22) run on their own stream, derived from the seed (they never draw from fxRng). */
 const BIRD_SEED_SALT = 0xb12d5eed;
+
+/** `?graphics=low|medium|high` (WP-25): boot with this preset without saving it (tests, evidence). */
+const GRAPHICS_URL_PARAM = 'graphics';
+
+function graphicsOverride(): GraphicsPreset | null {
+  const value = new URLSearchParams(window.location.search).get(GRAPHICS_URL_PARAM);
+  return isGraphicsPreset(value) ? value : null;
+}
 
 export class Game {
   readonly bus = createGameBus();
@@ -64,8 +74,19 @@ export class Game {
     () => this.render(),
     () => this.frameBudget.targetFps,
   );
-  private readonly quality: QualityTier = window.matchMedia('(pointer: coarse)').matches ? 'low' : 'high';
-  private readonly tuning: DebugTuning = { exposure: 1.0, maxDpr: MAX_DPR[this.quality], showStats: false };
+  private readonly saves = new SaveStore();
+  /**
+   * Graphics preset (WP-25): the page boots with the `?graphics=` override, else the saved one
+   * (Medium by default, every device). `bootGraphics` fixed MSAA and the material family; the live
+   * parts follow `graphics` (Game.applyGraphics).
+   */
+  private readonly bootGraphics: GraphicsPreset = graphicsOverride() ?? this.saves.getSettings().graphics;
+  private graphics: GraphicsPreset = this.bootGraphics;
+  private readonly tuning: DebugTuning = { exposure: 1.0, maxDpr: GRAPHICS_PROFILES[this.bootGraphics].maxDpr, showStats: false };
+  /** What the page really runs with (diagnostics): the context's MSAA and the lit material family in the scene. */
+  private antialias = false;
+  private materialInUse: 'standard' | 'lambert' | 'mixed' | 'none' = 'none';
+  private perfDebug: ReturnType<DebugTools['folder']> = null;
   // Route ALL randomness through these (never Math.random) so seed() keeps tests deterministic.
   // Gameplay (variants) and cosmetic (audio/fx jitter) streams are separate, so playing a sound
   // never changes which house variant the next placement gets.
@@ -84,8 +105,7 @@ export class Game {
 
   private readonly town = new TownState(PLOT_WIDTH, PLOT_DEPTH);
   private readonly editor: TownEditor;
-  private readonly library = new ModelLibrary();
-  private readonly saves = new SaveStore();
+  private readonly library = new ModelLibrary(GRAPHICS_PROFILES[this.bootGraphics].material);
   private readonly environment: Environment;
   private readonly cameraController: CameraController;
   private readonly picker: GridPicker;
@@ -118,7 +138,9 @@ export class Game {
   constructor(private readonly canvas: HTMLCanvasElement, uiHost: HTMLElement) {
     const rand = () => this.rng();
     const fxRand = () => this.fxRng();
-    this.renderer = createRenderer(canvas);
+    const boot = GRAPHICS_PROFILES[this.bootGraphics];
+    this.renderer = createRenderer(canvas, { antialias: boot.antialias });
+    this.antialias = this.renderer.getContextAttributes()?.antialias === true;
     this.renderer.toneMappingExposure = this.tuning.exposure;
     // Workstreams add their own tunables with debug.folder('<Name>') (only when ?debug is set).
     this.debug = new DebugTools(this.tuning, () => {
@@ -127,22 +149,23 @@ export class Game {
     });
 
     this.editor = new TownEditor(this.town, this.bus, rand);
-    this.environment = new Environment(this.scene, this.renderer, this.debug);
-    this.environment.setQuality(this.quality);
+    this.environment = new Environment(this.scene, this.renderer, this.debug, boot.material);
     this.cameraController = new CameraController(this.camera, canvas, this.debug);
     this.picker = new GridPicker(this.camera, canvas);
     this.tools = new ToolController(canvas, this.picker, this.editor, this.cameraController, this.bus, this.scene, this.library, this.debug);
     this.townRenderer = new TownRenderer(this.scene, this.library, this.town, this.bus, this.debug);
     this.fx = new PlacementFx(this.scene, this.bus, fxRand);
     // Ambient cars use the cosmetic stream so they never shift gameplay variants.
-    this.life = new LifeSystem(this.scene, this.town, this.bus, fxRand, this.debug);
-    this.nightLights = new NightLights(this.scene, this.library, this.town, this.bus, this.life, this.quality, this.debug);
-    this.birds = new BirdSystem(this.scene, this.town, this.seedValue ^ BIRD_SEED_SALT, this.debug);
+    this.life = new LifeSystem(this.scene, this.town, this.bus, fxRand, this.debug, boot.material);
+    this.nightLights = new NightLights(this.scene, this.library, this.town, this.bus, this.life, this.debug);
+    this.birds = new BirdSystem(this.scene, this.town, this.seedValue ^ BIRD_SEED_SALT, this.debug, boot.material);
     this.installBirdDebug();
     this.clock = new DayClock(this.saves.getSettings().timeMode);
     this.installClockDebug();
     this.audio = new AudioManager(this.bus, fxRand, this.saves);
     this.ui = new UiRoot(uiHost, this.bus, () => this.saves.has(), (avoid) => pickTownName(this.townNames, this.nameRng, avoid));
+    this.bus.on('intent:set-graphics', ({ preset }) => this.setGraphics(preset));
+    this.bus.on('intent:reload-graphics', () => this.reloadForGraphics());
 
     // Persistence: autosave 1 s after edits (never on 'load'); flush on page hide.
     this.saves.attachAutosave(this.bus, () => this.editor.serialize(this.cameraController.getPose()));
@@ -186,6 +209,8 @@ export class Game {
     this.bus.on('town:changed', () => this.shadows.invalidate());
     this.frameBudget.attach(window);
     this.installPerfDebug();
+    this.applyGraphics(GRAPHICS_PROFILES[this.graphics]);
+    this.announceGraphics(); // the UI exists: sync its Graphics radios
 
     if (!this.gridPreferred) this.bus.emit('intent:toggle-grid', { visible: false }); // sync the UI switch
     this.announceDaytime(); // sync the UI time button with the stored mode
@@ -237,6 +262,7 @@ export class Game {
       this.environment.populate(this.library);
       this.nightLights.populate();
       this.applyDaylight();
+      this.measureMaterials();
       this.setPhase('title');
     } catch (error) {
       console.error(error);
@@ -332,9 +358,70 @@ export class Game {
     if ((cameraMoved && this.phase !== 'title') || this.townRenderer.isAnimating || this.photo.developing) this.frameBudget.markActive();
   }
 
+  /**
+   * The live parts of a graphics preset (WP-25), at boot and on every change: DPR cap (resize),
+   * shadow-map size / decor share / sky octaves (Environment), frame caps, lamp halos. MSAA and the
+   * material family stay what the page booted with (`needsReload`). Overwrites the debug sliders.
+   */
+  applyGraphics(profile: Readonly<GraphicsProfile>): void {
+    this.tuning.maxDpr = profile.maxDpr;
+    resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr);
+    this.environment.applyGraphics(profile);
+    this.frameBudget.tuning.activeFps = profile.activeFps;
+    this.frameBudget.tuning.idleFps = profile.idleFps;
+    this.nightLights.setLampHalos(profile.lampHalos);
+    for (const controller of this.perfDebug?.parent?.controllersRecursive() ?? []) controller.updateDisplay();
+  }
+
+  /** intent:set-graphics: save the choice, apply the live parts, announce whether a reload is needed. */
+  private setGraphics(preset: GraphicsPreset): void {
+    if (!isGraphicsPreset(preset)) return;
+    this.graphics = preset;
+    this.saves.setSettings({ graphics: preset });
+    this.applyGraphics(GRAPHICS_PROFILES[preset]);
+    this.announceGraphics();
+  }
+
+  private announceGraphics(): void {
+    this.bus.emit('graphics:changed', { preset: this.graphics, reloadRequired: needsReload(this.bootGraphics, this.graphics) });
+  }
+
+  /**
+   * intent:reload-graphics: flush the save, then reload so MSAA and the material follow the saved
+   * preset. A `?graphics=` override would win again on reload, so it is dropped from the URL.
+   */
+  private reloadForGraphics(): void {
+    this.saves.flush();
+    const url = new URL(window.location.href);
+    if (url.searchParams.has(GRAPHICS_URL_PARAM)) {
+      url.searchParams.delete(GRAPHICS_URL_PARAM);
+      window.location.replace(url.href);
+    } else {
+      window.location.reload();
+    }
+  }
+
+  /**
+   * The lit material family the scene really draws with (diagnostics; after load and test states).
+   * Placement FX (`fx:*`) are excluded: their chips have always been Lambert, on every preset.
+   */
+  private measureMaterials(): void {
+    const families = new Set<string>();
+    this.scene.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.isMesh || mesh.name.startsWith('fx:')) return;
+      for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+        const family = materialFamily(material);
+        if (family) families.add(family);
+      }
+    });
+    this.materialInUse = families.size === 0 ? 'none' : families.size > 1 ? 'mixed' : ([...families][0] as 'standard' | 'lambert');
+  }
+
   /** `?debug`: lil-gui `Performance` folder (frame caps, idle delay, shadow refresh rates). */
   private installPerfDebug(): void {
     const folder = this.debug.folder('Performance');
+    this.perfDebug = folder;
     if (!folder) return;
     const budget = this.frameBudget.tuning;
     folder.add(budget, 'activeFps', 0, 120, 5).name('active fps (0 = display)');
@@ -499,6 +586,7 @@ export class Game {
         if (!(TEST_STATES as readonly string[]).includes(name)) throw new Error(`Unknown test state: ${name}`);
         await this.applyTestState(name as TestState);
         this.renderNow();
+        this.measureMaterials();
         this.publishDiagnostics();
         return { state: name };
       },
@@ -562,7 +650,19 @@ export class Game {
       },
       invalidCount: this.invalidCount,
       camera: this.cameraController.getPose(),
-      quality: this.quality,
+      quality: this.graphics,
+      graphics: {
+        preset: this.graphics,
+        booted: this.bootGraphics,
+        reloadRequired: needsReload(this.bootGraphics, this.graphics),
+        antialias: this.antialias,
+        material: this.materialInUse,
+        maxDpr: this.tuning.maxDpr,
+        ...this.environment.graphicsState,
+        activeFps: this.frameBudget.tuning.activeFps,
+        idleFps: this.frameBudget.tuning.idleFps,
+        lampHalos: this.nightLights.halosEnabled,
+      },
       audio: this.audio.state,
       save: { available: this.saves.available, pending: this.saves.pending, lastError: this.saves.lastError },
       fx: this.fx.getDiagnostics(),
