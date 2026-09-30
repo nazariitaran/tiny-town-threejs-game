@@ -3,7 +3,12 @@
  * in Node (re-exported from UiRoot.ts for existing imports).
  */
 import type { ToolCategory, ToolId } from '../catalog/tools';
+import type { GraphicsPreset } from '../game/graphics';
 import type { TimeMode } from '../world/dayCycle';
+
+/** WP-25: menu tabs, in order. */
+export const MENU_TABS = ['town', 'graphics', 'sound', 'help'] as const;
+export type MenuTab = (typeof MENU_TABS)[number];
 
 /**
  * Stable selectors for tests/bots. `tool-<id>` buttons also carry data-tool="<id>".
@@ -77,6 +82,14 @@ export const UI_TEST_IDS = {
   fileConfirmCancel: 'btn-town-file-cancel',
   fileConfirmOpen: 'btn-town-file-replace',
   fileConfirmKeep: 'btn-town-file-keep',
+  // --- added by WP-25 (menu tabs, graphics settings) ---
+  /** Menu tab buttons (role=tab, aria-selected) and their panels (role=tabpanel; hidden unless selected). */
+  menuTab: (tab: MenuTab) => `tab-menu-${tab}`,
+  menuTabPanel: (tab: MenuTab) => `panel-menu-${tab}`,
+  /** Graphics tab: the Low / Medium / High radio group, its radios, and "Reload to apply". */
+  graphicsGroup: 'ui-graphics',
+  graphicsOption: (preset: GraphicsPreset) => `radio-graphics-${preset}`,
+  graphicsReload: 'btn-graphics-reload',
   confirmPanel: 'ui-confirm',
   confirmClear: 'btn-confirm-clear',
   confirmCancel: 'btn-confirm-cancel',

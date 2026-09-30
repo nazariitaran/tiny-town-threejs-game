@@ -56,8 +56,9 @@ Test hooks stay in production because the canvas inspector, the e2e suite and th
 
 ## Budgets (targets in `docs/design/03-architecture.md`)
 Numbers are labelled with their version and source.
+- **WP-25 (2026-09-30, not released): phones no longer get a cheaper look of their own.** Up to v0.4 the game guessed from the touch screen and gave phones a hidden cheaper tier (1024 shadow map, a quarter of the decor ring, no environment lighting); the "mobile" columns below were measured on it. Since WP-25 every device starts on the Medium preset (the desktop look), and the player can pick Low or High in Menu → Graphics (`03-architecture.md` §Graphics presets). Dev-server numbers per preset and the open mobile triangle question: `docs/progress.md` "WP-25 as built". The next release must re-measure the mobile column on Medium.
 - **v0.4 was measured on the production preview** on 2026-09-28, package version 0.4.0, with the same WP-11 method (`vite preview`, headless full Chromium, ANGLE Metal on an M2 Max). Evidence (local only): `artifacts/v04-release/` (profiles, release checks, the e2e run against the preview, and copies of the v0.3 scripts). Every budget is met.
-  - **Phone emulation caveat:** Pixel 7 emulation sometimes starts without touch, so the game picks the desktop tier. Two mobile stress-town profiles came out `quality: high` and were re-run until `low` (canvas 618 × 1372, DPR 1.5); check `quality` in every mobile `profile-*.json`.
+  - **Phone emulation caveat (v0.4):** Pixel 7 emulation sometimes started without touch, and the game then used the desktop look. Two mobile stress-town profiles came out `quality: high` and were re-run until `low` (canvas 618 × 1372, DPR 1.5). Since WP-25 the look no longer depends on touch (`quality` is the chosen preset), so this check is gone; the flaky emulation still changes the hint text.
 - **v0.3 was re-measured on the production preview** on 2026-09-27, package version 0.3.0, with the WP-11 method: `vite preview`, headless full Chromium, real GPU (ANGLE Metal, M2 Max).
 - **Evidence** (local only, `artifacts/v03-release/`):
   - frame-time profiles: `profile-*.json`;
@@ -72,13 +73,67 @@ Numbers are labelled with their version and source.
 | Triangles (stress-town) | 400k / 320k (250k before the 64 × 64 plot) | 232k / 195k | 311k / 243.5k (same run; mobile headroom ~6.5k) | Day 306.1k / 237.0k (mobile headroom ~13k); night 300.0k / 232.9k (3 cars instead of 6) | Day 358.2k / 293.2k (mobile headroom ~27k under 320k); night 354.3k / 289.2k |
 | Draw calls / triangles (sample-town; night-town) | — | — | — | Day 56 / 56, 182.8k / 117.9k; night-town 60 / 59, 176.8k / 111.8k | Sample-town 57 / 57, 186.3k / 121.4k; night-town 61 / 60, 180.3k / 115.3k |
 | Textures | ≤ 30 | 11–14 / 10–13 | 11 / 10 (stress-town, same run) | Stress-town 14 / 13. Sample-town 28 / 27 (the composed models' own textures plus the 4 glow masks) | Stress-town 14 / 13. Sample-town 27 / 26 |
-| Shadow map | 2048 / 1024 | 2048 (high tier) / 1024 (low tier) | unchanged | unchanged (quality high / low; mobile canvas 618×1372) | unchanged (quality high / low; mobile canvas 618×1372) |
+| Shadow map | 2048 / 1024 (2048 on every device since WP-25's Medium) | 2048 (desktop) / 1024 (phones, pre-WP-25 tier) | unchanged | unchanged (desktop / phone tier; mobile canvas 618×1372) | unchanged (desktop / phone tier; mobile canvas 618×1372) |
 | DPR cap | 2 / 1.5 | 2 / 1.5 (canvas 618×1372 at 412 CSS px) | unchanged | unchanged | unchanged |
 | Frame time (stress-town, headless full Chromium, M2 Max, uncapped) | ≤ 8 ms | 1.36 ms mean (738 fps uncapped) / 1.41 ms | not re-measured | Day 1.38 ms mean (p95 2.7) / 1.39 ms. Night 1.37 / 1.38 ms. Sample-town 1.49 / 1.45 ms; night-town 1.50 / 1.47 ms | Day 1.46 ms mean (p95 2.9) / 1.45 ms. Night 1.51 / 1.47 ms. Sample-town 1.56 / 1.51 ms; night-town 1.56 / 1.52 ms |
 | Initial download before the title (network) | ≤ 8 MB | 3.14 MB over the network; 3.28 MB in `dist/` without maps | 3.29 MB in `dist/` without maps **and without the 4.68 MB music file**, which streams after Start. WP-13 measured on the dev server: 2.38 MB before Start with no music requests | **4.70 MB** over the network before the title (170 requests, 0.3–0.37 s to the title); 4.98 MB after Start with every dock category opened. The music streams after Start and is not counted. `dist/` without maps or music: 4.94 MB (models 3.59, JS/CSS/HTML 0.91, icons 0.26, fonts 0.14, SFX 0.05) | **4.78 MB** over the network before the title (177 requests, 0.33–0.39 s to the title); 5.06 MB after Start with every dock category opened. Music not counted (streams after Start). `dist/` without maps or music: 4.99 MB |
 | Main JS chunk | code-split if > 900 kB | 830 kB (221 kB gzip) → no split | 843 kB (225 kB gzip) → no split | **887 kB** (240 kB gzip) → no split yet, but only 13 kB under the threshold | **898.66 kB** (243.9 kB gzip) plus the lazy `PhotoFrame` chunk (2.08 kB) → no split yet, but only 1.3 kB under the threshold: **split before adding more** (lazy `lil-gui` ≈ 30 kB) |
 
-**64 × 64 plot (2026-09-28, dev server; superseded by the v0.4 production-preview column above, full Chromium on the real GPU; mobile = Pixel 7 emulation, low tier).** Stress town: day 31 calls / 362.4k triangles desktop, 31 / 291.3k mobile; night (t 0.82) 34 / 356.5k and 33 / 289.3k. The town itself is ~236k (100 homes on the bigger plot). The mobile triangle budget was raised to 320k for the bigger plot (owner decision). Not yet re-measured on the production preview.
+**WP-24 + WP-25 on the production preview (2026-09-30, branch `wp-24-frame-budget` at `7ef8ed4`, not released) vs `main` (`f37725d`, the v0.4 code plus WP-20–23).**
+- **Method:** `npm run build` + `vite preview` for each build.
+  - Headless full Chromium on the real GPU (ANGLE Metal, M2 Max), viewport 1512 × 982 at DPR 2 (the owner's MacBook Pro 14"), vsync off.
+  - rAF paced at 120 Hz to emulate a ProMotion display; stress town, the Auto clock running.
+  - Whole-GPU `Device Utilization %` from `ioreg`: the median over 8 s, 2 rounds.
+    - *Active:* the pointer moves every 250 ms.
+    - *Idle:* no input for over 4 s.
+  - The machine at rest reads 0–3%.
+- **Evidence** (local only): `artifacts/wp-25/prod/` has the scripts and the raw `gpu-main.jsonl`, `gpu-branch.jsonl` and `tris-branch.jsonl`.
+
+| Build / preset | Canvas | Renders (active / idle) | GPU active | GPU idle | Draw calls | Triangles |
+| --- | --- | --- | --- | --- | --- | --- |
+| `main` (before WP-24) | 3024 × 1964 | 120 / 120 fps | 59–69% | 64–73% | 33 | 332.3k |
+| Low | 1512 × 982, no MSAA, Lambert | 30 / 30 fps | 10% | 10% | 33 | 297.5k |
+| **Medium** (default) | 2268 × 1473 | 60 / 30 fps | **32–35%** | **18–20%** | 33 | 332.3k |
+| High | 3024 × 1964 | 60 / 30 fps | 42–45% | 24% | 33 | 332.3k |
+
+- **Phone** (Pixel 7 emulation, 412 × 839 CSS px at DPR 2.625), stress town / sample town triangles:
+  - Medium: 324.1k / 191.4k, canvas 618 × 1258;
+  - Low: 289.3k / 156.7k, canvas 412 × 839;
+  - High: 324.1k / 191.4k, canvas 824 × 1678.
+
+  Medium and High are over the 320k mobile budget by 4.1k; that is an open owner decision (`docs/progress.md` WP-25).
+- **Bundle:**
+  - main chunk 297.9 kB (93.9 kB gzip), up from 284.4 kB (90.1 kB gzip) on `main`;
+  - the three.js chunk is unchanged at 641.7 kB;
+  - `dist/` without maps or music is 5.07 MB, up from 5.05 MB.
+- **Errors:** 0 console or page errors in every run on both builds.
+- **Car shadows at 30 Hz (2026-09-30, re-measured the same way):**
+  - The table above was measured with car shadows at 15 Hz. At 15 Hz the shadow visibly lagged and caught up in steps, so the owner chose 30 Hz.
+  - New numbers, building / idle: Low 11% / 11%, **Medium 33–35% / 20–21%**, High 44–45% / 26–27%.
+  - While building that is within the noise; idle is about 1–3 points higher, because at 30 fps the car shadow now redraws every frame.
+  - Raw results: `artifacts/wp-25/prod/gpu-branch-30hz.jsonl`.
+
+**The 1080p laptop case (2026-09-30, production preview, branch at `15bbf0a` vs `main` `f37725d`).**
+- **Setup:** a 1920 × 970 viewport at DPR 1 (a 1920 × 1080 screen at 100% scaling), a 60 Hz display emulated.
+- **Two GPUs:**
+  - the M2 Max, which confirms the canvas sizes and the caps;
+  - SwiftShader (software rendering). It stands in for a weak laptop GPU, far slower than any real one, so only the ratios count.
+- **Render cost** = `renderer.render` plus `gl.finish()`, as the median ms per frame.
+- **Evidence:** `artifacts/wp-25/p1080/`.
+
+| Build / preset | Canvas | M2 Max fps (active / idle) | SwiftShader ms/frame, sample town | SwiftShader ms/frame, stress town |
+| --- | --- | --- | --- | --- |
+| `main` (before) | 1920 × 970 | 60 / 60 | 315 | 632 |
+| Low (render scale 0.75, no MSAA, Lambert) | **1440 × 727** | 30 / 30 | **74** | **159** |
+| Medium | 1920 × 970 | 60 / 30 | 312 | 608 |
+| High | 1920 × 970 | 60 / 30 | 310 | 606 |
+
+- **Low is ~4× cheaper per frame** than Medium on a 1080p screen, thanks to the render scale.
+- **Medium and High are identical on DPR-1 screens:** both caps are above 1.
+- **Medium costs the same per frame as `main`.** On a 60 Hz laptop the gain is the 30 fps idle cap and fewer shadow redraws, not a cheaper frame.
+- 0 errors in every run.
+
+**64 × 64 plot (2026-09-28, dev server; superseded by the v0.4 production-preview column above, full Chromium on the real GPU; mobile = Pixel 7 emulation on the pre-WP-25 phone tier).** Stress town: day 31 calls / 362.4k triangles desktop, 31 / 291.3k mobile; night (t 0.82) 34 / 356.5k and 33 / 289.3k. The town itself is ~236k (100 homes on the bigger plot). The mobile triangle budget was raised to 320k for the bigger plot (owner decision). Not yet re-measured on the production preview.
 
 **v0.4 release checks (production preview and a sub-path static host, 2026-09-28).**
 - **Network:** 0 failed requests, 0 console or page errors, no other console output, and no request outside the base path, both on `vite preview` (desktop and mobile) and with `dist/` served from `/tiny-town/` by a plain static server (`python3 -m http.server`).
@@ -99,4 +154,4 @@ Numbers are labelled with their version and source.
 - End-to-end frame time is the mean interval between rAF frames over 4 s, after a 1.5 s warm-up.
 - Also measured: GPU time per `renderer.render()` via `EXT_disjoint_timer_query_webgl2`, and CPU per frame with vsync on (0.18 ms).
 
-Headless mobile emulation runs on the same laptop GPU, so it proves layout, DPR and tier settings, not real-phone speed.
+Headless mobile emulation runs on the same laptop GPU, so it proves layout, DPR and preset settings, not real-phone speed.

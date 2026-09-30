@@ -15,6 +15,9 @@
  *  - Models with `glow` (WP-16) get a private clone per (source material, glow kind) carrying the
  *    kind's night glow mask (render/nightGlow.ts); `glow` (a GlowRegistry) drives their intensity.
  *    All suburban houses share one "windows" clone, so pools and draw calls don't change.
+ *  - Material family (WP-25): with `materialMode` 'lambert' (the Low graphics preset) every shared
+ *    GLTF material is converted to MeshLambertMaterial before any clone or patch (render/materials.ts),
+ *    so the town, the decor ring, the ghost and IconStudio all follow. Fixed for the page's lifetime.
  */
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
@@ -22,6 +25,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { MODELS, type GlowKind, type ModelId } from '../catalog/models';
 import { assetUrl } from '../game/config';
 import { applyWindSway } from '../fx/windSway';
+import { litMaterial, type MaterialMode } from './materials';
 import { GlowRegistry } from './nightGlow';
 
 export interface ModelPart {
@@ -56,6 +60,9 @@ export class ModelLibrary {
   private readonly glowMaterials = new Map<string, THREE.Material>();
   /** Night glow (WP-16): masks, intensity updates and the window stagger uniforms. */
   readonly glow = new GlowRegistry();
+
+  /** 'standard' | 'lambert' (WP-25 boot-time graphics setting); TownRenderer / GhostPreview follow it. */
+  constructor(readonly materialMode: MaterialMode = 'standard') {}
 
   async loadAll(onProgress?: (loaded: number, total: number, label: string) => void): Promise<void> {
     const ids = Object.keys(MODELS) as ModelId[];
@@ -217,8 +224,9 @@ export class ModelLibrary {
         this.textures.set(imageKey, standard.map);
       }
     }
-    this.materials.set(key, material);
-    return material;
+    const shared = litMaterial(material, this.materialMode);
+    this.materials.set(key, shared);
+    return shared;
   }
 
   /** The texture's source image identity: resolved URL for external images, file-scoped for embedded ones. */

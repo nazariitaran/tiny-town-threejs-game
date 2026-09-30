@@ -17,7 +17,7 @@
  *     if (save) editor.load(save); else editor.reset(name); // load() never autosaves (cause 'load')
  *   });
  *   addEventListener('pagehide', () => saves.flush());     // don't lose the last second
- *   saves.getSettings() / saves.setSettings({ muted, volume, grid, music, musicVolume, timeMode })
+ *   saves.getSettings() / saves.setSettings({ muted, volume, grid, music, musicVolume, timeMode, graphics })
  *   saves.getMusicPosition() / saves.setMusicPosition({ track, time })   // MUSIC_POSITION_STORAGE_KEY (WP-18)
  *   // Test states (setState): saves.autosaveEnabled = false, so demo towns never overwrite a player's save.
  *
@@ -30,6 +30,7 @@
  */
 import { parseMusicPosition, type MusicPosition } from '../audio/musicPosition';
 import { MUSIC_POSITION_STORAGE_KEY, SAVE_STORAGE_KEY, SETTINGS_STORAGE_KEY } from '../game/config';
+import { DEFAULT_GRAPHICS, isGraphicsPreset, type GraphicsPreset } from '../game/graphics';
 import type { GameBus } from '../game/events';
 import { parseSave, type ParseOptions } from '../town/serialize';
 import type { SavedTown } from '../town/types';
@@ -54,9 +55,19 @@ export interface GameSettings {
   musicVolume: number;
   /** Day/night mode (WP-16). The time of day itself is never saved. */
   timeMode: TimeMode;
+  /** Graphics preset (WP-25): Low / Medium / High, Medium on every device until the player picks. */
+  graphics: GraphicsPreset;
 }
 
-export const DEFAULT_SETTINGS: Readonly<GameSettings> = { muted: false, volume: 0.8, grid: true, music: true, musicVolume: 0.5, timeMode: 'auto' };
+export const DEFAULT_SETTINGS: Readonly<GameSettings> = {
+  muted: false,
+  volume: 0.8,
+  grid: true,
+  music: true,
+  musicVolume: 0.5,
+  timeMode: 'auto',
+  graphics: DEFAULT_GRAPHICS,
+};
 
 const isTimeMode = (value: unknown): value is TimeMode => (TIME_MODES as readonly unknown[]).includes(value);
 
@@ -263,6 +274,7 @@ export class SaveStore {
     if (typeof r.music === 'boolean') settings.music = r.music;
     if (typeof r.musicVolume === 'number' && Number.isFinite(r.musicVolume)) settings.musicVolume = Math.min(1, Math.max(0, r.musicVolume));
     if (isTimeMode(r.timeMode)) settings.timeMode = r.timeMode;
+    if (isGraphicsPreset(r.graphics)) settings.graphics = r.graphics;
     return settings;
   }
 
@@ -275,6 +287,7 @@ export class SaveStore {
     if (typeof patch.music === 'boolean') next.music = patch.music;
     if (typeof patch.musicVolume === 'number' && Number.isFinite(patch.musicVolume)) next.musicVolume = Math.min(1, Math.max(0, patch.musicVolume));
     if (isTimeMode(patch.timeMode)) next.timeMode = patch.timeMode;
+    if (isGraphicsPreset(patch.graphics)) next.graphics = patch.graphics;
     this.setItem(this.settingsKey, JSON.stringify(next));
     return next;
   }

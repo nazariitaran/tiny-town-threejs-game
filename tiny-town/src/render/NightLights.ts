@@ -5,7 +5,8 @@
  *    (render/nightGlow.ts); update() drives them through `library.glow` (a few number writes).
  *  - Pools of lamplight: ONE InstancedMesh of flat additive quads on the ground under every lamp
  *    head (+1 draw call at night, whatever the lamp count).
- *  - Halos: ONE InstancedMesh of camera-facing additive sprites at the lamp heads (+1, high tier only).
+ *  - Halos: ONE InstancedMesh of camera-facing additive sprites at the lamp heads (+1). Always built;
+ *    drawn only while `lampHalos` (the graphics preset's GraphicsProfile.lampHalos, WP-25; off on Low).
  *  - Headlight beams: ONE InstancedMesh of short additive cones on the road ahead of each car
  *    (≤ MAX_CARS; +1), from LifeSystem.carPose().
  *  - Fireflies (stretch, render/fireflies.ts): ≤ 24 sprites over meadow cells in full night (+1).
@@ -20,7 +21,8 @@
  *    instance (no fragments), so the three programs compile at load, not at the first dusk.
  *
  * Game.ts wiring (integrator, contract commit):
- *   new NightLights(scene, library, town, bus, life, quality, debug)
+ *   new NightLights(scene, library, town, bus, life, debug)
+ *   applyGraphics(): nightLights.setLampHalos(profile.lampHalos)   (at boot and on every preset change)
  *   load():   nightLights.populate()                 (after library.loadAll + life.load)
  *   update(): nightLights.update(daySample)          (every frame, after environment.applyDaylight)
  *             and at once from setTimeOfDay / setState while paused for screenshots
@@ -29,7 +31,6 @@
  */
 import * as THREE from 'three';
 import type { DebugTools } from '../debug/DebugTools';
-import type { QualityTier } from '../game/config';
 import type { GameBus } from '../game/events';
 import type { CarPose, LifeSystem } from '../life/LifeSystem';
 import { MAX_CARS } from '../life/TrafficSim';
@@ -113,6 +114,8 @@ export class NightLights {
   private warmPending = false;
   private night = 0;
   private lampLevel = 0;
+  /** Halos drawn at night (GraphicsProfile.lampHalos). The layer exists either way. */
+  private lampHalos = true;
   // Scratch (no per-frame allocations).
   private readonly matrix = new THREE.Matrix4();
   private readonly position = new THREE.Vector3();
@@ -128,7 +131,6 @@ export class NightLights {
     private readonly town: TownStateReader,
     bus: GameBus,
     private readonly life: LifeSystem,
-    private readonly quality: QualityTier,
     debug?: DebugTools,
   ) {
     this.group.name = 'night-lights';
@@ -154,7 +156,7 @@ export class NightLights {
     if (this.populated) return;
     this.measureHead();
     this.buildLayer('pool');
-    if (this.quality === 'high') this.buildLayer('halo');
+    this.buildLayer('halo');
     this.buildLayer('beam');
     this.fireflies = new Fireflies();
     this.group.add(this.fireflies.mesh);
@@ -186,6 +188,17 @@ export class NightLights {
       if (this.fireflyLevel > 0 && this.populated) this.fireflies.refresh(this.town);
     }
     this.publish();
+  }
+
+  /** Show the lamp halos at night (WP-25 graphics presets; live). */
+  setLampHalos(on: boolean): void {
+    if (on === this.lampHalos) return;
+    this.lampHalos = on;
+    this.publish();
+  }
+
+  get halosEnabled(): boolean {
+    return this.lampHalos;
   }
 
   getDiagnostics(): NightLightsDiagnostics {
@@ -224,7 +237,7 @@ export class NightLights {
     this.diag.lamps = this.registry.count;
     let calls = 0;
     if (this.shown) {
-      if (this.lampLevel > 0 && this.registry.count > 0) calls += this.layers.has('halo') ? 2 : 1;
+      if (this.lampLevel > 0 && this.registry.count > 0) calls += this.lampHalos && this.layers.has('halo') ? 2 : 1;
       if (this.drawnCars() > 0) calls += 1;
       if (this.fireflyLevel > 0 && (this.fireflies?.count ?? 0) > 0) calls += 1;
     }
@@ -266,7 +279,7 @@ export class NightLights {
     const lampsOn = shown && this.lampLevel > 0;
     if (lampsOn && this.builtVersion !== this.registry.version) this.writeLamps();
     pools.mesh.visible = lampsOn && pools.mesh.count > 0;
-    if (halos) halos.mesh.visible = lampsOn && halos.mesh.count > 0;
+    if (halos) halos.mesh.visible = this.lampHalos && lampsOn && halos.mesh.count > 0;
     const beams = this.layers.get('beam')!;
     beams.mesh.visible = shown && this.writeBeams(beams) > 0;
     if (this.fireflies) {

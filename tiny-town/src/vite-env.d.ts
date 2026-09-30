@@ -19,7 +19,32 @@ interface ThreeGameDiagnostics {
   /** Count of build:invalid events since boot. */
   invalidCount: number;
   camera: import('./interaction/CameraController').CameraPose;
-  quality: import('./game/config').QualityTier;
+  /** The graphics preset now applied (WP-25; was the hidden touch-screen tier before). */
+  quality: import('./game/graphics').GraphicsPreset;
+  /**
+   * Graphics preset (WP-25). preset = applied now; booted = what the page started with (fixes MSAA
+   * and the material family); reloadRequired = needsReload(booted, preset). antialias / material are
+   * what the page really runs with (the context's attributes; the lit material family in the scene,
+   * 'mixed' would be a bug). The rest is what is applied now: DPR cap, sun shadow-map size, decor-ring
+   * share and instances drawn, sky fbm octaves, frame caps, lamp halos at night.
+   */
+  graphics: {
+    preset: import('./game/graphics').GraphicsPreset;
+    booted: import('./game/graphics').GraphicsPreset;
+    reloadRequired: boolean;
+    antialias: boolean;
+    material: 'standard' | 'lambert' | 'mixed' | 'none';
+    maxDpr: number;
+    /** Share of the screen's pixel density rendered before the cap (Low 0.75; see graphics.ts effectivePixelRatio). */
+    renderScale: number;
+    shadowMapSize: number;
+    decorFraction: number;
+    decorInstances: number;
+    skyOctaves: number;
+    activeFps: number;
+    idleFps: number;
+    lampHalos: boolean;
+  };
   audio: {
     muted: boolean;
     volume: number;
@@ -61,6 +86,12 @@ interface ThreeGameDiagnostics {
     developing: boolean;
     last: { width: number; height: number; bytes: number; pixelRatio: number; ms: number } | null;
   };
+  /**
+   * Frame budget (WP-24). targetFps = the loop's cap this frame (60 active, 30 idle; 0 = display
+   * rate); idle = no input, camera glide or tween for FrameBudget.idleAfterS; shadowRenders =
+   * sun shadow-map redraws since boot (the map is redrawn only when a caster changed).
+   */
+  perf: { targetFps: number; idle: boolean; shadowRenders: number };
   renderer: {
     calls: number;
     triangles: number;

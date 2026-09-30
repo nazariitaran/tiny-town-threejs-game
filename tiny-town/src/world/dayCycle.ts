@@ -78,7 +78,7 @@ export interface DaySample {
   cloudShade: number;
   /** 0..1 star field. */
   stars: number;
-  /** scene.environmentIntensity on the high tier. */
+  /** scene.environmentIntensity (every graphics preset since WP-25). */
   envIntensity: number;
   /** 0 day .. 1 full night. Drives every light source (windows, lamps, lenses, headlights). */
   night: number;

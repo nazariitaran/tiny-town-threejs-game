@@ -7,6 +7,7 @@
  */
 import * as THREE from 'three';
 import { AudioManager } from '../audio/AudioManager';
+import { FrameBudget } from '../core/FrameBudget';
 import { Loop } from '../core/Loop';
 import { createRenderer, resizeRenderer } from '../core/Renderer';
 import { DebugTools, type DebugTuning } from '../debug/DebugTools';
@@ -22,6 +23,7 @@ import { ModelLibrary } from '../render/ModelLibrary';
 import { captureView } from '../photo/capture';
 import { photoFileName } from '../photo/photoLayout';
 import { NightLights } from '../render/NightLights';
+import { ShadowScheduler } from '../render/ShadowScheduler';
 import { TownRenderer } from '../render/TownRenderer';
 import { TownEditor } from '../town/TownEditor';
 import { TownState } from '../town/TownState';
@@ -32,8 +34,10 @@ import { UiRoot } from '../ui/UiRoot';
 import { createSeededRandom, entropySeed } from '../utils/random';
 import { createDaySample, DayClock, sampleDay, T_AFTERNOON, T_NIGHT, TIME_MODES, type DayPhase, type TimeMode } from '../world/dayCycle';
 import { Environment } from '../world/Environment';
-import { assetUrl, MAX_DPR, PLOT_DEPTH, PLOT_WIDTH, type QualityTier } from './config';
+import { assetUrl, PLOT_DEPTH, PLOT_WIDTH } from './config';
 import { createGameBus, type GamePhase } from './events';
+import { effectivePixelRatio, GRAPHICS_PROFILES, isGraphicsPreset, needsReload, type GraphicsPreset, type GraphicsProfile } from './graphics';
+import { materialFamily } from '../render/materials';
 
 /** Named states for __THREE_GAME_TEST_HOOKS__.setState (canvas inspector, visual tests, bots). */
 // Every state pins the clock to afternoon (the v0.2 look) except 'night-town' (sample town at T_NIGHT).
@@ -43,17 +47,46 @@ type TestState = (typeof TEST_STATES)[number];
 /** Birds (WP-22) run on their own stream, derived from the seed (they never draw from fxRng). */
 const BIRD_SEED_SALT = 0xb12d5eed;
 
+/** `?graphics=low|medium|high` (WP-25): boot with this preset without saving it (tests, evidence). */
+const GRAPHICS_URL_PARAM = 'graphics';
+
+function graphicsOverride(): GraphicsPreset | null {
+  const value = new URLSearchParams(window.location.search).get(GRAPHICS_URL_PARAM);
+  return isGraphicsPreset(value) ? value : null;
+}
+
 export class Game {
   readonly bus = createGameBus();
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(35, 1, 0.1, 900);
+  /** WP-24: 60 fps while the player interacts, 30 fps when idle (the world never stops animating). */
+  private readonly frameBudget = new FrameBudget();
+  /** WP-24: the sun's shadow map is redrawn only when a caster changed (autoUpdate is off). */
+  private readonly shadows = new ShadowScheduler();
+  private shadowVersion = -1;
+  /** Seconds since the previous rendered frame (for the shadow scheduler). */
+  private frameDelta = 0;
+  private readonly lastCameraPosition = new THREE.Vector3();
+  private readonly lastCameraQuaternion = new THREE.Quaternion();
   private readonly loop = new Loop(
     (delta, elapsed) => this.update(delta, elapsed),
     () => this.render(),
+    () => this.frameBudget.targetFps,
   );
-  private readonly quality: QualityTier = window.matchMedia('(pointer: coarse)').matches ? 'low' : 'high';
-  private readonly tuning: DebugTuning = { exposure: 1.0, maxDpr: MAX_DPR[this.quality], showStats: false };
+  private readonly saves = new SaveStore();
+  /**
+   * Graphics preset (WP-25): the page boots with the `?graphics=` override, else the saved one
+   * (Medium by default, every device). `bootGraphics` fixed MSAA and the material family; the live
+   * parts follow `graphics` (Game.applyGraphics).
+   */
+  private readonly bootGraphics: GraphicsPreset = graphicsOverride() ?? this.saves.getSettings().graphics;
+  private graphics: GraphicsPreset = this.bootGraphics;
+  private readonly tuning: DebugTuning = { exposure: 1.0, maxDpr: GRAPHICS_PROFILES[this.bootGraphics].maxDpr, renderScale: GRAPHICS_PROFILES[this.bootGraphics].renderScale, showStats: false };
+  /** What the page really runs with (diagnostics): the context's MSAA and the lit material family in the scene. */
+  private antialias = false;
+  private materialInUse: 'standard' | 'lambert' | 'mixed' | 'none' = 'none';
+  private perfDebug: ReturnType<DebugTools['folder']> = null;
   // Route ALL randomness through these (never Math.random) so seed() keeps tests deterministic.
   // Gameplay (variants) and cosmetic (audio/fx jitter) streams are separate, so playing a sound
   // never changes which house variant the next placement gets.
@@ -72,8 +105,7 @@ export class Game {
 
   private readonly town = new TownState(PLOT_WIDTH, PLOT_DEPTH);
   private readonly editor: TownEditor;
-  private readonly library = new ModelLibrary();
-  private readonly saves = new SaveStore();
+  private readonly library = new ModelLibrary(GRAPHICS_PROFILES[this.bootGraphics].material);
   private readonly environment: Environment;
   private readonly cameraController: CameraController;
   private readonly picker: GridPicker;
@@ -106,31 +138,34 @@ export class Game {
   constructor(private readonly canvas: HTMLCanvasElement, uiHost: HTMLElement) {
     const rand = () => this.rng();
     const fxRand = () => this.fxRng();
-    this.renderer = createRenderer(canvas);
+    const boot = GRAPHICS_PROFILES[this.bootGraphics];
+    this.renderer = createRenderer(canvas, { antialias: boot.antialias });
+    this.antialias = this.renderer.getContextAttributes()?.antialias === true;
     this.renderer.toneMappingExposure = this.tuning.exposure;
     // Workstreams add their own tunables with debug.folder('<Name>') (only when ?debug is set).
     this.debug = new DebugTools(this.tuning, () => {
       this.renderer.toneMappingExposure = this.tuning.exposure;
-      resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr);
+      resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr, this.tuning.renderScale);
     });
 
     this.editor = new TownEditor(this.town, this.bus, rand);
-    this.environment = new Environment(this.scene, this.renderer, this.debug);
-    this.environment.setQuality(this.quality);
+    this.environment = new Environment(this.scene, this.renderer, this.debug, boot.material);
     this.cameraController = new CameraController(this.camera, canvas, this.debug);
     this.picker = new GridPicker(this.camera, canvas);
     this.tools = new ToolController(canvas, this.picker, this.editor, this.cameraController, this.bus, this.scene, this.library, this.debug);
     this.townRenderer = new TownRenderer(this.scene, this.library, this.town, this.bus, this.debug);
     this.fx = new PlacementFx(this.scene, this.bus, fxRand);
     // Ambient cars use the cosmetic stream so they never shift gameplay variants.
-    this.life = new LifeSystem(this.scene, this.town, this.bus, fxRand, this.debug);
-    this.nightLights = new NightLights(this.scene, this.library, this.town, this.bus, this.life, this.quality, this.debug);
-    this.birds = new BirdSystem(this.scene, this.town, this.seedValue ^ BIRD_SEED_SALT, this.debug);
+    this.life = new LifeSystem(this.scene, this.town, this.bus, fxRand, this.debug, boot.material);
+    this.nightLights = new NightLights(this.scene, this.library, this.town, this.bus, this.life, this.debug);
+    this.birds = new BirdSystem(this.scene, this.town, this.seedValue ^ BIRD_SEED_SALT, this.debug, boot.material);
     this.installBirdDebug();
     this.clock = new DayClock(this.saves.getSettings().timeMode);
     this.installClockDebug();
     this.audio = new AudioManager(this.bus, fxRand, this.saves);
     this.ui = new UiRoot(uiHost, this.bus, () => this.saves.has(), (avoid) => pickTownName(this.townNames, this.nameRng, avoid));
+    this.bus.on('intent:set-graphics', ({ preset }) => this.setGraphics(preset));
+    this.bus.on('intent:reload-graphics', () => this.reloadForGraphics());
 
     // Persistence: autosave 1 s after edits (never on 'load'); flush on page hide.
     this.saves.attachAutosave(this.bus, () => this.editor.serialize(this.cameraController.getPose()));
@@ -171,10 +206,15 @@ export class Game {
     this.bus.on('build:invalid', () => {
       this.invalidCount += 1;
     });
+    this.bus.on('town:changed', () => this.shadows.invalidate());
+    this.frameBudget.attach(window);
+    this.installPerfDebug();
+    this.applyGraphics(GRAPHICS_PROFILES[this.graphics]);
+    this.announceGraphics(); // the UI exists: sync its Graphics radios
 
     if (!this.gridPreferred) this.bus.emit('intent:toggle-grid', { visible: false }); // sync the UI switch
     this.announceDaytime(); // sync the UI time button with the stored mode
-    resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr);
+    resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr, this.tuning.renderScale);
     this.installTestHooks();
     this.ready = this.load();
   }
@@ -185,6 +225,7 @@ export class Game {
 
   dispose(): void {
     this.loop.stop();
+    this.frameBudget.detach();
     window.removeEventListener('pagehide', this.onPageHide);
     this.saves.flush();
     this.saves.dispose();
@@ -221,7 +262,7 @@ export class Game {
       this.environment.populate(this.library);
       this.nightLights.populate();
       this.applyDaylight();
-      this.bus.emit('town:stats', this.town.stats());
+      this.measureMaterials();
       this.setPhase('title');
     } catch (error) {
       console.error(error);
@@ -256,7 +297,8 @@ export class Game {
   /** Fixed update order: input/tools → camera → town visuals → world → fx. */
   private update(delta: number, elapsed: number): void {
     this.frame += 1;
-    resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr);
+    this.frameDelta = delta;
+    resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr, this.tuning.renderScale);
     if (!this.pausedForScreenshot) {
       const animDelta = this.reducedMotion ? 0 : delta;
       const animElapsed = this.reducedMotion ? 0 : elapsed;
@@ -273,11 +315,121 @@ export class Game {
       this.environment.update(animDelta, animElapsed);
       this.fx.update(animDelta);
     }
+    this.trackActivity();
     this.publishDiagnostics();
   }
 
+  /** Frame loop render: the shadow map is redrawn only when the scheduler says so (WP-24). */
   private render(): void {
+    if (this.environment.shadowVersion !== this.shadowVersion) {
+      this.shadowVersion = this.environment.shadowVersion;
+      this.shadows.invalidate();
+    }
+    const moving = !this.pausedForScreenshot && !this.reducedMotion;
+    // Paused for a screenshot: always a fresh map, so captures never show a throttled car shadow.
+    if (this.pausedForScreenshot) this.shadows.invalidate();
+    this.renderer.shadowMap.needsUpdate = this.shadows.step(this.frameDelta, {
+      settling: this.townRenderer.isAnimating,
+      cars: moving && this.life.castsShadows,
+      birds: moving && this.birds.castsShadows,
+    });
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /** One-off render from a test hook: state may have jumped, so the shadow map is redrawn too. */
+  private renderNow(): void {
+    this.shadows.invalidate();
+    this.frameDelta = 0;
+    this.render();
+  }
+
+  /**
+   * WP-24 frame budget: input keeps the loop at the active rate (FrameBudget listens for it); so do
+   * a gliding camera (damping after a drag, a reset tween) and town pop-in tweens. The title
+   * screen's slow auto-orbit doesn't count: the title idles at the idle rate.
+   */
+  private trackActivity(): void {
+    const camera = this.camera;
+    const cameraMoved = !camera.position.equals(this.lastCameraPosition) || !camera.quaternion.equals(this.lastCameraQuaternion);
+    if (cameraMoved) {
+      this.lastCameraPosition.copy(camera.position);
+      this.lastCameraQuaternion.copy(camera.quaternion);
+    }
+    if ((cameraMoved && this.phase !== 'title') || this.townRenderer.isAnimating || this.photo.developing) this.frameBudget.markActive();
+  }
+
+  /**
+   * The live parts of a graphics preset (WP-25), at boot and on every change: DPR cap (resize),
+   * shadow-map size / decor share / sky octaves (Environment), frame caps, lamp halos. MSAA and the
+   * material family stay what the page booted with (`needsReload`). Overwrites the debug sliders.
+   */
+  applyGraphics(profile: Readonly<GraphicsProfile>): void {
+    this.tuning.maxDpr = profile.maxDpr;
+    this.tuning.renderScale = profile.renderScale;
+    resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr, this.tuning.renderScale);
+    this.environment.applyGraphics(profile);
+    this.frameBudget.tuning.activeFps = profile.activeFps;
+    this.frameBudget.tuning.idleFps = profile.idleFps;
+    this.nightLights.setLampHalos(profile.lampHalos);
+    for (const controller of this.perfDebug?.parent?.controllersRecursive() ?? []) controller.updateDisplay();
+  }
+
+  /** intent:set-graphics: save the choice, apply the live parts, announce whether a reload is needed. */
+  private setGraphics(preset: GraphicsPreset): void {
+    if (!isGraphicsPreset(preset)) return;
+    this.graphics = preset;
+    this.saves.setSettings({ graphics: preset });
+    this.applyGraphics(GRAPHICS_PROFILES[preset]);
+    this.announceGraphics();
+  }
+
+  private announceGraphics(): void {
+    this.bus.emit('graphics:changed', { preset: this.graphics, reloadRequired: needsReload(this.bootGraphics, this.graphics) });
+  }
+
+  /**
+   * intent:reload-graphics: flush the save, then reload so MSAA and the material follow the saved
+   * preset. A `?graphics=` override would win again on reload, so it is dropped from the URL.
+   */
+  private reloadForGraphics(): void {
+    this.saves.flush();
+    const url = new URL(window.location.href);
+    if (url.searchParams.has(GRAPHICS_URL_PARAM)) {
+      url.searchParams.delete(GRAPHICS_URL_PARAM);
+      window.location.replace(url.href);
+    } else {
+      window.location.reload();
+    }
+  }
+
+  /**
+   * The lit material family the scene really draws with (diagnostics; after load and test states).
+   * Placement FX (`fx:*`) are excluded: their chips have always been Lambert, on every preset.
+   */
+  private measureMaterials(): void {
+    const families = new Set<string>();
+    this.scene.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.isMesh || mesh.name.startsWith('fx:')) return;
+      for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+        const family = materialFamily(material);
+        if (family) families.add(family);
+      }
+    });
+    this.materialInUse = families.size === 0 ? 'none' : families.size > 1 ? 'mixed' : ([...families][0] as 'standard' | 'lambert');
+  }
+
+  /** `?debug`: lil-gui `Performance` folder (frame caps, idle delay, shadow refresh rates). */
+  private installPerfDebug(): void {
+    const folder = this.debug.folder('Performance');
+    this.perfDebug = folder;
+    if (!folder) return;
+    const budget = this.frameBudget.tuning;
+    folder.add(budget, 'activeFps', 0, 120, 5).name('active fps (0 = display)');
+    folder.add(budget, 'idleFps', 0, 120, 5).name('idle fps (0 = display)');
+    folder.add(budget, 'idleAfterS', 0.5, 30, 0.5).name('idle after (s)');
+    folder.add(this.shadows.tuning, 'carHz', 1, 60, 1).name('car shadow Hz');
+    folder.add(this.shadows.tuning, 'birdHz', 1, 60, 1).name('bird shadow Hz');
   }
 
   /**
@@ -300,6 +452,7 @@ export class Game {
     };
     let shot: ReturnType<typeof captureView>;
     try {
+      this.renderer.shadowMap.needsUpdate = true; // the photo never shows a throttled shadow
       shot = captureView(this.renderer, this.scene, this.camera);
     } catch (error) {
       fail(error);
@@ -433,7 +586,8 @@ export class Game {
       setState: async (name: string) => {
         if (!(TEST_STATES as readonly string[]).includes(name)) throw new Error(`Unknown test state: ${name}`);
         await this.applyTestState(name as TestState);
-        this.render();
+        this.renderNow();
+        this.measureMaterials();
         this.publishDiagnostics();
         return { state: name };
       },
@@ -450,20 +604,20 @@ export class Game {
           this.life.settle();
           this.birds.settle();
         }
-        this.render();
+        this.renderNow();
         this.publishDiagnostics();
       },
       hideDebugUi: (hidden: boolean) => this.debug.setHidden(hidden),
       cellToClient: (x: number, z: number) => this.picker.cellToClient({ x, z }),
       setCameraPose: (pose) => {
         this.cameraController.setPose(pose);
-        this.render();
+        this.renderNow();
         this.publishDiagnostics();
       },
       spawnFlock: (species?: string) => {
         if (species !== undefined && !isBirdSpecies(species)) throw new Error(`spawnFlock: unknown species: ${species}`);
         const birds = this.birds.spawnFlock(species);
-        this.render();
+        this.renderNow();
         this.publishDiagnostics();
         return birds;
       },
@@ -471,7 +625,7 @@ export class Game {
         if (t !== null && !Number.isFinite(t)) throw new Error(`setTimeOfDay: not a number: ${t}`);
         this.clock.pin(t);
         this.applyDaylight();
-        this.render();
+        this.renderNow();
         this.publishDiagnostics();
       },
     };
@@ -497,7 +651,20 @@ export class Game {
       },
       invalidCount: this.invalidCount,
       camera: this.cameraController.getPose(),
-      quality: this.quality,
+      quality: this.graphics,
+      graphics: {
+        preset: this.graphics,
+        booted: this.bootGraphics,
+        reloadRequired: needsReload(this.bootGraphics, this.graphics),
+        antialias: this.antialias,
+        material: this.materialInUse,
+        maxDpr: this.tuning.maxDpr,
+        renderScale: this.tuning.renderScale,
+        ...this.environment.graphicsState,
+        activeFps: this.frameBudget.tuning.activeFps,
+        idleFps: this.frameBudget.tuning.idleFps,
+        lampHalos: this.nightLights.halosEnabled,
+      },
       audio: this.audio.state,
       save: { available: this.saves.available, pending: this.saves.pending, lastError: this.saves.lastError },
       fx: this.fx.getDiagnostics(),
@@ -513,6 +680,7 @@ export class Game {
         ...this.nightLights.getDiagnostics(),
       },
       photo: { ...this.photo },
+      perf: { targetFps: this.frameBudget.targetFps, idle: this.frameBudget.idle, shadowRenders: this.shadows.renders },
       renderer: {
         calls: info.render.calls,
         triangles: info.render.triangles,
@@ -524,7 +692,7 @@ export class Game {
         clientHeight: this.canvas.clientHeight,
         width: this.canvas.width,
         height: this.canvas.height,
-        dpr: Math.min(window.devicePixelRatio || 1, this.tuning.maxDpr),
+        dpr: effectivePixelRatio(window.devicePixelRatio, this.tuning),
       },
     };
   }

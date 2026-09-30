@@ -20,7 +20,7 @@ function setup(seed = 1) {
 
 function record(bus: GameBus) {
   const log: Recorded[] = [];
-  const types = ['town:changed', 'town:stats', 'build:placed', 'build:removed', 'history:changed', 'town:named'] as const;
+  const types = ['town:changed', 'build:placed', 'build:removed', 'history:changed', 'town:named'] as const;
   for (const type of types) bus.on(type, (payload: unknown) => void log.push({ type, payload } as Recorded));
   return {
     log,
@@ -223,7 +223,7 @@ describe('TownEditor.applyBatch', () => {
     { toolId: 'postbox' as const, action: { type: 'place-object', kind: 'postbox', cell: { x: 2, z: 1 }, rotation: 0 } as BuildAction },
   ];
 
-  it('silent: one town:changed, one town:stats, one history entry, no build:* events', () => {
+  it('silent: one town:changed, one history entry, no build:* events', () => {
     const { editor, events } = setup();
     const result = editor.applyBatch(items, { silent: true });
     expect(result.applied).toBe(2);
@@ -231,7 +231,6 @@ describe('TownEditor.applyBatch', () => {
     expect(result.changes).toHaveLength(5); // a 4-cell road block + the postbox
     expect(events.of('town:changed')).toHaveLength(1);
     expect(events.of('town:changed')[0]).toEqual({ changes: result.changes, cause: 'edit' });
-    expect(events.of('town:stats')).toHaveLength(1);
     expect(events.of('history:changed')).toHaveLength(1);
     expect(events.of('build:placed')).toHaveLength(0);
     expect(editor.history.undoDepth).toBe(1);
@@ -335,7 +334,6 @@ describe('TownEditor.reset and load', () => {
     expect(addedObjects).toBe(save.objects.length);
     expect(addedEdges).toBe(save.edges.length);
     expect(events.of('build:placed')).toHaveLength(0);
-    expect(events.of('town:stats')).toEqual([source.state.stats()]);
     expect(events.of('history:changed')).toEqual([{ canUndo: false, canRedo: false }]);
   });
 

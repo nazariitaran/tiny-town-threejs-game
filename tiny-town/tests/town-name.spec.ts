@@ -6,7 +6,7 @@
 import { mkdirSync, readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { TOWN_NAMES_PATH } from '../src/town/townName';
-import { byId, diagnostics, gotoTitle, trackErrors, UI_TEST_IDS } from './helpers';
+import { byId, diagnostics, gotoTitle, openMenuTab, trackErrors, UI_TEST_IDS } from './helpers';
 
 const OUT = 'artifacts/wp-20';
 const NAMES: string[] = JSON.parse(readFileSync(`public/${TOWN_NAMES_PATH}`, 'utf8'));
@@ -131,6 +131,7 @@ test.describe('name your town', () => {
     // Menu → Rename town; Cancel returns to the menu, Save back to it too.
     await byId(page, UI_TEST_IDS.menu).click();
     await expect(page.locator('#ui-menu-h')).toHaveText('Bumbleford');
+    await openMenuTab(page, 'town');
     await byId(page, UI_TEST_IDS.renameTown).click();
     await expect(input(page)).toHaveValue('Bumbleford');
     await byId(page, UI_TEST_IDS.nameCancel).click();
@@ -160,7 +161,7 @@ test.describe('name your town', () => {
     await gotoTitle(page);
     await nameAndStart(page, 'Puddleton');
 
-    await byId(page, UI_TEST_IDS.menu).click();
+    await openMenuTab(page, 'town');
     await byId(page, UI_TEST_IDS.newTown).click();
     await byId(page, UI_TEST_IDS.confirmClear).click();
     await expect(byId(page, UI_TEST_IDS.namePanel)).toHaveAttribute('data-mode', 'new');

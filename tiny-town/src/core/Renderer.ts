@@ -1,9 +1,14 @@
 import * as THREE from 'three';
+import { effectivePixelRatio } from '../game/graphics';
 
-export function createRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer {
+/**
+ * `antialias` (MSAA) is fixed for the context's lifetime: it comes from the boot graphics preset
+ * (WP-25; off on Low), and changing it needs a page reload.
+ */
+export function createRenderer(canvas: HTMLCanvasElement, options: { antialias: boolean } = { antialias: true }): THREE.WebGLRenderer {
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    antialias: true,
+    antialias: options.antialias,
     alpha: false,
     powerPreference: 'high-performance',
   });
@@ -12,18 +17,22 @@ export function createRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer {
   renderer.toneMappingExposure = 1.05;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
+  // WP-24: Game redraws the shadow map only when something that casts has changed (ShadowScheduler).
+  renderer.shadowMap.autoUpdate = false;
   return renderer;
 }
 
+/** Size the drawing buffer to the canvas: pixel ratio = min(devicePixelRatio × renderScale, maxDpr) (WP-25). */
 export function resizeRenderer(
   renderer: THREE.WebGLRenderer,
   camera: THREE.PerspectiveCamera,
   maxDpr = 2,
+  renderScale = 1,
 ): boolean {
   const canvas = renderer.domElement;
   const width = Math.max(1, Math.floor(canvas.clientWidth));
   const height = Math.max(1, Math.floor(canvas.clientHeight));
-  const dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
+  const dpr = effectivePixelRatio(window.devicePixelRatio, { maxDpr, renderScale });
   const bufferWidth = Math.floor(width * dpr);
   const bufferHeight = Math.floor(height * dpr);
   const needsResize = canvas.width !== bufferWidth || canvas.height !== bufferHeight;

@@ -6,7 +6,7 @@ import { mkdirSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { TOOL_CATEGORIES, toolsInCategory } from '../src/catalog/tools';
 import { UI_TEST_IDS } from '../src/ui/UiRoot';
-import { clickFootprint, clickStart } from './helpers';
+import { clickFootprint, clickStart, openMenuTab } from './helpers';
 
 // UI_RUN_ID picks the evidence folder, e.g. UI_RUN_ID=wp06-fix1 → artifacts/wp06-fix1.
 const OUT = `artifacts/${process.env.UI_RUN_ID ?? 'wp-06'}`;
@@ -287,7 +287,7 @@ test('menu opens and closes; New town asks for confirmation', async ({ page }, i
   }
 
   // New town → confirm → Cancel keeps the town.
-  await page.locator(id(UI_TEST_IDS.menu)).click();
+  await openMenuTab(page, 'town');
   await page.locator(id(UI_TEST_IDS.newTown)).click();
   await expect(page.locator(id(UI_TEST_IDS.confirmPanel))).toBeVisible();
   await expect(page.locator(id(UI_TEST_IDS.confirmPanel))).toContainText('Start a new town?');
@@ -433,6 +433,7 @@ test('stress-town screenshots: no overlap or clipping at 4 sizes (Buildings tray
     await page.locator(id(UI_TEST_IDS.menu)).click();
     await page.waitForTimeout(250);
     await page.screenshot({ path: `${OUT}/menu-${width}x${height}.png` });
+    await openMenuTab(page, 'help');
     await page.locator(id(UI_TEST_IDS.help)).click();
     await page.waitForTimeout(250);
     await page.screenshot({ path: `${OUT}/help-${width}x${height}.png` });
@@ -450,6 +451,7 @@ test('menu music rows: ≥ 44 px targets inside the panel, keyboard reachable, s
   await page.locator(id(UI_TEST_IDS.menu)).click();
   const panel = page.locator(id(UI_TEST_IDS.menuPanel));
   await expect(panel).toBeVisible();
+  await openMenuTab(page, 'sound');
   const box = (await panel.boundingBox())!;
   for (const control of [UI_TEST_IDS.volume, UI_TEST_IDS.music, UI_TEST_IDS.musicVolume]) {
     const row = page.locator(id(control)).locator('xpath=ancestor::*[contains(@class,"ui-field")][1]');

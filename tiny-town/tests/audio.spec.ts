@@ -8,7 +8,7 @@
  * WP-13 music checks and WP-18 music resume (position saved on hide/unload, resumed on the next visit).
  */
 import { expect, test, type Page } from '@playwright/test';
-import { clickStart } from './helpers';
+import { clickStart, openMenuTab } from './helpers';
 
 const SETTINGS_KEY = 'tiny-town:settings:v1';
 const MUSIC_POSITION_KEY = 'tiny-town:music:v1';
@@ -231,6 +231,7 @@ test('music off stops playback; music on/volume persist across reload; menu duck
   await page.locator('#btn-menu').click();
   await expect(page.locator('#ui-menu')).toBeVisible();
   await expect.poll(async () => (await music(page)).ducked).toBe(true);
+  await openMenuTab(page, 'sound');
   await expect(page.locator('#chk-music')).toBeChecked();
   await expect(page.locator('#range-music')).toHaveValue('0.5');
 
@@ -251,6 +252,7 @@ test('music off stops playback; music on/volume persist across reload; menu duck
   await page.waitForTimeout(500);
   expect(await music(page)).toMatchObject({ enabled: false, volume: 0.2, playing: false, requested: false });
   await page.locator('#btn-menu').click();
+  await openMenuTab(page, 'sound');
   await expect(page.locator('#chk-music')).not.toBeChecked();
   await expect(page.locator('#range-music')).toHaveValue('0.2');
 

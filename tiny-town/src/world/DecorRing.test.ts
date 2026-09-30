@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_POSE } from '../interaction/CameraController';
-import { DECOR_CLEAR_MARGIN, TEMPLATE_RESCALE, TOP_BAR_BAND_PX, cameraForPose, planDecor } from './DecorRing';
+import { DECOR_CLEAR_MARGIN, TEMPLATE_RESCALE, TOP_BAR_BAND_PX, cameraForPose, evenDecorSubset, planDecor } from './DecorRing';
 import { MODELS } from '../catalog/models';
 import { distanceToPlot } from './terrainShape';
 import * as THREE from 'three';
@@ -42,5 +42,46 @@ describe('planDecor', () => {
     expect(MODELS['oak'].scale * TEMPLATE_RESCALE['oak']).toBeCloseTo(0.36, 6);
     expect(MODELS['pine'].scale * TEMPLATE_RESCALE['pine']).toBeCloseTo(0.36, 6);
     expect(TEMPLATE_RESCALE['decor-rocks']).toBe(1);
+  });
+});
+
+describe('evenDecorSubset (WP-25 Low: 60% of the ring, spread evenly)', () => {
+  const plan = planDecor();
+  const SECTORS = 16;
+  const sectorOf = (x: number, z: number) => Math.floor(((Math.atan2(z, x) + Math.PI) / (2 * Math.PI)) * SECTORS) % SECTORS;
+
+  it('keeps everything at 1 and nothing at 0, deterministically', () => {
+    const angles = plan.map((p) => Math.atan2(p.z, p.x));
+    expect(evenDecorSubset(angles, 1)).toEqual(angles.map((_, i) => i));
+    expect(evenDecorSubset(angles, 0)).toEqual([]);
+    expect(evenDecorSubset(angles, 0.6)).toEqual(evenDecorSubset(angles, 0.6));
+  });
+
+  for (const model of ['oak', 'pine', 'decor-rocks'] as const) {
+    it(`${model}: every sector of the ring keeps ≈ 60% of its instances`, () => {
+      const items = plan.filter((p) => p.model === model);
+      const kept = evenDecorSubset(items.map((p) => Math.atan2(p.z, p.x)), 0.6);
+      expect(kept.length).toBe(Math.floor(items.length * 0.6));
+      expect(new Set(kept).size).toBe(kept.length);
+      const total = new Array<number>(SECTORS).fill(0);
+      const left = new Array<number>(SECTORS).fill(0);
+      for (const item of items) total[sectorOf(item.x, item.z)] += 1;
+      for (const index of kept) left[sectorOf(items[index].x, items[index].z)] += 1;
+      for (let s = 0; s < SECTORS; s += 1) {
+        if (total[s] === 0) continue;
+        // Stride over the angle order: a sector keeps its share, give or take one instance.
+        expect(Math.abs(left[s] - total[s] * 0.6), `sector ${s}: ${left[s]} of ${total[s]}`).toBeLessThanOrEqual(1);
+        if (total[s] >= 2) expect(left[s], `sector ${s} keeps trees`).toBeGreaterThan(0);
+      }
+    });
+  }
+
+  it('keeps far belt trees too (nearest-first dropped the ones the title camera looks at)', () => {
+    const oaks = plan.filter((p) => p.model === 'oak');
+    const kept = evenDecorSubset(oaks.map((p) => Math.atan2(p.z, p.x)), 0.6).map((i) => oaks[i]);
+    const belt = oaks.filter((p) => p.layer === 'belt').length;
+    const keptBelt = kept.filter((p) => p.layer === 'belt').length;
+    expect(keptBelt / belt).toBeGreaterThan(0.45);
+    expect(keptBelt / belt).toBeLessThan(0.75);
   });
 });
