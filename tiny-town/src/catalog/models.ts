@@ -203,7 +203,8 @@ export const GROUND_MODELS: Readonly<Record<Exclude<GroundKind, 'field' | 'road'
   // lawns pulled from kit teal toward the WP-04 field green (#84c27c), a little deeper.
   walkway: { type: 'flat', color: '#c9b99a', height: 0.016 },
   grass: { type: 'flat', color: '#6cb562', height: 0.016 },
-  meadow: { type: 'flat', color: '#5fa959', height: 0.016 },
+  // Owner (2026-09-30): wildflowers sit on the same lawn as grass; only the flower scatter differs.
+  meadow: { type: 'flat', color: '#6cb562', height: 0.016 },
 };
 
 export const EDGE_MODELS: Readonly<Record<EdgeKind, ModelId>> = {

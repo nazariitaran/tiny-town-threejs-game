@@ -9,11 +9,11 @@ import type { BuildAction, Cell, Edge, EdgeKind, GroundKind, ObjectKind, Rotatio
 export type ToolId = Exclude<GroundKind, 'field'> | ObjectKind | EdgeKind | 'bulldoze';
 /**
  * Dock categories — each answers "what am I building?":
- *   streets: the road network and everything that belongs to the kerb
- *   homes:   where people live
- *   town:    shops and civic places everyone shares
+ *   streets: the road network (roads, pavement, roundabout, zebra, traffic lights)
+ *   homes:   where people live (and their mailbox)
+ *   town:    shops, civic places and the street furniture everyone shares
  *   nature:  things that grow on their own (ground cover, trees, bushes)
- *   garden:  things people build in a yard or park (paths, hedges, fences, furniture)
+ *   garden:  things people build in a yard or park (hedges, fences, furniture)
  * Inside a category tools run surfaces → lines → objects (ground paint, then edges, then placed
  * items); catalog.test.ts keeps that order. Digits 1–9 pick the first nine tools of a category; a category
  * holds at most 12 (WP-23, owner: tools past the ninth have no digit, and ~12 cards fill a desktop row).
@@ -54,24 +54,24 @@ const ROWS: readonly ToolRow[] = [
   { id: 'roundabout', label: 'Roundabout', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-path', hint: 'Click to build a roundabout — roads join its four arms' },
   { id: 'zebra-crossing', label: 'Zebra', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-path', hint: 'Click a straight road or a junction to paint a zebra crossing' },
   { id: 'traffic-light', label: 'Traffic light', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-prop-metal', hint: 'Place next to a road · R to rotate' },
-  { id: 'lamppost', label: 'Lamppost', category: 'streets', layer: 'object', drag: 'scatter', sfx: 'place-prop-metal', hint: SCATTER },
-  { id: 'bus-stop', label: 'Bus stop', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-building', hint: 'Place next to a road · R to rotate' },
-  { id: 'postbox', label: 'Postbox', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-prop-metal', hint: PLACE },
-  { id: 'mailbox', label: 'Mailbox', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-prop-metal', hint: PLACE },
-  // Homes
+  // Homes (the mailbox moved here from Streets, owner 2026-09-30)
   { id: 'cottage', label: 'Cottage', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'townhouse', label: 'Townhouse', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'bungalow', label: 'Bungalow', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'family-home', label: 'Family home', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'garage-house', label: 'Suburban', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'big-house', label: 'Big house', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
+  { id: 'mailbox', label: 'Mailbox', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-prop-metal', hint: PLACE },
   // Town
-  { id: 'fountain', label: 'Fountain', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: PLACE },
   { id: 'tiered-fountain', label: 'Tiered fountain', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: PLACE },
   { id: 'corner-shop', label: 'Corner shop', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'donut-shop', label: 'Donut shop', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'church', label: 'Church', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'supermarket', label: 'Supermarket', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
+  // Street furniture is civic (owner, 2026-09-30): moved here from Streets.
+  { id: 'bus-stop', label: 'Bus stop', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: 'Place next to a road · R to rotate' },
+  { id: 'postbox', label: 'Postbox', category: 'town', layer: 'object', drag: 'single', sfx: 'place-prop-metal', hint: PLACE },
+  { id: 'lamppost', label: 'Lamppost', category: 'town', layer: 'object', drag: 'scatter', sfx: 'place-prop-metal', hint: SCATTER },
   // Nature
   { id: 'grass', label: 'Grass', category: 'nature', layer: 'ground', drag: 'paint', sfx: 'place-nature', hint: 'Drag to paint lawn' },
   { id: 'meadow', label: 'Wildflowers', category: 'nature', layer: 'ground', drag: 'paint', sfx: 'place-nature', hint: 'Drag to sow a wildflower meadow' },
@@ -81,7 +81,6 @@ const ROWS: readonly ToolRow[] = [
   { id: 'pine', label: 'Pine', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT },
   { id: 'birch', label: 'Birch', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT },
   // Garden
-  { id: 'walkway', label: 'Garden path', category: 'garden', layer: 'ground', drag: 'paint', sfx: 'place-path', hint: 'Drag to lay a garden path' },
   { id: 'hedge', label: 'Hedge', category: 'garden', layer: 'edge', drag: 'line', sfx: 'place-nature', hint: `${EDGE} to grow a hedge` },
   { id: 'fence-low', label: 'Low fence', category: 'garden', layer: 'edge', drag: 'line', sfx: 'place-prop', hint: `${EDGE} to build a fence` },
   { id: 'fence-tall', label: 'Tall fence', category: 'garden', layer: 'edge', drag: 'line', sfx: 'place-prop', hint: `${EDGE} to build a fence` },
@@ -97,6 +96,13 @@ const ROWS: readonly ToolRow[] = [
   // Modes
   { id: 'bulldoze', label: 'Bulldoze', category: 'mode', layer: 'bulldoze', drag: 'paint', sfx: 'remove', hint: 'Click or drag to remove things' },
 ];
+
+/**
+ * Retired tools (owner, 2026-09-30): no longer in the dock, but their kinds stay in the catalog
+ * (objects.ts / GROUND_MODELS) so towns that already have them (saves, town files, the demo towns)
+ * still load and draw them, and the player can bulldoze them. Placing new ones is not possible.
+ */
+export const RETIRED_TOOLS: ReadonlySet<Exclude<ToolId, 'bulldoze'>> = new Set(['fountain', 'walkway']);
 
 export const TOOLS: readonly ToolDef[] = ROWS.map((row) => ({ ...row, icon: row.id === 'bulldoze' ? '/assets/ui/bulldoze.svg' : icon(row.id) }));
 

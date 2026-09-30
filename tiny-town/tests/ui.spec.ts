@@ -120,20 +120,20 @@ test('digit shortcuts: 1–9 pick a tool in the active category, Shift+1–5 swi
   await expect(page.locator(id(UI_TEST_IDS.tool('bungalow')))).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('Digit3'); // same digit again deselects
   await expect.poll(async () => (await diag(page)).tool).toBeNull();
-  // Shift+3 = Town: 1 = fountain.
+  // Shift+3 = Town: 1 = tiered fountain (the plain fountain is retired).
   await page.keyboard.press('Shift+Digit3');
   await expect(page.locator(id(UI_TEST_IDS.category('town')))).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('Digit1');
-  await expect.poll(async () => (await diag(page)).tool).toBe('fountain');
+  await expect.poll(async () => (await diag(page)).tool).toBe('tiered-fountain');
   // Shift+4 = Nature: 6 = pine (WP-23: Tulips is 3).
   await page.keyboard.press('Shift+Digit4');
   await page.keyboard.press('Digit6');
   await expect.poll(async () => (await diag(page)).tool).toBe('pine');
-  // Shift+5 = Garden: 1 = garden path (walkway).
+  // Shift+5 = Garden: 1 = hedge (the garden path is retired).
   await page.keyboard.press('Shift+Digit5');
   await expect(page.locator(id(UI_TEST_IDS.category('garden')))).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('Digit1');
-  await expect.poll(async () => (await diag(page)).tool).toBe('walkway');
+  await expect.poll(async () => (await diag(page)).tool).toBe('hedge');
 });
 
 test('undo/redo disabled states follow history', async ({ page }) => {

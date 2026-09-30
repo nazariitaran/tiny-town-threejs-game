@@ -16,7 +16,7 @@ import { cellKey, footprintCells, ROAD_BLOCK } from '../town/grid';
 import type { Cell, Edge, EdgeKind, GroundKind, ObjectKind, PlacedEdge, PlacedObject, TownStateReader, TownStats } from '../town/types';
 import { LIGHTING } from '../world/Environment';
 import { ModelLibrary } from './ModelLibrary';
-import { TownRenderer } from './TownRenderer';
+import { meadowScatterModel, TownRenderer } from './TownRenderer';
 
 /** What to build for one icon: ground cells, objects, fences, and the cell the camera frames. */
 interface IconScene {
@@ -68,8 +68,14 @@ function sceneForTool(toolId: string): IconScene | null {
       return { ground: line(toolId), clipToCentre: true };
     case 'pavement':
     case 'grass':
-    case 'meadow':
       return { ground: [[C, C, toolId]] };
+    case 'meadow': {
+      // The clump is hashed per cell: use the first cell next to the centre that grows the short
+      // flowers, so the icon reads as wildflowers whatever the plot size (the 64 × 64 centre grows a tuft).
+      let x = C;
+      while (meadowScatterModel({ x, z: C }) !== 'meadow-flowers') x += 1;
+      return { ground: [[x, C, 'meadow']] };
+    }
     case 'hedge':
       return { edge: toolId, frame: HEDGE_FRAME };
     case 'fence-low':

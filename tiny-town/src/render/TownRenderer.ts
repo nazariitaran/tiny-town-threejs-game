@@ -60,6 +60,12 @@ const WALKWAY_HEIGHT = 0.016;
 const WALKWAY_LIP_SHADE = 0.78;
 /** Warm-stone multipliers applied to a light periwinkle texel's luminance (M1 review). */
 const WARM_STONE: readonly [number, number, number] = [1.17, 1.15, 1.1];
+/** Which clump a meadow cell grows (hashed per cell, stable across reloads). IconStudio uses it too. */
+export function meadowScatterModel(cell: Cell): ModelId {
+  const pick = hash01(cell.x, cell.z, 1);
+  return pick < 0.45 ? 'meadow-flowers' : pick < 0.72 ? 'meadow-flowers-tall' : 'grass-tuft';
+}
+
 /** Edge-layer models (their pools go on the edge layer). */
 const EDGE_MODEL_IDS: ReadonlySet<string> = new Set(Object.values(EDGE_MODELS));
 
@@ -465,8 +471,7 @@ export class TownRenderer {
 
   /** WP-12: one hashed clump per (half-unit) cell, so the density per area matches v0.1's 4 per unit cell. */
   private meadowScatter(cell: Cell): PieceSpec[] {
-    const pick = hash01(cell.x, cell.z, 1);
-    const model: ModelId = pick < 0.45 ? 'meadow-flowers' : pick < 0.72 ? 'meadow-flowers-tall' : 'grass-tuft';
+    const model = meadowScatterModel(cell);
     const x = (hash01(cell.x, cell.z, 2) - 0.5) * 0.36 * CELL_SIZE;
     const z = (hash01(cell.x, cell.z, 3) - 0.5) * 0.36 * CELL_SIZE;
     const yaw = hash01(cell.x, cell.z, 4) * Math.PI * 2;

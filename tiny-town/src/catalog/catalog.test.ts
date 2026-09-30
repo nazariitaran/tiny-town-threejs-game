@@ -12,7 +12,7 @@ import { CAR_FILES, CAR_SCALE } from '../life/LifeSystem';
 import { MODEL_STYLES } from '../render/modelStyles';
 import { EDGE_MODELS, GROUND_MODELS, MODELS, ROAD_PIECE_MODELS, type ModelId } from './models';
 import { heightScale, OBJECT_KINDS, OBJECTS } from './objects';
-import { TOOL_CATEGORIES, TOOLS, toolsInCategory, type ToolLayer } from './tools';
+import { RETIRED_TOOLS, TOOL_CATEGORIES, TOOLS, toolsInCategory, type ToolLayer } from './tools';
 import { createGlbLoader, PUBLIC_DIR, publicPath } from '../testing/gltfNode';
 
 
@@ -90,9 +90,9 @@ describe('catalog', () => {
     }
   });
 
-  it('every ObjectKind has exactly one object tool, and every object tool an ObjectDef', () => {
+  it('every ObjectKind has exactly one object tool (none once retired), and every object tool an ObjectDef', () => {
     for (const kind of OBJECT_KINDS) {
-      expect(TOOLS.filter((tool) => tool.id === kind && tool.layer === 'object'), kind).toHaveLength(1);
+      expect(TOOLS.filter((tool) => tool.id === kind && tool.layer === 'object'), kind).toHaveLength(RETIRED_TOOLS.has(kind) ? 0 : 1);
     }
     for (const tool of TOOLS.filter((t) => t.layer === 'object')) expect(OBJECT_KINDS, tool.id).toContain(tool.id);
   });
@@ -100,6 +100,13 @@ describe('catalog', () => {
   it('every edge kind has a model and an edge tool', () => {
     for (const kind of Object.keys(EDGE_MODELS)) {
       expect(TOOLS.filter((tool) => tool.id === kind && tool.layer === 'edge'), kind).toHaveLength(1);
+    }
+  });
+
+  it('retired tools are out of the dock but their kinds still load and draw (old saves, town files)', () => {
+    for (const id of RETIRED_TOOLS) {
+      expect(TOOLS.some((tool) => tool.id === id), id).toBe(false);
+      expect(id in OBJECTS || id in GROUND_MODELS, id).toBe(true);
     }
   });
 

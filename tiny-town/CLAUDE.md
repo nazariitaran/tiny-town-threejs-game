@@ -62,7 +62,7 @@ npm run inspect:canvas -- --state sample-town --run-id <id> --out artifacts/<id>
 npm run inspect:models # re-measure/verify the GLBs in public/assets/models (prints a report; add --three to load them via GLTFLoader)
 npm run gen:sfx        # regenerate src/audio/sfxTable.ts from docs/assets/audio.json
 npm run gen:licenses   # regenerate public/licenses.txt (runtime dependencies + licence texts; verify fails if stale)
-node scripts/render-icons.mjs [--size 128]   # re-render the 40 tool icons (tool-<id>.png) from in-game models (needs a dev server on PORT)
+node scripts/render-icons.mjs [--size 128]   # re-render the 38 tool icons (tool-<id>.png) from in-game models (needs a dev server on PORT)
 node scripts/compose-models.mjs              # rebuild public/assets/models/composed/*.glb (needs assets-src/, incl. assets-src/polypizza/)
 ```
 - **`inspect:models` and `docs/assets/models.json`.** By default the script only prints; it doesn't touch `models.json`. **Never run it with `--json docs/assets/models.json`.** That flag writes the script's raw report, which has a different schema, and would clobber the hand-maintained manifest: ids, `suggestedScale`, `footprintCells` (hand-edited for WP-12 and v0.3), notes and icons. If a scale or footprint changes in `catalog/`, edit `models.json` and `models.md` by hand.

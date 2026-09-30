@@ -47,7 +47,7 @@ The composed models (`public/assets/models/composed/`) are built by `scripts/com
 
 ### Icons
 
-The 40 tool icons in `public/assets/icons/tool-<id>.png` (128 px) were rendered in this project from the in-game models, using `scripts/render-icons.mjs` + `src/render/IconStudio.ts` (in-game models and materials). Icons of CC0 models are CC0. The Church, Swing, Barbecue, Donut shop, Tiered fountain and Slide icons are renders of the CC-BY models above and carry the same attribution. v0.3 deleted the old icons, including Kenney's 64 px preview renders of unused models.
+The 38 tool icons in `public/assets/icons/tool-<id>.png` (128 px) were rendered in this project from the in-game models, using `scripts/render-icons.mjs` + `src/render/IconStudio.ts` (in-game models and materials). Icons of CC0 models are CC0. The Church, Swing, Barbecue, Donut shop, Tiered fountain and Slide icons are renders of the CC-BY models above and carry the same attribution. v0.3 deleted the old icons, including Kenney's 64 px preview renders of unused models.
 
 The favicon (`public/favicon.svg`, `favicon.ico`, `apple-touch-icon.png`) is the title mark: the project's own `homes` UI glyph in white on the brand brick colour, CC0. `favicon.svg` is the source; the PNG/ICO sizes were rendered from it in Chromium.
 
