@@ -115,6 +115,7 @@ The plan was approved and implemented. The as-built facts are in `03-architectur
 
 ### WP-25 as built (branch `wp-24-frame-budget`; vs `docs/plans/wp-25-graphics-and-menu-tabs.md`)
 - **Production preview (2026-09-30):** whole-GPU use on the stress town at an emulated 120 Hz goes from 59–73% on `main` to Medium 32–35% active / 18–20% idle, Low 10%, and High 42–45% / 24%. The full table and method are in `docs/release.md` §Budgets.
+- **Car shadows 15 → 30 Hz (2026-09-30, owner request):** at 15 Hz a moving car's shadow visibly lagged. Re-measured on the production preview: Medium 33–35% building / 20–21% idle (was 32–35% / 18–20%). `docs/release.md` §Budgets.
 - **1080p laptop (DPR 1, 2026-09-30):** Low now renders at 0.75 of the screen's density (`renderScale`; 1440 × 727 on 1080p) and is ~4× cheaper per frame than Medium on a software-GPU stand-in. Medium and High are identical on DPR-1 screens. Table: `docs/release.md` §Budgets.
 Owner request (2026-09-30), after the graphics-settings assessment (`~/Desktop/tiny-town-graphics-settings/REPORT.md`). Current facts: `03-architecture.md` §Graphics presets and `02-interaction-and-ui.md` §5.1 Menu tabs. Three parallel parts: **25a** the engine (branch `wp-25a-graphics`), **25b** the tabbed menu (`wp-25b-menu-tabs`), both merged into `wp-24-frame-budget` (`f470eab`), then **25c** integration and QA (`wp-25c-integration`).
 - **Built:**

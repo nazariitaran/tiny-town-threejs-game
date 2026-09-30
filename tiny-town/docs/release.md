@@ -107,6 +107,11 @@ Numbers are labelled with their version and source.
   - the three.js chunk is unchanged at 641.7 kB;
   - `dist/` without maps or music is 5.07 MB, up from 5.05 MB.
 - **Errors:** 0 console or page errors in every run on both builds.
+- **Car shadows at 30 Hz (2026-09-30, re-measured the same way):**
+  - The table above was measured with car shadows at 15 Hz. At 15 Hz the shadow visibly lagged and caught up in steps, so the owner chose 30 Hz.
+  - New numbers, building / idle: Low 11% / 11%, **Medium 33–35% / 20–21%**, High 44–45% / 26–27%.
+  - While building that is within the noise; idle is about 1–3 points higher, because at 30 fps the car shadow now redraws every frame.
+  - Raw results: `artifacts/wp-25/prod/gpu-branch-30hz.jsonl`.
 
 **The 1080p laptop case (2026-09-30, production preview, branch at `15bbf0a` vs `main` `f37725d`).**
 - **Setup:** a 1920 × 970 viewport at DPR 1 (a 1920 × 1080 screen at 100% scaling), a 60 Hz display emulated.

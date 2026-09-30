@@ -7,7 +7,7 @@
  *    re-aimed or the map resized (Environment.shadowVersion), and on every frame while pop-in /
  *    shrink-out tweens run (`settling`).
  *  - Moving casters that aren't the town — cars and birds — refresh at a lower rate of their own
- *    (birds faster: they cross the plot quickly and their wings flap).
+ *    (30 Hz each: at 15 Hz a car's shadow visibly lagged behind the car and caught up in steps).
  *  - Otherwise the map is reused: static towns cost no shadow pass at all.
  */
 export interface ShadowSchedulerTuning {
@@ -17,7 +17,7 @@ export interface ShadowSchedulerTuning {
   birdHz: number;
 }
 
-export const DEFAULT_SHADOW_TUNING: Readonly<ShadowSchedulerTuning> = { carHz: 15, birdHz: 30 };
+export const DEFAULT_SHADOW_TUNING: Readonly<ShadowSchedulerTuning> = { carHz: 30, birdHz: 30 };
 
 export interface ShadowFrame {
   /** Town tweens are running (every frame). */
