@@ -4,38 +4,21 @@
  * surface (y ≤ 0.012, below the 0.02 kerb) reaches that cell edge on both sides of its middle and
  * nothing kerb-high stands in between. (v0.3: the zebra-crossing crossroad is one surface quad
  * across each arm, so it has no vertex exactly at the edge middle.)
- * Loads the real GLBs through GLTFLoader in Node (same shims as catalog.test.ts).
+ * Loads the real GLBs through GLTFLoader in Node (src/testing/gltfNode.ts).
  */
-import fs from 'node:fs';
-import path from 'node:path';
 import * as THREE from 'three';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { MODELS, ROAD_PIECE_MODELS, type ModelId } from '../catalog/models';
+import { createGlbLoader } from '../testing/gltfNode';
 import { roadTileFor } from './roadTiles';
 
-const PUBLIC = path.resolve(__dirname, '../../public');
 const points = new Map<ModelId, THREE.Vector3[]>();
 
 beforeAll(async () => {
-  (globalThis as { self?: unknown }).self ??= globalThis;
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = (async (url: RequestInfo | URL, init?: RequestInit) => {
-    const u = String(url);
-    if (!u.startsWith('file:')) return realFetch(url, init);
-    const file = new URL(u).pathname;
-    return fs.existsSync(file) ? new Response(fs.readFileSync(file)) : new Response(null, { status: 404 });
-  }) as typeof fetch;
-  (globalThis as { createImageBitmap?: unknown }).createImageBitmap = async (blob: Blob) => {
-    const bytes = Buffer.from(await blob.arrayBuffer());
-    return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20), close() {} };
-  };
-  const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
-  const loader = new GLTFLoader();
+  const load = await createGlbLoader();
   for (const id of new Set(Object.values(ROAD_PIECE_MODELS))) {
     const spec = MODELS[id];
-    const file = path.join(PUBLIC, spec.url);
-    const data = fs.readFileSync(file);
-    const gltf = await loader.parseAsync(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength), `file://${path.dirname(file)}/`);
+    const gltf = await load(spec.url);
     // Same normalisation as ModelLibrary.normalise.
     const root = new THREE.Group();
     root.add(gltf.scene);

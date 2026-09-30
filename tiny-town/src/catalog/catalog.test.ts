@@ -1,6 +1,6 @@
 /**
  * Catalog integrity: every referenced file exists, every GLB loads through three's real
- * GLTFLoader (Node shims), and normalised sizes fit the grid (same scale/rotation as ModelLibrary).
+ * GLTFLoader (Node shims in src/testing/gltfNode.ts), and normalised sizes fit the grid (same scale/rotation as ModelLibrary).
  * Runs in Node — no browser needed.
  */
 import fs from 'node:fs';
@@ -13,9 +13,8 @@ import { MODEL_STYLES } from '../render/TownRenderer';
 import { EDGE_MODELS, GROUND_MODELS, MODELS, ROAD_PIECE_MODELS, type ModelId } from './models';
 import { heightScale, OBJECT_KINDS, OBJECTS } from './objects';
 import { TOOL_CATEGORIES, TOOLS, toolsInCategory, type ToolLayer } from './tools';
+import { createGlbLoader, PUBLIC_DIR, publicPath } from '../testing/gltfNode';
 
-const PUBLIC = path.resolve(__dirname, '../../public');
-const publicPath = (url: string) => path.join(PUBLIC, url.replace(/^\//, ''));
 
 /** Normalised (scaled + rotationOffset) size of each model, filled in beforeAll. */
 const sizes = new Map<ModelId, THREE.Vector3>();
@@ -23,25 +22,9 @@ const sizes = new Map<ModelId, THREE.Vector3>();
 const carSizes = new Map<string, THREE.Vector3>();
 
 beforeAll(async () => {
-  // Minimal browser shims so GLTFLoader can resolve external textures from disk.
-  (globalThis as { self?: unknown }).self ??= globalThis;
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = (async (url: RequestInfo | URL, init?: RequestInit) => {
-    const u = String(url);
-    if (!u.startsWith('file:')) return realFetch(url, init);
-    const file = new URL(u).pathname;
-    return fs.existsSync(file) ? new Response(fs.readFileSync(file)) : new Response(null, { status: 404 });
-  }) as typeof fetch;
-  (globalThis as { createImageBitmap?: unknown }).createImageBitmap = async (blob: Blob) => {
-    const bytes = Buffer.from(await blob.arrayBuffer());
-    return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20), close() {} };
-  };
-  const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
-  const loader = new GLTFLoader();
+  const load = await createGlbLoader();
   for (const [id, spec] of Object.entries(MODELS) as Array<[ModelId, (typeof MODELS)[ModelId]]>) {
-    const file = publicPath(spec.url);
-    const data = fs.readFileSync(file);
-    const gltf = await loader.parseAsync(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength), `file://${path.dirname(file)}/`);
+    const gltf = await load(spec.url);
     const root = new THREE.Group();
     root.add(gltf.scene);
     gltf.scene.scale.setScalar(spec.scale);
@@ -50,9 +33,7 @@ beforeAll(async () => {
     sizes.set(id, new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3()));
   }
   for (const name of CAR_FILES) {
-    const file = publicPath(`/assets/models/cars/${name}.glb`);
-    const data = fs.readFileSync(file);
-    const gltf = await loader.parseAsync(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength), `file://${path.dirname(file)}/`);
+    const gltf = await load(`/assets/models/cars/${name}.glb`);
     gltf.scene.scale.setScalar(CAR_SCALE);
     gltf.scene.updateMatrixWorld(true);
     carSizes.set(name, new THREE.Box3().setFromObject(gltf.scene).getSize(new THREE.Vector3()));
@@ -82,7 +63,7 @@ describe('catalog', () => {
   it('placing tools use their own tool-<id>.png icon, and the icons folder holds nothing else', () => {
     const placing = TOOLS.filter((tool) => tool.category !== 'mode');
     for (const tool of placing) expect(tool.icon, tool.id).toBe(`/assets/icons/tool-${tool.id}.png`);
-    const files = fs.readdirSync(path.join(PUBLIC, 'assets/icons')).filter((f) => !f.startsWith('.')).sort();
+    const files = fs.readdirSync(path.join(PUBLIC_DIR, 'assets/icons')).filter((f) => !f.startsWith('.')).sort();
     expect(files).toEqual(placing.map((tool) => `tool-${tool.id}.png`).sort());
   });
 

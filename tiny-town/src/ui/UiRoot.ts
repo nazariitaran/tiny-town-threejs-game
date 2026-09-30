@@ -9,8 +9,8 @@
  * UI-owned state: the active dock category and the digit shortcuts (see uiKeys.ts).
  * Keep the element ids listed in UI_TEST_IDS stable — Playwright tests select by them.
  */
-// Styles (ui.css + bundled Nunito) are imported from src/styles.css, NOT here: tests import
-// UI_TEST_IDS through this module in Node, so it must stay free of CSS/asset side effects.
+// Styles (ui.css + bundled Nunito) are imported from src/styles.css, NOT here. Tests import
+// UI_TEST_IDS from ./testIds, which has no side effects.
 import { TOOL_CATEGORIES, toolDef, toolsInCategory, type ToolCategory, type ToolId } from '../catalog/tools';
 import { assetUrl } from '../game/config';
 import type { GameBus, GamePhase } from '../game/events';
@@ -24,8 +24,6 @@ import { TIME_MODES, type DayPhase, type TimeMode } from '../world/dayCycle';
 import { GLYPHS } from './glyphs';
 import { MENU_TABS, UI_TEST_IDS, type MenuTab } from './testIds';
 import { digitAction, isPhotoKey } from './uiKeys';
-
-export { UI_TEST_IDS };
 
 type ModalView = 'menu' | 'confirm' | 'help' | 'credits' | 'photo' | 'name' | 'file' | 'file-confirm';
 /** The name dialog (WP-20) names a new town or renames this one, and returns to where it opened. */

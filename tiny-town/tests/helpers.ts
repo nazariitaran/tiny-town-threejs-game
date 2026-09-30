@@ -15,7 +15,7 @@ import { toolDef } from '../src/catalog/tools';
 import { objectDef } from '../src/catalog/objects';
 import { rotatedFootprint } from '../src/town/grid';
 import type { Cell, ObjectKind, Rotation } from '../src/town/types';
-import { UI_TEST_IDS } from '../src/ui/UiRoot';
+import { UI_TEST_IDS } from '../src/ui/testIds';
 import type { MenuTab } from '../src/ui/testIds';
 
 export { UI_TEST_IDS };

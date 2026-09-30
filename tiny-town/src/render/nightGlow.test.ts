@@ -2,11 +2,10 @@
  * WP-16b night glow masks: row order, cell indices (pinned against the plan's facts table AND the
  * real GLBs' UVs), intensity curves (exactly 0 by day), the registry and the window stagger patch.
  */
-import fs from 'node:fs';
-import path from 'node:path';
 import * as THREE from 'three';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { MODELS, type ModelId } from '../catalog/models';
+import { createGlbLoader } from '../testing/gltfNode';
 import { measureCellCentroid } from './lampRegistry';
 import {
   applyWindowStagger,
@@ -108,30 +107,14 @@ describe('which catalog models glow (WP-17b: shops and the church stay dark at n
 describe('glow masks against the real assets', () => {
   /** Triangle census of a GLB (native space) per glow cell. */
   const census = new Map<string, THREE.BufferGeometry[]>();
-  const publicDir = path.resolve(__dirname, '../../public');
 
   beforeAll(async () => {
-    (globalThis as { self?: unknown }).self ??= globalThis;
-    const realFetch = globalThis.fetch;
-    globalThis.fetch = (async (url: RequestInfo | URL, init?: RequestInit) => {
-      const u = String(url);
-      if (!u.startsWith('file:')) return realFetch(url, init);
-      const file = new URL(u).pathname;
-      return fs.existsSync(file) ? new Response(fs.readFileSync(file)) : new Response(null, { status: 404 });
-    }) as typeof fetch;
-    (globalThis as { createImageBitmap?: unknown }).createImageBitmap = async (blob: Blob) => {
-      const bytes = Buffer.from(await blob.arrayBuffer());
-      return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20), close() {} };
-    };
-    const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
-    const loader = new GLTFLoader();
+    const load = await createGlbLoader();
     const urls = new Set<string>();
     for (const spec of Object.values(MODELS)) if ('glow' in spec && spec.glow) urls.add(spec.url);
     for (const car of ['sedan', 'hatchback-sports', 'van', 'taxi']) urls.add(`/assets/models/cars/${car}.glb`);
     for (const url of urls) {
-      const file = path.join(publicDir, url.replace(/^\//, ''));
-      const data = fs.readFileSync(file);
-      const gltf = await loader.parseAsync(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength), `file://${path.dirname(file)}/`);
+      const gltf = await load(url);
       gltf.scene.updateMatrixWorld(true);
       const geometries: THREE.BufferGeometry[] = [];
       gltf.scene.traverse((o) => {
