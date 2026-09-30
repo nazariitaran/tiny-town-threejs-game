@@ -13,7 +13,7 @@ import { buildSampleTown } from '../src/town/sampleTown';
 import { TownEditor } from '../src/town/TownEditor';
 import { TownState } from '../src/town/TownState';
 import { createSeededRandom } from '../src/utils/random';
-import { applyState, byId, diagnostics, gotoTitle, trackErrors, UI_TEST_IDS } from './helpers';
+import { applyState, byId, diagnostics, gotoTitle, openMenuTab, trackErrors, UI_TEST_IDS } from './helpers';
 
 const OUT = 'artifacts/wp-21';
 const CAMERA = { targetX: 2, targetZ: -3, azimuth: 1.1, polar: 0.95, distance: 24 };
@@ -34,7 +34,7 @@ const status = (page: Page) => page.locator(`#${UI_TEST_IDS.filePanel} .ui-file-
 async function openFilePanel(page: Page, info: TestInfo): Promise<void> {
   if (info.project.name === 'mobile-chrome') {
     await expect(byId(page, UI_TEST_IDS.townFile)).toBeHidden();
-    await byId(page, UI_TEST_IDS.menu).click();
+    await openMenuTab(page, 'town');
     await byId(page, UI_TEST_IDS.townFileMenu).click();
   } else {
     await expect(byId(page, UI_TEST_IDS.townFileMenu)).toBeHidden();
@@ -51,7 +51,7 @@ async function pickFile(page: Page, opener: string, file: ReturnType<typeof asUp
 }
 
 async function newEmptyTown(page: Page, name: string): Promise<void> {
-  await byId(page, UI_TEST_IDS.menu).click();
+  await openMenuTab(page, 'town');
   await byId(page, UI_TEST_IDS.newTown).click();
   await byId(page, UI_TEST_IDS.confirmClear).click();
   await byId(page, UI_TEST_IDS.nameInput).fill(name);

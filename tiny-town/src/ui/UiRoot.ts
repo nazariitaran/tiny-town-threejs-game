@@ -14,6 +14,7 @@
 import { TOOL_CATEGORIES, toolDef, toolsInCategory, type ToolCategory, type ToolId } from '../catalog/tools';
 import { assetUrl } from '../game/config';
 import type { GameBus, GamePhase } from '../game/events';
+import { DEFAULT_GRAPHICS, GRAPHICS_PRESETS, GRAPHICS_UI, isGraphicsPreset, type GraphicsPreset } from '../game/graphics';
 import { photoFrameLayout } from '../photo/photoLayout';
 import { decodeTownFile, TOWN_FILE_ERRORS, TOWN_FILE_EXTENSION, TOWN_FILE_MAX_BYTES, TOWN_FILE_MIME, type DecodedTownFile } from '../persistence/townFile';
 import { downloadBlob } from '../utils/download';
@@ -21,7 +22,7 @@ import { DEFAULT_TOWN_NAME, sanitizeTownName, TOWN_NAME_MAX_LENGTH, townNameLeng
 import type { Rotation } from '../town/types';
 import { TIME_MODES, type DayPhase, type TimeMode } from '../world/dayCycle';
 import { GLYPHS } from './glyphs';
-import { UI_TEST_IDS } from './testIds';
+import { MENU_TABS, UI_TEST_IDS, type MenuTab } from './testIds';
 import { digitAction, isPhotoKey } from './uiKeys';
 
 export { UI_TEST_IDS };
@@ -54,6 +55,14 @@ const TIME_MODE_UI: Record<TimeMode, { label: string; glyph: string }> = {
   auto: { label: 'Auto', glyph: GLYPHS.timeAuto },
   day: { label: 'Day', glyph: GLYPHS.timeDay },
   night: { label: 'Night', glyph: GLYPHS.timeNight },
+};
+
+/** Menu tabs (WP-25): label + glyph, in MENU_TABS order. */
+const MENU_TAB_UI: Record<MenuTab, { label: string; glyph: string }> = {
+  town: { label: 'Town', glyph: GLYPHS.homes },
+  graphics: { label: 'Graphics', glyph: GLYPHS.graphics },
+  sound: { label: 'Sound', glyph: GLYPHS.soundOn },
+  help: { label: 'Help', glyph: GLYPHS.help },
 };
 
 const escapeHtml = (text: string): string =>
@@ -93,6 +102,14 @@ export class UiRoot {
   /** Town file (WP-21): where the panel opened from, and the decoded file waiting for its confirm. */
   private fileFrom: 'title' | 'menu' | 'building' = 'building';
   private pendingFile: DecodedTownFile | null = null;
+  /** Menu tabs (WP-25): the open tab (kept for this page session) and the menu control a sub-view opened from. */
+  private menuTab: MenuTab = 'town';
+  private menuReturnFocus: HTMLElement | null = null;
+  /**
+   * Last `graphics:changed` fact (WP-25). Game emits it at boot; until it does (or if it never
+   * does), the Graphics tab shows the default preset.
+   */
+  private graphics: { preset: GraphicsPreset; reloadRequired: boolean } = { preset: DEFAULT_GRAPHICS, reloadRequired: false };
 
   /**
    * `suggestTownName(avoid)` draws a random name from the suggestion list (Game owns the list and its
@@ -112,6 +129,7 @@ export class UiRoot {
     this.root.addEventListener('input', this.onInput);
     this.root.addEventListener('change', this.onInput);
     this.root.addEventListener('pointerover', this.onPointerOver);
+    this.el('ui-menu-tabs').addEventListener('keydown', this.onMenuTabKeyDown);
     this.el(UI_TEST_IDS.tray).addEventListener('scroll', this.updateTrayCue, { passive: true });
     window.addEventListener('resize', this.updateTrayCue);
     // Capture phase on window: runs before ToolController's keydown, so Esc inside an overlay
@@ -178,11 +196,18 @@ export class UiRoot {
         this.townName = name;
         this.renderTownName();
       }),
+      // WP-25: the Graphics tab renders from the fact, never from the intent.
+      bus.on('graphics:changed', ({ preset, reloadRequired }) => {
+        this.graphics = { preset, reloadRequired };
+        this.renderGraphics();
+      }),
     );
     this.renderTownName();
     this.renderTray();
     this.renderAudio();
     this.renderTimeMode();
+    this.renderGraphics();
+    this.renderMenuTab();
     this.renderRotation(0);
     this.showPhase('loading');
   }
@@ -193,6 +218,7 @@ export class UiRoot {
     this.root.removeEventListener('input', this.onInput);
     this.root.removeEventListener('change', this.onInput);
     this.root.removeEventListener('pointerover', this.onPointerOver);
+    this.el('ui-menu-tabs').removeEventListener('keydown', this.onMenuTabKeyDown);
     window.removeEventListener('keydown', this.onKeyDown, { capture: true });
     window.removeEventListener('pointermove', this.onPointerMove);
     window.removeEventListener('resize', this.updateTrayCue);
@@ -272,44 +298,74 @@ export class UiRoot {
       <div class="ui-tooltip" id="${id.tooltip}" role="alert" hidden><span class="ui-tooltip-x">${GLYPHS.close}</span><span class="ui-tooltip-text"></span></div>
 
       <div class="ui-modal" hidden>
-        <section class="ui-panel" id="${id.menuPanel}" data-view="menu" role="dialog" aria-modal="true" aria-labelledby="ui-menu-h">
+        <section class="ui-panel ui-menu-panel" id="${id.menuPanel}" data-view="menu" role="dialog" aria-modal="true" aria-labelledby="ui-menu-h">
           <h2 id="ui-menu-h">Menu</h2>
           <button type="button" class="ui-btn ui-btn-primary" id="${id.resume}">${GLYPHS.play}<span>Resume</span></button>
-          <div class="ui-row">
-            <button type="button" class="ui-btn" id="${id.help}">${GLYPHS.help}<span>Controls</span></button>
-            <button type="button" class="ui-btn" id="${id.resetView}">${GLYPHS.camera}<span>Reset view</span></button>
+          <div class="ui-menu-tabs" id="ui-menu-tabs" role="tablist" aria-label="Menu sections">
+            ${MENU_TABS.map(
+              (tab) =>
+                `<button type="button" role="tab" class="ui-menu-tab" id="${id.menuTab(tab)}" data-menu-tab="${tab}" aria-controls="${id.menuTabPanel(tab)}" aria-selected="false" tabindex="-1">${MENU_TAB_UI[tab].glyph}<span>${MENU_TAB_UI[tab].label}</span></button>`,
+            ).join('')}
           </div>
-          <div class="ui-field">
-            <label for="${id.volume}">${GLYPHS.soundOn}<span>Volume</span></label>
-            <input type="range" id="${id.volume}" min="0" max="1" step="0.05" value="0.8" />
-          </div>
-          <label class="ui-field ui-check" for="${id.music}">
-            ${MUSIC_GLYPH}<span>Music</span>
-            <input type="checkbox" id="${id.music}" role="switch" checked />
-          </label>
-          <div class="ui-field ui-field-sub">
-            <label for="${id.musicVolume}"><span>Music volume</span></label>
-            <input type="range" id="${id.musicVolume}" min="0" max="1" step="0.05" value="0.5" />
-          </div>
-          <div class="ui-field ui-seg-field">
-            <span class="ui-seg-label" id="ui-time-mode-label">${GLYPHS.timeAuto}<span>Time of day</span></span>
-            <div class="ui-seg" id="${id.timeModeGroup}" role="radiogroup" aria-labelledby="ui-time-mode-label">
-              ${TIME_MODES.map(
-                (mode) =>
-                  `<label class="ui-seg-opt"><input type="radio" name="time-mode" id="${id.timeModeOption(mode)}" value="${mode}"${mode === 'auto' ? ' checked' : ''} /><span>${TIME_MODE_UI[mode].label}</span></label>`,
-              ).join('')}
+          <div class="ui-menu-pages">
+            <div class="ui-menu-page" role="tabpanel" id="${id.menuTabPanel('town')}" aria-labelledby="${id.menuTab('town')}" hidden>
+              <div class="ui-field ui-seg-field">
+                <span class="ui-seg-label" id="ui-time-mode-label">${GLYPHS.timeAuto}<span>Time of day</span></span>
+                <div class="ui-seg" id="${id.timeModeGroup}" role="radiogroup" aria-labelledby="ui-time-mode-label">
+                  ${TIME_MODES.map(
+                    (mode) =>
+                      `<label class="ui-seg-opt"><input type="radio" name="time-mode" id="${id.timeModeOption(mode)}" value="${mode}"${mode === 'auto' ? ' checked' : ''} /><span>${TIME_MODE_UI[mode].label}</span></label>`,
+                  ).join('')}
+                </div>
+              </div>
+              <button type="button" class="ui-btn ui-town-file-row" id="${id.townFileMenu}">${GLYPHS.folder}<span>Town file</span></button>
+              <div class="ui-row">
+                <button type="button" class="ui-btn" id="${id.renameTown}">${GLYPHS.pencil}<span>Rename town</span></button>
+                <button type="button" class="ui-btn ui-btn-danger-soft" id="${id.newTown}">${GLYPHS.plus}<span>New town</span></button>
+              </div>
+            </div>
+            <div class="ui-menu-page" role="tabpanel" id="${id.menuTabPanel('graphics')}" aria-labelledby="${id.menuTab('graphics')}" hidden>
+              <div class="ui-field ui-seg-field">
+                <span class="ui-seg-label" id="ui-graphics-label">${GLYPHS.graphics}<span>Quality</span></span>
+                <div class="ui-seg" id="${id.graphicsGroup}" role="radiogroup" aria-labelledby="ui-graphics-label" aria-describedby="ui-graphics-desc">
+                  ${GRAPHICS_PRESETS.map(
+                    (preset) =>
+                      `<label class="ui-seg-opt"><input type="radio" name="graphics" id="${id.graphicsOption(preset)}" value="${preset}"${preset === DEFAULT_GRAPHICS ? ' checked' : ''} /><span>${GRAPHICS_UI[preset].label}</span></label>`,
+                  ).join('')}
+                </div>
+              </div>
+              <p class="ui-graphics-desc" id="ui-graphics-desc"></p>
+              <div class="ui-graphics-live" aria-live="polite">
+                <div class="ui-graphics-reload" hidden>
+                  <p>Some changes apply after a reload</p>
+                  <button type="button" class="ui-btn" id="${id.graphicsReload}">${GLYPHS.retry}<span>Reload now</span></button>
+                </div>
+              </div>
+              <label class="ui-field ui-check" for="${id.grid}">
+                ${GLYPHS.grid}<span>Show grid</span>
+                <input type="checkbox" id="${id.grid}" role="switch" checked />
+              </label>
+            </div>
+            <div class="ui-menu-page" role="tabpanel" id="${id.menuTabPanel('sound')}" aria-labelledby="${id.menuTab('sound')}" hidden>
+              <div class="ui-field">
+                <label for="${id.volume}">${GLYPHS.soundOn}<span>Volume</span></label>
+                <input type="range" id="${id.volume}" min="0" max="1" step="0.05" value="0.8" />
+              </div>
+              <label class="ui-field ui-check" for="${id.music}">
+                ${MUSIC_GLYPH}<span>Music</span>
+                <input type="checkbox" id="${id.music}" role="switch" checked />
+              </label>
+              <div class="ui-field ui-field-sub">
+                <label for="${id.musicVolume}"><span>Music volume</span></label>
+                <input type="range" id="${id.musicVolume}" min="0" max="1" step="0.05" value="0.5" />
+              </div>
+            </div>
+            <div class="ui-menu-page" role="tabpanel" id="${id.menuTabPanel('help')}" aria-labelledby="${id.menuTab('help')}" hidden>
+              <button type="button" class="ui-btn" id="${id.help}">${GLYPHS.keys}<span>Controls</span></button>
+              <button type="button" class="ui-btn" id="${id.resetView}">${GLYPHS.camera}<span>Reset view</span></button>
+              <button type="button" class="ui-btn" id="${id.credits}">${GLYPHS.info}<span>Credits</span></button>
             </div>
           </div>
-          <label class="ui-field ui-check" for="${id.grid}">
-            ${GLYPHS.grid}<span>Show grid</span>
-            <input type="checkbox" id="${id.grid}" role="switch" checked />
-          </label>
-          <button type="button" class="ui-btn ui-town-file-row" id="${id.townFileMenu}">${GLYPHS.folder}<span>Town file</span></button>
-          <div class="ui-row">
-            <button type="button" class="ui-btn" id="${id.renameTown}">${GLYPHS.pencil}<span>Rename town</span></button>
-            <button type="button" class="ui-btn ui-btn-danger-soft" id="${id.newTown}">${GLYPHS.plus}<span>New town</span></button>
-          </div>
-          <button type="button" class="ui-link" id="${id.credits}">Credits</button>
         </section>
 
         <section class="ui-panel ui-name-panel" id="${id.namePanel}" data-view="name" data-mode="new" role="dialog" aria-modal="true" aria-labelledby="ui-name-h">
@@ -473,6 +529,8 @@ export class UiRoot {
       this.bus.emit('intent:reset-camera');
       this.bus.emit('intent:close-menu');
     } else if (target.id === id.confirmClear) this.confirmNewTown();
+    else if (target.id === id.graphicsReload) this.bus.emit('intent:reload-graphics');
+    else if (target.dataset.menuTab) this.selectMenuTab(target.dataset.menuTab as MenuTab);
     else if (target.hasAttribute('data-back')) this.back();
     else if (target.id === id.retry) window.location.reload();
     else if (target.dataset.category) this.setCategory(target.dataset.category as ToolCategory);
@@ -505,6 +563,12 @@ export class UiRoot {
     } else if (target.name === 'time-mode' && event.type === 'change' && target.checked) {
       this.sfx('ui-click');
       this.bus.emit('intent:set-time-mode', { mode: target.value as TimeMode });
+    } else if (target.name === 'graphics' && event.type === 'change' && target.checked && isGraphicsPreset(target.value)) {
+      this.sfx('ui-click');
+      this.bus.emit('intent:set-graphics', { preset: target.value });
+      // The radios show the last fact: Game answers the intent with graphics:changed (synchronously),
+      // so this keeps the new choice; without an answer the old one comes back.
+      this.renderGraphics();
     }
   };
 
@@ -559,7 +623,32 @@ export class UiRoot {
     else this.bus.emit('intent:select-tool', { toolId: action.toolId });
   };
 
+  /** WAI-ARIA tabs (automatic activation): Left/Right move and wrap, Home/End jump to the ends. */
+  private readonly onMenuTabKeyDown = (event: KeyboardEvent): void => {
+    const tab = (event.target as HTMLElement).closest<HTMLElement>('[data-menu-tab]')?.dataset.menuTab as MenuTab | undefined;
+    if (!tab || event.altKey || event.ctrlKey || event.metaKey) return;
+    const i = MENU_TABS.indexOf(tab);
+    const n = MENU_TABS.length;
+    const next =
+      event.key === 'ArrowRight' ? MENU_TABS[(i + 1) % n]
+      : event.key === 'ArrowLeft' ? MENU_TABS[(i - 1 + n) % n]
+      : event.key === 'Home' ? MENU_TABS[0]
+      : event.key === 'End' ? MENU_TABS[n - 1]
+      : null;
+    if (!next) return;
+    event.preventDefault();
+    if (next !== this.menuTab) this.sfx('ui-click');
+    this.selectMenuTab(next);
+  };
+
   // ---------------------------------------------------------------- actions
+
+  /** Show `tab`'s panel and focus its tab button (the menu remembers it until the page reloads). */
+  private selectMenuTab(tab: MenuTab): void {
+    this.menuTab = tab;
+    this.renderMenuTab();
+    this.button(UI_TEST_IDS.menuTab(tab)).focus({ preventScroll: true });
+  }
 
   private setCategory(category: ToolCategory): void {
     if (category === this.category) return;
@@ -764,6 +853,12 @@ export class UiRoot {
 
   private openModal(view: ModalView): void {
     const wasOpen = this.modal !== null;
+    const from = this.modal;
+    // A sub-view opened from the menu gives focus back to the control that opened it (WP-25).
+    if (from === 'menu' && view !== 'menu') {
+      const active = document.activeElement;
+      this.menuReturnFocus = active instanceof HTMLElement && this.el(UI_TEST_IDS.menuPanel).contains(active) ? active : null;
+    } else if (!wasOpen) this.menuReturnFocus = null;
     this.modal = view;
     const modal = this.root.querySelector<HTMLElement>('.ui-modal')!;
     modal.hidden = false;
@@ -779,6 +874,15 @@ export class UiRoot {
       return;
     }
     const panel = modal.querySelector<HTMLElement>(`[data-view="${view}"]`)!;
+    if (view === 'menu') {
+      this.renderMenuTab();
+      const back = this.menuReturnFocus;
+      this.menuReturnFocus = null;
+      if (from && from !== 'menu' && back?.isConnected && back.checkVisibility({ visibilityProperty: true })) {
+        back.focus({ preventScroll: true });
+        return;
+      }
+    }
     panel.querySelector<HTMLElement>('button:not(:disabled):not([hidden])')?.focus({ preventScroll: true });
   }
 
@@ -977,6 +1081,25 @@ export class UiRoot {
     button.setAttribute('aria-description', `Switch to ${next}`);
     button.title = `Time: ${label} (T)`;
     for (const mode of TIME_MODES) this.el<HTMLInputElement>(UI_TEST_IDS.timeModeOption(mode)).checked = mode === this.timeMode;
+  }
+
+  /** Menu tabs (WP-25): one selected tab (roving tabindex) and its panel; the others are hidden. */
+  private renderMenuTab(): void {
+    for (const tab of MENU_TABS) {
+      const selected = tab === this.menuTab;
+      const button = this.button(UI_TEST_IDS.menuTab(tab));
+      button.setAttribute('aria-selected', String(selected));
+      button.tabIndex = selected ? 0 : -1;
+      this.el(UI_TEST_IDS.menuTabPanel(tab)).hidden = !selected;
+    }
+  }
+
+  /** Graphics tab (WP-25) from the last `graphics:changed` fact: the checked preset, its description, the reload notice. */
+  private renderGraphics(): void {
+    const { preset, reloadRequired } = this.graphics;
+    for (const p of GRAPHICS_PRESETS) this.el<HTMLInputElement>(UI_TEST_IDS.graphicsOption(p)).checked = p === preset;
+    this.el('ui-graphics-desc').textContent = GRAPHICS_UI[preset].description;
+    this.root.querySelector<HTMLElement>('.ui-graphics-reload')!.hidden = !reloadRequired;
   }
 
   private showHint(text: string): void {
