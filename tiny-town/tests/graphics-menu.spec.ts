@@ -75,6 +75,7 @@ async function expectLive(page: Page, preset: GraphicsPreset, booted: GraphicsPr
       antialias: b.antialias,
       material: b.material,
       maxDpr: p.maxDpr,
+      renderScale: p.renderScale,
       shadowMapSize: p.shadowMapSize,
       decorFraction: p.decorFraction,
       skyOctaves: p.skyOctaves,
@@ -85,8 +86,9 @@ async function expectLive(page: Page, preset: GraphicsPreset, booted: GraphicsPr
   const d = await diagnostics(page);
   expect(d.quality).toBe(preset);
   const dpr = await page.evaluate(() => window.devicePixelRatio);
-  expect(d.canvas.dpr, 'the canvas follows the DPR cap at once').toBe(Math.min(dpr, p.maxDpr));
-  expect(d.canvas.width).toBe(Math.floor(d.canvas.clientWidth * Math.min(dpr, p.maxDpr)));
+  const ratio = Math.min(dpr * p.renderScale, p.maxDpr);
+  expect(d.canvas.dpr, 'the canvas follows the render scale and DPR cap at once').toBe(ratio);
+  expect(d.canvas.width).toBe(Math.floor(d.canvas.clientWidth * ratio));
 }
 
 const savedGraphics = (page: Page) => page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? '{}').graphics as unknown, SETTINGS_KEY);

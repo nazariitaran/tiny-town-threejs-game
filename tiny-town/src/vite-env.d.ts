@@ -35,6 +35,8 @@ interface ThreeGameDiagnostics {
     antialias: boolean;
     material: 'standard' | 'lambert' | 'mixed' | 'none';
     maxDpr: number;
+    /** Share of the screen's pixel density rendered before the cap (Low 0.75; see graphics.ts effectivePixelRatio). */
+    renderScale: number;
     shadowMapSize: number;
     decorFraction: number;
     decorInstances: number;

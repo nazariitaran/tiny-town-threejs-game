@@ -7,6 +7,8 @@ import GUI from 'lil-gui';
 export interface DebugTuning {
   exposure: number;
   maxDpr: number;
+  /** WP-25: share of the screen's pixel density rendered before the maxDpr cap. */
+  renderScale: number;
   showStats: boolean;
 }
 
@@ -19,6 +21,7 @@ export class DebugTools {
     this.gui = new GUI({ title: 'Tiny Town tuning' });
     this.gui.add(tuning, 'exposure', 0.4, 2, 0.01).onChange(onChange);
     this.gui.add(tuning, 'maxDpr', 1, 2, 0.25).onChange(onChange);
+    this.gui.add(tuning, 'renderScale', 0.5, 1, 0.05).onChange(onChange);
   }
 
   /** A sub-folder for a workstream's own tunables, or null when debug is off. */

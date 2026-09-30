@@ -194,6 +194,7 @@ The table is `GRAPHICS_PROFILES` in `src/game/graphics.ts` (a contract file):
 | | Low | **Medium (default)** | High | Applies |
 | --- | --- | --- | --- | --- |
 | DPR cap (`maxDpr`) | 1 | 1.5 | 2 | live (resize) |
+| Render scale (`renderScale`) | 0.75 | 1 | 1 | live (resize) |
 | MSAA (`antialias`) | off | on | on | **reload** |
 | Lit material (`material`) | Lambert | Standard | Standard | **reload** |
 | Sun shadow map (`shadowMapSize`) | 1024 | 2048 | 2048 | live (`shadowVersion` bump) |
@@ -201,6 +202,7 @@ The table is `GRAPHICS_PROFILES` in `src/game/graphics.ts` (a contract file):
 | Sky cloud fbm octaves (`skyOctaves`) | 3 | 5 | 5 | live (one sky recompile) |
 | Frame cap active / idle | 30 / 30 | 60 / 30 | 60 / 30 | live |
 | Lamp halos at night (`lampHalos`) | off | on | on | live |
+- **Render scale (2026-09-30):** the canvas pixel ratio is `min(devicePixelRatio × renderScale, maxDpr)` (`graphics.ts` `effectivePixelRatio`, used by `resizeRenderer` and `canvas.dpr`). The DPR cap alone lowers nothing on a DPR-1 screen (a 1080p laptop or a 4K monitor at 100% scaling), so Low also renders at 0.75 of the screen's density there, and the browser upscales. Low on DPR 2 and on phones is still the cap (1); Medium and High are unchanged.
 
 Environment lighting (the RoomEnvironment PMREM) and shadows are on at every level, so the three presets share one set of colours.
 - **Boot preset** = the `?graphics=low|medium|high` URL override (tests and evidence; not saved; an invalid value is ignored), else the saved `GameSettings.graphics` (validated with `isGraphicsPreset`), else `DEFAULT_GRAPHICS` (`medium`). `Game.bootGraphics` fixes MSAA (`createRenderer(canvas, { antialias })`) and the material family (`new ModelLibrary(material)`).
@@ -280,7 +282,7 @@ The mobile triangle budget was raised from 250k to 320k with the 64 × 64 plot (
 | Triangles | ≤ 400k | ≤ 320k (250k until the 64 × 64 plot) | **WP-25 (dev server, stress town, 2026-09-30): Pixel 7 on Medium (the new phone default) 324.1k, over the 320k budget by ~4k (open owner decision, `docs/progress.md` "WP-25 as built"); Low 289.3k; desktop (1512 × 982 viewport) Medium / High 332.3k, Low 297.5k.** v0.4 (production preview, phones on the old cheaper tier): day 358.2k / 293.2k; night 354.3k / 289.2k. v0.3 (48 × 48): day 306.1k / 237.0k |
 | Textures | ≤ 30 | ≤ 30 | Stress town 14 / 13, sample town 27 / 26 (v0.4 production preview; includes the day/night glow masks) |
 | Shadow maps | 1 × 2048 | 1 × 2048 (1024 until WP-25) | per preset (`Environment.applyGraphics`): Low 1024, Medium / High 2048 |
-| DPR cap | Medium 1.5 (2 until WP-24) | Medium 1.5 | per preset (`GRAPHICS_PROFILES.maxDpr`): Low 1, Medium 1.5, High 2 |
+| DPR cap | Medium 1.5 (2 until WP-24) | Medium 1.5 | per preset (`GRAPHICS_PROFILES.maxDpr`): Low 1, Medium 1.5, High 2; canvas pixel ratio = `min(devicePixelRatio × renderScale, maxDpr)` (`effectivePixelRatio`), so Low renders at 0.75 on DPR-1 screens |
 | Frame time (M-series laptop, headless full Chromium) | ≤ 8 ms | — | 1.46 ms day / 1.51 ms night on the stress town (v0.4 production preview, uncapped); v0.3: 1.38 / 1.37 ms; v0.1: 1.36 ms |
 | Frame rate cap (WP-24) | 60 active / 30 idle | 60 / 30 | `FrameBudget` (§Frame budget); Low 30 / 30 |
 | Initial download (JS + CSS + font + models + SFX + icons + name list) | ≤ 8 MB | ≤ 8 MB | 4.78 MB over the network before the title (v0.4 production preview); `dist/` 4.99 MB without maps or music. The 4.68 MB music track is streamed after Start and isn't part of the initial download |

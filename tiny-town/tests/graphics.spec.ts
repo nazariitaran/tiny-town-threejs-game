@@ -32,6 +32,7 @@ test('Low: DPR 1, no MSAA, Lambert, 1024 shadows, 60% decor spread, 3 octaves, 3
     antialias: false,
     material: 'lambert',
     maxDpr: 1,
+    renderScale: 0.75,
     shadowMapSize: 1024,
     decorFraction: 0.6,
     skyOctaves: 3,
@@ -39,8 +40,12 @@ test('Low: DPR 1, no MSAA, Lambert, 1024 shadows, 60% decor spread, 3 octaves, 3
     idleFps: 30,
     lampHalos: false,
   });
-  expect(d.canvas.dpr).toBe(1);
-  expect(d.canvas.width).toBe(d.canvas.clientWidth);
+  // Low renders at min(devicePixelRatio × 0.75, 1): 0.75 on a DPR-1 screen (a 1080p laptop, the
+  // desktop project), the cap of 1 on the phone (DPR 2.625).
+  const screenDpr = await page.evaluate(() => window.devicePixelRatio);
+  const lowRatio = Math.min(screenDpr * 0.75, 1);
+  expect(d.canvas.dpr).toBe(lowRatio);
+  expect(d.canvas.width).toBe(Math.floor(d.canvas.clientWidth * lowRatio));
   // Decor: 60% of every decor mesh (rounded down per mesh), against the full ring on Medium.
   const share = d.graphics.decorInstances / medium.graphics.decorInstances;
   expect(share).toBeGreaterThan(0.58);

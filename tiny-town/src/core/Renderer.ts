@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { effectivePixelRatio } from '../game/graphics';
 
 /**
  * `antialias` (MSAA) is fixed for the context's lifetime: it comes from the boot graphics preset
@@ -21,15 +22,17 @@ export function createRenderer(canvas: HTMLCanvasElement, options: { antialias: 
   return renderer;
 }
 
+/** Size the drawing buffer to the canvas: pixel ratio = min(devicePixelRatio × renderScale, maxDpr) (WP-25). */
 export function resizeRenderer(
   renderer: THREE.WebGLRenderer,
   camera: THREE.PerspectiveCamera,
   maxDpr = 2,
+  renderScale = 1,
 ): boolean {
   const canvas = renderer.domElement;
   const width = Math.max(1, Math.floor(canvas.clientWidth));
   const height = Math.max(1, Math.floor(canvas.clientHeight));
-  const dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
+  const dpr = effectivePixelRatio(window.devicePixelRatio, { maxDpr, renderScale });
   const bufferWidth = Math.floor(width * dpr);
   const bufferHeight = Math.floor(height * dpr);
   const needsResize = canvas.width !== bufferWidth || canvas.height !== bufferHeight;

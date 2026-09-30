@@ -36,7 +36,7 @@ import { createDaySample, DayClock, sampleDay, T_AFTERNOON, T_NIGHT, TIME_MODES,
 import { Environment } from '../world/Environment';
 import { assetUrl, PLOT_DEPTH, PLOT_WIDTH } from './config';
 import { createGameBus, type GamePhase } from './events';
-import { GRAPHICS_PROFILES, isGraphicsPreset, needsReload, type GraphicsPreset, type GraphicsProfile } from './graphics';
+import { effectivePixelRatio, GRAPHICS_PROFILES, isGraphicsPreset, needsReload, type GraphicsPreset, type GraphicsProfile } from './graphics';
 import { materialFamily } from '../render/materials';
 
 /** Named states for __THREE_GAME_TEST_HOOKS__.setState (canvas inspector, visual tests, bots). */
@@ -82,7 +82,7 @@ export class Game {
    */
   private readonly bootGraphics: GraphicsPreset = graphicsOverride() ?? this.saves.getSettings().graphics;
   private graphics: GraphicsPreset = this.bootGraphics;
-  private readonly tuning: DebugTuning = { exposure: 1.0, maxDpr: GRAPHICS_PROFILES[this.bootGraphics].maxDpr, showStats: false };
+  private readonly tuning: DebugTuning = { exposure: 1.0, maxDpr: GRAPHICS_PROFILES[this.bootGraphics].maxDpr, renderScale: GRAPHICS_PROFILES[this.bootGraphics].renderScale, showStats: false };
   /** What the page really runs with (diagnostics): the context's MSAA and the lit material family in the scene. */
   private antialias = false;
   private materialInUse: 'standard' | 'lambert' | 'mixed' | 'none' = 'none';
@@ -145,7 +145,7 @@ export class Game {
     // Workstreams add their own tunables with debug.folder('<Name>') (only when ?debug is set).
     this.debug = new DebugTools(this.tuning, () => {
       this.renderer.toneMappingExposure = this.tuning.exposure;
-      resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr);
+      resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr, this.tuning.renderScale);
     });
 
     this.editor = new TownEditor(this.town, this.bus, rand);
@@ -214,7 +214,7 @@ export class Game {
 
     if (!this.gridPreferred) this.bus.emit('intent:toggle-grid', { visible: false }); // sync the UI switch
     this.announceDaytime(); // sync the UI time button with the stored mode
-    resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr);
+    resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr, this.tuning.renderScale);
     this.installTestHooks();
     this.ready = this.load();
   }
@@ -298,7 +298,7 @@ export class Game {
   private update(delta: number, elapsed: number): void {
     this.frame += 1;
     this.frameDelta = delta;
-    resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr);
+    resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr, this.tuning.renderScale);
     if (!this.pausedForScreenshot) {
       const animDelta = this.reducedMotion ? 0 : delta;
       const animElapsed = this.reducedMotion ? 0 : elapsed;
@@ -365,7 +365,8 @@ export class Game {
    */
   applyGraphics(profile: Readonly<GraphicsProfile>): void {
     this.tuning.maxDpr = profile.maxDpr;
-    resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr);
+    this.tuning.renderScale = profile.renderScale;
+    resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr, this.tuning.renderScale);
     this.environment.applyGraphics(profile);
     this.frameBudget.tuning.activeFps = profile.activeFps;
     this.frameBudget.tuning.idleFps = profile.idleFps;
@@ -658,6 +659,7 @@ export class Game {
         antialias: this.antialias,
         material: this.materialInUse,
         maxDpr: this.tuning.maxDpr,
+        renderScale: this.tuning.renderScale,
         ...this.environment.graphicsState,
         activeFps: this.frameBudget.tuning.activeFps,
         idleFps: this.frameBudget.tuning.idleFps,
@@ -690,7 +692,7 @@ export class Game {
         clientHeight: this.canvas.clientHeight,
         width: this.canvas.width,
         height: this.canvas.height,
-        dpr: Math.min(window.devicePixelRatio || 1, this.tuning.maxDpr),
+        dpr: effectivePixelRatio(window.devicePixelRatio, this.tuning),
       },
     };
   }
