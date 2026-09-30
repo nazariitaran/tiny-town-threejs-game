@@ -41,7 +41,7 @@ import type { ModelLibrary } from './ModelLibrary';
 import { windStrength, windTime } from '../fx/windSway';
 import { Fireflies, FIREFLIES_FROM } from './fireflies';
 import { GLOW_CELLS, smoothstep } from './nightGlow';
-import { MODEL_STYLES } from './TownRenderer';
+import { MODEL_STYLES } from './modelStyles';
 
 export interface NightLightsDiagnostics {
   /** Lampposts currently tracked. */

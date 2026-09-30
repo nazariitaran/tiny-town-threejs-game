@@ -18,20 +18,3 @@ export type SfxEvent =
   | 'invalid'
   | 'undo'
   | 'redo';
-
-export const SFX_EVENTS: readonly SfxEvent[] = [
-  'ui-hover',
-  'ui-click',
-  'ui-open',
-  'ui-close',
-  'place-path',
-  'place-nature',
-  'place-building',
-  'place-prop',
-  'place-prop-metal',
-  'rotate',
-  'remove',
-  'invalid',
-  'undo',
-  'redo',
-];

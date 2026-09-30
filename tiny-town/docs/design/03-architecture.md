@@ -1,6 +1,6 @@
 # Tiny Town — Architecture & Contracts
 
-> **Status: current for v0.3 on `main` (WP-15 catalog + WP-16 day/night), 2026-09-27; v0.3 is not yet released. Updated 2026-09-30 for WP-24 (frame budget) and WP-25 (graphics presets, tabbed menu) on the branch `wp-24-frame-budget` (not merged).** This is the source of truth for the grid, rules, save format, module map, diagnostics and budgets. If this file and the code disagree, the code wins; fix this file.
+> **Status: current for v0.5 on `main` (package 0.5.0, tag `v0.5`, 2026-09-30): WP-15 to WP-25 are all merged, including WP-24 (frame budget) and WP-25 (graphics presets, tabbed menu).** This is the source of truth for the grid, rules, save format, module map, diagnostics and budgets. If this file and the code disagree, the code wins; fix this file.
 
 ## Stack
 TypeScript (strict) · Vite 8 · three.js r184 (`three/addons/*` for MapControls, GLTFLoader) · Web Audio (SFX buffers; music streamed via `HTMLAudioElement`) · lil-gui (`?debug`) · Vitest (pure logic) · Playwright (browser, `channel: 'chromium'`, 1 worker). No physics engine: the game is grid-based and has no simulation that needs one. The build puts three.js in its own vendor chunk (`vite.config.ts`, WP-20), so the game's own chunk stays far below the 900 kB warning limit.
@@ -32,6 +32,8 @@ src/
   town/sampleTown.ts          demo towns: sample, asset gallery, stress   WP-02
   town/townName.ts            town name rules, suggestion pick, slug      WP-20
                               (pure, tested)
+  town/roadTiles.ts           road auto-tiling on the block grid, road-   WP-03
+                              feature helpers (arms, centre) (pure)
   persistence/SaveStore.ts    localStorage autosave + settings            WP-02
   persistence/townFile.ts     town file encode/decode, file name (pure)   WP-21
   core/Loop.ts, Renderer.ts   rAF loop + frame pacing; WebGLRenderer setup/resize   integrator / WP-04 (Renderer.ts)
@@ -39,11 +41,10 @@ src/
   render/ModelLibrary.ts      GLB load + normalise                        WP-03
   render/materials.ts         WP-25: Standard → Lambert conversion        WP-25a
                               (toLambert), the lit material family
-  render/TownRenderer.ts      incremental instanced drawing + pop-in,     WP-03
-                              MODEL_STYLES look overrides
+  render/TownRenderer.ts      incremental instanced drawing + pop-in      WP-03
+  render/modelStyles.ts       MODEL_STYLES look overrides (tint, warm     WP-03
+                              atlas, non-uniform scale)
   render/InstancePool.ts, tween.ts   instance pools; pop-in easing        WP-03
-  render/roadTiles.ts         road auto-tiling on the block grid, road-   WP-03
-                              feature helpers (arms, centre) (pure)
   render/nightGlow.ts         glow masks + GlowRegistry, window stagger    WP-16b
                               shader patch (v0.3)
   render/NightLights.ts, lampRegistry.ts, fireflies.ts               WP-16b
@@ -72,7 +73,8 @@ src/
   photo/**                    town photo: capture, Polaroid frame,        WP-19
                               download/share; photoLayout.ts is pure
   debug/DebugTools.ts         lil-gui (?debug)                            shared: add folders only
-  utils/                      seeded random, dispose helpers              shared
+  utils/                      seeded random, file download                shared
+  testing/gltfNode.ts         Vitest only: load public/ GLBs in Node      shared
 tests/                        Playwright specs + helpers.ts               WP-09, except interaction (05), ui (06),
                                                                           audio (07), fx (08), life (10) specs
 scripts/                      inspect-threejs-canvas, inspect-models,     integrator / WP-03 (render-icons,
@@ -102,14 +104,14 @@ There is no `StatsHud`: the stats pill was removed in v0.2 (WP-14).
 Rules of the road:
 1. **Only `TownEditor` mutates town state.** Every change list keeps its primary change last (build events derive from it). Everything else reads via `TownStateReader` or listens to `town:changed`.
 2. **UI emits intents and renders facts**; it never calls game objects directly.
-3. **Pure logic stays pure**: `src/town/**`, `src/render/roadTiles.ts`, `src/catalog/**` import no three.js and no DOM, so they are unit-testable in Node.
+3. **Pure logic stays pure**: `src/town/**` (including `town/roadTiles.ts`) and `src/catalog/**` import no three.js and no DOM, so they are unit-testable in Node.
 4. **All randomness goes through the seeded RNG** passed into constructors (`Game.rng`). Never `Math.random()` (it breaks screenshots and bot runs).
 5. **One cell↔world mapping**: `game/config.ts`. Nobody re-derives it. Likewise every runtime asset URL goes through `assetUrl()`.
 6. **Keyboard ownership**: digits 1–9 (the first nine tools of the active category; a category may hold up to 12, WP-23), Shift+1–5 (category), `?` (controls help) and `P` (take a photo, WP-19) belong to the UI (`ui/uiKeys.ts`, `UiRoot`); everything else (R, B, Esc, F/Home, WASD/arrows, Q/E, +/−, undo/redo) belongs to `ToolController`/`CameraController`.
 7. **Two RNG streams**: gameplay (`Game.rng`: variants) and cosmetic (`Game.fxRng`: audio/fx jitter, ambient cars), so a sound never changes the next house variant. A third, `nameRng`, draws only town-name suggestions (WP-20, §Save format).
 
 ## Frame update order (Game.update)
-`resizeRenderer` → `ToolController.update` → `CameraController.update` → `TownRenderer.update(animDelta)` → `LifeSystem.update(animDelta)` → `BirdSystem.update(animDelta)` (WP-22) → `DayClock.advance(animDelta)` (building phase only) → `Game.applyDaylight()` (`Environment.applyDaylight`, `NightLights.update`, `LifeSystem.setNight`, `daytime:changed` on a mode/phase change) → `Environment.update(animDelta, animElapsed)` → `PlacementFx.update(animDelta)` → frame-budget activity (camera glide, tweens) → diagnostics → render (the shadow scheduler decides whether the sun's map is redrawn, §Frame budget). With `setReducedMotion(true)`, `animDelta`/`animElapsed` are 0. With `setPausedForScreenshot(true)`, nothing updates but rendering continues.
+`resizeRenderer` → `ToolController.update` → `CameraController.update` → `TownRenderer.update(animDelta)` → `LifeSystem.update(animDelta)` → `BirdSystem.update(animDelta)` (WP-22) → `DayClock.advance(animDelta)` (building phase only) → `Game.applyDaylight()` (`Environment.applyDaylight`, `NightLights.update`, `LifeSystem.setNight`, `daytime:changed` on a mode/phase change) → `Environment.update(animDelta, animElapsed)` → `PlacementFx.update(animDelta)` → frame-budget activity (camera glide, tweens) → render (the shadow scheduler decides whether the sun's map is redrawn, §Frame budget). With `setReducedMotion(true)`, `animDelta`/`animElapsed` are 0. With `setPausedForScreenshot(true)`, nothing updates but rendering continues.
 
 ## Grid
 - Plot `64 × 64` cells (`PLOT_WIDTH/DEPTH`), `CELL_SIZE = 0.5` world units per cell, centred on the origin, so the plot is 32 × 32 world units (2026-09-28; WP-12 had 48 × 48 cells = 24 × 24 units, v0.1 24 × 24 one-unit cells). World-space tunables were scaled with it: grid fade 30 → 75, title orbit 44, decor belt 60–120, night fog 13 / 225, framing side insets −42 desktop / −412 phone (same zoom as on 48 × 48, so the plot's side corners start just off-screen). Toy scale: 1 world unit ≈ 8 m, a cell ≈ 4 m. Cell `{x, z}` centre = `cellToWorld`; a footprint's centre = `footprintCentreWorld`; `worldToGridPoint` gives fractional grid coordinates.
@@ -181,7 +183,7 @@ Music position (WP-18) `{ track, time }` under `tiny-town:music:v1` (`MUSIC_POSI
 ## Frame budget (WP-24)
 The world never stops animating (cars, birds, wind, clouds), so every frame is a full frame. Before WP-24 the game rendered one on every display refresh (120 per second on a ProMotion Mac) at DPR 2 with 4× MSAA and a full shadow pass, which kept an M2 Max GPU ~70% busy in a big town (measurements: WP-24 in `docs/progress.md`).
 - **Frame pacing** (`core/Loop.ts` `paceFrame`, `core/FrameBudget.ts`): the loop renders at most `activeFps` (60) while the player interacts and `idleFps` (30) after `idleAfterS` (4 s) without activity. Activity = pointer, wheel, touch or key input on the window, a moving camera (glide/damping; not the title screen's auto-orbit), town pop-in tweens and a developing photo. Skipped rAF ticks run neither update nor render; `delta` is the time since the last rendered tick. Pacing follows a fixed grid, so a 144 Hz display still averages 60. A hidden tab stops rAF altogether (browser).
-- **Shadow map on demand** (`render/ShadowScheduler.ts`): `renderer.shadowMap.autoUpdate = false`. The map is redrawn on the next frame after `town:changed`, after `Environment.shadowVersion` changes (key light re-aimed or refitted, map resized), and on every frame while TownRenderer tweens run. Moving casters that aren't the town refresh at their own rate: cars `carHz` 30 (15 until 2026-09-30: the car shadow visibly lagged), a flock `birdHz` 30. A still town with no cars or birds draws no shadow pass at all. Test hooks, frames paused for a screenshot and photos always redraw the map first, so captures are exact.
+- **Shadow map on demand** (`render/ShadowScheduler.ts`): `renderer.shadowMap.autoUpdate = false`. The map is redrawn on the next frame after `town:changed`, after `Environment.shadowVersion` changes (key light re-aimed or refitted, map resized), and on every frame while TownRenderer tweens run. Moving casters that aren't the town refresh at their own rate: cars `carHz` 30 (15 until 2026-09-30: the car shadow visibly lagged), a flock `birdHz` 30; the faster of the two while both move. A still town with no cars or birds draws no shadow pass at all. Test hooks, frames paused for a screenshot and photos always redraw the map first, so captures are exact.
 - **DPR**: the cap comes from the graphics preset (§Graphics presets): Low 1, Medium 1.5 (the default; WP-24 lowered desktop from 2 to 1.5), High 2.
 - **Caps per preset**: Low 30 / 30, Medium and High 60 / 30 (`GraphicsProfile.activeFps` / `idleFps`, applied to `FrameBudget.tuning`).
 - `?debug` → lil-gui `Performance`: active/idle fps (0 = the display's rate), idle delay, car/bird shadow Hz. A preset change overwrites the sliders. Diagnostics: `perf`.
@@ -299,7 +301,7 @@ The mobile triangle budget was raised from 250k to 320k with the 64 × 64 plot (
 
 The `sample-town` state uses every placing tool (40, WP-23) with zero rejections: stats homes 8, residents 25, amenities 7, trees 5, roadTiles 40, props 23, fences 28 (the zebra crossing is on the main street). `asset-gallery` places all 32 object kinds (the zebra on the north–south straight of mask 5; the WP-23 pieces on a third row) at rotation 0, every edge kind, the ground swatches and the 16 road masks. `stress-town` puts a mailbox and trees where its 50 garages stood.
 
-`window.__THREE_GAME_DIAGNOSTICS__` is typed in `src/vite-env.d.ts` and rebuilt every frame by `Game.publishDiagnostics`. Its fields:
+`window.__THREE_GAME_DIAGNOSTICS__` is typed in `src/vite-env.d.ts`. It is a getter (`Game.installDiagnostics`): every read builds a fresh snapshot of the current state (`Game.diagnostics()`), so rendered frames never pay for it. Its fields:
 
 | Field | Contents |
 | --- | --- |
@@ -329,6 +331,6 @@ There are no other diagnostics globals; the `__THREE_GAME_FX_DIAGNOSTICS__` / `_
 
 Playwright projects are `desktop-chrome` (1280×720) and `mobile-chrome` (Pixel 7 emulation, touch). Both run full Chromium (`channel: 'chromium'`) with 1 worker. The canvas inspector's `--mobile` mode is a 390 × 844 touch viewport.
 
-Stable DOM ids for tests are `UI_TEST_IDS` in `src/ui/testIds.ts`, which has no side effects and is re-exported by `UiRoot.ts`. Examples: `btn-start`, `tool-<id>`, `cat-<category>`, `btn-undo`, `btn-redo`, `btn-mute`, `btn-rotate`, `tool-bulldoze`, the menu ids, `chk-music` / `range-music`, the photo ids (`btn-photo`, `ui-photo`, `ui-photo-img`, `btn-photo-download`, `btn-photo-close`), the town name ids (WP-20: `btn-town-name` (the top-left pill), `btn-rename-town`, `ui-town-name` (the dialog, `data-mode` new / rename), `input-town-name`, `btn-town-name-shuffle`, `btn-town-name-cancel`, `btn-town-name-ok`), and the town file ids (WP-21: `btn-town-file` (top bar, > 440 px), `btn-town-file-menu` (menu, ≤ 440 px), `btn-title-open-file`, `ui-town-file`, `btn-town-file-download`, `btn-town-file-open`, `btn-town-file-close`, `input-town-file`, `ui-town-file-confirm`, `btn-town-file-cancel`, `btn-town-file-replace`, `btn-town-file-keep`), and the menu tab and graphics ids (WP-25: `MENU_TABS` = town / graphics / sound / help, `tab-menu-<tab>`, `panel-menu-<tab>`, `ui-graphics` (the Quality radio group), `radio-graphics-<preset>`, `btn-graphics-reload`). A tool button exists only while its category is active; a menu control is visible only while its tab is selected (`tests/helpers.ts` `openMenuTab`).
+Stable DOM ids for tests are `UI_TEST_IDS` in `src/ui/testIds.ts`, which has no side effects; tests import it from there. Examples: `btn-start`, `tool-<id>`, `cat-<category>`, `btn-undo`, `btn-redo`, `btn-mute`, `btn-rotate`, `tool-bulldoze`, the menu ids, `chk-music` / `range-music`, the photo ids (`btn-photo`, `ui-photo`, `ui-photo-img`, `btn-photo-download`, `btn-photo-close`), the town name ids (WP-20: `btn-town-name` (the top-left pill), `btn-rename-town`, `ui-town-name` (the dialog, `data-mode` new / rename), `input-town-name`, `btn-town-name-shuffle`, `btn-town-name-cancel`, `btn-town-name-ok`), and the town file ids (WP-21: `btn-town-file` (top bar, > 440 px), `btn-town-file-menu` (menu, ≤ 440 px), `btn-title-open-file`, `ui-town-file`, `btn-town-file-download`, `btn-town-file-open`, `btn-town-file-close`, `input-town-file`, `ui-town-file-confirm`, `btn-town-file-cancel`, `btn-town-file-replace`, `btn-town-file-keep`), and the menu tab and graphics ids (WP-25: `MENU_TABS` = town / graphics / sound / help, `tab-menu-<tab>`, `panel-menu-<tab>`, `ui-graphics` (the Quality radio group), `radio-graphics-<preset>`, `btn-graphics-reload`). A tool button exists only while its category is active; a menu control is visible only while its tab is selected (`tests/helpers.ts` `openMenuTab`).
 
 Visual baselines live in `tests/visual-regression.spec.ts-snapshots/`: 8 PNGs covering title, sample-town, asset-gallery and night-town × desktop and mobile (the mobile four re-captured for WP-25, when phones moved to Medium). They are **darwin only**, and a missing baseline fails.

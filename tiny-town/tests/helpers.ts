@@ -13,9 +13,9 @@ import { expect, type Page, type TestInfo } from '@playwright/test';
 import type { ToolCategory, ToolId } from '../src/catalog/tools';
 import { toolDef } from '../src/catalog/tools';
 import { objectDef } from '../src/catalog/objects';
-import { footprintCells, rotatedFootprint } from '../src/town/grid';
+import { rotatedFootprint } from '../src/town/grid';
 import type { Cell, ObjectKind, Rotation } from '../src/town/types';
-import { UI_TEST_IDS } from '../src/ui/UiRoot';
+import { UI_TEST_IDS } from '../src/ui/testIds';
 import type { MenuTab } from '../src/ui/testIds';
 
 export { UI_TEST_IDS };
@@ -166,10 +166,6 @@ export async function clickFootprint(page: Page, kind: ObjectKind, anchor: Cell,
   await page.mouse.down();
   await page.mouse.up();
 }
-
-/** Every cell `kind` covers when anchored at `anchor` (grid.footprintCells). */
-export const footprintOf = (kind: ObjectKind, anchor: Cell, rotation: Rotation = 0): Cell[] =>
-  footprintCells(anchor, objectDef(kind).footprint, rotation);
 
 export async function clickCell(page: Page, x: number, z: number): Promise<void> {
   const p = await canvasPoint(page, x, z);

@@ -22,7 +22,7 @@
 import { cellKey, edgeCells, edgeInBounds, edgeKey, edgeOfCellSide, footprintCells, NEIGHBOURS, ROAD_BLOCK, roadBlockCells } from './grid';
 import { ZEBRA_PIECE_MODELS } from '../catalog/models';
 import { objectDef, type ObjectDef } from '../catalog/objects';
-import { roadMask, roadTileFor } from '../render/roadTiles';
+import { roadMask, roadTileFor } from './roadTiles';
 import type { BuildAction, Cell, GroundKind, InvalidReason, PlanResult, TownChange, TownStateReader } from './types';
 
 export interface PlanContext {

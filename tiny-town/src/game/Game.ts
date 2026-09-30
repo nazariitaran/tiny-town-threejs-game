@@ -216,6 +216,7 @@ export class Game {
     this.announceDaytime(); // sync the UI time button with the stored mode
     resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr, this.tuning.renderScale);
     this.installTestHooks();
+    this.installDiagnostics();
     this.ready = this.load();
   }
 
@@ -243,7 +244,7 @@ export class Game {
     this.debug.dispose();
     this.bus.clear();
     this.renderer.dispose();
-    window.__THREE_GAME_DIAGNOSTICS__ = undefined;
+    delete window.__THREE_GAME_DIAGNOSTICS__;
     window.__THREE_GAME_TEST_HOOKS__ = undefined;
   }
 
@@ -316,7 +317,6 @@ export class Game {
       this.fx.update(animDelta);
     }
     this.trackActivity();
-    this.publishDiagnostics();
   }
 
   /** Frame loop render: the shadow map is redrawn only when the scheduler says so (WP-24). */
@@ -588,7 +588,6 @@ export class Game {
         await this.applyTestState(name as TestState);
         this.renderNow();
         this.measureMaterials();
-        this.publishDiagnostics();
         return { state: name };
       },
       setPausedForScreenshot: (paused: boolean) => {
@@ -605,20 +604,17 @@ export class Game {
           this.birds.settle();
         }
         this.renderNow();
-        this.publishDiagnostics();
       },
       hideDebugUi: (hidden: boolean) => this.debug.setHidden(hidden),
       cellToClient: (x: number, z: number) => this.picker.cellToClient({ x, z }),
       setCameraPose: (pose) => {
         this.cameraController.setPose(pose);
         this.renderNow();
-        this.publishDiagnostics();
       },
       spawnFlock: (species?: string) => {
         if (species !== undefined && !isBirdSpecies(species)) throw new Error(`spawnFlock: unknown species: ${species}`);
         const birds = this.birds.spawnFlock(species);
         this.renderNow();
-        this.publishDiagnostics();
         return birds;
       },
       setTimeOfDay: (t: number | null) => {
@@ -626,14 +622,25 @@ export class Game {
         this.clock.pin(t);
         this.applyDaylight();
         this.renderNow();
-        this.publishDiagnostics();
       },
     };
   }
 
-  private publishDiagnostics(): void {
+  /**
+   * `window.__THREE_GAME_DIAGNOSTICS__` is a getter: each read (tests, the canvas inspector) builds
+   * a fresh snapshot of the current state, so rendered frames never allocate for it.
+   */
+  private installDiagnostics(): void {
+    Object.defineProperty(window, '__THREE_GAME_DIAGNOSTICS__', {
+      configurable: true,
+      enumerable: true,
+      get: () => this.diagnostics(),
+    });
+  }
+
+  private diagnostics(): ThreeGameDiagnostics {
     const info = this.renderer.info;
-    window.__THREE_GAME_DIAGNOSTICS__ = {
+    return {
       frame: this.frame,
       phase: this.phase,
       tool: this.tools.activeTool,

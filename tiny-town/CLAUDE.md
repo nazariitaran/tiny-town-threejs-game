@@ -27,7 +27,7 @@ A cosy browser city-builder sandbox (three.js + TypeScript + Vite). Start here. 
 - **WP-24 "Frame budget"** and **WP-25 "Graphics settings + tabbed menu"**, merged on `main` together (owner-approved 2026-09-30; part of v0.5).
   - WP-24: the loop is capped at 60 fps while the player interacts and 30 fps when idle (`core/FrameBudget.ts`, `core/Loop.ts` `paceFrame`); the sun's shadow map is redrawn on demand (`render/ShadowScheduler.ts`: town changes, sun refits, tweens; cars and birds 30 Hz); the `town:stats` event is gone. Diagnostics `perf`.
   - WP-25: Menu → Graphics Low / Medium / High (`game/graphics.ts`, saved in the settings, Medium default on every device; `?graphics=` override). MSAA and the material (Lambert on Low) need a reload; the rest applies live. Low also renders at 0.75 of the screen's density on DPR-1 screens (`renderScale`). The menu is tabbed: Town · Graphics · Sound · Help (`openMenuTab` in `tests/helpers.ts`). Diagnostics `graphics`.
-  - Current facts: `03-architecture.md` §Frame budget and §Graphics presets; plan: `docs/plans/wp-25-graphics-and-menu-tabs.md`. **Open owner decision:** mobile triangles on Medium (324k vs the 320k budget), options in `docs/progress.md`.
+  - Current facts: `03-architecture.md` §Frame budget and §Graphics presets; plan: `docs/plans/wp-25-graphics-and-menu-tabs.md`. **Open owner decision:** mobile triangles on Medium (324.1k on the WP-25 dev server, 328.3k on the v0.5 production preview, vs the 320k budget), options in `docs/progress.md`.
 - Status, decisions, open issues and the backlog are in `docs/progress.md`, the integrator's recovery point. Read it before planning anything.
 - Current facts (grid, rules, save format, modules, diagnostics, budgets) are in `docs/design/03-architecture.md`.
 - Some docs are historical snapshots, and each says so in a banner at the top:
@@ -76,7 +76,7 @@ node scripts/compose-models.mjs              # rebuild public/assets/models/comp
 ## Hard rules
 - **Stay inside your WP's owned files.** Contract files (marked `CONTRACT FILE` at the top: `game/events.ts`, `game/config.ts`, `catalog/*.ts`, `town/types.ts`, `town/grid.ts`, `audio/sfx.ts`, `vite-env.d.ts`), plus `src/game/Game.ts`, `src/main.ts`, `index.html` and the generated `audio/sfxTable.ts`, belong to the integrator. If you need a contract change, write it under "Contract change requests" in your hand-off; don't edit these files. The integrator may delegate named contract files to one WP for one change, as it did for WP-12; the WP section must say so.
 - Only `TownEditor` mutates town state. UI emits `intent:*` events and renders facts.
-- No three.js or DOM in runtime code under `src/town/**`, `src/catalog/**` or `src/render/roadTiles.ts`. Tests may use three; for example, `src/catalog/catalog.test.ts` loads GLBs in Node.
+- No three.js or DOM in runtime code under `src/town/**` (including the road autotile, `town/roadTiles.ts`) or `src/catalog/**`. Tests may use three; for example, `src/catalog/catalog.test.ts` loads GLBs in Node.
 - No `Math.random()`. Use the seeded `rng` you're given.
 - Keep `__THREE_GAME_TEST_HOOKS__` real; don't stub them to make a test pass. Installing the hooks must have no side effects (see `docs/release.md`).
 - **Assets.** Allowed sources:

@@ -580,7 +580,7 @@ function smoothstep(edge0: number, edge1: number, x: number): number {
 }
 
 /** Symmetric cubic ease-in-out on [0, 1]. */
-export function easeInOut(p: number): number {
+function easeInOut(p: number): number {
   return p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
 }
 
@@ -620,11 +620,11 @@ function blendRgb(a: Readonly<Rgb>, b: Readonly<Rgb>, w: number, out: Rgb): void
 }
 
 /** sRGB transfer functions (the same maths as THREE.ColorManagement). */
-export function srgbToLinear(c: number): number {
+function srgbToLinear(c: number): number {
   return c < 0.04045 ? c * 0.0773993808 : Math.pow(c * 0.9478672986 + 0.0521327014, 2.4);
 }
 
-export function linearToSrgb(c: number): number {
+function linearToSrgb(c: number): number {
   return c < 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
 }
 

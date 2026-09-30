@@ -59,4 +59,3 @@ export const GLYPHS = {
   garden: svg('<path d="M5 21V7.5L6.5 5 8 7.5V21"/><path d="M10.5 21V7.5L12 5l1.5 2.5V21"/><path d="M16 21V7.5L17.5 5 19 7.5V21"/><path d="M3 11h18"/><path d="M3 16.5h18"/>'),
 } as const;
 
-export type GlyphId = keyof typeof GLYPHS;

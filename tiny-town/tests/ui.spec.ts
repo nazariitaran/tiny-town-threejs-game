@@ -5,23 +5,14 @@
 import { mkdirSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { TOOL_CATEGORIES, toolsInCategory } from '../src/catalog/tools';
-import { UI_TEST_IDS } from '../src/ui/UiRoot';
-import { clickFootprint, clickStart, openMenuTab } from './helpers';
+import { UI_TEST_IDS } from '../src/ui/testIds';
+import { clickFootprint, clickStart, openMenuTab, trackErrors } from './helpers';
 
 // UI_RUN_ID picks the evidence folder, e.g. UI_RUN_ID=wp06-fix1 → artifacts/wp06-fix1.
 const OUT = `artifacts/${process.env.UI_RUN_ID ?? 'wp-06'}`;
 const id = (x: string) => `#${x}`;
 
 const diag = (page: Page) => page.evaluate(() => window.__THREE_GAME_DIAGNOSTICS__!);
-
-function trackErrors(page: Page): string[] {
-  const errors: string[] = [];
-  page.on('console', (m) => {
-    if (m.type() === 'error') errors.push(m.text());
-  });
-  page.on('pageerror', (e) => errors.push(e.message));
-  return errors;
-}
 
 async function boot(page: Page): Promise<void> {
   await page.goto('/');
@@ -78,7 +69,7 @@ test('every category shows its tools and selecting one sets diagnostics.tool', a
   await expect.poll(async () => (await diag(page)).tool).toBe('bulldoze');
   await page.locator(id(UI_TEST_IDS.bulldoze)).click();
   await expect.poll(async () => (await diag(page)).tool).toBeNull();
-  expect(errors).toEqual([]);
+  errors.expectNone();
 });
 
 test('the five category tabs render their tools in catalog order, each with a loaded tool icon', async ({ page }) => {
@@ -109,7 +100,7 @@ test('the five category tabs render their tools in catalog order, each with a lo
     counts[category.id] = expected.length;
   }
   expect(counts).toEqual({ streets: 9, homes: 6, town: 6, nature: 7, garden: 12 });
-  expect(errors).toEqual([]);
+  errors.expectNone();
 });
 
 test('digit shortcuts: 1–9 pick a tool in the active category, Shift+1–5 switch category', async ({ page }, info) => {
@@ -174,7 +165,7 @@ test('undo/redo disabled states follow history', async ({ page }) => {
   await expect.poll(async () => (await diag(page)).town.roadTiles).toBeGreaterThan(0);
   await expect(undo).toBeEnabled();
   await expect(redo).toBeDisabled();
-  expect(errors).toEqual([]);
+  errors.expectNone();
 });
 
 test('refusal tooltip shows on an invalid click and is gone after the next successful placement', async ({ page }) => {
@@ -204,7 +195,7 @@ test('refusal tooltip shows on an invalid click and is gone after the next succe
   await expect(tip).toBeVisible();
   await page.locator(id(UI_TEST_IDS.tool('bungalow'))).click();
   await expect(tip).toBeHidden();
-  expect(errors).toEqual([]);
+  errors.expectNone();
 });
 
 test('refusal tooltip never overlaps the dock, top bar or hint (refusal right above the dock)', async ({ page }, info) => {
@@ -242,7 +233,7 @@ test('refusal tooltip never overlaps the dock, top bar or hint (refusal right ab
   expect(hits(rects.tip, rects.topbar), 'tooltip × top bar').toBe(false);
   expect(hits(rects.tip, rects.hint), 'tooltip × hint').toBe(false);
   await page.screenshot({ path: `${OUT}/tooltip-${info.project.name}.png` });
-  expect(errors).toEqual([]);
+  errors.expectNone();
 });
 
 test('mute toggle flips diagnostics audio.muted', async ({ page }) => {
@@ -303,7 +294,7 @@ test('menu opens and closes; New town asks for confirmation', async ({ page }, i
   await page.locator(id(UI_TEST_IDS.nameSubmit)).click();
   await expect.poll(async () => (await diag(page)).town.homes).toBe(0);
   await expect.poll(async () => (await diag(page)).phase).toBe('building');
-  expect(errors).toEqual([]);
+  errors.expectNone();
 });
 
 test('keyboard only: Tab reaches every dock button with a visible focus ring', async ({ page }, info) => {
@@ -427,7 +418,7 @@ test('stress-town screenshots: no overlap or clipping at 4 sizes (Buildings tray
     await info.attach(`stress-town-${width}x${height}`, { path: file, contentType: 'image/png' });
     console.log(`${width}x${height}: dock ${report.dockHeight}px, top bar bottom ${report.topbarBottom}px, problems ${JSON.stringify(report.problems)}`);
     expect(report.problems, `${width}x${height}`).toEqual([]);
-    expect(errors).toEqual([]);
+    errors.expectNone();
 
     // Extra evidence for the other states at this size.
     await page.locator(id(UI_TEST_IDS.menu)).click();
@@ -477,5 +468,5 @@ test('menu music rows: ≥ 44 px targets inside the panel, keyboard reachable, s
   }
   mkdirSync(OUT, { recursive: true });
   await panel.screenshot({ path: `${OUT}/menu-music-${info.project.name}.png` });
-  expect(errors).toEqual([]);
+  errors.expectNone();
 });
