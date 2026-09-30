@@ -43,19 +43,19 @@ test('the new items place from the dock, and the garage is gone', async ({ page 
   errors.expectNone();
 });
 
-test('digit badges stop at 9: the Garden tray has 12 tools and the last three have none', async ({ page }) => {
+test('digit badges stop at 9: the Garden tray has 11 tools and the last two have none', async ({ page }) => {
   const errors = trackErrors(page);
   await gotoTitle(page);
   await startBuilding(page);
   await byId(page, UI_TEST_IDS.category('garden')).click();
   const garden = toolsInCategory('garden');
-  expect(garden).toHaveLength(12);
+  expect(garden).toHaveLength(11); // 12 until the garden path was retired (2026-09-30)
   for (const [i, tool] of garden.entries()) {
     const badge = byId(page, UI_TEST_IDS.tool(tool.id)).locator('kbd');
     if (i < 9) await expect(badge, tool.id).toHaveText(String(i + 1));
     else await expect(badge, tool.id).toHaveCount(0);
   }
-  // Digit 9 still selects the ninth Garden tool (the table).
+  // Digit 9 still selects the ninth Garden tool (the swing).
   await page.keyboard.press('9');
   await expect.poll(async () => (await diagnostics(page)).tool).toBe(garden[8].id);
   // A tool past the ninth is reached by clicking (the tray scrolls it into view).

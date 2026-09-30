@@ -99,7 +99,7 @@ test('the five category tabs render their tools in catalog order, each with a lo
       .toEqual(expected.map((tool) => `${tool}:true:true`));
     counts[category.id] = expected.length;
   }
-  expect(counts).toEqual({ streets: 9, homes: 6, town: 6, nature: 7, garden: 12 });
+  expect(counts).toEqual({ streets: 5, homes: 7, town: 8, nature: 7, garden: 11 });
   errors.expectNone();
 });
 
@@ -302,7 +302,11 @@ test('keyboard only: Tab reaches every dock button with a visible focus ring', a
   await start(page);
   await page.locator(id(UI_TEST_IDS.category('homes'))).click();
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-  const dockIds = await page.$$eval(`#${UI_TEST_IDS.dock} button`, (els) => els.map((e) => e.id));
+  // Rendered buttons only: Rotate is hidden with a mouse and keyboard (R rotates).
+  await expect(page.locator(id(UI_TEST_IDS.rotate))).toBeHidden();
+  const dockIds = await page.$$eval(`#${UI_TEST_IDS.dock} button`, (els) =>
+    els.filter((e) => (e as HTMLElement).offsetParent !== null).map((e) => e.id),
+  );
   expect(dockIds.length).toBeGreaterThanOrEqual(13);
   const seen = new Map<string, string>();
   for (let i = 0; i < 40 && seen.size < dockIds.length; i += 1) {
