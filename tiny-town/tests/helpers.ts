@@ -85,11 +85,11 @@ export async function clickStart(page: Page): Promise<void> {
   await page.waitForFunction(() => window.__THREE_GAME_DIAGNOSTICS__?.phase === 'building');
 }
 
-/** Select a tool through the dock (category tab → tool button, or the bulldoze button). */
+/** Select a tool through the dock (category tab → tool button, or the Move / Bulldoze mode button). */
 export async function selectTool(page: Page, toolId: ToolId): Promise<void> {
   if ((await diagnostics(page)).tool === toolId) return; // clicking an active tool toggles it off
-  if (toolId === 'bulldoze') {
-    await byId(page, UI_TEST_IDS.bulldoze).click();
+  if (toolId === 'bulldoze' || toolId === 'move') {
+    await byId(page, UI_TEST_IDS[toolId]).click();
   } else {
     await byId(page, UI_TEST_IDS.category(toolDef(toolId).category as ToolCategory)).click();
     await byId(page, UI_TEST_IDS.tool(toolId)).click();

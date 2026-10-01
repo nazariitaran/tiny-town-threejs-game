@@ -35,7 +35,7 @@ Calm, tactile, cute. Every click lands with a soft "thock" and a springy pop. No
 
 ## Verbs
 - Primary: **place** (click) / **paint** (click-drag) the selected tool.
-- Secondary: rotate (R / Shift+R), bulldoze (B / tool), undo/redo, pan/orbit/zoom camera, select tool (1–9 for the first nine tools of the active category, Shift+1–5 or category tabs to switch category).
+- Secondary: rotate (R / Shift+R), bulldoze (B / tool), move a placed thing (M / tool: pick up, put down; 2026-10-01), undo/redo, pan/orbit/zoom camera, select tool (1–9 for the first nine tools of the active category, Shift+1–5 or category tabs to switch category).
 
 ## Build tools (from the brief)
 Grid: 64 × 64 cells of 0.5 world units (48 × 48 in v0.2, WP-12; 64 × 64 since 2026-09-28); roads paint in aligned 2 × 2 blocks. Exact footprints: `catalog/objects.ts`; drag modes: `catalog/tools.ts`.

@@ -13,7 +13,7 @@
 // UI_TEST_IDS from ./testIds, which has no side effects.
 import { TOOL_CATEGORIES, toolDef, toolsInCategory, type ToolCategory, type ToolId } from '../catalog/tools';
 import { assetUrl } from '../game/config';
-import type { GameBus, GamePhase } from '../game/events';
+import type { GameBus, GameEvents, GamePhase } from '../game/events';
 import { DEFAULT_GRAPHICS, GRAPHICS_PRESETS, GRAPHICS_UI, isGraphicsPreset, type GraphicsPreset } from '../game/graphics';
 import { photoFrameLayout } from '../photo/photoLayout';
 import { decodeTownFile, TOWN_FILE_ERRORS, TOWN_FILE_EXTENSION, TOWN_FILE_MAX_BYTES, TOWN_FILE_MIME, type DecodedTownFile } from '../persistence/townFile';
@@ -34,6 +34,12 @@ const HINT_MAX_USES = 3;
 const HINT_MS = 3500;
 const PICK_HINT_MOUSE = 'Pick something below, then click the map to build';
 const PICK_HINT_TOUCH = 'Pick an item below · two fingers move the view';
+/** Move tool, while carrying (the FIXED ones for trees and plants, which can't be turned). */
+const CARRY_HINT_MOUSE = 'Click where it goes · R to rotate · Esc to cancel';
+const CARRY_HINT_MOUSE_FIXED = 'Click where it goes · Esc to cancel';
+const CARRY_HINT_TOUCH = 'Tap where it goes · tap Rotate to turn it';
+const CARRY_HINT_TOUCH_FIXED = 'Tap where it goes';
+const CARRY_HINTS: ReadonlySet<string> = new Set([CARRY_HINT_MOUSE, CARRY_HINT_MOUSE_FIXED, CARRY_HINT_TOUCH, CARRY_HINT_TOUCH_FIXED]);
 
 /** An external link in the Credits panel (a new tab, so the game keeps running). */
 function link(href: string, text: string): string {
@@ -82,6 +88,10 @@ export class UiRoot {
   private phase: GamePhase = 'loading';
   private category: ToolCategory = 'streets';
   private activeTool: ToolId | null = null;
+  /** Move tool: something turnable is being carried (the Rotate button is live). */
+  private carryRotatable = false;
+  /** Move tool pick-ups so far (the carry hint shows for the first few, like tool hints). */
+  private carries = 0;
   private muted = false;
   private volume = 0.8;
   /** Last `daytime:changed` fact (Game emits it at boot with the stored mode). */
@@ -151,6 +161,7 @@ export class UiRoot {
       }),
       bus.on('tool:changed', ({ toolId, rotation }) => this.onToolChanged(toolId, rotation)),
       bus.on('build:rotated', ({ rotation }) => this.renderRotation(rotation)),
+      bus.on('selection:changed', (selection) => this.onSelectionChanged(selection)),
       bus.on('hover:changed', ({ cell, edge, valid, reason }) => {
         const key = cell ? `${cell.x},${cell.z}` + (edge ? `,${edge.x},${edge.z},${edge.side}` : '') : null;
         // Right after a placement the hovered spot is "occupied"; stay quiet until the pointer moves on.
@@ -295,6 +306,7 @@ export class UiRoot {
             <span class="ui-sep" aria-hidden="true"></span>
             <div class="ui-modes" role="group" aria-label="Modes">
               <button type="button" class="ui-mode ui-mode-rotate" id="${id.rotate}" aria-label="Rotate" title="Rotate (R)"><span class="ui-rot">${GLYPHS.rotate}</span><span class="ui-mode-label">Rotate</span></button>
+              <button type="button" class="ui-mode ui-mode-move" id="${id.move}" data-tool="move" aria-label="Move" aria-pressed="false" title="Move (M)">${GLYPHS.move}<span class="ui-mode-label">Move</span></button>
               <button type="button" class="ui-mode ui-mode-danger" id="${id.bulldoze}" data-tool="bulldoze" aria-label="Bulldoze" aria-pressed="false" title="Bulldoze (B)">${GLYPHS.bulldoze}<span class="ui-mode-label">Bulldoze</span></button>
             </div>
           </div>
@@ -410,6 +422,7 @@ export class UiRoot {
                 <dt>1–9</dt><dd>Pick an item in the open tray</dd>
                 <dt>Shift + 1–5</dt><dd>Switch category</dd>
                 <dt>R · Shift+R</dt><dd>Rotate</dd>
+                <dt>M</dt><dd>Move: click a thing, then where it goes</dd>
                 <dt>B</dt><dd>Bulldoze</dd>
                 <dt>Ctrl+Z · Ctrl+Shift+Z</dt><dd>Undo · redo</dd>
                 <dt>F · Home</dt><dd>Reset view</dd>
@@ -427,6 +440,7 @@ export class UiRoot {
                 <dt>Twist</dt><dd>Turn the camera</dd>
                 <dt>Pinch</dt><dd>Zoom</dd>
                 <dt>No tool + drag</dt><dd>Move the camera</dd>
+                <dt>Move</dt><dd>Tap a thing, then tap where it goes</dd>
                 <dt>Sun · moon</dt><dd>Time of day</dd>
                 <dt>Camera</dt><dd>Take a photo</dd>
               </dl>
@@ -1064,8 +1078,9 @@ export class UiRoot {
     for (const tab of this.root.querySelectorAll<HTMLElement>('[data-category]')) {
       tab.setAttribute('aria-pressed', String(tab.dataset.category === this.category));
     }
+    this.button(UI_TEST_IDS.move).setAttribute('aria-pressed', String(this.activeTool === 'move'));
     this.button(UI_TEST_IDS.bulldoze).setAttribute('aria-pressed', String(this.activeTool === 'bulldoze'));
-    const rotatable = this.activeTool !== null && toolDef(this.activeTool).layer === 'object';
+    const rotatable = this.activeTool !== null && (toolDef(this.activeTool).layer === 'object' || this.carryRotatable);
     this.button(UI_TEST_IDS.rotate).classList.toggle('is-idle', !rotatable);
   }
 
@@ -1078,6 +1093,27 @@ export class UiRoot {
     frame.classList.toggle('has-more-left', tray.scrollLeft > 2);
     frame.classList.toggle('has-more-right', tray.scrollLeft < max - 2);
   };
+
+  /**
+   * Move tool (selection:changed): while something is carried the hint says how to put it down, and
+   * the Rotate button turns it (not trees and plants). Putting it down or back restores the tool's state.
+   */
+  private onSelectionChanged({ id, rotation, rotatable }: GameEvents['selection:changed']): void {
+    const carrying = id !== null;
+    this.carryRotatable = carrying && rotatable;
+    this.renderTray(false);
+    this.renderRotation(rotation);
+    if (!carrying) {
+      // Put down or put back: the "where it goes" hint no longer applies.
+      if (CARRY_HINTS.has(this.el(UI_TEST_IDS.hint).textContent ?? '')) this.hideHint();
+      return;
+    }
+    if (this.phase !== 'building') return;
+    this.carries += 1;
+    if (this.carries > HINT_MAX_USES) return;
+    if (this.coarse.matches) this.showHint(rotatable ? CARRY_HINT_TOUCH : CARRY_HINT_TOUCH_FIXED);
+    else this.showHint(rotatable ? CARRY_HINT_MOUSE : CARRY_HINT_MOUSE_FIXED);
+  }
 
   private renderRotation(rotation: Rotation): void {
     const rot = this.root.querySelector<HTMLElement>('.ui-rot');

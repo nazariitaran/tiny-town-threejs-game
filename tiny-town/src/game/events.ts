@@ -11,7 +11,7 @@
 import type { GraphicsPreset } from './graphics';
 import type { SfxEvent } from '../audio/sfx';
 import type { ToolId } from '../catalog/tools';
-import type { Cell, Edge, Rotation, SavedTown, TownChange } from '../town/types';
+import type { Cell, Edge, ObjectKind, Rotation, SavedTown, TownChange } from '../town/types';
 import type { DayPhase, TimeMode } from '../world/dayCycle';
 
 export type GamePhase = 'loading' | 'title' | 'building' | 'menu' | 'error';
@@ -82,6 +82,11 @@ export type GameEvents = {
   'build:placed': { toolId: ToolId; layer: 'ground' | 'object' | 'edge'; cell: Cell; worldX: number; worldZ: number; strokeIndex: number };
   'build:removed': { layer: 'ground' | 'object' | 'edge'; kind: string; cell: Cell; worldX: number; worldZ: number; strokeIndex: number };
   'build:invalid': { toolId: ToolId | null; cell: Cell | null; reason: string };
+  /**
+   * Move tool: the object being carried (id null = nothing). Emitted on pick-up, turn, drop and put-back.
+   * rotatable = R turns it (not for trees and plants, whose look comes from their id).
+   */
+  'selection:changed': { id: number | null; kind: ObjectKind | null; rotation: Rotation; rotatable: boolean };
   'build:rotated': { rotation: Rotation };
 
   'history:changed': { canUndo: boolean; canRedo: boolean };

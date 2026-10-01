@@ -109,7 +109,9 @@ export type BuildAction =
   | { type: 'paint-ground'; kind: Exclude<GroundKind, 'field'>; cell: Cell }
   | { type: 'place-object'; kind: ObjectKind; cell: Cell; rotation: Rotation }
   | { type: 'place-edge'; kind: EdgeKind; edge: Edge }
-  | { type: 'bulldoze'; cell: Cell; edge: Edge | null };
+  | { type: 'bulldoze'; cell: Cell; edge: Edge | null }
+  /** Move tool: put placed object `id` down anchored at `cell`, turned `rotation` (same id and variant). */
+  | { type: 'move-object'; id: number; cell: Cell; rotation: Rotation };
 
 export type InvalidReason =
   | 'out-of-bounds'
@@ -117,6 +119,7 @@ export type InvalidReason =
   | 'blocked-by-road'
   | 'needs-ground'
   | 'nothing-here'
+  | 'cannot-move'
   | 'no-change';
 
 export type PlanResult =

@@ -88,7 +88,7 @@ There is no `StatsHud`: the stats pill was removed in v0.2 (WP-14).
 ```
  pointer/keys ─► ToolController ──BuildAction──► TownEditor ──► rules.planAction (pure)
       ▲                │                              │ ok: TownState.applyChanges + History
- UiRoot ─intent:*─►    │ tool:changed / hover:changed │
+ UiRoot ─intent:*─►    │ tool:changed / hover:changed / selection:changed │
       ▲                ▼                              ▼
       └──── facts ◄── EventBus ◄── town:changed · build:placed/removed/invalid · history:changed
                          │
@@ -107,7 +107,7 @@ Rules of the road:
 3. **Pure logic stays pure**: `src/town/**` (including `town/roadTiles.ts`) and `src/catalog/**` import no three.js and no DOM, so they are unit-testable in Node.
 4. **All randomness goes through the seeded RNG** passed into constructors (`Game.rng`). Never `Math.random()` (it breaks screenshots and bot runs).
 5. **One cell↔world mapping**: `game/config.ts`. Nobody re-derives it. Likewise every runtime asset URL goes through `assetUrl()`.
-6. **Keyboard ownership**: digits 1–9 (the first nine tools of the active category; a category may hold up to 12, WP-23), Shift+1–5 (category), `?` (controls help) and `P` (take a photo, WP-19) belong to the UI (`ui/uiKeys.ts`, `UiRoot`); everything else (R, B, Esc, F/Home, WASD/arrows, Q/E, +/−, undo/redo) belongs to `ToolController`/`CameraController`.
+6. **Keyboard ownership**: digits 1–9 (the first nine tools of the active category; a category may hold up to 12, WP-23), Shift+1–5 (category), `?` (controls help) and `P` (take a photo, WP-19) belong to the UI (`ui/uiKeys.ts`, `UiRoot`); everything else (R, B, M, Esc, F/Home, WASD/arrows, Q/E, +/−, undo/redo) belongs to `ToolController`/`CameraController`.
 7. **Two RNG streams**: gameplay (`Game.rng`: variants) and cosmetic (`Game.fxRng`: audio/fx jitter, ambient cars), so a sound never changes the next house variant. A third, `nameRng`, draws only town-name suggestions (WP-20, §Save format).
 
 ## Frame update order (Game.update)
@@ -143,6 +143,7 @@ Rules of the road:
 | place-object road feature (roundabout, v0.3) | anchor block-aligned (even x, z); any ground, including road. Changes: fence removals (edges inside the footprint, and between it and existing road) → ground → road for every non-road footprint cell → object add (primary, last) | `out-of-bounds` "Roundabout must line up with the road grid" (only scripted actions; the tool snaps) · `occupied` |
 | paint-ground over a road feature | never while it stands | `occupied` "Move the Roundabout first" |
 | place-edge | edge in bounds (border edges allowed) and not between two road cells; same kind already there ⇒ `no-change`; other edge kind ⇒ replace (remove + add) | `out-of-bounds` · `blocked-by-road` "Fences can't cross roads" |
+| move-object (Move tool, 2026-10-01) | object `id` exists and is movable (not a road feature or road marking); the new anchor / rotation pass the place-object checks with the object's own id ignored (it may overlap its old footprint). Trees and plants keep their rotation. Changes: object remove (old) → object add (moved: **same id and variant**, primary, last) | `nothing-here` "Nothing to move" · `cannot-move` "{label} can't be moved" · `no-change` (same spot, silent) · then the place-object reasons |
 | bulldoze | object covering the cell (any footprint cell) ⇒ remove object (a road feature also turns its road cells back to field, before the object removal); else an edge passed by the picker (pointer within 0.3 cell of it, 0.4 on touch) with a hedge or fence ⇒ remove it; else a road cell ⇒ its whole block back to field; else non-field ground ⇒ back to field | `nothing-here` (silent on drag, shown on click) |
 
 Only road features stand on road; every other object's `allowedGround` excludes it.
@@ -177,6 +178,7 @@ Music position (WP-18) `{ track, time }` under `tiny-town:music:v1` (`MUSIC_POSI
 - Shared materials: Kenney kits use one colour-atlas texture per kit, so the whole town should need a handful of materials. Don't clone materials per instance.
 - Ghost preview uses `ModelLibrary.createObject()` with a separate translucent tinted material (not shared with the town). Where a model stands comes from **`render/objectPose.ts`**, shared by `TownRenderer` and the ghost: the object pose (quarter turn, or a tree's hashed yaw and ± 12 % size; `ObjectDef.height`), the object and edge origins and the `MODEL_STYLES` scale (the ghost applies it to every part, as the renderer does to every model). `GhostPreview.test.ts` checks ghost = renderer for every object kind × variant × rotation and every edge kind.
 - **Bulldoze highlight** (2026-10-01): the `remove` ghost lies exactly on the object (same pose, no enlargement), sways with it (the wind patch on the ghost's foliage clones) and is pulled towards the camera with a polygon offset, so it paints only the object's visible surfaces; the town's depth hides the ghost's own back and inner faces. Red states (invalid, remove) recolour in the shader after the colour atlas and vertex colours (`uGhostRecolor` 0.88), so green roofs and leaves read red, not brown; the remove ghost's opacity is 0.9.
+- **Move tool** (2026-10-01): the ghost's `selected` state (sky blue `#4a9be8`) is drawn on the object the same way, lighter (recolour 0.6, opacity 0.7, a slow breathing glow). `ToolController` has a second `GhostPreview` for the carried object in place; the first one is the hover / carry ghost. In `TownRenderer` a remove + add of the same object id in one change list is a move: the object keeps its instances and tweens to its new pose (0.3 s ease-in-out slide, a hop of 0.1–0.35 units by distance, the turn slerped; `render/tween.ts` `moveEase` / `hopArc` / `hopHeight`), for the drop and for undo / redo of it; reduced motion, bursts, load and reset place it at once. `isAnimating` covers moves (shadows, frame budget).
 - Ambient cars (`LifeSystem`) are one `BatchedMesh`: +1 main-pass and +1 shadow draw call.
 - Birds (`BirdSystem`, WP-22) are one `InstancedMesh` of a procedural 18-triangle bird (≤ 16 instances, per-instance colour and wing angles `aFlap`; the wings fold in the vertex shader, on the lit and the shadow depth material): +1 main-pass and +1 shadow call while a flock is up, 0 with an empty sky.
 - FX (`PlacementFx`) use pooled particles in 3 meshes (soft dust, chips/leaves/petals, sparkles): at most 3 draw calls, and none when idle.
@@ -308,6 +310,7 @@ The `sample-town` state uses every placing tool (40, WP-23) with zero rejections
 | --- | --- |
 | `frame`, `phase`, `tool`, `rotation` | |
 | `hover` | `{x, z, valid, reason}` or null, mirroring `hover:changed`; a just-placed cell reports valid |
+| `selection` | Move tool (2026-10-01): `{id, kind, rotation}` of the carried object (the rotation it would be put down with), or null |
 | `town` | `TownState.stats()`: homes, residents, amenities (v0.3: Town-category buildings), trees, roadTiles (= road blocks), props (street, garden and plant objects), fences (every edge: fences and hedges) |
 | `townName` | WP-20: the town's name (`TownEditor.name`), as the top bar and the photo show it |
 | `objects` | TownState object count |

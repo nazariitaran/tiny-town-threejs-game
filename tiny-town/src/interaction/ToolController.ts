@@ -15,17 +15,22 @@
  * (grid.anchorForPointer; R re-centres it), and the ghost tile covers the whole footprint.
  * Every stroke is one undo entry. Only a deliberate click reports build:invalid (throttled to one
  * per 400 ms per reason); drags skip blocked cells silently.
+ * Move tool: a click picks up a movable object (everything but the roundabout and zebra crossings;
+ * never ground, hedges or fences) and a second click puts it down (one undo entry, `move-object`
+ * keeps its id and variant). While carried, the object stays painted blue in place (a second ghost)
+ * and the hover ghost follows the pointer, mint or red; R turns it (not trees and plants). Esc or a
+ * right-click put it back; so do another tool, undo/redo and leaving the build phase.
  *
  * Input: mouse/pen left button = tool (right/middle/Alt+left = camera; a right click without a drag deselects the tool). Touch: one finger = tool
  * (committed after 150 ms or 10 px so a second finger can still turn it into a camera gesture),
  * two fingers = camera. pointercancel, lostpointercapture, window blur and visibilitychange all end
- * strokes. Keys: B bulldoze · R / Shift+R rotate · Esc deselect (no tool → intent:open-menu) ·
+ * strokes. Keys: B bulldoze · M move · R / Shift+R rotate · Esc put back / deselect (no tool → intent:open-menu) ·
  * F / Home reset camera · Ctrl/Cmd+Z undo · Shift+Ctrl/Cmd+Z / Ctrl+Y redo. Digits belong to WP-06.
  */
 import * as THREE from 'three';
 import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS, ZEBRA_PIECE_MODELS } from '../catalog/models';
 import { objectDef } from '../catalog/objects';
-import { actionForTool, toolDef, type DragMode, type ToolId } from '../catalog/tools';
+import { actionForTool, RETIRED_TOOLS, toolDef, type DragMode, type ToolId } from '../catalog/tools';
 import type { DebugTools } from '../debug/DebugTools';
 import {
   CELL_SIZE,
@@ -56,7 +61,8 @@ import {
   sameEdge,
 } from '../town/grid';
 import type { TownEditor } from '../town/TownEditor';
-import type { BuildAction, Cell, Edge, GroundKind, PlacedObject, PlanResult, Rotation } from '../town/types';
+import { isMovable, isTurnable } from '../town/rules';
+import type { BuildAction, Cell, Edge, GroundKind, ObjectKind, PlacedObject, PlanResult, Rotation } from '../town/types';
 import type { CameraController } from './CameraController';
 import { GhostPreview, objectGhostPart, type GhostPart, type GhostState } from './GhostPreview';
 import type { GridPicker, PickResult } from './GridPicker';
@@ -104,6 +110,19 @@ interface PendingTouch {
   startMs: number;
 }
 
+/** Move tool: the object picked up and not yet put down. */
+interface Carry {
+  id: number;
+  kind: ObjectKind;
+  variant: number;
+  /** The rotation it would be put down with (starts at its own; R turns it when rotatable). */
+  rotation: Rotation;
+  rotatable: boolean;
+}
+
+/** What diagnostics `selection` publishes. */
+export type SelectionInfo = { id: number; kind: ObjectKind; rotation: Rotation };
+
 interface HoverState {
   cell: Cell | null;
   edge: Edge | null;
@@ -134,6 +153,14 @@ export class ToolController {
    */
   private readonly justPlaced = new Set<string>();
   private readonly ghost: GhostPreview;
+  /** Move tool: the carried object, painted blue where it stands until it is put down. */
+  private readonly selectionGhost: GhostPreview;
+  private carry: Carry | null = null;
+  /**
+   * Move tool: the object just put down. It isn't hover-highlighted until the pointer leaves it, so
+   * the blue overlay doesn't sit at its new place while the object is still hopping there.
+   */
+  private settlingId: number | null = null;
   private readonly invalidThrottle = new KeyedThrottle(400);
   private readonly unsubscribers: Array<() => void> = [];
 
@@ -149,6 +176,7 @@ export class ToolController {
     debug?: DebugTools,
   ) {
     this.ghost = new GhostPreview(scene, library);
+    this.selectionGhost = new GhostPreview(scene, library);
     this.cameraController.setInputEnabled(false);
 
     canvas.addEventListener('pointermove', this.onPointerMove);
@@ -164,11 +192,13 @@ export class ToolController {
       bus.on('intent:select-tool', ({ toolId }) => this.selectTool(toolId)),
       bus.on('intent:rotate', ({ direction }) => this.rotate(direction)),
       bus.on('intent:undo', () => {
+        this.putBack();
         this.cancelGesture();
         this.justPlaced.clear();
         this.editor.undo();
       }),
       bus.on('intent:redo', () => {
+        this.putBack();
         this.cancelGesture();
         this.justPlaced.clear();
         this.editor.redo();
@@ -196,6 +226,12 @@ export class ToolController {
     return this.rotation;
   }
 
+  /** Move tool: what is being carried (diagnostics `selection`); null when nothing is. */
+  get selection(): SelectionInfo | null {
+    const carry = this.carry;
+    return carry ? { id: carry.id, kind: carry.kind, rotation: carry.rotation } : null;
+  }
+
   /** Hovered cell plus its validity (diagnostics `hover`); null off-plot. */
   get hovered(): HoverInfo | null {
     return this.hoverInfo;
@@ -206,6 +242,7 @@ export class ToolController {
     this.enabled = enabled;
     this.cameraController.setInputEnabled(enabled);
     if (!enabled) {
+      this.putBack();
       this.cancelGesture();
       this.touchPointers.clear();
       this.pointer = null;
@@ -219,6 +256,7 @@ export class ToolController {
 
   /** Selecting the active tool again deselects it (dock behaviour). */
   selectTool(toolId: ToolId | null): void {
+    this.putBack();
     this.cancelGesture();
     this.toolId = this.toolId === toolId ? null : toolId;
     this.justPlaced.clear();
@@ -229,6 +267,16 @@ export class ToolController {
 
   /** direction 1 = clockwise from above. Rotation values count CCW quarter turns, hence the minus. */
   rotate(direction: 1 | -1): void {
+    const carry = this.carry;
+    if (carry) {
+      // Carrying (Move tool): R turns the carried object, not the tools' shared rotation.
+      if (!carry.rotatable) return;
+      carry.rotation = nextRotation(carry.rotation, direction === 1 ? -1 : 1);
+      this.hoverDirty = true;
+      this.bus.emit('build:rotated', { rotation: carry.rotation });
+      this.emitSelection();
+      return;
+    }
     this.rotation = nextRotation(this.rotation, direction === 1 ? -1 : 1);
     this.hoverDirty = true;
     this.bus.emit('build:rotated', { rotation: this.rotation });
@@ -248,6 +296,7 @@ export class ToolController {
     }
     if (this.hoverDirty) this.refreshHover();
     this.ghost.update(delta);
+    this.selectionGhost.update(delta);
   }
 
   dispose(): void {
@@ -262,6 +311,7 @@ export class ToolController {
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
     for (const off of this.unsubscribers) off();
     this.ghost.dispose();
+    this.selectionGhost.dispose();
   }
 
   // ---- pointer ----------------------------------------------------------------------------
@@ -319,7 +369,11 @@ export class ToolController {
     if (right && right.pointerId === event.pointerId && event.button === 2) {
       this.rightPress = null;
       const moved = Math.hypot(event.clientX - right.clientX, event.clientY - right.clientY);
-      if (this.enabled && this.toolId && moved < RIGHT_CLICK_SLOP_PX) this.selectTool(null);
+      if (this.enabled && this.toolId && moved < RIGHT_CLICK_SLOP_PX) {
+        // A right click puts a carried object back first; the next one puts the tool away.
+        if (this.carry) this.putBack(true);
+        else this.selectTool(null);
+      }
     }
     const pending = this.pendingTouch;
     if (pending && pending.pointerId === event.pointerId) {
@@ -392,6 +446,10 @@ export class ToolController {
     const pick = this.picker.pick(clientX, clientY);
     if (!pick || !this.editor.state.inBounds(pick.cell)) return;
     const def = toolDef(this.toolId);
+    if (def.layer === 'move') {
+      this.moveClick(pick);
+      return;
+    }
     const mode: Stroke['mode'] = def.layer === 'bulldoze' ? 'bulldoze' : def.drag;
 
     const target = this.targetCell(pick);
@@ -523,13 +581,153 @@ export class ToolController {
     const result = this.editor.apply(action, toolId);
     if (result.ok && action.type !== 'bulldoze') this.rememberPlaced(result);
     // Only a deliberate click reports invalid; drags silently skip blocked cells.
-    if (!result.ok && fromPress && result.reason !== 'no-change') {
-      this.ghost.shake();
-      if (this.invalidThrottle.shouldEmit(result.reason, performance.now())) {
-        this.bus.emit('build:invalid', { toolId, cell: { ...cell }, reason: result.message });
-      }
-    }
+    if (!result.ok && fromPress) this.reportInvalid(result, cell);
     return result;
+  }
+
+  /** Invalid click feedback: the ghost shakes and build:invalid (tooltip + sound) is throttled per reason. */
+  private reportInvalid(result: Extract<PlanResult, { ok: false }>, cell: Cell): void {
+    if (result.reason === 'no-change') return;
+    this.ghost.shake();
+    if (this.invalidThrottle.shouldEmit(result.reason, performance.now())) {
+      this.bus.emit('build:invalid', { toolId: this.toolId, cell: { ...cell }, reason: result.message });
+    }
+  }
+
+  // ---- move tool --------------------------------------------------------------------------
+
+  /** Move tool click: pick up the object under the pointer, or put the carried one down. */
+  private moveClick(pick: PickResult): void {
+    const state = this.editor.state;
+    const carry = this.carry;
+    if (!carry) {
+      const object = state.getObjectAt(pick.cell);
+      if (!object) return;
+      // Asking the rules about "move it where it is" answers "can it move at all?" (roundabout, zebra).
+      const check = this.editor.preview({ type: 'move-object', id: object.id, cell: object.anchor, rotation: object.rotation });
+      if (!check.ok && check.reason === 'cannot-move') {
+        this.reportInvalid(check, pick.cell);
+        return;
+      }
+      const def = objectDef(object.kind);
+      this.carry = { id: object.id, kind: object.kind, variant: object.variant, rotation: object.rotation, rotatable: isTurnable(def) };
+      this.settlingId = null;
+      this.hoverDirty = true;
+      this.bus.emit('ui:sfx', { event: 'ui-open' });
+      this.emitSelection();
+      return;
+    }
+    const target = this.carryAnchor(pick, carry);
+    this.editor.beginStroke();
+    // The drop sounds and puffs like placing that item (a retired kind has no tool: Move's own sound).
+    const toolId: ToolId = RETIRED_TOOLS.has(carry.kind) ? 'move' : carry.kind;
+    const result = this.editor.apply({ type: 'move-object', id: carry.id, cell: target, rotation: carry.rotation }, toolId);
+    this.editor.endStroke();
+    if (result.ok) {
+      this.carry = null;
+      this.settlingId = carry.id;
+      this.hoverDirty = true;
+      this.emitSelection();
+    } else if (result.reason === 'no-change') {
+      this.putBack(true); // put down where it already stood
+    } else {
+      this.reportInvalid(result, pick.cell);
+    }
+  }
+
+  /** The anchor a carried object would be put down at: its footprint centred on the pointer. */
+  private carryAnchor(pick: PickResult, carry: Carry): Cell {
+    const state = this.editor.state;
+    return anchorForPointer(pick.grid.x, pick.grid.z, objectDef(carry.kind).footprint, carry.rotation, state.width, state.depth, { x: 0, z: 0 }, 1);
+  }
+
+  /** Drop the carried object back where it stands (Esc, right-click, another tool, undo…). */
+  private putBack(withSound = false): void {
+    if (!this.carry) return;
+    this.carry = null;
+    this.hoverDirty = true;
+    if (withSound) this.bus.emit('ui:sfx', { event: 'ui-close' });
+    this.emitSelection();
+  }
+
+  private emitSelection(): void {
+    const carry = this.carry;
+    this.bus.emit('selection:changed', {
+      id: carry?.id ?? null,
+      kind: carry?.kind ?? null,
+      rotation: carry?.rotation ?? this.rotation,
+      rotatable: carry?.rotatable ?? false,
+    });
+  }
+
+  /** The carried object, painted blue where it stands; hidden when nothing is carried. */
+  private syncSelectionGhost(): void {
+    const carry = this.carry;
+    const object = carry ? this.editor.state.getObject(carry.id) : undefined;
+    if (carry && !object) {
+      // It went away under us (undo of its placement, a loaded town): nothing to carry any more.
+      this.carry = null;
+      this.emitSelection();
+    }
+    if (!object) {
+      this.selectionGhost.hide();
+      return;
+    }
+    this.showOnObject(this.selectionGhost, object, 'selected');
+  }
+
+  /** Paint `object` exactly where the town draws it (bulldoze target, Move selection). */
+  private showOnObject(ghost: GhostPreview, object: PlacedObject, state: GhostState): void {
+    const def = objectDef(object.kind);
+    const centre = footprintCentreWorld(object.anchor, def.footprint, object.rotation);
+    const marking = def.roadMarking ? this.markingPart(object.anchor) : null;
+    // Posed exactly as the town draws it (root unturned; the part carries the turn or tree yaw).
+    ghost.show({
+      x: centre.x,
+      z: centre.z,
+      quarterTurns: 0,
+      state,
+      parts: [marking ?? objectGhostPart(def, def.models[object.variant % def.models.length], object.rotation, object.id)],
+      solid: marking !== null, // lies on the road tile: no z-fighting (the tint stays)
+      tileScale: rotatedFootprint(def.footprint, object.rotation),
+      snap: true,
+    });
+  }
+
+  /** Move tool hover: the carry ghost (mint / red) at the pointer, or blue on the movable object under it. */
+  private showMoveTarget(cell: Cell, pick: PickResult): void {
+    const state = this.editor.state;
+    const carry = this.carry;
+    if (carry) {
+      const def = objectDef(carry.kind);
+      const target = this.carryAnchor(pick, carry);
+      const preview = this.editor.preview({ type: 'move-object', id: carry.id, cell: target, rotation: carry.rotation });
+      const home = !preview.ok && preview.reason === 'no-change';
+      const valid = preview.ok || home;
+      const centre = footprintCentreWorld(target, def.footprint, carry.rotation);
+      this.ghost.show({
+        x: centre.x,
+        z: centre.z,
+        // Turnable objects turn on the ghost's root (R animates); trees keep their own yaw on the part.
+        quarterTurns: carry.rotatable ? carry.rotation : 0,
+        state: valid ? 'valid' : 'invalid',
+        // Back on its own spot the blue highlight already shows it: just the frame (a model here
+        // would sit exactly on the real one and z-fight).
+        parts: home ? [] : [objectGhostPart(def, def.models[carry.variant % def.models.length], 0, carry.id)],
+        tileScale: rotatedFootprint(def.footprint, carry.rotation),
+      });
+      this.publishHover({ cell, edge: null, valid, reason: valid || preview.ok ? null : preview.message });
+      return;
+    }
+    const object = state.getObjectAt(cell);
+    if (object?.id !== this.settlingId) this.settlingId = null;
+    if (object && object.id !== this.settlingId && isMovable(objectDef(object.kind))) {
+      this.showOnObject(this.ghost, object, 'selected');
+    } else {
+      const world = cellToWorld(cell);
+      this.ghost.show({ x: world.x, z: world.z, quarterTurns: 0, state: 'neutral', parts: [] });
+    }
+    this.publishHover({ cell, edge: null, valid: true, reason: null });
   }
 
   /**
@@ -596,6 +794,7 @@ export class ToolController {
 
   private refreshHover(): void {
     this.hoverDirty = false;
+    this.syncSelectionGhost();
     const pick = this.enabled ? this.lastPick : null;
     const state = this.editor.state;
     const cell = pick && state.inBounds(pick.cell) ? { ...pick.cell } : null;
@@ -615,6 +814,10 @@ export class ToolController {
     const def = toolDef(toolId);
     if (def.layer === 'bulldoze') {
       this.showBulldozeTarget(cell, pick);
+      return;
+    }
+    if (def.layer === 'move') {
+      this.showMoveTarget(cell, pick);
       return;
     }
 
@@ -698,20 +901,7 @@ export class ToolController {
     const edge = nearEdge ? { ...pick.edge } : null;
     const fence = edge ? state.getEdge(edge) : undefined;
     if (object) {
-      const def = objectDef(object.kind);
-      const centre = footprintCentreWorld(object.anchor, def.footprint, object.rotation);
-      const marking = def.roadMarking ? this.markingPart(object.anchor) : null;
-      // Posed exactly as the town draws it (root unturned; the part carries the turn or tree yaw).
-      this.ghost.show({
-        x: centre.x,
-        z: centre.z,
-        quarterTurns: 0,
-        state: 'remove',
-        parts: [marking ?? objectGhostPart(def, def.models[object.variant % def.models.length], object.rotation, object.id)],
-        solid: marking !== null, // lies on the road tile: no z-fighting (the red tint stays)
-        tileScale: rotatedFootprint(def.footprint, object.rotation),
-        snap: true,
-      });
+      this.showOnObject(this.ghost, object, 'remove');
     } else if (fence && edge) {
       const world = edgeToWorld(edge);
       this.ghost.show({
@@ -819,9 +1009,13 @@ export class ToolController {
       case 'KeyB':
         if (!event.repeat) this.selectTool('bulldoze');
         break;
+      case 'KeyM':
+        if (!event.repeat) this.selectTool('move');
+        break;
       case 'Escape':
         if (event.repeat) break;
-        if (this.toolId) this.selectTool(null);
+        if (this.carry) this.putBack(true);
+        else if (this.toolId) this.selectTool(null);
         else this.bus.emit('intent:open-menu');
         break;
       case 'KeyT':

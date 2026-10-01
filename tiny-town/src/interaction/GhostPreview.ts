@@ -9,7 +9,7 @@
  *    Parts carry the same MODEL_STYLES scale as the town (render/objectPose.ts). A remove ghost
  *    lies exactly on the object it will remove (same pose, same sway) and is pulled towards the
  *    camera in depth, so it paints that object's visible surfaces red: no enlarged shell, no
- *    hidden faces showing through.
+ *    hidden faces showing through. `selected` (Move tool) does the same in a lighter sky blue.
  *  - tile:  a flat fill (ground colour, or the state tint) with a crisp rectangular frame on top,
  *           sized to the target in cells (a multi-cell footprint, a 2 × 2 road block, a fence strip);
  *           the frame keeps a constant border width whatever the size (WP-12)
@@ -29,31 +29,33 @@ import { objectPose, styleScale } from '../render/objectPose';
 import type { Rotation } from '../town/types';
 import { shortestAngle } from './strokeMath';
 
-export type GhostState = 'valid' | 'invalid' | 'remove' | 'neutral';
+export type GhostState = 'valid' | 'invalid' | 'remove' | 'selected' | 'neutral';
 
 /**
  * Model tint / rim per state. Valid is a cool mint that separates from the warm yellow-green field;
- * brick red (design doc §6 accent) is shared by invalid and remove, on tiles and models alike.
+ * brick red (design doc §6 accent) is shared by invalid and remove, on tiles and models alike; sky
+ * blue (the §6 focus/info accent) marks the object the Move tool points at or carries.
  */
 export const GHOST_TINTS: Readonly<Record<GhostState, string>> = {
   valid: '#7dffc0',
   invalid: '#d8392b',
   remove: '#d8392b',
+  selected: '#4a9be8',
   neutral: '#ffffff',
 };
 
 /** Tile fill colour when no ground colour is given (valid: pale mint, reads brighter than the field). */
-const FILL_COLORS: Readonly<Record<GhostState, string>> = { valid: '#c4ffe4', invalid: '#d8392b', remove: '#d8392b', neutral: '#ffffff' };
+const FILL_COLORS: Readonly<Record<GhostState, string>> = { valid: '#c4ffe4', invalid: '#d8392b', remove: '#d8392b', selected: '#4a9be8', neutral: '#ffffff' };
 /** Cell frame colour: valid is a near-white mint line with a mint glow around it. */
-const FRAME_COLORS: Readonly<Record<GhostState, string>> = { valid: '#f4fffa', invalid: '#d8392b', remove: '#d8392b', neutral: '#ffffff' };
+const FRAME_COLORS: Readonly<Record<GhostState, string>> = { valid: '#f4fffa', invalid: '#d8392b', remove: '#d8392b', selected: '#4a9be8', neutral: '#ffffff' };
 /** Tile fill opacity per state (fill = ground colour for ground tools, else FILL_COLORS). */
-const FILL_OPACITY: Readonly<Record<GhostState, number>> = { valid: 0.5, invalid: 0.62, remove: 0.62, neutral: 0.16 };
-const FRAME_OPACITY: Readonly<Record<GhostState, number>> = { valid: 1, invalid: 0.95, remove: 0.95, neutral: 0.45 };
+const FILL_OPACITY: Readonly<Record<GhostState, number>> = { valid: 0.5, invalid: 0.62, remove: 0.62, selected: 0.45, neutral: 0.16 };
+const FRAME_OPACITY: Readonly<Record<GhostState, number>> = { valid: 1, invalid: 0.95, remove: 0.95, selected: 0.95, neutral: 0.45 };
 /** Additive mint glow around the frame, valid only (its opacity breathes gently). */
 const GLOW_COLOR = '#56f5a8';
 const GLOW_OPACITY = 0.42;
 /** Fresnel rim strength per state (soft mint rim on valid models). */
-const RIM_STRENGTH: Readonly<Record<GhostState, number>> = { valid: 1.1, invalid: 0.5, remove: 0.6, neutral: 0.3 };
+const RIM_STRENGTH: Readonly<Record<GhostState, number>> = { valid: 1.1, invalid: 0.5, remove: 0.6, selected: 0.8, neutral: 0.3 };
 /**
  * Red states (invalid, remove): how far the surface colour goes to the tint. Applied in the shader
  * after the colour atlas and vertex colours, so a green roof turns red, not red × green = brown.
@@ -61,6 +63,12 @@ const RIM_STRENGTH: Readonly<Record<GhostState, number>> = { valid: 1.1, invalid
 const RED_RECOLOR = 0.88;
 /** Remove ghost opacity: the red paint covers the object, with only a hint of it showing through. */
 const REMOVE_OPACITY = 0.9;
+/** Selected (Move tool): a lighter blue wash, so the object's own colours still show through. */
+const SELECTED_RECOLOR = 0.6;
+const SELECTED_OPACITY = 0.7;
+
+/** States drawn exactly on a town object (bulldoze target, Move selection): see applyTint. */
+const onObject = (state: GhostState): boolean => state === 'remove' || state === 'selected';
 
 /** A model placed inside the ghost, in cell-local coordinates (before the ghost's own yaw). */
 export interface GhostPart {
@@ -264,6 +272,11 @@ export class GhostPreview {
       this.pulseTime += delta;
       const pulse = 0.5 + 0.5 * Math.sin(this.pulseTime * 9);
       for (const material of this.ghostMaterials.values()) material.emissiveIntensity = 0.4 + 0.45 * pulse;
+    } else if (this.modelState === 'selected') {
+      // Slow breathing: "this is the one you're holding", calmer than the bulldoze pulse.
+      this.pulseTime += delta;
+      const pulse = 0.5 + 0.5 * Math.sin(this.pulseTime * 3.5);
+      for (const material of this.ghostMaterials.values()) material.emissiveIntensity = 0.15 + 0.25 * pulse;
     }
   }
 
@@ -316,7 +329,7 @@ export class GhostPreview {
       this.tint.set(GHOST_TINTS[state]);
       this.ghostUniforms.uGhostRimColor.value.copy(this.tint);
       this.ghostUniforms.uGhostRimStrength.value = solid && state === 'valid' ? 0.35 : RIM_STRENGTH[state];
-      this.ghostUniforms.uGhostRecolor.value = state === 'invalid' || state === 'remove' ? RED_RECOLOR : 0;
+      this.ghostUniforms.uGhostRecolor.value = state === 'invalid' || state === 'remove' ? RED_RECOLOR : state === 'selected' ? SELECTED_RECOLOR : 0;
       for (const material of this.ghostMaterials.values()) this.applyTint(material, state);
     }
   }
@@ -392,17 +405,26 @@ export class GhostPreview {
     const base = this.baseColors.get(material);
     const calm = state === 'valid' || state === 'neutral';
     const solid = calm && this.modelSolid;
-    // Red states keep the base colour here: the shader replaces most of the textured colour with the
-    // tint (uGhostRecolor), so every model reads the same brick red. Calm states only lean to the tint.
+    // Red and selected states keep the base colour here: the shader replaces the textured colour with
+    // the tint (uGhostRecolor), so every model reads the same brick red / sky blue. Calm states only
+    // lean to the tint.
     if (base) material.color.copy(base).lerp(this.tint, solid || !calm ? 0 : state === 'valid' ? 0.15 : 0.2);
     material.emissive.copy(this.tint);
-    material.emissiveIntensity = solid ? 0.06 : state === 'valid' ? 0.2 : calm ? 0.12 : 0.5;
-    material.opacity = solid ? 0.95 : calm ? this.tuning.modelOpacity : state === 'remove' ? REMOVE_OPACITY : 0.78;
+    material.emissiveIntensity = solid ? 0.06 : state === 'valid' ? 0.2 : calm ? 0.12 : state === 'selected' ? 0.3 : 0.5;
+    material.opacity = solid
+      ? 0.95
+      : calm
+      ? this.tuning.modelOpacity
+      : state === 'remove'
+      ? REMOVE_OPACITY
+      : state === 'selected'
+      ? SELECTED_OPACITY
+      : 0.78;
     // Ground ghosts (a road piece, a zebra) lie exactly on the tile they replace, in every state, and
     // a remove ghost exactly on its object: pull them towards the camera in depth so they win the
     // depth test on the surfaces they share (no z-fighting), while the town's depth still hides
     // the ghost's own back and inner faces.
-    const offset = this.modelSolid || state === 'remove';
+    const offset = this.modelSolid || onObject(state);
     material.polygonOffset = offset;
     material.polygonOffsetFactor = offset ? -1 : 0;
     material.polygonOffsetUnits = offset ? -4 : 0;

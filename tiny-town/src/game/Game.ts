@@ -646,6 +646,7 @@ export class Game {
       tool: this.tools.activeTool,
       rotation: this.tools.activeRotation,
       hover: this.tools.hovered,
+      selection: this.tools.selection,
       town: this.town.stats(),
       townName: this.editor.name,
       objects: [...this.town.objects()].length,

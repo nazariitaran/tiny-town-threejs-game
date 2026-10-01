@@ -74,16 +74,20 @@ describe('catalog', () => {
     }
   });
 
-  it('every tool except bulldoze belongs to a dock category', () => {
+  it('every tool except the Move and Bulldoze modes belongs to a dock category', () => {
     const categories = new Set<string>(TOOL_CATEGORIES.map((c) => c.id));
     for (const tool of TOOLS) {
-      if (tool.id === 'bulldoze') expect(tool.category).toBe('mode');
+      if (tool.id === 'bulldoze' || tool.id === 'move') expect(tool.category).toBe('mode');
       else expect(categories.has(tool.category), `${tool.id}: ${tool.category}`).toBe(true);
     }
+    expect(TOOLS.filter((tool) => tool.category === 'mode').map((tool) => [tool.id, tool.layer, tool.icon])).toEqual([
+      ['move', 'move', '/assets/ui/move.svg'],
+      ['bulldoze', 'bulldoze', '/assets/ui/bulldoze.svg'],
+    ]);
   });
 
   it('within a category tools run ground → edge → object', () => {
-    const rank: Record<ToolLayer, number> = { ground: 0, edge: 1, object: 2, bulldoze: 3 };
+    const rank: Record<ToolLayer, number> = { ground: 0, edge: 1, object: 2, move: 3, bulldoze: 4 };
     for (const { id } of TOOL_CATEGORIES) {
       const ranks = toolsInCategory(id).map((tool) => rank[tool.layer]);
       expect(ranks, id).toEqual([...ranks].sort((a, b) => a - b));

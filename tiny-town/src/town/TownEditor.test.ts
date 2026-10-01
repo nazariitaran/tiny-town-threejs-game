@@ -427,3 +427,35 @@ describe('stats after the sample town', () => {
     expect(editor.state.stats()).toEqual({ homes: 8, residents: 25, amenities: 7, trees: 5, roadTiles: 40, props: 23, fences: 28 });
   });
 });
+
+describe('TownEditor — moving an object (Move tool)', () => {
+  it('is one undo entry; undo puts it back and redo moves it again; the id never changes', () => {
+    const { editor, events } = setup();
+    expect(editor.apply({ type: 'place-object', kind: 'cottage', cell: { x: 10, z: 10 }, rotation: 0 }, 'cottage').ok).toBe(true);
+    const placed = [...editor.state.objects()][0];
+    const before = snapshot(editor);
+    const depth = editor.history.undoDepth;
+    events.clear();
+
+    expect(editor.preview({ type: 'move-object', id: placed.id, cell: { x: 20, z: 12 }, rotation: 1 }).ok).toBe(true);
+    expect(snapshot(editor)).toEqual(before); // preview never mutates
+
+    expect(editor.apply({ type: 'move-object', id: placed.id, cell: { x: 20, z: 12 }, rotation: 1 }, 'cottage').ok).toBe(true);
+    expect(editor.history.undoDepth).toBe(depth + 1);
+    expect(editor.state.getObject(placed.id)).toEqual({ ...placed, anchor: { x: 20, z: 12 }, rotation: 1 });
+    expect(editor.state.getObjectAt({ x: 10, z: 10 })).toBeUndefined();
+    expect([...editor.state.objects()]).toHaveLength(1);
+    const moved = snapshot(editor);
+
+    // The drop plays the item's own place sound and dust, at the new footprint's centre.
+    const centre = footprintCentreWorld({ x: 20, z: 12 }, [4, 4], 1);
+    expect(events.of('build:placed')).toEqual([{ toolId: 'cottage', layer: 'object', cell: { x: 20, z: 12 }, worldX: centre.x, worldZ: centre.z, strokeIndex: 0 }]);
+    expect(events.of('build:removed')).toEqual([]);
+
+    editor.undo();
+    expect(snapshot(editor)).toEqual(before);
+    expect(editor.state.getObject(placed.id)).toEqual(placed);
+    editor.redo();
+    expect(snapshot(editor)).toEqual(moved);
+  });
+});
