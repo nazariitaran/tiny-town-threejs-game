@@ -12,7 +12,7 @@ import { CAR_FILES, CAR_SCALE } from '../life/LifeSystem';
 import { MODEL_STYLES } from '../render/modelStyles';
 import { EDGE_MODELS, GROUND_MODELS, MODELS, ROAD_PIECE_MODELS, type ModelId } from './models';
 import { heightScale, OBJECT_KINDS, OBJECTS } from './objects';
-import { RETIRED_TOOLS, TOOL_CATEGORIES, TOOLS, toolsInCategory, type ToolLayer } from './tools';
+import { RETIRED_TOOLS, TOOL_CATEGORIES, TOOLS, toolsInCategory, variantIcon, type ToolLayer } from './tools';
 import { createGlbLoader, PUBLIC_DIR, publicPath } from '../testing/gltfNode';
 
 
@@ -60,11 +60,23 @@ describe('catalog', () => {
     for (const tool of TOOLS) expect(fs.existsSync(publicPath(tool.icon)), `${tool.id}: ${tool.icon}`).toBe(true);
   });
 
-  it('placing tools use their own tool-<id>.png icon, and the icons folder holds nothing else', () => {
+  it('placing tools use their own tool-<id>.png icon (+ tool-<id>-v<n>.png per extra model), and the icons folder holds nothing else', () => {
     const placing = TOOLS.filter((tool) => tool.category !== 'mode');
     for (const tool of placing) expect(tool.icon, tool.id).toBe(`/assets/icons/tool-${tool.id}.png`);
+    const variantIcons = placing.flatMap((tool) => {
+      const def = tool.layer === 'object' ? OBJECTS[tool.id as keyof typeof OBJECTS] : null;
+      return def ? Array.from({ length: def.variants - 1 }, (_, i) => `tool-${tool.id}-v${i + 1}.png`) : [];
+    });
     const files = fs.readdirSync(path.join(PUBLIC_DIR, 'assets/icons')).filter((f) => !f.startsWith('.')).sort();
-    expect(files).toEqual(placing.map((tool) => `tool-${tool.id}.png`).sort());
+    expect(files).toEqual([...placing.map((tool) => `tool-${tool.id}.png`), ...variantIcons].sort());
+  });
+
+  it('variant picker: model 0 is the tool icon, the others tool-<id>-v<n>.png', () => {
+    for (const tool of TOOLS.filter((t) => t.layer === 'object')) {
+      const def = OBJECTS[tool.id as keyof typeof OBJECTS];
+      expect(variantIcon(tool.id, 0)).toBe(tool.icon);
+      for (let n = 1; n < def.variants; n++) expect(variantIcon(tool.id, n)).toBe(`/assets/icons/tool-${tool.id}-v${n}.png`);
+    }
   });
 
   it('every category has at most 12 tools (WP-23: digits 1–9 reach the first nine; ~12 fill a desktop row)', () => {

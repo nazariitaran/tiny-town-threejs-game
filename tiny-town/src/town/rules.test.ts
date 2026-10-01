@@ -312,6 +312,26 @@ describe('row 4 — place-object: footprint in bounds, unoccupied, ground ∈ al
     expect(high.layer === 'object' && high.object.variant).toBe(1);
   });
 
+  it('valid: a chosen variant (the variant picker) is built as given and draws no RNG', () => {
+    const state = makeState();
+    for (let variant = 0; variant < OBJECTS['garage-house'].variants; variant++) {
+      const context = ctx(0.99);
+      const [change] = expectOk(plan(state, { ...placeObj('garage-house', 1, 1), variant } as BuildAction, context));
+      expect(change.layer === 'object' && change.object.variant).toBe(variant);
+      expect(context.draws).toBe(0);
+    }
+  });
+
+  it('valid: an out-of-range or non-integer variant falls back to the seeded roll', () => {
+    const state = makeState();
+    for (const variant of [-1, 2, 1.5, Number.NaN]) {
+      const context = ctx(0.7);
+      const [change] = expectOk(plan(state, { ...placeObj('birch', 1, 1), variant } as BuildAction, context));
+      expect(change.layer === 'object' && change.object.variant, String(variant)).toBe(1);
+      expect(context.draws).toBe(1);
+    }
+  });
+
   it('invalid: out-of-bounds → "Outside your plot", no id or RNG consumed', () => {
     const state = makeState();
     for (const [x, z] of [[-1, 0], [0, -1], [W, 0], [0, D]]) {

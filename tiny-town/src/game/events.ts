@@ -23,6 +23,8 @@ export type GameEvents = {
   'intent:select-tool': { toolId: ToolId | null };
   /** direction 1 = clockwise seen from above (the R key), -1 = counter-clockwise (Shift+R). */
   'intent:rotate': { direction: 1 | -1 };
+  /** Variant picker chip → game: which model (index) the active object tool builds (ignored for one-model tools). */
+  'intent:select-variant': { choice: number };
   'intent:undo': void;
   'intent:redo': void;
   /** Menu → New town → confirm → name dialog: clear the plot and call the new town `name` (WP-20). */
@@ -62,7 +64,11 @@ export type GameEvents = {
   'load:progress': { loaded: number; total: number; label: string };
   'load:error': { message: string };
 
-  'tool:changed': { toolId: ToolId | null; rotation: Rotation };
+  /**
+   * `variant`: the active object tool's chosen model and model count (the variant picker); null for
+   * tools with one model, other layers or no tool. Also emitted when only the choice changes.
+   */
+  'tool:changed': { toolId: ToolId | null; rotation: Rotation; variant: { choice: number; count: number } | null };
   'hover:changed': { cell: Cell | null; edge: Edge | null; valid: boolean; reason: string | null };
 
   /** Applied town mutations (after placement, bulldoze, undo, redo, load). Renderer consumes this. */

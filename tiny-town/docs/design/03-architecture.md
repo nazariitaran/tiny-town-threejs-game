@@ -148,7 +148,7 @@ Rules of the road:
 
 Only road features stand on road; every other object's `allowedGround` excludes it.
 
-Variant choice (e.g. tree shape, house model, traffic-light style) uses the seeded RNG at placement time and is stored in `PlacedObject.variant`, so undo/redo/save reproduce it exactly.
+Variant choice (e.g. tree shape, house model, traffic-light style) is stored in `PlacedObject.variant`, so undo/redo/save reproduce it exactly. **Variant picker (2026-10-01):** `place-object` carries an optional `variant`; an integer in `[0, variants)` is built as given and draws no RNG, anything else (absent, out of range) is rolled with the seeded RNG as before. Player placements always carry one: `ToolController` remembers each multi-model tool's chosen model for the session (model 0 until the player picks) and passes it as `chosenVariant` with every preview and placement; the ghost draws the same model. There is no random choice for the player. Demo towns and tests send no variant, so their models and RNG sequence are unchanged. Events: `intent:select-variant { choice }` (UI chip → ToolController, a model index); `tool:changed` carries `variant: { choice, count } | null`.
 
 **Tall trees.** `ObjectDef.height` is a fixed vertical stretch of the drawn model (default 1): pine ×2, birch and oak none (`catalog/objects.ts`). It is drawing only: the footprint stays 1 × 1, so rules, stats, saves and the bulldozer never see it, and the player has no control over it. The **oak** is the exception to "trees are 1 × 1": it covers **2 × 2 cells** (1 × 1 world units, a road block's size) at natural proportions (model scale 0.9, about 0.98 × 1.74 × 1.0), so the crown fills its lot. Older saves keep their oaks' anchors, so oaks that now overlap are dropped on load (no migration; owner-approved). `TownRenderer` stretches only Y (`origin = R(yaw) · S(j, j·h, j)`, `j` = the ±12 % per-tree jitter), so the crown stays inside its cell; the ghost takes the same pose from `render/objectPose.ts` (a bulldoze target its own jitter, a placement preview none). Bush and everything else are unchanged. The wind shader measures a leaf's height along the model's own Y axis and bends at half rate above 1 unit, so tall trees sway more but don't lean into the next cell.
 
@@ -311,6 +311,7 @@ The `sample-town` state uses every placing tool (40, WP-23) with zero rejections
 | `frame`, `phase`, `tool`, `rotation` | |
 | `hover` | `{x, z, valid, reason}` or null, mirroring `hover:changed`; a just-placed cell reports valid |
 | `selection` | Move tool (2026-10-01): `{id, kind, rotation}` of the carried object (the rotation it would be put down with), or null |
+| `variant` | Variant picker (2026-10-01): `{choice, count}` for the active multi-model object tool (`choice` = the chosen model: what the ghost shows and placements build), or null |
 | `town` | `TownState.stats()`: homes, residents, amenities (v0.3: Town-category buildings), trees, roadTiles (= road blocks), props (street, garden and plant objects), fences (every edge: fences and hedges) |
 | `townName` | WP-20: the town's name (`TownEditor.name`), as the top bar and the photo show it |
 | `objects` | TownState object count |

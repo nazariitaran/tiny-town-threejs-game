@@ -11,7 +11,8 @@
  */
 // Styles (ui.css + bundled Nunito) are imported from src/styles.css, NOT here. Tests import
 // UI_TEST_IDS from ./testIds, which has no side effects.
-import { TOOL_CATEGORIES, toolDef, toolsInCategory, type ToolCategory, type ToolId } from '../catalog/tools';
+import { objectDef } from '../catalog/objects';
+import { TOOL_CATEGORIES, toolDef, toolsInCategory, variantIcon, type ToolCategory, type ToolDef, type ToolId } from '../catalog/tools';
 import { assetUrl } from '../game/config';
 import type { GameBus, GameEvents, GamePhase } from '../game/events';
 import { DEFAULT_GRAPHICS, GRAPHICS_PRESETS, GRAPHICS_UI, isGraphicsPreset, type GraphicsPreset } from '../game/graphics';
@@ -40,6 +41,13 @@ const CARRY_HINT_MOUSE_FIXED = 'Click where it goes · Esc to cancel';
 const CARRY_HINT_TOUCH = 'Tap where it goes · tap Rotate to turn it';
 const CARRY_HINT_TOUCH_FIXED = 'Tap where it goes';
 const CARRY_HINTS: ReadonlySet<string> = new Set([CARRY_HINT_MOUSE, CARRY_HINT_MOUSE_FIXED, CARRY_HINT_TOUCH, CARRY_HINT_TOUCH_FIXED]);
+/** Appended to a multi-model tool's mouse hint (touch players see the variant strip instead). */
+const VARIANT_HINT = ' · V for style';
+
+/** Models of an object tool (1 for every other tool): more than one gets the variant badge and strip. */
+function modelCount(tool: ToolDef): number {
+  return tool.layer === 'object' ? objectDef(tool.id as Parameters<typeof objectDef>[0]).variants : 1;
+}
 
 /** An external link in the Credits panel (a new tab, so the game keeps running). */
 function link(href: string, text: string): string {
@@ -56,6 +64,11 @@ function touchHint(hint: string): string {
     .replace(/^Click or drag/, 'Tap or drag')
     .replace(/^Click/, 'Tap');
 }
+/** A multi-model card's corner mark: one dot per model ("there are several of these"). */
+function variantBadge(count: number): string {
+  return count > 1 ? `<span class="ui-card-variants" aria-hidden="true">${'<i></i>'.repeat(count)}</span>` : '';
+}
+
 const INVALID_TOOLTIP_MS = 1500;
 const PHOTO_DEVELOPING = 'Developing…';
 /** Music note for the menu's Music row (WP-13; same 24×24, 2 px stroke style as GLYPHS). */
@@ -88,6 +101,10 @@ export class UiRoot {
   private phase: GamePhase = 'loading';
   private category: ToolCategory = 'streets';
   private activeTool: ToolId | null = null;
+  /** Variant picker: the active tool's model choice and count (tool:changed), null for one-model tools. */
+  private variant: GameEvents['tool:changed']['variant'] = null;
+  /** Which tool and model count the strip's chips were built for (rebuilt when either changes). */
+  private variantStripKey = '';
   /** Move tool: something turnable is being carried (the Rotate button is live). */
   private carryRotatable = false;
   /** Move tool pick-ups so far (the carry hint shows for the first few, like tool hints). */
@@ -147,7 +164,9 @@ export class UiRoot {
     this.root.addEventListener('pointerover', this.onPointerOver);
     this.el('ui-menu-tabs').addEventListener('keydown', this.onMenuTabKeyDown);
     this.el(UI_TEST_IDS.tray).addEventListener('scroll', this.updateTrayCue, { passive: true });
+    this.el(UI_TEST_IDS.tray).addEventListener('scroll', this.placeVariants, { passive: true });
     window.addEventListener('resize', this.updateTrayCue);
+    window.addEventListener('resize', this.placeVariants);
     // Capture phase on window: runs before ToolController's keydown, so Esc inside an overlay
     // closes that overlay and is not also seen as "Esc with no tool → open menu".
     window.addEventListener('keydown', this.onKeyDown, { capture: true });
@@ -159,7 +178,7 @@ export class UiRoot {
       bus.on('load:error', ({ message }) => {
         this.el('ui-error-message').textContent = message;
       }),
-      bus.on('tool:changed', ({ toolId, rotation }) => this.onToolChanged(toolId, rotation)),
+      bus.on('tool:changed', ({ toolId, rotation, variant }) => this.onToolChanged(toolId, rotation, variant)),
       bus.on('build:rotated', ({ rotation }) => this.renderRotation(rotation)),
       bus.on('selection:changed', (selection) => this.onSelectionChanged(selection)),
       bus.on('hover:changed', ({ cell, edge, valid, reason }) => {
@@ -239,6 +258,7 @@ export class UiRoot {
     window.removeEventListener('keydown', this.onKeyDown, { capture: true });
     window.removeEventListener('pointermove', this.onPointerMove);
     window.removeEventListener('resize', this.updateTrayCue);
+    window.removeEventListener('resize', this.placeVariants);
     window.clearTimeout(this.hintTimer);
     window.clearTimeout(this.tooltipTimer);
     if (this.photo) URL.revokeObjectURL(this.photo.url);
@@ -294,6 +314,7 @@ export class UiRoot {
 
       <p class="ui-hint ui-hud" id="${id.hint}" data-phase="building" aria-live="polite"></p>
       <div class="ui-dock-wrap ui-hud" data-phase="building menu">
+        <div class="ui-variants" id="${id.variants}" role="group" aria-label="Styles" hidden></div>
         <nav class="ui-dock" id="${id.dock}" aria-label="Build tools">
           <div class="ui-tray-frame"><div class="ui-tray" id="${id.tray}" role="group" aria-label="Items"></div></div>
           <div class="ui-tabbar">
@@ -422,6 +443,7 @@ export class UiRoot {
                 <dt>1–9</dt><dd>Pick an item in the open tray</dd>
                 <dt>Shift + 1–5</dt><dd>Switch category</dd>
                 <dt>R · Shift+R</dt><dd>Rotate</dd>
+                <dt>V · Shift+V</dt><dd>Next style · previous style</dd>
                 <dt>M</dt><dd>Move: click a thing, then where it goes</dd>
                 <dt>B</dt><dd>Bulldoze</dd>
                 <dt>Ctrl+Z · Ctrl+Shift+Z</dt><dd>Undo · redo</dd>
@@ -440,6 +462,7 @@ export class UiRoot {
                 <dt>Twist</dt><dd>Turn the camera</dd>
                 <dt>Pinch</dt><dd>Zoom</dd>
                 <dt>No tool + drag</dt><dd>Move the camera</dd>
+                <dt>Styles</dt><dd>Pick one in the row above the item</dd>
                 <dt>Move</dt><dd>Tap a thing, then tap where it goes</dd>
                 <dt>Sun · moon</dt><dd>Time of day</dd>
                 <dt>Camera</dt><dd>Take a photo</dd>
@@ -573,6 +596,7 @@ export class UiRoot {
     else if (target.dataset.menuTab) this.selectMenuTab(target.dataset.menuTab as MenuTab);
     else if (target.hasAttribute('data-back')) this.back();
     else if (target.id === id.retry) window.location.reload();
+    else if (target.dataset.variant) this.bus.emit('intent:select-variant', { choice: Number(target.dataset.variant) });
     else if (target.dataset.category) this.setCategory(target.dataset.category as ToolCategory);
     else if (target.dataset.tool) this.selectTool(target.dataset.tool as ToolId);
   };
@@ -960,6 +984,7 @@ export class UiRoot {
     }
     if (phase !== 'building') this.hideTransient();
     else this.clearTooltip();
+    this.renderVariants();
   }
 
   // ---------------------------------------------------------------- photo (WP-19)
@@ -1026,9 +1051,10 @@ export class UiRoot {
     this.el('ui-load-label').textContent = label ? `Loading ${label}…` : `Loading… ${pct}%`;
   }
 
-  private onToolChanged(toolId: ToolId | null, rotation: Rotation): void {
+  private onToolChanged(toolId: ToolId | null, rotation: Rotation, variant: GameEvents['tool:changed']['variant']): void {
     const previous = this.activeTool;
     this.activeTool = toolId;
+    this.variant = variant;
     if (toolId) {
       // Keep the tray showing the active tool (e.g. picked by a shortcut from another category).
       const category = toolDef(toolId).category;
@@ -1041,7 +1067,8 @@ export class UiRoot {
       const uses = (this.toolUses.get(toolId) ?? 0) + 1;
       this.toolUses.set(toolId, uses);
       if (uses <= HINT_MAX_USES) {
-        this.showHint(this.coarse.matches ? touchHint(toolDef(toolId).hint) : toolDef(toolId).hint);
+        const hint = toolDef(toolId).hint;
+        this.showHint(this.coarse.matches ? touchHint(hint) : variant ? hint + VARIANT_HINT : hint);
       } else this.hideHint();
     } else if (!toolId) {
       if (previous && this.coarse.matches && this.phase === 'building') this.showHint(PICK_HINT_TOUCH);
@@ -1059,7 +1086,7 @@ export class UiRoot {
         .map(
           // Digits 1–9 reach the first nine tools; later ones (WP-23) have no badge and no shortcut.
           (tool, i) => `<button type="button" class="ui-card" id="${UI_TEST_IDS.tool(tool.id)}" data-tool="${tool.id}" aria-pressed="false" aria-label="${tool.label}" title="${i < 9 ? `${tool.label} (${i + 1})` : tool.label}">
-          <img src="${assetUrl(tool.icon)}" alt="" width="64" height="64" draggable="false" onerror="this.style.visibility='hidden'" /><span class="ui-card-label">${tool.label}</span>${i < 9 ? `<kbd>${i + 1}</kbd>` : ''}</button>`,
+          <img src="${assetUrl(tool.icon)}" alt="" width="64" height="64" draggable="false" onerror="this.style.visibility='hidden'" /><span class="ui-card-label">${tool.label}</span>${i < 9 ? `<kbd>${i + 1}</kbd>` : ''}${variantBadge(modelCount(tool))}</button>`,
         )
         .join('');
       tray.scrollLeft = 0;
@@ -1068,6 +1095,11 @@ export class UiRoot {
       const pressed = card.dataset.tool === this.activeTool;
       card.setAttribute('aria-pressed', String(pressed));
       if (pressed && !same) card.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      // The selected card shows the model it builds (every other card: the tool's own icon).
+      const tool = toolDef(card.dataset.tool as ToolId);
+      const src = assetUrl(pressed && this.variant ? variantIcon(tool.id, this.variant.choice) : tool.icon);
+      const img = card.querySelector('img');
+      if (img && img.getAttribute('src') !== src) img.setAttribute('src', src);
     }
     this.updateTrayCue();
     if (animate) {
@@ -1082,7 +1114,61 @@ export class UiRoot {
     this.button(UI_TEST_IDS.bulldoze).setAttribute('aria-pressed', String(this.activeTool === 'bulldoze'));
     const rotatable = this.activeTool !== null && (toolDef(this.activeTool).layer === 'object' || this.carryRotatable);
     this.button(UI_TEST_IDS.rotate).classList.toggle('is-idle', !rotatable);
+    this.renderVariants();
   }
+
+  /**
+   * Variant picker: the strip of model chips over the selected card, while building with a
+   * multi-model tool. The chips are rebuilt only when the tool or its model count changes.
+   */
+  private renderVariants(): void {
+    const strip = this.el(UI_TEST_IDS.variants);
+    const tool = this.activeTool;
+    const variant = this.variant;
+    // Only over its card: another category's tray hides it until the tool's tray is back.
+    const show = this.phase === 'building' && tool !== null && variant !== null && this.root.querySelector(`#${UI_TEST_IDS.tool(tool)}`) !== null;
+    if (!show) {
+      strip.hidden = true;
+      this.variantStripKey = '';
+      return;
+    }
+    const key = `${tool}:${variant.count}`;
+    if (key !== this.variantStripKey) {
+      this.variantStripKey = key;
+      const label = toolDef(tool).label;
+      strip.innerHTML = Array.from(
+        { length: variant.count },
+        (_, n) =>
+          `<button type="button" class="ui-chip" id="${UI_TEST_IDS.variant(n)}" data-variant="${n}" aria-pressed="false" aria-label="${label}, style ${n + 1} of ${variant.count}" title="Style ${n + 1} (V)"><img src="${assetUrl(variantIcon(tool, n))}" alt="" width="64" height="64" draggable="false" /></button>`,
+      ).join('');
+      strip.hidden = false;
+      strip.classList.remove('is-entering');
+      void strip.offsetWidth; // restart the slide-up
+      strip.classList.add('is-entering');
+    }
+    for (const chip of strip.querySelectorAll<HTMLElement>('[data-variant]')) {
+      chip.setAttribute('aria-pressed', String(Number(chip.dataset.variant) === variant.choice));
+    }
+    this.placeVariants();
+  }
+
+  /** Centre the variant strip over the selected card (kept on screen; its caret points at the card). */
+  private readonly placeVariants = (): void => {
+    const strip = this.root.querySelector<HTMLElement>(`#${UI_TEST_IDS.variants}`);
+    if (!strip || strip.hidden || !this.activeTool) return;
+    const card = this.root.querySelector<HTMLElement>(`#${UI_TEST_IDS.tool(this.activeTool)}`);
+    if (!card) return;
+    const wrap = strip.parentElement!.getBoundingClientRect();
+    const tray = this.el(UI_TEST_IDS.tray).getBoundingClientRect();
+    const box = card.getBoundingClientRect();
+    const width = strip.offsetWidth;
+    const margin = 8;
+    // A card scrolled out of view: point at the tray's edge it went past.
+    const centre = Math.min(Math.max(box.left + box.width / 2, tray.left), tray.right);
+    const left = Math.min(Math.max(centre - width / 2, margin), window.innerWidth - margin - width);
+    strip.style.left = `${Math.round(left - wrap.left)}px`;
+    strip.style.setProperty('--caret-x', `${Math.round(Math.min(Math.max(centre - left, 18), width - 18))}px`);
+  };
 
   /** Edge fades on the tray frame when more items are scrolled off either side. */
   private readonly updateTrayCue = (): void => {
@@ -1224,7 +1310,9 @@ export class UiRoot {
     const topbar = this.root.querySelector<HTMLElement>('.ui-topbar')!.getBoundingClientRect();
     const hint = this.el(UI_TEST_IDS.hint);
     const hintRect = hint.classList.contains('is-visible') && hint.textContent ? hint.getBoundingClientRect() : null;
-    const dockTop = this.el(UI_TEST_IDS.dock).getBoundingClientRect().top;
+    // The variant strip floats above the dock: keep clear of it too.
+    const strip = this.el(UI_TEST_IDS.variants);
+    const dockTop = Math.min(this.el(UI_TEST_IDS.dock).getBoundingClientRect().top, strip.hidden ? Infinity : strip.getBoundingClientRect().top);
     const minY = Math.max(topbar.bottom, hintRect?.bottom ?? 0) + margin;
     const maxY = dockTop - h - margin;
     let x: number;

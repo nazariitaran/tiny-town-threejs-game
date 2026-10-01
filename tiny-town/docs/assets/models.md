@@ -7,7 +7,7 @@ Every placeable item is covered by models in one flat, colourful look: a 512 px 
   - Ids are the catalog model ids (`MODELS` in `src/catalog/models.ts`), except the older road-piece and walkway entries (see "Coverage per build tool") and shipped-but-unused files, which have their own ids.
   - `category` is the dock category (`streets`, `homes`, `town`, `nature`, `garden`), or `decor` for cars and the decor ring.
   - `tool` is the dock tool that draws the model, or `extra` for cars, decor and files that are shipped but unused.
-  - `icon` is that tool's dock icon, `/assets/icons/tool-<tool>.png`, or **`null`** when `tool` is `extra`. Variants share their tool's icon. No model has an icon of its own.
+  - `icon` is that tool's dock icon, `/assets/icons/tool-<tool>.png`, or **`null`** when `tool` is `extra`. Variant 0 uses its tool's icon; the other variants have chip icons for the variant picker (below).
 - Re-measure and verify: `npm run inspect:models`, or add `--three` to also load every GLB through three.js `GLTFLoader`.
   - The script prints a report and exits 1 on any problem. It does not update `models.json`.
   - **Never pass `--json docs/assets/models.json`.** That writes the raw report, which has a different schema, over the curated manifest.
@@ -63,8 +63,9 @@ Live scales and footprints are in the next section, "Grid and scale", and in `sr
 | Garden | Slide | `slide` (WP-23): "Slide" by sirkitree (Poly Pizza, **CC-BY 3.0**), normalised | `composed/slide.glb` |
 | Decor | — | `car-sedan`, `car-hatchback`, `car-van`, `car-taxi` (ambient cars, WP-10); `rocks` (catalog `decor-rocks`) and the oak/pine in the decor ring; unused `plant` | `cars/*`, `platformer/rocks`, `platformer/plant` |
 
-**Icons** (`public/assets/icons/tool-<toolId>.png`, 40 files, one per dock tool; the mode tools use UI svgs drawn in this project, `/assets/ui/bulldoze.svg` and `/assets/ui/move.svg`):
-- All 40 are 128 × 128 and were rendered in this project from the in-game models and materials by `node scripts/render-icons.mjs`, which drives `src/render/IconStudio.ts` in a browser and needs a dev server. The script only writes the icons that `catalog/tools.ts` references. They were last re-rendered for v0.3; WP-23 rendered its seven new icons and kept the others (a run nudges unrelated icons by a few pixels).
+**Icons** (`public/assets/icons/tool-<toolId>.png`, 38 files, one per dock tool, plus 10 variant icons; the mode tools use UI svgs drawn in this project, `/assets/ui/bulldoze.svg` and `/assets/ui/move.svg`):
+- All are 128 × 128 and were rendered in this project from the in-game models and materials by `node scripts/render-icons.mjs`, which drives `src/render/IconStudio.ts` in a browser and needs a dev server. The script only writes the icons that `catalog/tools.ts` references. They were last re-rendered for v0.3; WP-23 rendered its seven new icons and kept the others (a run nudges unrelated icons by a few pixels).
+- **Variant icons** (variant picker, 2026-10-01): `tool-<toolId>-v<n>.png` for every model n ≥ 1 of a multi-model object tool (10 files: townhouse 1, bungalow 1, garage-house 1–3, big-house 1, traffic-light 1, birch 1, tulips 1–2), rendered by the same script (`IconStudio` renders each model with the tool's framing; same object id, so a birch's hashed look matches). `catalog/tools.ts` `variantIcon(id, n)` names them; `catalog.test.ts` checks the folder holds exactly the tool and variant icons. All are CC0 models.
 - Icons of CC0 models are CC0. The Church, Swing and Barbecue icons show CC-BY models and carry their attribution (`CREDITS.md`).
 - v0.3 deleted the 44 older icons (named after model ids), including the 27 Kenney 64 px previews of unused models. Only tools have icons now.
 
