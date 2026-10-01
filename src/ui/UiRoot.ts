@@ -57,7 +57,7 @@ function link(href: string, text: string): string {
 /** The author's pages (owner, 2026-10-01): the title screen's corner and the bottom of Credits. */
 const AUTHOR_LINKS = [
   { href: 'https://github.com/nazariitaran/tiny-town-threejs-game', label: 'Tiny Town on GitHub', glyph: GLYPHS.github },
-  { href: 'https://www.linkedin.com/feed/', label: 'LinkedIn', glyph: GLYPHS.linkedin },
+  { href: 'https://www.linkedin.com/in/nazariitaran', label: 'LinkedIn', glyph: GLYPHS.linkedin },
   { href: 'https://x.com/tn255', label: 'X (Twitter)', glyph: GLYPHS.x },
 ] as const;
 
