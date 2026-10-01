@@ -61,6 +61,10 @@ Only the integrator (WP-01) edits this file. Workers report in their hand-off. T
   - day/night: Auto phases at their own speeds (`PHASE_SPANS`): dawn 1, day 5, dusk 1, night 2 minutes (9 in all, was an even 10);
   - lamppost light nearer the arm's tip (`lampOutset` 0.03) and no halo above the lamp.
   - Gates: `npm run verify` green on `main` after both merges (30 files, 532 unit tests, build OK). On the branches: full e2e on `catalog-tweaks` before its test fixes, then the failing specs re-run green (ui, new-items, build-flow, interaction, bot-playtest, daynight, visual-regression, photo, graphics); one desktop bot-playtest failure was a one-off dev-server page reload and passed on re-run.
+- **Two owner requests are merged on `main`** (owner-approved 2026-10-01; no version bump):
+  - **Reset view button removed** (merge `3827323`, branch `remove-reset-view`, commit `e799574`): Menu → Help is now Controls · Credits; the `btn-reset-view` id and the unused `camera` glyph are gone. F / Home still reset the camera (`intent:reset-camera`). Touch screens now have no reset; the owner accepted this, and a gesture (e.g. a two-finger double-tap) could add one later.
+  - **Homes on pavement** (merge `e2da770`, branch `homes-on-pavement`, commit `31d7ab8`): all six homes use `PAVED_OK` (field, grass, meadow, pavement), like the shops, the church and the trees; garden path is still refused. No save change.
+  - Gates: `npm run verify` green on `main` after both merges (30 files, 532 unit tests, build OK). On the branches: `menu-tabs` e2e (9 passed, 1 skipped by design) and a one-off desktop check that a Cottage and a Big house place on painted pavement with no console errors.
 - **Where current facts live:**
   - grid, rules, save, modules, diagnostics and budgets: `docs/design/03-architecture.md`;
   - asset scales and footprints: `docs/assets/models.md`;
