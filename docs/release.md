@@ -10,12 +10,14 @@ npm run preview         # serves dist/ on PORT − 1000 (default 4188): test thi
 ```
 `dist/` is a fully static site: no server logic, environment variables or API keys. Upload everything in `dist/` **except `assets/*.map`** to any static host (GitHub Pages, Netlify, S3, itch.io). HTTPS is recommended; audio unlock and `localStorage` saves also work on http.
 
+- **Cloudflare.** The live site is a Cloudflare Worker with static assets, built from `main` on push: `npm ci`, `npm run build`, then `npx wrangler deploy`, which uploads `dist/` as configured in `wrangler.jsonc`. `public/.assetsignore` keeps the `.map` files out of the upload. Cloudflare's build runs npm 10, so after a dependency change check that `npx -y npm@10.9.2 ci` accepts the lock file.
+
 - **Base path.** `base: './'`, so the same `dist/` works at a domain root or any sub-path. Every runtime URL goes through `assetUrl()` (`src/game/config.ts`), which prefixes `import.meta.env.BASE_URL`; never hard-code `"/assets/..."` in a `fetch`, loader, `<img src>` or `<audio src>`. Check: every hit of `grep -rn "/assets/" src` is a catalog or constant path passed to `assetUrl()`.
 - **Chunks.** three.js is its own vendor chunk; `PhotoFrame` is a lazy chunk. `chunkSizeWarningLimit` is 900 kB.
 - **Sourcemaps.** `sourcemap: 'hidden'`: `.map` files are written, but the JS has no `sourceMappingURL`. Don't deploy them.
 - **CSS.** Minified by lightningcss, which drops `translate:` when the same rule also sets `transform:`. Never combine the two in one rule; run the visual baselines against the preview after CSS changes.
 - **Music.** `assets/music/foundation-of-gold.mp3` (4.68 MB) is not part of the initial download: an `<audio>` element streams it once Start or Continue sets its `src`. Hosts must serve `.mp3` as `audio/mpeg` (the common default).
-- **Static extras.** `favicon.svg`, `favicon.ico`, `apple-touch-icon.png`, `data/default_town_names.json` and `licenses.txt` (the shipped libraries' licence texts, linked from Credits) come from `public/`. After a dependency change run `npm run gen:licenses`; `verify` fails while it is stale.
+- **Static extras.** `favicon.svg`, `favicon.ico`, `apple-touch-icon.png`, `og-image.jpg`, `manifest.webmanifest`, `robots.txt`, `sitemap.xml`, `.assetsignore`, `data/default_town_names.json` and `licenses.txt` (the shipped libraries' licence texts, linked from Credits) come from `public/`. After a dependency change run `npm run gen:licenses`; `verify` fails while it is stale.
 - **Browsers.** WebGL2 (three r184). Automated coverage is Chromium desktop and Pixel 7 emulation; real iOS Safari and Android need a device check.
 
 ## Testing the production build

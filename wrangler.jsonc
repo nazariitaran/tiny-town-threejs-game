@@ -1,0 +1,8 @@
+// Cloudflare Workers static-assets deploy: `npm run build`, then `npx wrangler deploy` uploads dist/.
+{
+  "name": "tiny-town-threejs-game",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist"
+  }
+}

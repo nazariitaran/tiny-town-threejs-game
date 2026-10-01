@@ -6,3 +6,4 @@ assets-src/
 *.log
 .DS_Store
 .npm-cache/
+.wrangler/
