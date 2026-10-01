@@ -8,6 +8,7 @@ Everything merged on `main` after `v0.5`. Saves stay on version 4.
 ### New
 - **Choose the style you build.** Townhouse, Bungalow, Suburban, Big house, Traffic light, Birch and Tulips each come in more than one style. Selecting one of them opens a row of style pictures above its card. Pick one, and the preview shows exactly that style and every placement builds it. Press `V` / `Shift+V` to step through the styles with the keyboard. Each item remembers your pick until you reload. A small row of dots on a card shows how many styles it has.
 - **Move things around.** The new Move button (`M`) picks up a placed building, tree or piece of furniture and puts it down somewhere else. Click (or tap) it, then click where it goes. `R` turns it on the way; Esc or a right-click puts it back. It slides and hops into place and is one undo step. The roundabout and zebra crossings stay with their road, and ground, hedges and fences don't move.
+- **Author's links.** The title screen has a small corner pill with links to the game's GitHub page and the author's LinkedIn and X, and the Credits panel ends with the same links.
 - A favicon, and a Credits panel grouped by kind (3D models, sound effects, music, font, software) with links to every source and licence. The open-source licences are in `licenses.txt`.
 
 ### Changed

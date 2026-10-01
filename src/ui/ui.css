@@ -318,6 +318,85 @@
   box-shadow: var(--shadow-soft);
 }
 
+/* Author's links (owner, 2026-10-01): a quiet pill in the title's bottom-right corner (below the
+   title links on phones), and a centred row at the bottom of Credits. Icons follow the text colour. */
+.ui-author {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ui-author-label {
+  margin-right: 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+
+.ui-author-link {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--ink-soft);
+  transition:
+    color var(--fast) var(--ease),
+    background-color var(--fast) var(--ease);
+}
+
+.ui-author-link .ui-glyph {
+  width: 18px;
+  height: 18px;
+}
+
+.ui-author-link:hover {
+  color: var(--ink);
+  background: rgba(60, 40, 20, 0.07);
+}
+
+.ui-author-title {
+  position: absolute;
+  right: max(14px, var(--safe-right));
+  bottom: max(14px, var(--safe-bottom));
+  padding: 3px 4px 3px 12px;
+  border-radius: 999px;
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+  pointer-events: auto;
+  opacity: 0.85;
+  transition: opacity var(--fast) var(--ease);
+  /* backwards only: once in, :hover can still lift the opacity. */
+  animation: ui-fade-in 600ms 240ms var(--ease) backwards;
+}
+
+.ui-author-title:hover,
+.ui-author-title:focus-within {
+  opacity: 1;
+}
+
+/* Phones: the corner would crowd the centred buttons, so it is centred at the bottom edge and the
+   title's buttons rise to make room. (A direct child of .ui-title: .ui-title-bottom's rise animation
+   would make it the containing block.) */
+@media (max-width: 600px) {
+  .ui-author-title {
+    left: 0;
+    right: 0;
+    width: fit-content;
+    margin: 0 auto;
+  }
+
+  .ui-title-bottom {
+    margin-bottom: 48px;
+  }
+}
+
+.ui-author-credits {
+  justify-content: center;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
 .ui-error {
   background: linear-gradient(#bfe3ff, #d9efd0);
 }
@@ -1432,6 +1511,10 @@
 
 @keyframes ui-pop {
   from { opacity: 0; transform: translateY(8px) scale(0.97); }
+}
+
+@keyframes ui-fade-in {
+  from { opacity: 0; }
 }
 
 @keyframes ui-rise {
