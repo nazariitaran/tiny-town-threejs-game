@@ -1,6 +1,6 @@
 # Tiny Town — agent guide
 
-A cosy browser city-builder sandbox (three.js + TypeScript + Vite). Start here. If you were given a work package (WP), read its section in `docs/PLAN.md` next.
+A cosy browser city-builder sandbox (three.js + TypeScript + Vite). This repo is Tiny Town only: the game lives at the repo root (it moved out of `tiny-town/` on 2026-10-01), next to the shared skills in `.claude/skills/`. Start here. If you were given a work package (WP), read its section in `docs/PLAN.md` next.
 
 ## Current state (v0.5 cut on `main`, package 0.5.0, tag `v0.5`)
 - **v0.5** (2026-09-30) = WP-20 to WP-25 (each listed below): town names, town files, birds, new build items, the frame budget, graphics presets and the tabbed menu. Player-facing notes: `CHANGELOG.md`. Release measurements: `docs/release.md` (v0.5 column).
@@ -45,7 +45,7 @@ A cosy browser city-builder sandbox (three.js + TypeScript + Vite). Start here. 
 7. `docs/HANDOVER.md` — how a swarm is orchestrated: worktrees, ports, merge runbook, hand-off format.
 8. `docs/release.md` — build, deploy, debug/test-hook policy, measured budgets.
 
-Skills live in `../.claude/skills/`. Load them when your WP says so: `threejs-gameplay-systems`, `threejs-aaa-graphics-builder`, `threejs-game-ui-designer`, `threejs-qa-release`, `threejs-debug-profiler`.
+Skills live in `.claude/skills/`. Load them when your WP says so: `threejs-gameplay-systems`, `threejs-aaa-graphics-builder`, `threejs-game-ui-designer`, `threejs-qa-release`, `threejs-debug-profiler`.
 
 ## Commands
 ```bash
@@ -66,12 +66,12 @@ node scripts/render-icons.mjs [--size 128]   # re-render the tool icons (tool-<i
 node scripts/compose-models.mjs              # rebuild public/assets/models/composed/*.glb (needs assets-src/, incl. assets-src/polypizza/)
 ```
 - **`inspect:models` and `docs/assets/models.json`.** By default the script only prints; it doesn't touch `models.json`. **Never run it with `--json docs/assets/models.json`.** That flag writes the script's raw report, which has a different schema, and would clobber the hand-maintained manifest: ids, `suggestedScale`, `footprintCells` (hand-edited for WP-12 and v0.3), notes and icons. If a scale or footprint changes in `catalog/`, edit `models.json` and `models.md` by hand.
-- If `npm install` fails with EACCES on `~/.npm`, add `--cache ../.npm-cache`.
+- If `npm install` fails with EACCES on `~/.npm`, add `--cache .npm-cache`.
 - Browser checks (Playwright, `inspect:canvas`, `render-icons`) need a session where Chromium can launch. Inside a nono sandbox Chromium segfaults. If that happens, say so in your hand-off; don't skip the check.
 - **Ports.** The dev server, Playwright, the canvas inspector and `render-icons` all honour the `PORT` env var (default 5188, strict). `vite preview` uses `PORT − 1000`. Parallel agents each use their assigned port: `PORT=5203 npm run dev`, `PORT=5203 npm run test:e2e`, `PORT=5203 npm run inspect:canvas -- ...`. Never kill a dev server you didn't start.
 - **Worktrees.** `node_modules/`, `assets-src/` and `artifacts/` are gitignored, so none of them exist in a fresh worktree.
   - Run `npm install --cache "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.npm-cache"`. It resolves to the main checkout's shared cache from any worktree.
-  - Read raw assets from the main checkout's `tiny-town/assets-src/` by absolute path.
+  - Read raw assets from the main checkout's `assets-src/` by absolute path.
   - Evidence under `artifacts/` is local only. **Copy `artifacts/<wp>/` into the main checkout before `git worktree remove --force`, which deletes it.** WP-07's audio recording was lost this way.
 
 ## Hard rules

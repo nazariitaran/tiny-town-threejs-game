@@ -1,2 +1,8 @@
+node_modules/
+dist/
+test-results/
+artifacts/
+assets-src/
+*.log
 .DS_Store
 .npm-cache/

@@ -2,9 +2,9 @@
 """Rebuild Tiny Town's SFX (public/assets/audio/*.mp3) and docs/assets/audio.json from the Kenney CC0 packs.
 
 WP-07 version of assets-src/audio-tools/build_audio.py (that script lives in the git-ignored assets-src/,
-so this copy is the versioned source of truth). Run from the tiny-town project root:
+so this copy is the versioned source of truth). Run from the repo root:
 
-    ASSETS_SRC=/abs/path/to/tiny-town/assets-src python3 docs/assets/audio.build.py
+    ASSETS_SRC=/abs/path/to/repo/assets-src python3 docs/assets/audio.build.py
 
 Needs python3 + numpy + scipy and ffmpeg. The packs are fetched as described in docs/assets/audio.md.
 
