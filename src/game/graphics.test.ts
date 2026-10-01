@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_GRAPHICS, effectivePixelRatio, GRAPHICS_PRESETS, GRAPHICS_PROFILES, isGraphicsPreset, needsReload } from './graphics';
 
-describe('graphics presets (WP-25)', () => {
-  it('Medium is the default and keeps the pre-WP-25 desktop look', () => {
+describe('graphics presets', () => {
+  it('Medium is the default desktop look', () => {
     expect(DEFAULT_GRAPHICS).toBe('medium');
     expect(GRAPHICS_PROFILES.medium).toMatchObject({ maxDpr: 1.5, antialias: true, material: 'standard', shadowMapSize: 2048, decorFraction: 1, skyOctaves: 5, lampHalos: true });
   });

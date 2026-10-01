@@ -51,7 +51,7 @@ test('Low: DPR 1, no MSAA, Lambert, 1024 shadows, 60% decor spread, 3 octaves, 3
   errors.expectNone();
 });
 
-test('Medium: the default, pre-WP-25 desktop look (DPR 1.5, MSAA, Standard, 2048, full decor, 60/30 fps)', async ({ page }) => {
+test('Medium: the default desktop look (DPR 1.5, MSAA, Standard, 2048, full decor, 60/30 fps)', async ({ page }) => {
   const errors = trackErrors(page);
   const d = await graphicsAt(page, '');
   expect(d.quality).toBe('medium');

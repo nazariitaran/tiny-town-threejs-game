@@ -75,7 +75,7 @@ describe('build camera framing (readability first)', () => {
     expect(pose.targetZ).toBe(TITLE_POSE.targetZ);
   });
 
-  it('WP-12 cell pitch at the default pose: ≥ 12 px desktop, ≥ 9 px phone (two cells at the plot centre)', () => {
+  it('cell pitch at the default pose: ≥ 12 px desktop, ≥ 9 px phone (two cells at the plot centre)', () => {
     const pitch = (width: number, height: number) => {
       const pose = defaultPoseFor(width, height);
       const camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 2000);

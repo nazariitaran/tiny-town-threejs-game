@@ -74,7 +74,7 @@ describe('glow masks', () => {
   });
 });
 
-describe('which catalog models glow (WP-17b: shops and the church stay dark at night)', () => {
+describe('which catalog models glow (shops and the church stay dark at night)', () => {
   const glowing = () =>
     Object.fromEntries(
       (Object.entries(MODELS) as Array<[ModelId, (typeof MODELS)[ModelId]]>).flatMap(([id, spec]) => ('glow' in spec && spec.glow ? [[id, spec.glow]] : [])),

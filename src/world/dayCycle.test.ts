@@ -101,7 +101,7 @@ function maxJump(t0: number, t1: number, withKeyDir = true): number {
   return Math.max(...a.map((v, i) => Math.abs(v - b[i])));
 }
 
-describe('sampleDay: afternoon is the v0.2 look', () => {
+describe('sampleDay: the afternoon look', () => {
   it('reproduces LIGHTING / SKY_PALETTE / SUN_DIRECTION at t = 0.55 (1e-6)', () => {
     const s = sampleDay(T_AFTERNOON, createDaySample());
     expect(s.t).toBe(T_AFTERNOON);
@@ -324,7 +324,7 @@ describe('DayClock', () => {
     expect(night.t).toBe(T_NIGHT);
   });
 
-  it('phases last 1 min dawn, 5 min day, 1 min dusk, 2 min night in Auto (owner, 2026-09-30)', () => {
+  it('phases last 1 min dawn, 5 min day, 1 min dusk, 2 min night in Auto', () => {
     expect(PHASE_SPANS.map((span) => [span.phase, span.seconds])).toEqual([['dawn', 60], ['day', 300], ['dusk', 60], ['night', 120]]);
     expect(DAY_LENGTH_S).toBe(540);
     // Phase by phase from midnight's end (t = 0 is the start of dawn)...

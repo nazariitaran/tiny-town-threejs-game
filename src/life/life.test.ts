@@ -263,7 +263,7 @@ describe('traffic: roundabouts', () => {
   });
 });
 
-describe('traffic: night density (WP-16b)', () => {
+describe('traffic: night density', () => {
   function sampleSim(seed = 4) {
     const editor = new TownEditor(new TownState(PLOT_WIDTH, PLOT_DEPTH), createGameBus(), createSeededRandom(1));
     buildSampleTown(editor);

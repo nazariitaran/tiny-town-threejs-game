@@ -233,7 +233,7 @@ describe('NightLights (headless)', () => {
   });
 });
 
-describe('fireflies (stretch)', () => {
+describe('fireflies', () => {
   it('pick ≤ 24 stable spots over uncovered meadow cells, none without meadow', () => {
     const { town, editor } = setup();
     expect(pickFireflySpots(town)).toEqual([]);

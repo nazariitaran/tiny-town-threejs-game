@@ -649,7 +649,7 @@ describe('road features — the roundabout (6×6 cells = 3×3 road blocks, block
   });
 });
 
-describe('multi-cell footprints (WP-12; WP-17 sizes: homes 4 × 4, townhouse 3 × 4, big house 5 × 4)', () => {
+describe('multi-cell footprints (homes 4 × 4, townhouse 3 × 4, big house 5 × 4)', () => {
   it('invalid: a footprint partly out of bounds → out-of-bounds, on every side', () => {
     const state = makeState();
     expectFail(plan(state, placeObj('cottage', W - 3, 2)), 'out-of-bounds', 'Outside your plot');
@@ -660,7 +660,7 @@ describe('multi-cell footprints (WP-12; WP-17 sizes: homes 4 × 4, townhouse 3 �
     expectOk(plan(state, placeObj('cottage', W - 4, D - 4)));
   });
 
-  it('plot-edge bounds of every WP-17 building, flush in each corner, at rotation 0 and 1', () => {
+  it('plot-edge bounds of every building, flush in each corner, at rotation 0 and 1', () => {
     const kinds = ['cottage', 'bungalow', 'family-home', 'garage-house', 'townhouse', 'big-house', 'corner-shop', 'supermarket', 'church'] as const;
     for (const kind of kinds) {
       for (const rotation of [0, 1] as const) {

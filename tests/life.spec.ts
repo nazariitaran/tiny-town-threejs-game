@@ -9,7 +9,7 @@ import { demoOffset } from '../src/town/sampleTown';
 import { applyState, attachJson, clickCell, diagnostics, gotoTitle, selectTool, trackErrors, waitFrames } from './helpers';
 
 const ARTIFACTS = resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/wp-10');
-const NOT_WIRED = 'LifeSystem is not constructed in Game.ts yet (WP-10 contract request pending)';
+const NOT_WIRED = 'LifeSystem diagnostics are not available';
 
 async function life(page: Page): Promise<LifeDiagnostics | null> {
   return page.evaluate(() => {

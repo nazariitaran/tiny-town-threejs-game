@@ -70,7 +70,7 @@ describe('serializeTown', () => {
     expect(serializeTown(state, camera).camera).toEqual(camera);
   });
 
-  it('includes the town name only when given, sanitised (WP-20)', () => {
+  it('includes the town name only when given, sanitised', () => {
     const state = new TownState(PLOT_WIDTH, PLOT_DEPTH);
     expect('name' in serializeTown(state)).toBe(false);
     expect('name' in serializeTown(state, undefined, ' ')).toBe(false);
@@ -137,9 +137,9 @@ describe('parseSave rejects corrupted / foreign data without throwing', () => {
     ['fractional version', { ...blank(), version: 1.5 }],
     ['negative version', { ...blank(), version: -1 }],
     ['version 0 without a migration', { ...blank(), version: 0 }],
-    ['a v1 (v0.1) save', { ...blank(24, 24), version: 1 }],
-    ['a v2 (v0.2) save', { ...blank(), version: 2 }],
-    ['a v3 (v0.3) save', { ...blank(), version: 3 }],
+    ['a v1 save', { ...blank(24, 24), version: 1 }],
+    ['a v2 save', { ...blank(), version: 2 }],
+    ['a v3 save', { ...blank(), version: 3 }],
     ['future version', { ...blank(), version: CURRENT_SAVE_VERSION + 1 }],
     ['missing width', { ...blank(), width: undefined }],
     ['zero depth', { ...blank(), depth: 0 }],
@@ -167,7 +167,7 @@ describe('parseSave rejects corrupted / foreign data without throwing', () => {
     expect((result as Error).message).toBe('No migration from save version 2');
   });
 
-  it('rejects a v3 save with "No migration from save version 3" (WP-17: bigger footprints, fresh town)', () => {
+  it('rejects a v3 save with "No migration from save version 3"', () => {
     // 3 cells apart: fine as 3 × 3 lots, overlapping as 4 × 4.
     const objects = [
       { id: 1, kind: 'cottage', anchor: { x: 2, z: 2 }, rotation: 0, variant: 0 },
@@ -182,7 +182,7 @@ describe('parseSave rejects corrupted / foreign data without throwing', () => {
     expect(v4.objects.map((o) => o.kind)).toEqual(['cottage']);
   });
 
-  it('accepts a v4 save of the WP-17 footprints (a 5 × 4 big house turned beside a 3 × 4 church)', () => {
+  it('accepts a v4 save with multi-cell footprints (a 5 × 4 big house turned beside a 3 × 4 church)', () => {
     const objects = [
       { id: 1, kind: 'big-house', anchor: { x: 2, z: 2 }, rotation: 1, variant: 1 },
       { id: 2, kind: 'church', anchor: { x: 6, z: 2 }, rotation: 2, variant: 0 },
@@ -370,7 +370,7 @@ describe('parseSave sanitises and clamps', () => {
     expect(ok(parseSave({ ...blank(), nextObjectId: 'x' })).nextObjectId).toBe(1);
   });
 
-  it('keeps the town name (sanitised) and drops a missing, non-string or blank one (WP-20)', () => {
+  it('keeps the town name (sanitised) and drops a missing, non-string or blank one', () => {
     expect(ok(parseSave({ ...blank(), name: 'Puddleton' })).name).toBe('Puddleton');
     expect(ok(parseSave({ ...blank(), name: '  Little \n Snorting ' })).name).toBe('Little Snorting');
     expect(ok(parseSave({ ...blank(), name: 'x'.repeat(40) })).name).toBe('x'.repeat(30));
@@ -443,7 +443,7 @@ describe('parseSave and road features', () => {
 });
 
 describe('migration hook', () => {
-  it('has no built-in migrations (v0.3 dropped v1/v2 support; WP-17 has no v3 → v4 either)', () => {
+  it('has no built-in migrations', () => {
     expect(SAVE_MIGRATIONS).toEqual({});
   });
 
@@ -484,7 +484,7 @@ describe('migration hook', () => {
   });
 });
 
-describe('parseSave and the WP-23 catalog change (no version bump)', () => {
+describe('parseSave and catalog changes without a version bump', () => {
   it('a version 4 save with a garage (a removed kind) still opens: the garage is dropped, the rest kept', () => {
     const save = {
       ...blank(),

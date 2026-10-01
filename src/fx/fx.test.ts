@@ -323,8 +323,8 @@ describe('PlacementFx', () => {
   });
 });
 
-describe('removal poof radius follows the footprint (WP-12)', () => {
-  it('hugs a 4×4 house (WP-17), a 2×1 swing and falls back to the minimum for unknown kinds', () => {
+describe('removal poof radius follows the footprint', () => {
+  it('hugs a 4×4 house, a 2×1 swing and falls back to the minimum for unknown kinds', () => {
     expect(footprintPoofRadius('cottage', 0.3)).toBeCloseTo(0.95, 5);
     expect(footprintPoofRadius('townhouse', 0.3)).toBeCloseTo(0.95, 5);
     expect(footprintPoofRadius('swing', 0.3)).toBeCloseTo(0.45, 5);

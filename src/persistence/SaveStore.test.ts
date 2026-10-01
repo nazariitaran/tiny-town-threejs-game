@@ -269,7 +269,7 @@ describe('SaveStore autosave', () => {
     expect(store.read()).toEqual(saved);
   });
 
-  it('a rename schedules a write with the new name; reset and load names never do (WP-20)', () => {
+  it('a rename schedules a write with the new name; reset and load names never do', () => {
     const { bus, store, editor, timers, storage } = setup();
     store.attachAutosave(bus, () => editor.serialize());
     editor.reset('Puddleton');
@@ -363,7 +363,7 @@ describe('SaveStore settings', () => {
     expect(store.getSettings()).toEqual({ muted: true, volume: 0, grid: false, music: true, musicVolume: 0.5, timeMode: 'auto', graphics: 'medium' });
   });
 
-  it('round-trips timeMode and falls back to auto for bad values (WP-16)', () => {
+  it('round-trips timeMode and falls back to auto for bad values', () => {
     const storage = new MemoryStorage();
     const { store } = setup(storage);
     expect(store.setSettings({ timeMode: 'night' }).timeMode).toBe('night');
@@ -373,7 +373,7 @@ describe('SaveStore settings', () => {
     expect(store.getSettings()).toEqual({ ...DEFAULT_SETTINGS, grid: false, timeMode: 'auto', graphics: 'medium' });
   });
 
-  it('round-trips the graphics preset and falls back to medium for bad values (WP-25)', () => {
+  it('round-trips the graphics preset and falls back to medium for bad values', () => {
     const storage = new MemoryStorage();
     const { store } = setup(storage);
     expect(store.getSettings().graphics).toBe('medium');
@@ -407,7 +407,7 @@ describe('SaveStore settings', () => {
     expect(store.getSettings()).toEqual(DEFAULT_SETTINGS);
   });
 
-  it('music settings (WP-13): persist, clamp, and old settings without them load with defaults', () => {
+  it('music settings: persist, clamp, and old settings without them load with defaults', () => {
     const storage = new MemoryStorage();
     const { store } = setup(storage);
     storage.data.set(SETTINGS_STORAGE_KEY, JSON.stringify({ muted: true, volume: 0.3, grid: false }));
@@ -426,7 +426,7 @@ describe('SaveStore settings', () => {
   });
 });
 
-describe('SaveStore — music position (WP-18)', () => {
+describe('SaveStore — music position', () => {
   const TRACK = '/assets/music/foundation-of-gold.mp3';
 
   it('round-trips under its own key and leaves the settings alone', () => {

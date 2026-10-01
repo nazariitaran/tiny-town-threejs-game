@@ -348,7 +348,7 @@ describe('TownEditor.reset and load', () => {
   });
 });
 
-describe('TownEditor name (WP-20)', () => {
+describe('TownEditor name', () => {
   it('starts as the default name and reset(name) names the new town', () => {
     const { editor, events } = setup();
     expect(editor.name).toBe(DEFAULT_TOWN_NAME);

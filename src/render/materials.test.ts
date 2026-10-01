@@ -32,7 +32,7 @@ function richStandard(): THREE.MeshStandardMaterial {
   return material;
 }
 
-describe('toLambert (WP-25 Low preset)', () => {
+describe('toLambert (Low preset)', () => {
   it('keeps every field the game relies on', () => {
     const source = richStandard();
     const out = toLambert(source);

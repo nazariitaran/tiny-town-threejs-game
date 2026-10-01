@@ -91,7 +91,7 @@ describe('grid helpers', () => {
     expect(anchorForPointer(10.5, 10.9, [2, 3], 1, 48, 48)).toEqual({ x: 9, z: 10 });
   });
 
-  it('centres the WP-17 footprints: even sizes on a cell corner, odd sizes on the hovered cell', () => {
+  it('centres multi-cell footprints: even sizes on a cell corner, odd sizes on the hovered cell', () => {
     // 4 × 4 home: the nearest corner (10.2 → corner 10, 10.8 → corner 11).
     expect(OBJECTS.cottage.footprint).toEqual([4, 4]);
     expect(anchorForPointer(10.2, 10.8, OBJECTS.cottage.footprint, 0, 48, 48)).toEqual({ x: 8, z: 9 });

@@ -8,7 +8,7 @@ import { TIME_MODES, T_AFTERNOON, T_MORNING, T_NIGHT, type TimeMode } from '../s
 import { applyState, byId, canvasPoint, diagnostics, gotoTitle, openMenuTab, selectTool, startBuilding, trackErrors, UI_TEST_IDS, waitFrames } from './helpers';
 
 const NIGHT_LOOK = true;
-const NIGHT_LOOK_REASON = 'needs the real night look (WP-16a/16b), enabled in WP-16c phase 2';
+const NIGHT_LOOK_REASON = 'needs the real night look';
 
 /** buildSampleTown places exactly 4 lampposts. */
 const SAMPLE_TOWN_LAMPPOSTS = 4;

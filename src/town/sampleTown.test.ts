@@ -68,7 +68,7 @@ describe('demo towns', () => {
     }
   });
 
-  it('stress town fills the plot with zero rejections (100 homes on WP-17 lots, 50 mailboxes)', () => {
+  it('stress town fills the plot with zero rejections (100 homes, 50 mailboxes)', () => {
     const editor = makeEditor();
     const { rejected } = buildStressTown(editor);
     expect(rejected).toEqual([]);
