@@ -3,9 +3,9 @@
  * saved setting boots as that preset; nothing saved = Medium.
  */
 import { expect, test, type Page } from '@playwright/test';
+import { SETTINGS_STORAGE_KEY } from '../src/game/config';
 import { applyState, diagnostics, gotoTitle, trackErrors, waitFrames } from './helpers';
 
-const SETTINGS_KEY = 'tiny-town:settings:v1';
 
 async function graphicsAt(page: Page, query: string, state = 'sample-town') {
   await gotoTitle(page, query);
@@ -113,11 +113,11 @@ test('a saved preset boots as that preset; the URL override is not saved', async
   const errors = trackErrors(page);
   await page.addInitScript(([key]) => {
     // Only on the first load of this test: later loads keep whatever the game stored.
-    if (!sessionStorage.getItem('wp25-seeded')) {
-      sessionStorage.setItem('wp25-seeded', '1');
+    if (!sessionStorage.getItem('graphics-seeded')) {
+      sessionStorage.setItem('graphics-seeded', '1');
       localStorage.setItem(key, JSON.stringify({ graphics: 'low' }));
     }
-  }, [SETTINGS_KEY]);
+  }, [SETTINGS_STORAGE_KEY]);
   await gotoTitle(page);
   let d = await diagnostics(page);
   expect(d.graphics).toMatchObject({ preset: 'low', booted: 'low', antialias: false, material: 'lambert', maxDpr: 1, shadowMapSize: 1024 });
@@ -131,12 +131,12 @@ test('a saved preset boots as that preset; the URL override is not saved', async
   await gotoTitle(page, '?graphics=high');
   d = await diagnostics(page);
   expect(d.graphics).toMatchObject({ preset: 'high', booted: 'high', antialias: true, material: 'standard' });
-  expect(await page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? '{}').graphics, SETTINGS_KEY)).toBe('low');
+  expect(await page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? '{}').graphics, SETTINGS_STORAGE_KEY)).toBe('low');
 
   // A bad override or a bad saved value falls back (saved Low; then the default Medium).
   await gotoTitle(page, '?graphics=ultra');
   expect((await diagnostics(page)).graphics.preset).toBe('low');
-  await page.evaluate((key) => localStorage.setItem(key, JSON.stringify({ graphics: 'ultra' })), SETTINGS_KEY);
+  await page.evaluate((key) => localStorage.setItem(key, JSON.stringify({ graphics: 'ultra' })), SETTINGS_STORAGE_KEY);
   await gotoTitle(page);
   expect((await diagnostics(page)).graphics).toMatchObject({ preset: 'medium', antialias: true, material: 'standard' });
   errors.expectNone();

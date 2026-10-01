@@ -7,7 +7,7 @@ import { PNG } from 'pngjs';
 import type { FxDiagnostics } from '../src/fx/PlacementFx';
 import { attachJson, clickCell, clickFootprint, diagnostics, dragCells, gotoTitle, selectTool, startBuilding, trackErrors, waitFrames } from './helpers';
 
-const ARTIFACTS = resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/wp-08');
+const ARTIFACTS = resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/fx');
 
 // Road blocks on rows 24–25; 4 × 4 cottages on rows 20–23 just north of it, the first on x 22–25,
 // the second on x 27–30.

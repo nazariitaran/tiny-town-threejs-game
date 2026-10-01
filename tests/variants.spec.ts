@@ -4,11 +4,11 @@
  */
 import { mkdirSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+import { SAVE_STORAGE_KEY } from '../src/game/config';
 import type { Cell, ObjectKind, SavedTown } from '../src/town/types';
 import { byId, canvasPoint, diagnostics, expectDiagnostics, footprintPoint, gotoTitle, selectTool, startBuilding, trackErrors, UI_TEST_IDS } from './helpers';
 
 const ARTIFACTS = 'artifacts/variant-picker';
-const SAVE_KEY = 'tiny-town:save:v1';
 const TOWNHOUSES: readonly Cell[] = [
   { x: 22, z: 20 },
   { x: 27, z: 20 },
@@ -20,7 +20,7 @@ const isMobile = (name: string) => name.startsWith('mobile');
 /** The town as saved (after the 1 s autosave debounce has run). */
 async function savedTown(page: Page): Promise<SavedTown> {
   await expect.poll(async () => (await diagnostics(page)).save.pending, { timeout: 5_000 }).toBe(false);
-  return page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null'), SAVE_KEY);
+  return page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null'), SAVE_STORAGE_KEY);
 }
 
 async function savedVariants(page: Page, kind: ObjectKind): Promise<number[]> {

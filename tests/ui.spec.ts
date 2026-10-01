@@ -1,11 +1,12 @@
 import { mkdirSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { TOOL_CATEGORIES, toolsInCategory } from '../src/catalog/tools';
+import { PLOT_DEPTH, PLOT_WIDTH } from '../src/game/config';
 import { UI_TEST_IDS } from '../src/ui/testIds';
 import { clickFootprint, clickStart, openMenuTab, trackErrors } from './helpers';
 
-// UI_RUN_ID picks the evidence folder, e.g. UI_RUN_ID=wp06-fix1 → artifacts/wp06-fix1.
-const OUT = `artifacts/${process.env.UI_RUN_ID ?? 'wp-06'}`;
+// UI_RUN_ID picks the evidence folder, e.g. UI_RUN_ID=ui-retry → artifacts/ui-retry.
+const OUT = `artifacts/${process.env.UI_RUN_ID ?? 'ui'}`;
 const id = (x: string) => `#${x}`;
 
 const diag = (page: Page) => page.evaluate(() => window.__THREE_GAME_DIAGNOSTICS__!);
@@ -26,17 +27,17 @@ const cellPoint = (page: Page, x: number, z: number) =>
 
 /** The on-canvas cell closest above the dock: the worst case for a tooltip near the finger. */
 const cellAboveDock = (page: Page) =>
-  page.evaluate(() => {
+  page.evaluate(([width, depth]) => {
     const dockTop = document.querySelector('#ui-dock')!.getBoundingClientRect().top;
     let best: { x: number; z: number; px: number; py: number } | null = null;
-    for (let z = 0; z < 48; z += 1)
-      for (let x = 0; x < 48; x += 1) {
+    for (let z = 0; z < depth; z += 1)
+      for (let x = 0; x < width; x += 1) {
         const p = window.__THREE_GAME_TEST_HOOKS__!.cellToClient(x, z);
         if (p.y > dockTop - 24 || document.elementFromPoint(p.x, p.y)?.id !== 'game-canvas') continue;
         if (!best || p.y > best.py) best = { x, z, px: p.x, py: p.y };
       }
     return best;
-  });
+  }, [PLOT_WIDTH, PLOT_DEPTH] as const);
 
 test('every category shows its tools and selecting one sets diagnostics.tool', async ({ page }) => {
   const errors = trackErrors(page);

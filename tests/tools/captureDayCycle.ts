@@ -3,7 +3,7 @@
  * as a video plus labelled stills.
  *
  *   PORT=5217 npm run dev            # in another shell
- *   node tests/tools/captureDayCycle.ts [--day 20] [--seconds 240] [--out artifacts/wp-16c/day-cycle] [--mobile]
+ *   node tests/tools/captureDayCycle.ts [--day 20] [--seconds 240] [--out artifacts/day-cycle] [--mobile]
  *
  * Runs until the clock has gone once round the day, or --seconds of wall time. Game time can lag
  * wall time: the loop clamps delta (0.05 s), so a slow headless frame rate stretches an N-second
@@ -29,7 +29,7 @@ function parseArgs(argv: string[]): Args {
     url: `http://127.0.0.1:${process.env.PORT ?? 5188}`,
     day: 20,
     seconds: 240,
-    out: 'artifacts/wp-16c/day-cycle',
+    out: 'artifacts/day-cycle',
     mobile: false,
   };
   for (let i = 0; i < argv.length; i += 1) {

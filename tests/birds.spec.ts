@@ -10,7 +10,7 @@ import type { BirdDiagnostics } from '../src/life/BirdSystem';
 import { ALTITUDE } from '../src/life/FlockSim';
 import { applyState, attachJson, clickStart, gotoTitle, trackErrors, waitFrames } from './helpers';
 
-const ARTIFACTS = resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/wp-22');
+const ARTIFACTS = resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/birds');
 
 async function birds(page: Page): Promise<BirdDiagnostics> {
   return page.evaluate(() => JSON.parse(JSON.stringify(window.__THREE_GAME_DIAGNOSTICS__!.birds)) as BirdDiagnostics);

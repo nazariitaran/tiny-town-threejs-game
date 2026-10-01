@@ -4,6 +4,7 @@
  */
 import { mkdirSync } from 'node:fs';
 import { devices, expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
+import { SETTINGS_STORAGE_KEY } from '../src/game/config';
 import { GRAPHICS_PRESETS, GRAPHICS_PROFILES, GRAPHICS_UI, type GraphicsPreset } from '../src/game/graphics';
 import {
   byId,
@@ -20,8 +21,7 @@ import {
   UI_TEST_IDS as ids,
 } from './helpers';
 
-const SETTINGS_KEY = 'tiny-town:settings:v1';
-const OUT = 'artifacts/wp-25/menu';
+const OUT = 'artifacts/graphics-menu';
 
 test.use({ deviceScaleFactor: async ({ isMobile }, use) => use(isMobile ? devices['Pixel 7'].deviceScaleFactor : 2) });
 
@@ -82,7 +82,7 @@ async function expectLive(page: Page, preset: GraphicsPreset, booted: GraphicsPr
   expect(d.canvas.width).toBe(Math.floor(d.canvas.clientWidth * ratio));
 }
 
-const savedGraphics = (page: Page) => page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? '{}').graphics as unknown, SETTINGS_KEY);
+const savedGraphics = (page: Page) => page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? '{}').graphics as unknown, SETTINGS_STORAGE_KEY);
 
 /** What the real WebGL context was created with. */
 const contextAntialias = (page: Page) =>

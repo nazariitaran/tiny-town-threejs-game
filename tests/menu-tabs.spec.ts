@@ -8,7 +8,7 @@ import { DEFAULT_GRAPHICS, GRAPHICS_PRESETS, GRAPHICS_UI, type GraphicsPreset } 
 import { MENU_TABS, type MenuTab } from '../src/ui/testIds';
 import { byId, diagnostics, gotoTitle, openMenuTab, startBuilding, trackErrors, UI_TEST_IDS } from './helpers';
 
-const OUT = 'artifacts/wp-25/menu';
+const OUT = 'artifacts/menu-tabs';
 const ids = UI_TEST_IDS;
 const LABELS: Record<MenuTab, string> = { town: 'Town', graphics: 'Graphics', sound: 'Sound', help: 'Help' };
 /** The controls each tab must carry. */

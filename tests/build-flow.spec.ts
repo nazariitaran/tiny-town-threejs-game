@@ -178,7 +178,7 @@ const GROWN: ReadonlyArray<{ kind: ObjectKind; anchor: Cell; rotated: boolean }>
   { kind: 'supermarket', anchor: { x: 20, z: 26 }, rotated: true },
   { kind: 'church', anchor: { x: 25, z: 26 }, rotated: true },
 ];
-const PLACEMENT_OUT = 'artifacts/wp-17c/placement';
+const PLACEMENT_OUT = 'artifacts/build-flow/placement';
 
 type Hover = { x: number; z: number; valid: boolean; reason: string | null } | null;
 const hoverOf = async (page: Page): Promise<Hover> => (await diagnostics(page)).hover as Hover;

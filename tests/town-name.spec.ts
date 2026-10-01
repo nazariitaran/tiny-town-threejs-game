@@ -1,9 +1,10 @@
 import { mkdirSync, readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+import { SAVE_STORAGE_KEY } from '../src/game/config';
 import { TOWN_NAMES_PATH } from '../src/town/townName';
 import { byId, diagnostics, gotoTitle, openMenuTab, trackErrors, UI_TEST_IDS } from './helpers';
 
-const OUT = 'artifacts/wp-20';
+const OUT = 'artifacts/town-name';
 const NAMES: string[] = JSON.parse(readFileSync(`public/${TOWN_NAMES_PATH}`, 'utf8'));
 const LONG_NAME = 'Bobbington-on-Wobble Downs XY'; // 29 characters
 
@@ -137,7 +138,7 @@ test.describe('name your town', () => {
     await expect(page.locator('#ui-menu-h')).toHaveText('Teacup Green');
     await byId(page, UI_TEST_IDS.resume).click();
     await waitForSave(page);
-    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('tiny-town:save:v1') ?? 'null'));
+    const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null'), SAVE_STORAGE_KEY);
     expect(stored?.name).toBe('Teacup Green');
 
     // Reload: Continue goes straight in (no dialog) with the saved name.

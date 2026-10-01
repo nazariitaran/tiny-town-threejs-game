@@ -4,7 +4,7 @@
  */
 import { mkdirSync, readFileSync } from 'node:fs';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
-import { PLOT_DEPTH, PLOT_WIDTH } from '../src/game/config';
+import { PLOT_DEPTH, PLOT_WIDTH, SAVE_STORAGE_KEY } from '../src/game/config';
 import { createGameBus } from '../src/game/events';
 import { encodeTownFile, TOWN_FILE_ERRORS } from '../src/persistence/townFile';
 import { buildSampleTown } from '../src/town/sampleTown';
@@ -13,7 +13,7 @@ import { TownState } from '../src/town/TownState';
 import { createSeededRandom } from '../src/utils/random';
 import { applyState, byId, diagnostics, gotoTitle, openMenuTab, trackErrors, UI_TEST_IDS } from './helpers';
 
-const OUT = 'artifacts/wp-21';
+const OUT = 'artifacts/town-file';
 const CAMERA = { targetX: 2, targetZ: -3, azimuth: 1.1, polar: 0.95, distance: 24 };
 
 /** A town file made in Node: the sample town called `name`, with a camera pose. */
@@ -106,7 +106,7 @@ test.describe('town file', () => {
     expect(after.camera.distance).toBeCloseTo(before.camera.distance, 3);
     expect(after.history.undoDepth, 'opening a file is not undoable').toBe(0);
     // Written at once (even after a test state): a reload continues the opened town.
-    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('tiny-town:save:v1') ?? 'null'));
+    const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null'), SAVE_STORAGE_KEY);
     expect(stored?.name).toBe('Bumbleford');
 
     await gotoTitle(page);

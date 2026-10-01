@@ -4,6 +4,7 @@
  */
 import { mkdirSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+import { SAVE_STORAGE_KEY } from '../src/game/config';
 import type { Cell, ObjectKind, Rotation, SavedTown } from '../src/town/types';
 import {
   byId,
@@ -21,7 +22,6 @@ import {
 } from './helpers';
 
 const ARTIFACTS = 'artifacts/move-objects';
-const SAVE_KEY = 'tiny-town:save:v1';
 const HOUSE_A = { x: 22, z: 20 } as const;
 const HOUSE_B = { x: 30, z: 20 } as const;
 const HOUSE_A_NEW = { x: 22, z: 28 } as const;
@@ -32,7 +32,7 @@ const isMobile = (name: string) => name.startsWith('mobile');
 /** The town as saved (after the 1 s autosave debounce has run). */
 async function savedTown(page: Page): Promise<SavedTown> {
   await expect.poll(async () => (await diagnostics(page)).save.pending, { timeout: 5_000 }).toBe(false);
-  return page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null'), SAVE_KEY);
+  return page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null'), SAVE_STORAGE_KEY);
 }
 
 async function objectsByKind(page: Page, kind: ObjectKind): Promise<Array<{ id: number; anchor: Cell; rotation: number }>> {

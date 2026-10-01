@@ -83,7 +83,7 @@ for (const state of STATES) {
     await expect(page).toHaveScreenshot(snapshot, { maxDiffPixelRatio: MAX_DIFF_PIXEL_RATIO, animations: 'disabled', caret: 'hide' });
 
     // Evidence copy (artifacts/ is gitignored) for hand-offs.
-    await page.screenshot({ ...SHOT, path: `artifacts/wp-09b/visual-${state.name}-${testInfo.project.name}.png` });
+    await page.screenshot({ ...SHOT, path: `artifacts/visual-regression/visual-${state.name}-${testInfo.project.name}.png` });
     // The top-bar rectangle (CSS px) for masked baseline diffs (tests/tools/maskedDiff.ts).
     const topbar = await page.evaluate(() => {
       const el = document.querySelector('.ui-topbar');
