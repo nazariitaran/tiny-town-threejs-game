@@ -168,6 +168,22 @@ describe('GhostPreview remove look', () => {
     expect(shader.uniforms.uGhostRecolor.value).toBe(0);
   });
 
+  it('selected (Move tool): on the object like remove, a lighter blue wash', () => {
+    const { ghost } = makeGhost();
+    ghost.show({ x: 0, z: 0, quarterTurns: 0, state: 'selected', parts: [{ model: 'cottage' }] });
+    const [material] = ghostMaterials(ghost);
+    expect(material.polygonOffset).toBe(true);
+    expect(material.opacity).toBeCloseTo(0.7);
+    expect(material.emissive.getHexString()).toBe(new THREE.Color('#4a9be8').getHexString());
+    const shader = {
+      uniforms: {} as Record<string, { value: unknown }>,
+      vertexShader: '#include <begin_vertex>',
+      fragmentShader: '#include <common>\n#include <color_fragment>\n#include <opaque_fragment>',
+    };
+    material.onBeforeCompile(shader as unknown as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer);
+    expect(shader.uniforms.uGhostRecolor.value).toBeCloseTo(0.6);
+  });
+
   it('sways ghosts of swaying models only', () => {
     const { ghost } = makeGhost();
     ghost.show({ x: 0, z: 0, quarterTurns: 0, state: 'remove', parts: [{ model: 'pine' }, { model: 'bench' }] });

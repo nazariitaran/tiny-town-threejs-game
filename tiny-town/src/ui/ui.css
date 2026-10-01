@@ -696,6 +696,13 @@
   box-shadow: inset 0 -2px 0 var(--brick-dark);
 }
 
+/* Move tool: sky blue, like the in-world highlight on the object it points at or carries. */
+.ui-mode-move[aria-pressed='true'] {
+  background: var(--blue);
+  color: #fff;
+  box-shadow: inset 0 -2px 0 #2f78bf;
+}
+
 /* ------------------------------------------------------------------ cursor tooltip */
 
 .ui-tooltip {
@@ -1404,15 +1411,21 @@
   }
 
 
+  /* Five tabs + three modes (Rotate · Move · Bulldoze) in one row: each takes its label's width, at
+     least a 44 px touch target, and the leftover is shared; so "Bulldoze" gets the room it needs. */
   .ui-tab,
   .ui-mode {
-    flex: 1 1 0;
-    min-width: 0;
+    flex: 1 1 auto;
+    min-width: 44px;
     height: 48px;
     flex-direction: column;
     gap: 1px;
     padding: 0 2px;
     font-size: 0.72rem;
+  }
+
+  .ui-sep {
+    margin: 6px 0;
   }
 
   .ui-tab span,
@@ -1429,11 +1442,11 @@
   }
 
   .ui-tabs {
-    flex: 5 1 0;
+    flex: 5 1 auto;
   }
 
   .ui-modes {
-    flex: 2 1 0;
+    flex: 3 1 auto;
   }
 
   .ui-card kbd {
@@ -1476,6 +1489,12 @@
 @media (max-width: 440px) {
   .ui-topbar {
     gap: 6px;
+  }
+
+  /* Eight dock buttons: the small label size keeps every one at 44 px from 390 px wide up. */
+  .ui-tab,
+  .ui-mode {
+    font-size: 0.66rem;
   }
 
   /* WP-21: a seventh 44 px action doesn't fit one row here; the menu carries Town file instead. */
@@ -1521,15 +1540,28 @@
     display: none;
   }
 
-  /* Five tabs + two modes: smaller labels so "Bulldoze" fits its 44 px target. */
-  .ui-tab,
-  .ui-mode {
-    font-size: 0.66rem;
+}
+
+/* Below 390 px eight 44 px dock buttons can't fit one row (owner, 2026-10-01): the categories take
+   the first row and the modes (Rotate · Move · Bulldoze) a second one, so every target stays 44 px. */
+@media (max-width: 389px) {
+  .ui-tabbar {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  .ui-tabs,
+  .ui-modes {
+    flex: 1 1 100%;
+  }
+
+  .ui-sep {
+    display: none;
   }
 }
 
 /* Rotate is a touch control: with a mouse and keyboard, R (and Shift+R) rotates and the dock
-   keeps only Bulldoze. Touch screens have no R key, so they keep the button. */
+   keeps only Move and Bulldoze. Touch screens have no R key, so they keep the button. */
 @media (hover: hover) and (pointer: fine) {
   .ui-mode-rotate {
     display: none;
@@ -1538,6 +1570,6 @@
 
 @media (hover: hover) and (pointer: fine) and (max-width: 760px) {
   .ui-modes {
-    flex: 1 1 0;
+    flex: 2 1 auto;
   }
 }

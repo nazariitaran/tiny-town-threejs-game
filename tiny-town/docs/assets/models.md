@@ -63,7 +63,7 @@ Live scales and footprints are in the next section, "Grid and scale", and in `sr
 | Garden | Slide | `slide` (WP-23): "Slide" by sirkitree (Poly Pizza, **CC-BY 3.0**), normalised | `composed/slide.glb` |
 | Decor | — | `car-sedan`, `car-hatchback`, `car-van`, `car-taxi` (ambient cars, WP-10); `rocks` (catalog `decor-rocks`) and the oak/pine in the decor ring; unused `plant` | `cars/*`, `platformer/rocks`, `platformer/plant` |
 
-**Icons** (`public/assets/icons/tool-<toolId>.png`, 40 files, one per dock tool; Bulldoze uses `/assets/ui/bulldoze.svg`):
+**Icons** (`public/assets/icons/tool-<toolId>.png`, 40 files, one per dock tool; the mode tools use UI svgs drawn in this project, `/assets/ui/bulldoze.svg` and `/assets/ui/move.svg`):
 - All 40 are 128 × 128 and were rendered in this project from the in-game models and materials by `node scripts/render-icons.mjs`, which drives `src/render/IconStudio.ts` in a browser and needs a dev server. The script only writes the icons that `catalog/tools.ts` references. They were last re-rendered for v0.3; WP-23 rendered its seven new icons and kept the others (a run nudges unrelated icons by a few pixels).
 - Icons of CC0 models are CC0. The Church, Swing and Barbecue icons show CC-BY models and carry their attribution (`CREDITS.md`).
 - v0.3 deleted the 44 older icons (named after model ids), including the 27 Kenney 64 px previews of unused models. Only tools have icons now.

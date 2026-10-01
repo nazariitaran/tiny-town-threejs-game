@@ -829,3 +829,83 @@ describe('row 7 — bulldoze: object > picked fence edge > non-field ground', ()
     expectFail(plan(state, bulldoze(W, D)), 'nothing-here');
   });
 });
+
+describe('move-object — the Move tool: the placing checks, ignoring the object itself; same id and variant', () => {
+  const move = (id: number, x: number, z: number, rotation: Rotation = 0): BuildAction => ({ type: 'move-object', id, cell: { x, z }, rotation });
+
+  it('valid: [remove old, add moved] with the same id and variant, the add last; no id or RNG consumed', () => {
+    const state = makeState();
+    const id = object(state, 'cottage', 0, 0);
+    const context = ctx();
+    const changes = expectOk(plan(state, move(id, 4, 4, 1), context));
+    expect(changes).toEqual([
+      { layer: 'object', op: 'remove', object: { id, kind: 'cottage', anchor: { x: 0, z: 0 }, rotation: 0, variant: 0 } },
+      { layer: 'object', op: 'add', object: { id, kind: 'cottage', anchor: { x: 4, z: 4 }, rotation: 1, variant: 0 } },
+    ]);
+    expect(context.ids).toBe(0);
+    expect(context.draws).toBe(0);
+  });
+
+  it('keeps a multi-variant object’s variant', () => {
+    const state = makeState();
+    const id = nextTestId++;
+    state.applyChanges([{ layer: 'object', op: 'add', object: { id, kind: 'garage-house', anchor: { x: 0, z: 0 }, rotation: 0, variant: 3 } }]);
+    const changes = expectOk(plan(state, move(id, 4, 0)));
+    expect(changes[1]).toMatchObject({ op: 'add', object: { id, variant: 3, anchor: { x: 4, z: 0 } } });
+  });
+
+  it('valid: a one-cell shuffle onto its own old footprint, and a turn in place', () => {
+    const state = makeState();
+    const id = object(state, 'townhouse', 1, 1); // 3 × 4
+    expectOk(plan(state, move(id, 2, 1)));
+    expectOk(plan(state, move(id, 1, 1, 1))); // 4 × 3 now, still overlapping itself
+  });
+
+  it('invalid: onto another object → occupied; out of the plot → out-of-bounds (in that order)', () => {
+    const state = makeState();
+    const id = object(state, 'bench', 0, 0);
+    object(state, 'cottage', 4, 4);
+    expectFail(plan(state, move(id, 5, 5)), 'occupied', RULE_MESSAGES.occupied);
+    expectFail(plan(state, move(id, W, 0)), 'out-of-bounds', RULE_MESSAGES.outOfBounds);
+    const house = object(state, 'cottage', 0, 4);
+    expectFail(plan(state, move(house, 6, 4)), 'out-of-bounds'); // 4 wide from x = 6 leaves the 8-wide plot
+  });
+
+  it('invalid: the ground rules of the kind still hold (a tree onto pavement, anything onto road)', () => {
+    const state = makeState();
+    const tree = object(state, 'oak', 0, 0);
+    ground(state, 'pavement', [4, 4], [5, 4], [4, 5], [5, 5]);
+    expectFail(plan(state, move(tree, 4, 4)), 'needs-ground', 'Oak needs grass, meadow or open field');
+    const bench = object(state, 'bench', 2, 0);
+    ground(state, 'road', [6, 6], [7, 6], [6, 7], [7, 7]);
+    expectFail(plan(state, move(bench, 6, 6)), 'blocked-by-road', "Bench can't go on a road");
+  });
+
+  it('invalid: a bus stop moved away from the road → needs-ground with its message', () => {
+    const state = makeState();
+    ground(state, 'road', [0, 0], [1, 0], [0, 1], [1, 1]);
+    const stop = object(state, 'bus-stop', 0, 2);
+    expectOk(plan(state, move(stop, 2, 1)));
+    expectFail(plan(state, move(stop, 4, 6)), 'needs-ground', RULE_MESSAGES.busStopNeedsRoad);
+  });
+
+  it('trees and plants keep their rotation (their look comes from their id); a tree turn alone is no change', () => {
+    const state = makeState();
+    const pine = object(state, 'pine', 0, 0, 2);
+    expect(expectOk(plan(state, move(pine, 3, 3, 1)))[1]).toMatchObject({ object: { rotation: 2, anchor: { x: 3, z: 3 } } });
+    expectFail(plan(state, move(pine, 0, 0, 1)), 'no-change', '');
+  });
+
+  it('invalid: roundabout and zebra crossing → cannot-move; unknown id → nothing-here; same spot → silent no-change', () => {
+    const state = new TownState(12, 12);
+    const roundabout = nextTestId++;
+    state.applyChanges([{ layer: 'object', op: 'add', object: { id: roundabout, kind: 'roundabout', anchor: { x: 0, z: 0 }, rotation: 0, variant: 0 } }]);
+    expectFail(plan(state, move(roundabout, 6, 6)), 'cannot-move', "Roundabout can't be moved");
+    const zebra = nextTestId++;
+    state.applyChanges([{ layer: 'object', op: 'add', object: { id: zebra, kind: 'zebra-crossing', anchor: { x: 8, z: 0 }, rotation: 0, variant: 0 } }]);
+    expectFail(plan(state, move(zebra, 8, 2)), 'cannot-move', "Zebra crossing can't be moved");
+    expectFail(plan(state, move(99_999, 1, 1)), 'nothing-here', RULE_MESSAGES.nothingToMove);
+    const bench = object(state, 'bench', 8, 8, 1);
+    expectFail(plan(state, move(bench, 8, 8, 1)), 'no-change', '');
+  });
+});

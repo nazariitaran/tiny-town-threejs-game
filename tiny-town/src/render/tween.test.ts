@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { easeOutBack, easeOutBackPeak, easeShrink, hash01 } from './tween';
+import { easeOutBack, easeOutBackPeak, easeShrink, hash01, hopArc, hopHeight, moveEase } from './tween';
 
 describe('pop-in easing', () => {
   it('starts at 0, ends at 1 and peaks at ~1.08', () => {
@@ -34,5 +34,35 @@ describe('hash01', () => {
     }
     expect(seen.size).toBe(10);
     expect(hash01(1, 2, 3)).not.toBe(hash01(3, 2, 1));
+  });
+});
+
+describe('move slide and hop (Move tool)', () => {
+  it('the slide eases from 0 to 1, monotonic, symmetric about the middle', () => {
+    expect(moveEase(0)).toBe(0);
+    expect(moveEase(1)).toBe(1);
+    expect(moveEase(0.5)).toBeCloseTo(0.5);
+    let previous = 0;
+    for (let i = 1; i <= 100; i += 1) {
+      const u = i / 100;
+      expect(moveEase(u)).toBeGreaterThanOrEqual(previous);
+      expect(moveEase(u) + moveEase(1 - u)).toBeCloseTo(1);
+      previous = moveEase(u);
+    }
+  });
+
+  it('the hop starts and lands on the ground and peaks half-way', () => {
+    expect(hopArc(0)).toBe(0);
+    expect(hopArc(1)).toBe(0);
+    expect(hopArc(0.5)).toBe(1);
+    expect(hopArc(-0.2)).toBe(0);
+    expect(hopArc(1.2)).toBe(0);
+    expect(hopArc(0.25)).toBeCloseTo(hopArc(0.75));
+  });
+
+  it('a nudge hops low, a long move a little higher, never above 0.35', () => {
+    expect(hopHeight(0)).toBeCloseTo(0.1);
+    expect(hopHeight(2)).toBeGreaterThan(hopHeight(0.5));
+    expect(hopHeight(100)).toBe(0.35);
   });
 });

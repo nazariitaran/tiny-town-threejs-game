@@ -18,12 +18,16 @@
  *  - Road markings (ObjectDef.roadMarking: the zebra crossing) are block-aligned objects on one road
  *    block that already is a straight or a junction. Placing / bulldozing one = just the object add /
  *    remove (the road stays). Its road can't be repainted while it stands.
+ *  - Moving (the Move tool) = [remove old, add moved] with the SAME id and variant, so undo, saves and
+ *    the renderer's per-id look follow it. The new spot passes the placing checks (checkObjectSpot)
+ *    with the object's own old footprint not counting as occupied. Road features and road markings
+ *    don't move; trees and plants keep their rotation (their look comes from their id).
  */
 import { cellKey, edgeCells, edgeInBounds, edgeKey, edgeOfCellSide, footprintCells, NEIGHBOURS, ROAD_BLOCK, roadBlockCells } from './grid';
 import { ZEBRA_PIECE_MODELS } from '../catalog/models';
 import { objectDef, type ObjectDef } from '../catalog/objects';
 import { roadMask, roadTileFor } from './roadTiles';
-import type { BuildAction, Cell, GroundKind, InvalidReason, PlanResult, TownChange, TownStateReader } from './types';
+import type { BuildAction, Cell, GroundKind, InvalidReason, PlanResult, Rotation, TownChange, TownStateReader } from './types';
 
 export interface PlanContext {
   /** Reserve an object id for an add (TownState.allocateObjectId). Called only on success. */
@@ -51,10 +55,13 @@ export const RULE_MESSAGES = {
   trafficLightNeedsRoad: 'Traffic lights need to be next to a road',
   zebraNeedsStraight: 'Zebra crossings go on a straight road or a junction',
   nothingHere: 'Nothing to remove',
+  nothingToMove: 'Nothing to move',
   noChange: '',
 } as const;
 
-const fail = (reason: InvalidReason, message: string): PlanResult => ({ ok: false, reason, message });
+type Rejection = Extract<PlanResult, { ok: false }>;
+
+const fail = (reason: InvalidReason, message: string): Rejection => ({ ok: false, reason, message });
 
 /** "a", "a or b", "a, b or c". */
 function orList(items: readonly string[]): string {
@@ -81,6 +88,8 @@ export function planAction(state: TownStateReader, action: BuildAction, ctx: Pla
       return planPlaceEdge(state, action);
     case 'bulldoze':
       return planBulldoze(state, action);
+    case 'move-object':
+      return planMoveObject(state, action);
   }
 }
 
@@ -159,43 +168,74 @@ function blockGroundChanges(state: TownStateReader, cell: Cell, after: GroundKin
   return changes;
 }
 
-function planPlaceObject(state: TownStateReader, action: Extract<BuildAction, { type: 'place-object' }>, ctx: PlanContext): PlanResult {
-  const def = objectDef(action.kind);
-  const cells = footprintCells(action.cell, def.footprint, action.rotation);
-  // Check in severity order across the whole footprint, so the message names the real blocker.
-  if (cells.some((cell) => !state.inBounds(cell))) return fail('out-of-bounds', RULE_MESSAGES.outOfBounds);
-  if ((def.roadFeature || def.roadMarking) && (action.cell.x % ROAD_BLOCK !== 0 || action.cell.z % ROAD_BLOCK !== 0)) {
+/**
+ * Can an object of `def` stand anchored at `cell`, turned `rotation`? The placing checks, in severity
+ * order across the whole footprint (so the message names the real blocker); `ignoreId` is an object
+ * that doesn't count as occupying (the one being moved). Null when the spot is fine.
+ */
+function checkObjectSpot(
+  state: TownStateReader,
+  def: ObjectDef,
+  cell: Cell,
+  rotation: Rotation,
+  ignoreId: number | null,
+): Rejection | null {
+  const cells = footprintCells(cell, def.footprint, rotation);
+  if (cells.some((c) => !state.inBounds(c))) return fail('out-of-bounds', RULE_MESSAGES.outOfBounds);
+  if ((def.roadFeature || def.roadMarking) && (cell.x % ROAD_BLOCK !== 0 || cell.z % ROAD_BLOCK !== 0)) {
     // ToolController snaps the anchor to the block grid; this only guards scripted actions.
     return fail('out-of-bounds', `${def.label} must line up with the road grid`);
   }
-  if (cells.some((cell) => state.getObjectAt(cell))) return fail('occupied', RULE_MESSAGES.occupied);
-  for (const cell of cells) {
-    const ground = state.getGround(cell);
+  const occupied = (c: Cell): boolean => {
+    const other = state.getObjectAt(c);
+    return other !== undefined && other.id !== ignoreId;
+  };
+  if (cells.some(occupied)) return fail('occupied', RULE_MESSAGES.occupied);
+  for (const c of cells) {
+    const ground = state.getGround(c);
     if (def.allowedGround.includes(ground)) continue;
     if (ground === 'road') return fail('blocked-by-road', `${def.label} can't go on a road`);
     return fail('needs-ground', `${def.label} needs ${allowedGroundText(def)}`);
   }
-  if (def.roadMarking && !ZEBRA_PIECE_MODELS[roadTileFor(roadMask(state, action.cell)).piece]) {
+  if (def.roadMarking && !ZEBRA_PIECE_MODELS[roadTileFor(roadMask(state, cell)).piece]) {
     return fail('needs-ground', RULE_MESSAGES.zebraNeedsStraight);
   }
   if (def.requiresAdjacent) {
     const needed = def.requiresAdjacent;
-    const adjacent = cells.some((cell) =>
+    const adjacent = cells.some((c) =>
       NEIGHBOURS.some((o) => {
-        const n = { x: cell.x + o.x, z: cell.z + o.z };
+        const n = { x: c.x + o.x, z: c.z + o.z };
         return state.inBounds(n) && state.getGround(n) === needed;
       }),
     );
     if (!adjacent) {
       const message =
-        action.kind === 'bus-stop'
+        def.kind === 'bus-stop'
           ? RULE_MESSAGES.busStopNeedsRoad
-          : action.kind === 'traffic-light'
+          : def.kind === 'traffic-light'
           ? RULE_MESSAGES.trafficLightNeedsRoad
           : `${def.label} needs to be next to ${GROUND_LABELS[needed]}`;
       return fail('needs-ground', message);
     }
   }
+  return null;
+}
+
+/** Can the Move tool pick this kind up? Everything but road features and road markings. */
+export function isMovable(def: ObjectDef): boolean {
+  return !def.roadFeature && !def.roadMarking;
+}
+
+/** Can a moved object of this kind be turned? Trees and plants take their look from their id. */
+export function isTurnable(def: ObjectDef): boolean {
+  return def.group !== 'tree' && def.group !== 'plant';
+}
+
+function planPlaceObject(state: TownStateReader, action: Extract<BuildAction, { type: 'place-object' }>, ctx: PlanContext): PlanResult {
+  const def = objectDef(action.kind);
+  const cells = footprintCells(action.cell, def.footprint, action.rotation);
+  const blocked = checkObjectSpot(state, def, action.cell, action.rotation, null);
+  if (blocked) return blocked;
   // A road feature paints its footprint to road first (fences across it go), so the add is last.
   const changes: TownChange[] = [];
   if (def.roadFeature) {
@@ -226,6 +266,27 @@ function planPlaceEdge(state: TownStateReader, action: Extract<BuildAction, { ty
   // Primary change last.
   changes.push({ layer: 'edge', op: 'add', placed: { kind: action.kind, edge: { x: edge.x, z: edge.z, side: edge.side } } });
   return { ok: true, changes };
+}
+
+function planMoveObject(state: TownStateReader, action: Extract<BuildAction, { type: 'move-object' }>): PlanResult {
+  const object = state.getObject(action.id);
+  if (!object) return fail('nothing-here', RULE_MESSAGES.nothingToMove);
+  const def = objectDef(object.kind);
+  if (!isMovable(def)) return fail('cannot-move', `${def.label} can't be moved`);
+  const rotation = isTurnable(def) ? action.rotation : object.rotation;
+  if (object.anchor.x === action.cell.x && object.anchor.z === action.cell.z && object.rotation === rotation) {
+    return fail('no-change', RULE_MESSAGES.noChange);
+  }
+  const blocked = checkObjectSpot(state, def, action.cell, rotation, object.id);
+  if (blocked) return blocked;
+  // Same id and variant: the move is the same object, so undo / saves / its per-id look follow it.
+  return {
+    ok: true,
+    changes: [
+      { layer: 'object', op: 'remove', object: { ...object, anchor: { ...object.anchor } } },
+      { layer: 'object', op: 'add', object: { ...object, anchor: { x: action.cell.x, z: action.cell.z }, rotation } },
+    ],
+  };
 }
 
 function planBulldoze(state: TownStateReader, action: Extract<BuildAction, { type: 'bulldoze' }>): PlanResult {

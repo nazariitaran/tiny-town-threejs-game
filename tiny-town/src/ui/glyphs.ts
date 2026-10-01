@@ -16,6 +16,8 @@ export const GLYPHS = {
   bulldoze: svg(
     '<rect x="2.5" y="15" width="12" height="5" rx="2.5"/><path d="M4.5 15v-5h4.5l2 5"/><path d="m13 13 4-2"/><path d="M17 7.5 21 9v9l-4-1.5z" fill="currentColor"/>',
   ),
+  // Move tool: four-way arrows.
+  move: svg('<path d="M12 3v18"/><path d="M3 12h18"/><path d="m9 6 3-3 3 3"/><path d="m9 18 3 3 3-3"/><path d="m6 9-3 3 3 3"/><path d="m18 9 3 3-3 3"/>'),
   close: svg('<path d="M6 6l12 12"/><path d="M18 6 6 18"/>'),
   help: svg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.7"/><path d="M12 17.2v.1"/>'),
   grid: svg('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9.3 4v16"/><path d="M14.7 4v16"/><path d="M4 9.3h16"/><path d="M4 14.7h16"/>'),

@@ -26,6 +26,24 @@ export function easeShrink(u: number): number {
   return 1 - u * u;
 }
 
+/** Move tool slide: ease-in-out (cubic), 0 → 1 with a gentle start and landing. */
+export function moveEase(u: number): number {
+  if (u <= 0) return 0;
+  if (u >= 1) return 1;
+  return u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2;
+}
+
+/** Move tool hop: a parabola over the slide, 0 at both ends and 1 half-way. */
+export function hopArc(u: number): number {
+  if (u <= 0 || u >= 1) return 0;
+  return 4 * u * (1 - u);
+}
+
+/** Hop height (world units) for a move of `distance` units: low for a nudge, a little higher further. */
+export function hopHeight(distance: number): number {
+  return Math.min(0.35, 0.1 + 0.04 * Math.max(0, distance));
+}
+
 /**
  * Stable 32-bit integer hash of up to three integers → [0, 1).
  * Used for cosmetic jitter that must survive reloads (tree scale/yaw from the object id,

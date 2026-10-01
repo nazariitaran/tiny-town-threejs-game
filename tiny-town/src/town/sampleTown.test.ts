@@ -27,12 +27,12 @@ describe('demo towns', () => {
     expect([...editor.state.objects()]).toHaveLength(0);
   });
 
-  it('sample town uses every placing tool (all but bulldoze) at least once', () => {
+  it('sample town uses every placing tool (all but the Move and Bulldoze modes) at least once', () => {
     const editor = makeEditor();
     const spy = vi.spyOn(editor, 'applyBatch');
     buildSampleTown(editor);
     const used = new Set(spy.mock.calls.flatMap(([items]) => items.map((item) => item.toolId)));
-    const placing = TOOLS.map((t) => t.id).filter((id) => id !== 'bulldoze');
+    const placing = TOOLS.filter((t) => t.category !== 'mode').map((t) => t.id);
     expect(placing).toHaveLength(38); // 40 until the fountain and garden path were retired (2026-09-30)
     expect(placing.filter((id) => !used.has(id))).toEqual([]);
   });

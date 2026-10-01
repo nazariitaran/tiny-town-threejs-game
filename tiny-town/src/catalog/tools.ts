@@ -6,7 +6,9 @@
 import type { SfxEvent } from '../audio/sfx';
 import type { BuildAction, Cell, Edge, EdgeKind, GroundKind, ObjectKind, Rotation } from '../town/types';
 
-export type ToolId = Exclude<GroundKind, 'field'> | ObjectKind | EdgeKind | 'bulldoze';
+export type ToolId = Exclude<GroundKind, 'field'> | ObjectKind | EdgeKind | ModeToolId;
+/** The dock's mode buttons (not in a category). */
+export type ModeToolId = 'move' | 'bulldoze';
 /**
  * Dock categories — each answers "what am I building?":
  *   streets: the road network (roads, pavement, roundabout, zebra, traffic lights)
@@ -19,7 +21,7 @@ export type ToolId = Exclude<GroundKind, 'field'> | ObjectKind | EdgeKind | 'bul
  * holds at most 12 (WP-23, owner: tools past the ninth have no digit, and ~12 cards fill a desktop row).
  */
 export type ToolCategory = 'streets' | 'homes' | 'town' | 'nature' | 'garden';
-export type ToolLayer = 'ground' | 'object' | 'edge' | 'bulldoze';
+export type ToolLayer = 'ground' | 'object' | 'edge' | 'move' | 'bulldoze';
 /** paint: every crossed cell · scatter: each new valid cell while dragging · single: click only · line: straight edge run. */
 export type DragMode = 'paint' | 'scatter' | 'single' | 'line';
 
@@ -93,7 +95,9 @@ const ROWS: readonly ToolRow[] = [
   { id: 'slide', label: 'Slide', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-prop', hint: PLACE },
   // Owner review (WP-23): the pool is a garden thing, not a civic one.
   { id: 'swimming-pool', label: 'Pool', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
-  // Modes
+  // Modes. Move picks up a placed object and puts it down elsewhere (not the roundabout or a zebra,
+  // never ground, hedges or fences); its drop plays the moved item's own place sound.
+  { id: 'move', label: 'Move', category: 'mode', layer: 'move', drag: 'single', sfx: 'place-prop', hint: 'Click something to pick it up' },
   { id: 'bulldoze', label: 'Bulldoze', category: 'mode', layer: 'bulldoze', drag: 'paint', sfx: 'remove', hint: 'Click or drag to remove things' },
 ];
 
@@ -102,9 +106,12 @@ const ROWS: readonly ToolRow[] = [
  * (objects.ts / GROUND_MODELS) so towns that already have them (saves, town files, the demo towns)
  * still load and draw them, and the player can bulldoze them. Placing new ones is not possible.
  */
-export const RETIRED_TOOLS: ReadonlySet<Exclude<ToolId, 'bulldoze'>> = new Set(['fountain', 'walkway']);
+export const RETIRED_TOOLS: ReadonlySet<Exclude<ToolId, ModeToolId>> = new Set(['fountain', 'walkway']);
 
-export const TOOLS: readonly ToolDef[] = ROWS.map((row) => ({ ...row, icon: row.id === 'bulldoze' ? '/assets/ui/bulldoze.svg' : icon(row.id) }));
+/** Mode tools use a UI svg (the dock shows GLYPHS; the svg is for anything that lists TOOLS with icons). */
+const MODE_ICONS: Readonly<Record<ModeToolId, string>> = { move: '/assets/ui/move.svg', bulldoze: '/assets/ui/bulldoze.svg' };
+
+export const TOOLS: readonly ToolDef[] = ROWS.map((row) => ({ ...row, icon: row.category === 'mode' ? MODE_ICONS[row.id as ModeToolId] : icon(row.id) }));
 
 export const TOOL_CATEGORIES: ReadonlyArray<{ id: ToolCategory; label: string }> = [
   { id: 'streets', label: 'Streets' },
@@ -137,5 +144,8 @@ export function actionForTool(toolId: ToolId, cell: Cell, edge: Edge, rotation: 
       return { type: 'place-edge', kind: toolId as EdgeKind, edge };
     case 'bulldoze':
       return { type: 'bulldoze', cell, edge };
+    case 'move':
+      // ToolController builds move-object actions from the picked object; a cell alone says nothing.
+      throw new Error('The Move tool has no per-cell action');
   }
 }

@@ -9,6 +9,8 @@ interface ThreeGameDiagnostics {
   rotation: number;
   /** Hovered cell; valid/reason mirror hover:changed (a just-placed cell reports valid). */
   hover: { x: number; z: number; valid: boolean; reason: string | null } | null;
+  /** Move tool: the object being carried (its id, kind and the rotation it would be put down with), or null. */
+  selection: { id: number; kind: import('./town/types').ObjectKind; rotation: number } | null;
   town: import('./town/types').TownStats;
   /** The town's name (WP-20): what the top bar and the photo card show. */
   townName: string;

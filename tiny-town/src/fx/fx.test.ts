@@ -107,7 +107,8 @@ describe('ParticlePool', () => {
 
 describe('fx recipes', () => {
   it('classifies every tool into an effect class', () => {
-    const classes = Object.fromEntries(TOOLS.filter((t) => t.id !== 'bulldoze').map((t) => [t.id, classify(t.id)]));
+    // Mode tools never place anything of their own (a Move drop reports the moved item's tool).
+    const classes = Object.fromEntries(TOOLS.filter((t) => t.category !== 'mode').map((t) => [t.id, classify(t.id)]));
     expect(classes).toEqual({
       road: 'road', pavement: 'path', grass: 'lawn', meadow: 'meadow',
       // group road → road; street / garden → prop; home / amenity → building; tree / plant → tree.

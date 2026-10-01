@@ -17,6 +17,10 @@
  *    also drawn without animation.
  *    Object ids are reused after reset/load (TownState.clear): removes free the old visual before
  *    the add with the same id, and addObject() defensively frees any visual under that id.
+ *  - Moves (Move tool, and undo/redo of one): a remove + add of the same object id in one change
+ *    list keeps the object's instances and tweens them from the old pose to the new one (slide on
+ *    an ease-in-out, a low hop, the turn slerped), instead of a shrink-out plus a pop-in. No tween
+ *    under the same conditions as pop-in (reduced motion, bursts, load / reset).
  *  - Variants: PlacedObject.variant picks from ObjectDef.models. Where an object or edge stands
  *    (footprint centre, turn, the trees' stable scale/yaw jitter from hash(id), ObjectDef.height,
  *    MODEL_STYLES scale) comes from objectPose.ts, which the ghost preview shares.
@@ -44,9 +48,25 @@ import type { ModelLibrary } from './ModelLibrary';
 import { roadMask, roadTileFor, underRoadFeature } from '../town/roadTiles';
 import { MODEL_STYLES } from './modelStyles';
 import { edgeOrigin, objectOrigin, styleMatrix } from './objectPose';
-import { easeOutBack, easeOutBackPeak, easeShrink, hash01 } from './tween';
+import { easeOutBack, easeOutBackPeak, easeShrink, hash01, hopArc, hopHeight, moveEase } from './tween';
 
 const QUARTER = Math.PI / 2;
+/** Scratch for the move tween (no per-frame allocations). */
+const MOVE_POSITION = new THREE.Vector3();
+const MOVE_QUATERNION = new THREE.Quaternion();
+const MOVE_SCALE = new THREE.Vector3();
+
+/** Object ids both removed and added in one change list: moves (the Move tool, or undo/redo of one). */
+function movedObjectIds(changes: readonly TownChange[]): Set<number> {
+  const removed = new Set<number>();
+  const moved = new Set<number>();
+  for (const change of changes) {
+    if (change.layer !== 'object') continue;
+    if (change.op === 'remove') removed.add(change.object.id);
+    else if (removed.has(change.object.id)) moved.add(change.object.id);
+  }
+  return moved;
+}
 /** More town:changed events than this in one frame ⇒ scripted batch ⇒ no animation. */
 const BURST_EVENTS = 24;
 /** More changes than this in one frame ⇒ scripted batch / huge undo ⇒ no animation. */
@@ -88,7 +108,18 @@ interface Piece extends PieceSpec {
   slots: PoolSlot[];
 }
 
-type AnimMode = 'idle' | 'in' | 'out';
+type AnimMode = 'idle' | 'in' | 'out' | 'move';
+
+/** A move in flight: the origin goes from → to (TRS), lifted by a hop of `hop` world units. */
+interface MoveTween {
+  fromPosition: THREE.Vector3;
+  fromQuaternion: THREE.Quaternion;
+  fromScale: THREE.Vector3;
+  toPosition: THREE.Vector3;
+  toQuaternion: THREE.Quaternion;
+  toScale: THREE.Vector3;
+  hop: number;
+}
 
 interface Visual {
   /** Identity of what is drawn (e.g. "road:corner:1"); equal signature ⇒ nothing to redraw. */
@@ -101,11 +132,15 @@ interface Visual {
   /** Scale when a shrink-out started (a pop-in can be interrupted). */
   from: number;
   scale: number;
+  /** Mode 'move' only. While it runs, `origin` holds the current in-between pose. */
+  move?: MoveTween;
 }
 
 export interface RenderTuning {
   popInSeconds: number;
   shrinkOutSeconds: number;
+  /** Move tool: how long a moved object takes to slide and hop to its new place. */
+  moveSeconds: number;
   /** easeOutBack c1: 1.5 ⇒ peak 1.08. */
   overshoot: number;
   animate: boolean;
@@ -113,7 +148,7 @@ export interface RenderTuning {
 
 export class TownRenderer {
   readonly root = new THREE.Group();
-  readonly tuning: RenderTuning = { popInSeconds: 0.22, shrinkOutSeconds: 0.15, overshoot: 1.5, animate: true };
+  readonly tuning: RenderTuning = { popInSeconds: 0.22, shrinkOutSeconds: 0.15, moveSeconds: 0.3, overshoot: 1.5, animate: true };
   private readonly groundLayer = new THREE.Group();
   private readonly objectLayer = new THREE.Group();
   private readonly edgeLayer = new THREE.Group();
@@ -246,9 +281,15 @@ export class TownRenderer {
       this.settle();
       return;
     }
-    const { popInSeconds, shrinkOutSeconds, overshoot } = this.tuning;
+    const { popInSeconds, shrinkOutSeconds, moveSeconds, overshoot } = this.tuning;
     for (const visual of this.animating) {
       visual.t += delta;
+      if (visual.mode === 'move') {
+        const u = visual.t / moveSeconds;
+        if (u >= 1) this.finishMove(visual);
+        else this.writeMove(visual, u);
+        continue;
+      }
       if (visual.mode === 'in') {
         const u = visual.t / popInSeconds;
         if (u >= 1) {
@@ -273,6 +314,7 @@ export class TownRenderer {
   settle(): void {
     for (const visual of this.animating) {
       if (visual.mode === 'in') this.finishPopIn(visual);
+      else if (visual.mode === 'move') this.finishMove(visual);
       else this.freeVisual(visual);
     }
     this.animating.clear();
@@ -340,12 +382,16 @@ export class TownRenderer {
         if (this.town.inBounds(neighbour)) touchedCells.set(cellKey(neighbour), neighbour);
       }
     };
+    const moved = movedObjectIds(changes);
     for (const change of changes) {
       if (change.layer === 'ground') {
         changedCells.set(cellKey(change.cell), change.cell);
         touch(change.cell);
       } else if (change.layer === 'object') {
-        if (change.op === 'add') this.addObject(change.object, animate);
+        // A move keeps its visual: skip the remove, tween to the add.
+        if (moved.has(change.object.id)) {
+          if (change.op === 'add') this.moveObject(change.object, animate);
+        } else if (change.op === 'add') this.addObject(change.object, animate);
         else this.removeObject(change.object.id, animate);
         // Meadow scatter hides under objects: refresh the covered cells. A road feature also hides
         // the road tiles under it and changes how the neighbouring road blocks join up.
@@ -563,6 +609,67 @@ export class TownRenderer {
   }
 
   private finishPopIn(visual: Visual): void {
+    visual.mode = 'idle';
+    this.animating.delete(visual);
+    this.writeVisual(visual, 1);
+  }
+
+  /**
+   * Move an object's visual to `placed`'s pose (same id, same model): a slide-and-hop tween from
+   * wherever it is drawn now (even mid-move), or a jump when not animating. Anything unexpected (no
+   * visual yet, another model, shrinking out) falls back to a plain add.
+   */
+  private moveObject(placed: PlacedObject, animate: boolean): void {
+    const def = objectDef(placed.kind);
+    const visual = this.objectsById.get(placed.id);
+    const model = def.models[placed.variant % def.models.length];
+    if (def.roadMarking || !visual || visual.sig !== `object:${model}` || visual.mode === 'out') {
+      this.addObject(placed, animate);
+      return;
+    }
+    const target = objectOrigin(placed, def, new THREE.Matrix4());
+    if (!animate) {
+      visual.origin.copy(target);
+      visual.move = undefined;
+      visual.mode = 'idle';
+      this.animating.delete(visual);
+      this.writeVisual(visual, 1);
+      return;
+    }
+    const tween = visual.move ?? {
+      fromPosition: new THREE.Vector3(),
+      fromQuaternion: new THREE.Quaternion(),
+      fromScale: new THREE.Vector3(),
+      toPosition: new THREE.Vector3(),
+      toQuaternion: new THREE.Quaternion(),
+      toScale: new THREE.Vector3(),
+      hop: 0,
+    };
+    visual.origin.decompose(tween.fromPosition, tween.fromQuaternion, tween.fromScale);
+    target.decompose(tween.toPosition, tween.toQuaternion, tween.toScale);
+    tween.hop = hopHeight(tween.fromPosition.distanceTo(tween.toPosition));
+    visual.move = tween;
+    visual.mode = 'move';
+    visual.t = 0;
+    this.animating.add(visual);
+    this.writeMove(visual, 0);
+  }
+
+  /** Write a moving visual at progress u (0..1): eased slide, hop on top, turn slerped. */
+  private writeMove(visual: Visual, u: number): void {
+    const tween = visual.move!;
+    const e = moveEase(u);
+    MOVE_POSITION.lerpVectors(tween.fromPosition, tween.toPosition, e);
+    MOVE_POSITION.y += tween.hop * hopArc(u);
+    MOVE_QUATERNION.slerpQuaternions(tween.fromQuaternion, tween.toQuaternion, e);
+    MOVE_SCALE.lerpVectors(tween.fromScale, tween.toScale, e);
+    visual.origin.compose(MOVE_POSITION, MOVE_QUATERNION, MOVE_SCALE);
+    this.writeVisual(visual, 1);
+  }
+
+  private finishMove(visual: Visual): void {
+    const tween = visual.move;
+    if (tween) visual.origin.compose(tween.toPosition, tween.toQuaternion, tween.toScale);
     visual.mode = 'idle';
     this.animating.delete(visual);
     this.writeVisual(visual, 1);
