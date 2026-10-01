@@ -75,12 +75,12 @@ export const OBJECTS: Readonly<Record<ObjectKind, ObjectDef>> = {
   postbox: def({ kind: 'postbox', label: 'Postbox', group: 'street', footprint: [1, 1], allowedGround: PROP_GROUND, residents: 0, models: ['postbox'] }),
   mailbox: def({ kind: 'mailbox', label: 'Mailbox', group: 'street', footprint: [1, 1], allowedGround: PROP_GROUND, residents: 0, models: ['mailbox'] }),
   // Homes
-  cottage: def({ kind: 'cottage', label: 'Cottage', group: 'home', footprint: [4, 4], allowedGround: OPEN_GROUND, residents: 2, models: ['cottage'] }),
-  townhouse: def({ kind: 'townhouse', label: 'Townhouse', group: 'home', footprint: [3, 4], allowedGround: OPEN_GROUND, residents: 3, models: ['townhouse', 'townhouse-alt'] }),
-  bungalow: def({ kind: 'bungalow', label: 'Bungalow', group: 'home', footprint: [4, 4], allowedGround: OPEN_GROUND, residents: 2, models: ['bungalow', 'bungalow-l'] }),
-  'family-home': def({ kind: 'family-home', label: 'Family home', group: 'home', footprint: [4, 4], allowedGround: OPEN_GROUND, residents: 4, models: ['family-home'] }),
-  'garage-house': def({ kind: 'garage-house', label: 'Suburban', group: 'home', footprint: [4, 4], allowedGround: OPEN_GROUND, residents: 4, models: ['garage-house-c', 'garage-house-o', 'garage-house-s', 'garage-house-u'] }),
-  'big-house': def({ kind: 'big-house', label: 'Big house', group: 'home', footprint: [5, 4], allowedGround: OPEN_GROUND, residents: 5, models: ['big-house-d', 'big-house-n'] }),
+  cottage: def({ kind: 'cottage', label: 'Cottage', group: 'home', footprint: [4, 4], allowedGround: PAVED_OK, residents: 2, models: ['cottage'] }),
+  townhouse: def({ kind: 'townhouse', label: 'Townhouse', group: 'home', footprint: [3, 4], allowedGround: PAVED_OK, residents: 3, models: ['townhouse', 'townhouse-alt'] }),
+  bungalow: def({ kind: 'bungalow', label: 'Bungalow', group: 'home', footprint: [4, 4], allowedGround: PAVED_OK, residents: 2, models: ['bungalow', 'bungalow-l'] }),
+  'family-home': def({ kind: 'family-home', label: 'Family home', group: 'home', footprint: [4, 4], allowedGround: PAVED_OK, residents: 4, models: ['family-home'] }),
+  'garage-house': def({ kind: 'garage-house', label: 'Suburban', group: 'home', footprint: [4, 4], allowedGround: PAVED_OK, residents: 4, models: ['garage-house-c', 'garage-house-o', 'garage-house-s', 'garage-house-u'] }),
+  'big-house': def({ kind: 'big-house', label: 'Big house', group: 'home', footprint: [5, 4], allowedGround: PAVED_OK, residents: 5, models: ['big-house-d', 'big-house-n'] }),
   // Town
   'corner-shop': def({ kind: 'corner-shop', label: 'Corner shop', group: 'amenity', footprint: [3, 3], allowedGround: PAVED_OK, residents: 0, models: ['corner-shop'] }),
   'donut-shop': def({ kind: 'donut-shop', label: 'Donut shop', group: 'amenity', footprint: [3, 3], allowedGround: PAVED_OK, residents: 0, models: ['donut-shop'] }),

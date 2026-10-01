@@ -62,8 +62,8 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
 | Zebra crossing | 2 × 2 (one road block) | existing road: a straight, tee or crossroad | Snaps to the road-block grid. The tile under it draws zebras across a straight, or on every arm of a tee or crossroad. Bulldozing it leaves the road. Cars ignore it. |
 | Roundabout | 6 × 6 (3 × 3 road blocks) | any, even existing road | Snaps to the road-block grid. Placing it paints its footprint to road (fences across it go); bulldozing it turns the footprint back to field. Roads join it only at the middle of each side (its four arms). Cars go round the island counter-clockwise. |
 | Traffic light | 1 × 1 | field, grass, meadow, pavement, garden path | Must be next to a road ("Traffic lights need to be next to a road"). Two variants: pole and hanging arm. |
-| Bungalow / Suburban | 4 × 4 | field, grass, meadow | Homes (2 / 4 residents). |
-| Big house | 5 × 4 | field, grass, meadow | Home (5 residents). |
+| Bungalow / Suburban | 4 × 4 | field, grass, meadow, pavement | Homes (2 / 4 residents). |
+| Big house | 5 × 4 | field, grass, meadow, pavement | Home (5 residents). |
 | Corner shop / Church / Supermarket | 3 × 3 / 3 × 4 / 5 × 4 | field, grass, meadow, pavement | Town amenities. |
 | Fountain / Pool | 2 × 2 / 4 × 3 | field, grass, meadow, pavement, garden path | Amenities. The Pool is in the Garden dock since the WP-23 review. |
 | Donut shop (WP-23) | 3 × 3 | field, grass, meadow, pavement | A shop like the corner shop; dark at night. |
