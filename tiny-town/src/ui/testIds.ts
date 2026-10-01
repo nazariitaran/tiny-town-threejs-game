@@ -32,7 +32,6 @@ export const UI_TEST_IDS = {
   resume: 'btn-resume',
   newTown: 'btn-new-town',
   help: 'btn-help',
-  resetView: 'btn-reset-view',
   credits: 'btn-credits',
   volume: 'range-volume',
   grid: 'chk-grid',

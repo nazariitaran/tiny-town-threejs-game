@@ -6,7 +6,7 @@
  *         two-finger drag
  *  Orbit  middle-drag · Alt+left-drag (also tilts) · Q / E animated 45° steps · two-finger twist
  *  Zoom   wheel (zoom-to-cursor) · + / − (animated) · pinch
- *  Reset  reset() tweens back to DEFAULT_POSE (F / Home and the menu button emit intent:reset-camera)
+ *  Reset  reset() tweens back to DEFAULT_POSE (F / Home emit intent:reset-camera)
  *  Title  setMode('title'): TITLE_POSE, slow auto-orbit, no input.
  *
  * Clamps: polar 30–70°, distance 6–60 (at least 1.2× the fitted home distance), target over the plot + 2 cells. Tunables live in

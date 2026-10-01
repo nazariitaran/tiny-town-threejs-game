@@ -368,7 +368,6 @@ export class UiRoot {
             </div>
             <div class="ui-menu-page" role="tabpanel" id="${id.menuTabPanel('help')}" aria-labelledby="${id.menuTab('help')}" hidden>
               <button type="button" class="ui-btn" id="${id.help}">${GLYPHS.keys}<span>Controls</span></button>
-              <button type="button" class="ui-btn" id="${id.resetView}">${GLYPHS.camera}<span>Reset view</span></button>
               <button type="button" class="ui-btn" id="${id.credits}">${GLYPHS.info}<span>Credits</span></button>
             </div>
           </div>
@@ -555,10 +554,7 @@ export class UiRoot {
     else if (target.id === id.resume) this.bus.emit('intent:close-menu');
     else if (target.id === id.help) this.openModal('help');
     else if (target.id === id.newTown) this.openModal('confirm');
-    else if (target.id === id.resetView) {
-      this.bus.emit('intent:reset-camera');
-      this.bus.emit('intent:close-menu');
-    } else if (target.id === id.confirmClear) this.confirmNewTown();
+    else if (target.id === id.confirmClear) this.confirmNewTown();
     else if (target.id === id.graphicsReload) this.bus.emit('intent:reload-graphics');
     else if (target.dataset.menuTab) this.selectMenuTab(target.dataset.menuTab as MenuTab);
     else if (target.hasAttribute('data-back')) this.back();

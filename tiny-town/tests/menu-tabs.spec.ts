@@ -24,7 +24,7 @@ const CONTENT: Record<MenuTab, string[]> = {
   town: [ids.timeModeGroup, ids.renameTown, ids.newTown, ids.townFileMenu],
   graphics: [ids.graphicsGroup, ids.graphicsReload, ids.grid],
   sound: [ids.volume, ids.music, ids.musicVolume],
-  help: [ids.help, ids.resetView, ids.credits],
+  help: [ids.help, ids.credits],
 };
 
 const tab = (page: Page, t: MenuTab) => byId(page, ids.menuTab(t));
