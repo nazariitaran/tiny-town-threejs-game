@@ -24,7 +24,7 @@
  */
 import * as THREE from 'three';
 import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS, ZEBRA_PIECE_MODELS } from '../catalog/models';
-import { heightScale, objectDef } from '../catalog/objects';
+import { objectDef } from '../catalog/objects';
 import { actionForTool, toolDef, type DragMode, type ToolId } from '../catalog/tools';
 import type { DebugTools } from '../debug/DebugTools';
 import {
@@ -58,7 +58,7 @@ import {
 import type { TownEditor } from '../town/TownEditor';
 import type { BuildAction, Cell, Edge, GroundKind, PlacedObject, PlanResult, Rotation } from '../town/types';
 import type { CameraController } from './CameraController';
-import { GhostPreview, type GhostPart, type GhostState } from './GhostPreview';
+import { GhostPreview, objectGhostPart, type GhostPart, type GhostState } from './GhostPreview';
 import type { GridPicker, PickResult } from './GridPicker';
 import { isEditableTarget } from './keyboard';
 import { clampCellNearPlot, isNearEdge, KeyedThrottle, lineEdges, lockAxis, segmentSamples, type GridPoint, type LineAxis } from './strokeMath';
@@ -666,7 +666,7 @@ export class ToolController {
         z: centre.z,
         quarterTurns: marking ? 0 : this.rotation,
         state: ghostState,
-        parts: [marking ?? { model: objectDefinition.models[0], scaleY: heightScale(objectDefinition) }],
+        parts: [marking ?? objectGhostPart(objectDefinition, objectDefinition.models[0], 0, null)],
         // A road marking previews the marked road tile in its real colours inside the frame (like the
         // road tool), without the mint fill washing out the stripes; invalid keeps the red fill.
         solid: marking !== null,
@@ -701,12 +701,13 @@ export class ToolController {
       const def = objectDef(object.kind);
       const centre = footprintCentreWorld(object.anchor, def.footprint, object.rotation);
       const marking = def.roadMarking ? this.markingPart(object.anchor) : null;
+      // Posed exactly as the town draws it (root unturned; the part carries the turn or tree yaw).
       this.ghost.show({
         x: centre.x,
         z: centre.z,
-        quarterTurns: marking ? 0 : object.rotation,
+        quarterTurns: 0,
         state: 'remove',
-        parts: [marking ?? { model: def.models[object.variant % def.models.length], scaleY: heightScale(def) }],
+        parts: [marking ?? objectGhostPart(def, def.models[object.variant % def.models.length], object.rotation, object.id)],
         solid: marking !== null, // lies on the road tile: no z-fighting (the red tint stays)
         tileScale: rotatedFootprint(def.footprint, object.rotation),
         snap: true,
