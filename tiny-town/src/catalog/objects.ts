@@ -89,10 +89,10 @@ export const OBJECTS: Readonly<Record<ObjectKind, ObjectDef>> = {
   fountain: def({ kind: 'fountain', label: 'Fountain', group: 'amenity', footprint: [2, 2], allowedGround: PROP_GROUND, residents: 0, models: ['fountain'] }),
   'tiered-fountain': def({ kind: 'tiered-fountain', label: 'Tiered fountain', group: 'amenity', footprint: [3, 3], allowedGround: PROP_GROUND, residents: 0, models: ['tiered-fountain'] }),
   // Nature
-  oak: def({ kind: 'oak', label: 'Oak', group: 'tree', footprint: [2, 2], allowedGround: PAVED_OK, residents: 0, models: ['oak'] }),
-  pine: def({ kind: 'pine', label: 'Pine', group: 'tree', footprint: [1, 1], allowedGround: PAVED_OK, height: PINE_HEIGHT, residents: 0, models: ['pine'] }),
-  birch: def({ kind: 'birch', label: 'Birch', group: 'tree', footprint: [1, 1], allowedGround: PAVED_OK, residents: 0, models: ['birch', 'birch-small'] }),
-  bush: def({ kind: 'bush', label: 'Bush', group: 'plant', footprint: [1, 1], allowedGround: PAVED_OK, residents: 0, models: ['bush'] }),
+  oak: def({ kind: 'oak', label: 'Oak', group: 'tree', footprint: [2, 2], allowedGround: OPEN_GROUND, residents: 0, models: ['oak'] }),
+  pine: def({ kind: 'pine', label: 'Pine', group: 'tree', footprint: [1, 1], allowedGround: OPEN_GROUND, height: PINE_HEIGHT, residents: 0, models: ['pine'] }),
+  birch: def({ kind: 'birch', label: 'Birch', group: 'tree', footprint: [1, 1], allowedGround: OPEN_GROUND, residents: 0, models: ['birch', 'birch-small'] }),
+  bush: def({ kind: 'bush', label: 'Bush', group: 'plant', footprint: [1, 1], allowedGround: OPEN_GROUND, residents: 0, models: ['bush'] }),
   // Three tulips (red, yellow, purple) in one cell; the variants are the Nature Kit's three flower shapes.
   tulips: def({ kind: 'tulips', label: 'Tulips', group: 'plant', footprint: [1, 1], allowedGround: OPEN_GROUND, residents: 0, models: ['tulips-a', 'tulips-b', 'tulips-c'] }),
   // Garden

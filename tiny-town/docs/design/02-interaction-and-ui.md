@@ -70,7 +70,7 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
 | Tiered fountain (WP-23) | 3 × 3 | field, grass, meadow, pavement, garden path | A plaza fountain. |
 | Mailbox (WP-23) | 1 × 1 | field, grass, meadow, pavement, garden path | At the kerb, like the postbox. |
 | Tulips (WP-23) | 1 × 1 | field, grass, meadow | Drag scatters; three variants. |
-| Bush | 1 × 1 | field, grass, meadow, pavement | Drag scatters, like trees. |
+| Bush | 1 × 1 | field, grass, meadow | Drag scatters, like trees (oak, pine and birch also take field, grass or meadow only, not pavement). |
 | Hedge | cell edge | — | Edge tool, like the fences. |
 | Planter / Bench / Long bench / Table / Barbecue | 1 × 1 | field, grass, meadow, pavement, garden path | Planter drag-scatters. |
 | Swing / Slide | 2 × 1 | field, grass, meadow | |
