@@ -1,13 +1,10 @@
-/**
- * lil-gui tuning panel, only when the URL has ?debug. Never shown to players.
- * Workstreams add folders for their own tunables via `folder(name)`.
- */
+/** lil-gui tuning panel, shown only when the URL has ?debug. */
 import GUI from 'lil-gui';
 
 export interface DebugTuning {
   exposure: number;
   maxDpr: number;
-  /** WP-25: share of the screen's pixel density rendered before the maxDpr cap. */
+  /** Share of the screen's pixel density rendered before the maxDpr cap. */
   renderScale: number;
   showStats: boolean;
 }
@@ -24,7 +21,7 @@ export class DebugTools {
     this.gui.add(tuning, 'renderScale', 0.5, 1, 0.05).onChange(onChange);
   }
 
-  /** A sub-folder for a workstream's own tunables, or null when debug is off. */
+  /** A sub-folder for a system's own tunables, or null when debug is off. */
   folder(name: string): GUI | null {
     return this.gui ? this.gui.addFolder(name) : null;
   }

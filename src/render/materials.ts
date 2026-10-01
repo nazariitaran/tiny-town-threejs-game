@@ -1,16 +1,9 @@
 /**
- * Lit material family (WP-25 graphics presets). `GraphicsProfile.material` is fixed at boot:
- * 'standard' keeps three's MeshStandardMaterial everywhere; 'lambert' converts every lit
- * MeshStandardMaterial into an equivalent MeshLambertMaterial when it is created (ModelLibrary's
- * GLTF materials, TownRenderer's slabs, the terrain, cars, birds, the ghost).
- *
- * Why Lambert is nearly free visually: the Kenney models use flat atlas colours with roughness ≈ 1,
- * so the GGX specular term adds almost nothing. three r184 still lights Lambert with
- * `scene.environment` (diffuse irradiance from the PMREM, `WebGLPrograms` getParameters), so the
- * env lighting and its day/night intensity carry over; only the (tiny) env specular is lost.
- * Lambert keeps `emissive` / `emissiveMap` / `emissiveIntensity` (night glow masks) and the same
- * `begin_vertex` / `emissivemap_fragment` chunks the wind-sway, window-stagger and wing-flap
- * patches hook into, so patches are applied after conversion exactly as before.
+ * Lit material family, fixed at boot by `GraphicsProfile.material`: 'lambert' converts every lit
+ * MeshStandardMaterial into an equivalent MeshLambertMaterial when it is created.
+ * The models are flat atlas colours with roughness ≈ 1, so losing GGX specular costs little, and
+ * three still lights Lambert with `scene.environment`. Lambert keeps the emissive fields and the
+ * `begin_vertex` / `emissivemap_fragment` chunks the shader patches hook into.
  */
 import * as THREE from 'three';
 import type { GraphicsProfile } from '../game/graphics';
@@ -21,12 +14,9 @@ export type MaterialMode = GraphicsProfile['material'];
 export type LitMaterial = THREE.MeshStandardMaterial | THREE.MeshLambertMaterial;
 
 /**
- * An equivalent MeshLambertMaterial for `source`. Base Material state (name, side, transparent,
- * opacity, alphaTest, vertexColors, depth / blending / polygon offset, toneMapped, userData, …)
- * is copied by Material.copy; the lit maps and colours are copied explicitly (MeshLambertMaterial.copy
- * would read Lambert-only fields such as `combine` / `specularMap` off the standard material).
- * Textures are shared, not cloned. onBeforeCompile patches are NOT carried over: convert first,
- * then patch.
+ * An equivalent MeshLambertMaterial sharing `source`'s textures. Lit fields are copied explicitly:
+ * MeshLambertMaterial.copy would read Lambert-only fields off the standard material.
+ * onBeforeCompile patches are not carried over: convert first, then patch.
  */
 export function toLambert(source: THREE.MeshStandardMaterial): THREE.MeshLambertMaterial {
   const out = new THREE.MeshLambertMaterial();
@@ -59,11 +49,7 @@ export function toLambert(source: THREE.MeshStandardMaterial): THREE.MeshLambert
   return out;
 }
 
-/**
- * `material` in the requested family: under 'lambert' a lit MeshStandardMaterial (or Physical)
- * becomes a new MeshLambertMaterial and the source is disposed; everything else (Basic, Shader,
- * Depth, already-Lambert, or mode 'standard') is returned unchanged.
- */
+/** `material` in the requested family: under 'lambert' a MeshStandardMaterial becomes a new Lambert and the source is disposed. */
 export function litMaterial<T extends THREE.Material>(material: T, mode: MaterialMode): T | THREE.MeshLambertMaterial {
   if (mode !== 'lambert') return material;
   const standard = material as unknown as THREE.MeshStandardMaterial;
@@ -79,7 +65,7 @@ export function createLitMaterial(params: THREE.MeshStandardMaterialParameters, 
   return mode === 'lambert' ? (litMaterial(standard, mode) as THREE.MeshLambertMaterial) : standard;
 }
 
-/** What a material actually is ('standard' | 'lambert' | null for unlit ones), for diagnostics / tests. */
+/** null for unlit materials. */
 export function materialFamily(material: THREE.Material): MaterialMode | null {
   if ((material as THREE.MeshStandardMaterial).isMeshStandardMaterial) return 'standard';
   if ((material as THREE.MeshLambertMaterial).isMeshLambertMaterial) return 'lambert';

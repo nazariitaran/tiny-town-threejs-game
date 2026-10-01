@@ -1,14 +1,8 @@
 /**
- * Shader grid over the plot: anti-aliased cell lines (fwidth), a slightly stronger plot border,
- * fading with camera distance and at grazing angles. One transparent quad, one draw call.
- * WP-12: major lines every ROAD_BLOCK cells (the 2 × 2 road lattice), minor cell lines at ~45 %;
- * each set thins out on its own when it gets too dense on screen (no moiré).
- * Sits just above the ground tiles (y = 0.02) with polygon offset, depthWrite off, so it never
- * z-fights and never hides models (they depth-test over it).
- *
- * WP-04 (World & look). WP-16a: stronger at night (GRID_NIGHT). At night the lines also turn a dim
- * moonlit blue (white on the navy ground read as a harsh overlay) and take the scene fog like the
- * ground does, so they sit in the scene as seamlessly as the white lines do on the day lawn.
+ * Shader grid over the plot: anti-aliased major lines every ROAD_BLOCK cells and fainter cell lines,
+ * each thinning out when too dense on screen (no moiré), fading with camera distance. Polygon offset
+ * and no depth write, so it never z-fights and models depth-test over it. At night the lines turn a
+ * dim moonlit blue and take the scene fog, so they don't read as a harsh overlay on the dark ground.
  */
 import * as THREE from 'three';
 import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
@@ -18,12 +12,10 @@ import { ROAD_BLOCK } from '../town/grid';
 export const GRID_MINOR_STRENGTH = 0.45;
 
 export const GRID_Y = 0.028;
-/** Peak line opacity (design cap: ≤ 20%). */
 export const GRID_MAX_OPACITY = 0.14;
 /**
- * Day/night (WP-16a): at night the lines are multiplied by (1 + nightBoost · night) so the grid
- * stays readable on the dark ground. The only case where the opacity may exceed GRID_MAX_OPACITY.
- * `color` (display sRGB) is the line colour at full night, blended from white by `night`.
+ * At night the lines are (1 + boost · night)× stronger, the only case above GRID_MAX_OPACITY,
+ * and blend from white to `color` (display sRGB).
  */
 export const GRID_NIGHT = { boost: 0.25, color: '#7896c4' };
 
@@ -100,7 +92,6 @@ export class GridOverlay {
         uCell: { value: CELL_SIZE },
         uMajor: { value: ROAD_BLOCK },
         uMinorStrength: { value: GRID_MINOR_STRENGTH },
-        // WP-04 tuned 22/56 for the 24-unit plot; scaled with the 32-unit (64 × 64) plot.
         uFade: { value: new THREE.Vector2(30, 75) },
       },
       vertexShader,
@@ -128,10 +119,7 @@ export class GridOverlay {
     this.updateOpacity();
   }
 
-  /**
-   * 0 day .. 1 night: the lines get up to (1 + GRID_NIGHT.boost)× stronger and blend from white to
-   * GRID_NIGHT.color. Exactly the day look at 0.
-   */
+  /** 0 day .. 1 night; exactly the day look at 0. */
   setNight(night: number): void {
     this.night = Math.min(1, Math.max(0, night));
     this.nightColor.setStyle(GRID_NIGHT.color, THREE.SRGBColorSpace);

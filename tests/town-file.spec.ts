@@ -1,12 +1,10 @@
 /**
- * WP-21 town file: download the town, open a file back (with a confirm), from the game and from the
- * title. Real input only: the top-bar Town file button (desktop) or the menu row (phones), the file
- * chooser, the panel and confirm buttons; `applyState` is setup. Test files are made in Node from
- * the real sample town (encodeTownFile), so no fixture can drift from the save format.
+ * Town file: download the town and open a file back, from the game and from the title. Test files are
+ * made in Node from the real sample town (encodeTownFile), so no fixture can drift from the save format.
  */
 import { mkdirSync, readFileSync } from 'node:fs';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
-import { PLOT_DEPTH, PLOT_WIDTH } from '../src/game/config';
+import { PLOT_DEPTH, PLOT_WIDTH, SAVE_STORAGE_KEY } from '../src/game/config';
 import { createGameBus } from '../src/game/events';
 import { encodeTownFile, TOWN_FILE_ERRORS } from '../src/persistence/townFile';
 import { buildSampleTown } from '../src/town/sampleTown';
@@ -15,7 +13,7 @@ import { TownState } from '../src/town/TownState';
 import { createSeededRandom } from '../src/utils/random';
 import { applyState, byId, diagnostics, gotoTitle, openMenuTab, trackErrors, UI_TEST_IDS } from './helpers';
 
-const OUT = 'artifacts/wp-21';
+const OUT = 'artifacts/town-file';
 const CAMERA = { targetX: 2, targetZ: -3, azimuth: 1.1, polar: 0.95, distance: 24 };
 
 /** A town file made in Node: the sample town called `name`, with a camera pose. */
@@ -71,7 +69,6 @@ test.describe('town file', () => {
     await expect.poll(() => phase(page)).toBe('building');
     const before = await diagnostics(page);
 
-    // Download: a file named after the town, holding the live town.
     await openFilePanel(page, info);
     const [download] = await Promise.all([page.waitForEvent('download'), byId(page, UI_TEST_IDS.fileDownload).click()]);
     expect(download.suggestedFilename()).toMatch(/^bumbleford-\d{4}-\d{2}-\d{2}-\d{4}\.tinytown\.json$/);
@@ -109,7 +106,7 @@ test.describe('town file', () => {
     expect(after.camera.distance).toBeCloseTo(before.camera.distance, 3);
     expect(after.history.undoDepth, 'opening a file is not undoable').toBe(0);
     // Written at once (even after a test state): a reload continues the opened town.
-    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('tiny-town:save:v1') ?? 'null'));
+    const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null'), SAVE_STORAGE_KEY);
     expect(stored?.name).toBe('Bumbleford');
 
     await gotoTitle(page);

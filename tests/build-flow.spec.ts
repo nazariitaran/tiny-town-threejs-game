@@ -1,8 +1,4 @@
-/**
- * WP-09a build flow: a real-input journey through the core loop, asserting diagnostics at
- * every step: select road → drag a road → place a house → undo → redo → bulldoze.
- * Only real input (dock clicks by UI_TEST_IDS, mouse at cellToClient); no setState.
- */
+/** The core loop through real input only (no setState), asserting diagnostics at every step. */
 import { mkdirSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { objectDef } from '../src/catalog/objects';
@@ -27,10 +23,8 @@ import {
   type Diagnostics,
 } from './helpers';
 
-// WP-12 (48×48 half-unit cells, roads in 2×2 blocks): a road along rows 24–25 from x=16..31
-// (8 road blocks). WP-17: the cottage is 4 × 4, anchored at (22, 20) on the verge just north of the
-// road (x 22–25, rows 20–23, touching row 24). An even footprint centres on a cell corner, so the
-// click aims at the footprint centre (helpers.footprintPointer), not at a cell centre.
+// Roads come in 2×2-cell blocks: a road along rows 24–25 from x=16..31 is 8 blocks. The 4 × 4
+// cottage at (22, 20) sits on the verge just north of it (x 22–25, rows 20–23, touching row 24).
 const ROAD_FROM: [number, number] = [16, 24];
 const ROAD_TO: [number, number] = [31, 24];
 const ROAD_TILES = 8;
@@ -51,7 +45,6 @@ test('road → house → undo → redo → bulldoze, through real input', async 
   const invalidAtStart = (await diagnostics(page)).invalidCount;
   await record('start');
 
-  // 1. Select road and drag one stroke.
   await selectTool(page, 'road');
   await dragCells(page, ROAD_FROM, ROAD_TO);
   await expectDiagnostics(
@@ -62,7 +55,6 @@ test('road → house → undo → redo → bulldoze, through real input', async 
   await expect(byId(page, UI_TEST_IDS.undo)).toBeEnabled();
   await record('road');
 
-  // 2. Place a cottage next to the road with a single click.
   await selectTool(page, 'cottage');
   await clickFootprint(page, 'cottage', HOUSE);
   await expectDiagnostics(
@@ -77,7 +69,6 @@ test('road → house → undo → redo → bulldoze, through real input', async 
   );
   await record('house');
 
-  // 3. Undo (dock button) removes the house only.
   await byId(page, UI_TEST_IDS.undo).click();
   await expectDiagnostics(
     page,
@@ -87,7 +78,6 @@ test('road → house → undo → redo → bulldoze, through real input', async 
   await expect(byId(page, UI_TEST_IDS.redo)).toBeEnabled();
   await record('undo');
 
-  // 4. Redo (dock button) brings it back.
   await byId(page, UI_TEST_IDS.redo).click();
   await expectDiagnostics(
     page,
@@ -105,7 +95,7 @@ test('road → house → undo → redo → bulldoze, through real input', async 
     await record('keyboard undo/redo');
   }
 
-  // 5. Bulldoze: clicking the house removes the object first (object > edge > ground).
+  // Bulldoze removes the object first (object > edge > ground).
   await selectTool(page, 'bulldoze');
   await clickFootprint(page, 'cottage', HOUSE);
   await expectDiagnostics(
@@ -115,7 +105,6 @@ test('road → house → undo → redo → bulldoze, through real input', async 
   );
   await record('bulldoze house');
 
-  // 6. Bulldoze-drag half the road in one stroke.
   await dragCells(page, [16, 24], [23, 24]);
   await expectDiagnostics(page, { town: { roadTiles: ROAD_TILES - 4 }, history: { undoDepth: 4 } }, 'bulldoze drag clears 4 road tiles');
   await record('bulldoze road');
@@ -145,7 +134,6 @@ test('roundabout: Streets tab → place on the field → bulldoze, through real 
   await startBuilding(page);
   const before = await expectDiagnostics(page, { objects: 0, town: { roadTiles: 0 }, history: { undoDepth: 0 } }, 'empty start');
 
-  // Pick it from the Streets tab (real clicks on the tab and the tool card).
   await byId(page, UI_TEST_IDS.category('streets')).click();
   await expect(byId(page, UI_TEST_IDS.category('streets'))).toHaveAttribute('aria-pressed', 'true');
   await byId(page, UI_TEST_IDS.tool('roundabout')).click();
@@ -165,7 +153,6 @@ test('roundabout: Streets tab → place on the field → bulldoze, through real 
   expect(placed.invalidCount, 'no refusal').toBe(before.invalidCount);
   await testInfo.attach(`${testInfo.project.name}-roundabout`, { body: await page.screenshot(), contentType: 'image/png' });
 
-  // Bulldoze one click on it: the object goes and its road goes with it.
   await selectTool(page, 'bulldoze');
   await clickCell(page, ...ROUNDABOUT_CELL);
   await expectDiagnostics(
@@ -176,11 +163,10 @@ test('roundabout: Streets tab → place on the field → bulldoze, through real 
   errors.expectNone();
 });
 
-// WP-17c: every grown building (WP-17 footprints) placed by real input on an empty verge next to a
-// road, at the DEFAULT build zoom, on both projects. A road along rows 24–25 (x 8–39); the square
-// buildings north of it at rotation 0, the non-square ones south of it after one Rotate press
-// (4 × 3 / 4 × 5 rotated). One free cell between neighbours. All plots are on the canvas on desktop
-// and on the Pixel 7 (probed with cellToClient + elementFromPoint).
+// Every large building, placed on an empty verge next to a road at the DEFAULT build zoom. The road
+// runs along rows 24–25 (x 8–39); square buildings go north of it at rotation 0, non-square ones
+// south of it after one Rotate press. One free cell between neighbours. All plots are on the canvas
+// on desktop and on the Pixel 7.
 const GROWN: ReadonlyArray<{ kind: ObjectKind; anchor: Cell; rotated: boolean }> = [
   { kind: 'cottage', anchor: { x: 10, z: 20 }, rotated: false },
   { kind: 'bungalow', anchor: { x: 15, z: 20 }, rotated: false },
@@ -192,7 +178,7 @@ const GROWN: ReadonlyArray<{ kind: ObjectKind; anchor: Cell; rotated: boolean }>
   { kind: 'supermarket', anchor: { x: 20, z: 26 }, rotated: true },
   { kind: 'church', anchor: { x: 25, z: 26 }, rotated: true },
 ];
-const PLACEMENT_OUT = 'artifacts/wp-17c/placement';
+const PLACEMENT_OUT = 'artifacts/build-flow/placement';
 
 type Hover = { x: number; z: number; valid: boolean; reason: string | null } | null;
 const hoverOf = async (page: Page): Promise<Hover> => (await diagnostics(page)).hover as Hover;
@@ -226,14 +212,12 @@ test('every grown building lands on the footprint its ghost shows (real input, d
       if (mobile) await byId(page, UI_TEST_IDS.rotate).click();
       else await page.keyboard.press('r');
     }
-    // Wait for the rotation to show up in the diagnostics.
     await expect.poll(async () => (await diagnostics(page)).rotation % 2, { message: `${kind}: ${rotated ? 'turned a quarter' : 'unrotated'}` }).toBe(rotated ? 1 : 0);
     const rotation = (await diagnostics(page)).rotation as Rotation;
     const [w, d] = rotatedFootprint(objectDef(kind).footprint, rotation);
     const pointer = footprintPointer(kind, anchor, rotation);
     const p = await footprintPoint(page, kind, anchor, rotation);
 
-    // Ghost: valid, over the intended footprint.
     await page.mouse.move(p.x, p.y, { steps: 3 });
     await expect.poll(() => hoverOf(page), { message: `${kind}: ghost over ${w}×${d} at (${anchor.x},${anchor.z})` }).toEqual({ ...pointer.cell, valid: true, reason: null });
     await page.waitForTimeout(150); // ghost lerp settles

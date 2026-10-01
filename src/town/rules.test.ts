@@ -1,7 +1,6 @@
 /**
- * One describe per row of the placement rule table (docs/design/03-architecture.md §Placement rules),
- * each with valid and invalid cases, plus the cross-cutting invariants (purity, primary-last,
- * ids/RNG only consumed on success).
+ * One describe per row of the placement rule table, each with valid and invalid cases, plus the
+ * cross-cutting invariants (purity, primary-last, ids/RNG only consumed on success).
  */
 import { describe, expect, it } from 'vitest';
 import { OBJECTS } from '../catalog/objects';
@@ -78,7 +77,6 @@ const placeObj = (kind: ObjectKind, x: number, z: number, rotation: Rotation = 0
 const placeEdge = (kind: EdgeKind, x: number, z: number, side: 'n' | 'w'): BuildAction => ({ type: 'place-edge', kind, edge: { x, z, side } });
 const bulldoze = (x: number, z: number, edge: Edge | null = null): BuildAction => ({ type: 'bulldoze', cell: { x, z }, edge });
 
-// ---------------------------------------------------------------------------------------------
 describe('row 1 — paint-ground: in bounds and kind differs', () => {
   it('valid: paints every paintable non-road kind on field with one ground change', () => {
     for (const kind of ['grass', 'meadow', 'pavement', 'walkway'] as const) {
@@ -114,7 +112,6 @@ describe('row 1 — paint-ground: in bounds and kind differs', () => {
   });
 });
 
-// ---------------------------------------------------------------------------------------------
 describe('row 2 — paint-ground under an object: new kind ∈ allowedGround', () => {
   it('valid: grass/meadow/pavement under a house, grass/meadow under a tree/bush, pavement/walkway under a prop', () => {
     const state = makeState();
@@ -156,7 +153,6 @@ describe('row 2 — paint-ground under an object: new kind ∈ allowedGround', (
   });
 });
 
-// ---------------------------------------------------------------------------------------------
 describe('row 3 — road blocks: paint/repaint/bulldoze whole aligned 2×2 blocks; fences inside and towards road go', () => {
   /** The 4 cells of the block anchored at (x, z) (x, z even). */
   const block = (x: number, z: number): Cell[] => [
@@ -199,7 +195,7 @@ describe('row 3 — road blocks: paint/repaint/bulldoze whole aligned 2×2 block
       expectFail(plan(state, paint('road', 2, 4)), 'occupied', 'Move the Lamppost first');
     }
     const state = makeState();
-    object(state, 'cottage', 3, 5); // a 3×3 whose corner reaches into the block (2..3, 4..5)
+    object(state, 'cottage', 3, 5); // a 4×4 whose corner reaches into the block (2..3, 4..5)
     expectFail(plan(state, paint('road', 2, 4)), 'occupied', 'Move the Cottage first');
   });
 
@@ -281,7 +277,6 @@ describe('row 3 — road blocks: paint/repaint/bulldoze whole aligned 2×2 block
   });
 });
 
-// ---------------------------------------------------------------------------------------------
 describe('row 4 — place-object: footprint in bounds, unoccupied, ground ∈ allowedGround', () => {
   it('valid: every kind on its allowed ground, at every rotation', () => {
     for (const kind of Object.keys(OBJECTS) as ObjectKind[]) {
@@ -380,7 +375,6 @@ describe('row 4 — place-object: footprint in bounds, unoccupied, ground ∈ al
   });
 });
 
-// ---------------------------------------------------------------------------------------------
 describe('row 5 — place-object bus-stop (2×1): ≥ 1 footprint cell 4-adjacent to a road', () => {
   // Bus stop at (3, 3), rotation 0, covers (3, 3) and (4, 3).
   for (const [name, x, z] of [['north of the first cell', 3, 2], ['north of the second cell', 4, 2], ['east', 5, 3], ['south of the second cell', 4, 4], ['west', 2, 3]] as const) {
@@ -432,7 +426,6 @@ describe('row 5 — place-object bus-stop (2×1): ≥ 1 footprint cell 4-adjacen
   });
 });
 
-// ---------------------------------------------------------------------------------------------
 describe('row 5b — place-object traffic-light: 4-adjacent to a road', () => {
   it('valid: next to a road (on field, pavement or walkway)', () => {
     for (const g of ['field', 'pavement', 'walkway'] as const) {
@@ -459,7 +452,6 @@ describe('row 5b — place-object traffic-light: 4-adjacent to a road', () => {
   });
 });
 
-// ---------------------------------------------------------------------------------------------
 describe('road markings — the zebra crossing (one 2 × 2 road block, block aligned, on existing road)', () => {
   /** Road on whole blocks, given by their anchor cells. */
   const roadBlocks = (state: TownState, ...anchors: Array<[number, number]>) => {
@@ -657,8 +649,7 @@ describe('road features — the roundabout (6×6 cells = 3×3 road blocks, block
   });
 });
 
-// ---------------------------------------------------------------------------------------------
-describe('multi-cell footprints (WP-12; WP-17 sizes: homes 4 × 4, townhouse 3 × 4, big house 5 × 4)', () => {
+describe('multi-cell footprints (homes 4 × 4, townhouse 3 × 4, big house 5 × 4)', () => {
   it('invalid: a footprint partly out of bounds → out-of-bounds, on every side', () => {
     const state = makeState();
     expectFail(plan(state, placeObj('cottage', W - 3, 2)), 'out-of-bounds', 'Outside your plot');
@@ -669,7 +660,7 @@ describe('multi-cell footprints (WP-12; WP-17 sizes: homes 4 × 4, townhouse 3 �
     expectOk(plan(state, placeObj('cottage', W - 4, D - 4)));
   });
 
-  it('plot-edge bounds of every WP-17 building, flush in each corner, at rotation 0 and 1', () => {
+  it('plot-edge bounds of every building, flush in each corner, at rotation 0 and 1', () => {
     const kinds = ['cottage', 'bungalow', 'family-home', 'garage-house', 'townhouse', 'big-house', 'corner-shop', 'supermarket', 'church'] as const;
     for (const kind of kinds) {
       for (const rotation of [0, 1] as const) {
@@ -740,7 +731,6 @@ describe('multi-cell footprints (WP-12; WP-17 sizes: homes 4 × 4, townhouse 3 �
   });
 });
 
-// ---------------------------------------------------------------------------------------------
 describe('row 6 — place-edge: in bounds, not between two roads; same ⇒ no-change; other ⇒ replace', () => {
   it('valid: interior edges of both sides add one fence', () => {
     const state = makeState();
@@ -796,7 +786,6 @@ describe('row 6 — place-edge: in bounds, not between two roads; same ⇒ no-ch
   });
 });
 
-// ---------------------------------------------------------------------------------------------
 describe('row 7 — bulldoze: object > picked fence edge > non-field ground', () => {
   it('valid: removes the object even if a fence and ground are also there', () => {
     const state = makeState();

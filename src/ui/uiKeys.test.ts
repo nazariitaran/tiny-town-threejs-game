@@ -25,7 +25,7 @@ describe('digit shortcuts', () => {
     expect(digitAction(key('Digit5'), 'streets', null)).toEqual({ type: 'tool', toolId: 'traffic-light' });
     expect(digitAction(key('Digit7'), 'homes', null)).toEqual({ type: 'tool', toolId: 'mailbox' });
     expect(digitAction(key('Digit8'), 'town', null)).toEqual({ type: 'tool', toolId: 'lamppost' });
-    // Garden holds 11 tools (12 until the garden path was retired); 9 is the last one with a digit.
+    // Garden has 11 tools; 9 is the last one with a digit.
     expect(digitAction(key('Digit9'), 'garden', null)).toEqual({ type: 'tool', toolId: 'swing' });
   });
 

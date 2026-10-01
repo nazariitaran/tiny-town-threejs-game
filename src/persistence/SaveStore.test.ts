@@ -105,7 +105,7 @@ describe('SaveStore basic API', () => {
   it('an older (v1/v2/v3) save under the same key is rejected, so the game starts a fresh town', () => {
     const v1 = { version: 1, width: 24, depth: 24, ground: [['field', 576]], objects: [{ id: 1, kind: 'tree-a', anchor: { x: 2, z: 2 }, rotation: 0, variant: 0 }], edges: [], nextObjectId: 2 };
     const v2 = { ...v1, version: 2, width: PLOT_WIDTH, depth: PLOT_DEPTH, ground: [['field', PLOT_WIDTH * PLOT_DEPTH]] };
-    // v3 (v0.3): the WP-17 footprints grew, so a v3 town is not migrated either.
+    // v3 isn't migrated either: building footprints changed in v4.
     const v3 = { ...v2, version: 3, objects: [{ id: 1, kind: 'cottage', anchor: { x: 2, z: 2 }, rotation: 0, variant: 0 }] };
     for (const [version, old] of [[1, v1], [2, v2], [3, v3]] as const) {
       const storage = new MemoryStorage();
@@ -186,7 +186,7 @@ describe('SaveStore basic API', () => {
 describe('SaveStore autosave', () => {
   it(`writes once, ${AUTOSAVE_DEBOUNCE_MS} ms after the LAST town:changed (debounced)`, () => {
     const { bus, store, editor, timers, written, storage } = setup();
-    // Attaching twice replaces the first subscription (the stray bus is never listened to again).
+    // Attaching again replaces the first subscription.
     const stray = createGameBus();
     store.attachAutosave(stray, () => editor.serialize());
     store.attachAutosave(bus, () => editor.serialize());
@@ -269,7 +269,7 @@ describe('SaveStore autosave', () => {
     expect(store.read()).toEqual(saved);
   });
 
-  it('a rename schedules a write with the new name; reset and load names never do (WP-20)', () => {
+  it('a rename schedules a write with the new name; reset and load names never do', () => {
     const { bus, store, editor, timers, storage } = setup();
     store.attachAutosave(bus, () => editor.serialize());
     editor.reset('Puddleton');
@@ -363,7 +363,7 @@ describe('SaveStore settings', () => {
     expect(store.getSettings()).toEqual({ muted: true, volume: 0, grid: false, music: true, musicVolume: 0.5, timeMode: 'auto', graphics: 'medium' });
   });
 
-  it('round-trips timeMode and falls back to auto for bad values (WP-16)', () => {
+  it('round-trips timeMode and falls back to auto for bad values', () => {
     const storage = new MemoryStorage();
     const { store } = setup(storage);
     expect(store.setSettings({ timeMode: 'night' }).timeMode).toBe('night');
@@ -373,7 +373,7 @@ describe('SaveStore settings', () => {
     expect(store.getSettings()).toEqual({ ...DEFAULT_SETTINGS, grid: false, timeMode: 'auto', graphics: 'medium' });
   });
 
-  it('round-trips the graphics preset and falls back to medium for bad values (WP-25)', () => {
+  it('round-trips the graphics preset and falls back to medium for bad values', () => {
     const storage = new MemoryStorage();
     const { store } = setup(storage);
     expect(store.getSettings().graphics).toBe('medium');
@@ -386,7 +386,7 @@ describe('SaveStore settings', () => {
       storage.data.set(SETTINGS_STORAGE_KEY, JSON.stringify({ graphics: bad, grid: false }));
       expect(store.getSettings(), JSON.stringify(bad)).toEqual({ ...DEFAULT_SETTINGS, grid: false, graphics: 'medium' });
     }
-    // Settings saved before WP-25 (no graphics field) load as Medium and keep their other fields.
+    // Settings without a graphics field load as Medium and keep their other fields.
     storage.data.set(SETTINGS_STORAGE_KEY, JSON.stringify({ muted: true, volume: 0.3, grid: false, music: true, musicVolume: 0.5, timeMode: 'night' }));
     expect(store.getSettings()).toEqual({ muted: true, volume: 0.3, grid: false, music: true, musicVolume: 0.5, timeMode: 'night', graphics: 'medium' });
   });
@@ -407,7 +407,7 @@ describe('SaveStore settings', () => {
     expect(store.getSettings()).toEqual(DEFAULT_SETTINGS);
   });
 
-  it('music settings (WP-13): persist, clamp, and old settings without them load with defaults', () => {
+  it('music settings: persist, clamp, and old settings without them load with defaults', () => {
     const storage = new MemoryStorage();
     const { store } = setup(storage);
     storage.data.set(SETTINGS_STORAGE_KEY, JSON.stringify({ muted: true, volume: 0.3, grid: false }));
@@ -426,7 +426,7 @@ describe('SaveStore settings', () => {
   });
 });
 
-describe('SaveStore — music position (WP-18)', () => {
+describe('SaveStore — music position', () => {
   const TRACK = '/assets/music/foundation-of-gold.mp3';
 
   it('round-trips under its own key and leaves the settings alone', () => {

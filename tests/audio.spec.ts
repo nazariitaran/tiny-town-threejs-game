@@ -1,17 +1,9 @@
-/**
- * WP-07 audio checks, all through real input (clicks, mouse drags) and the published diagnostics.
- *  - Start unlocks the AudioContext and decodes every SFX file with no load/decode warnings.
- *  - A 30-tile road drag is rate-limited: audio.starts rises by 10..30.
- *  - Mute persists across a reload (SETTINGS_STORAGE_KEY) and the mute button reflects it (aria-pressed).
- *  - Hiding the page suspends the context; showing it resumes.
- *  - A broken sound file produces exactly one console warning and the game keeps going.
- * WP-13 music checks and WP-18 music resume (position saved on hide/unload, resumed on the next visit).
- */
+/** Sound effects and music, through real input and diagnostics `audio`. */
 import { expect, test, type Page } from '@playwright/test';
+import { MUSIC_POSITION_STORAGE_KEY, SETTINGS_STORAGE_KEY } from '../src/game/config';
+import { MUSIC_URL } from '../src/audio/MusicPlayer';
 import { clickStart, openMenuTab } from './helpers';
 
-const SETTINGS_KEY = 'tiny-town:settings:v1';
-const MUSIC_POSITION_KEY = 'tiny-town:music:v1';
 
 type Diag = NonNullable<Window['__THREE_GAME_DIAGNOSTICS__']>;
 
@@ -45,7 +37,7 @@ const cellPoint = (page: Page, x: number, z: number) =>
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
-  await page.evaluate((keys) => keys.forEach((key) => window.localStorage.removeItem(key)), [SETTINGS_KEY, MUSIC_POSITION_KEY]);
+  await page.evaluate((keys) => keys.forEach((key) => window.localStorage.removeItem(key)), [SETTINGS_STORAGE_KEY, MUSIC_POSITION_STORAGE_KEY]);
   await page.reload();
 });
 
@@ -72,8 +64,7 @@ test('a 30-tile road drag is rate-limited to 10..30 sound starts', async ({ page
   await expect.poll(async () => (await diag(page)).tool).toBe('road');
   await page.waitForTimeout(200);
 
-  // An L-shaped stroke (WP-12: one point per 2×2 road block): 20 blocks along z=12, then 10 more
-  // down x=42 → 30 road tiles.
+  // An L-shaped stroke, one point per 2×2 road block: 20 blocks along z=12, then 10 more down x=42.
   const path: Array<[number, number]> = [];
   for (let x = 4; x <= 42; x += 2) path.push([x, 12]);
   for (let z = 14; z <= 32; z += 2) path.push([42, z]);
@@ -109,7 +100,7 @@ test('mute persists across reloads and silences playback', async ({ page }) => {
   await page.locator('#btn-mute').click();
   await expect.poll(async () => (await diag(page)).audio.muted).toBe(true);
   await expect(page.locator('#btn-mute')).toHaveAttribute('aria-pressed', 'true');
-  const stored = await page.evaluate((key) => window.localStorage.getItem(key), SETTINGS_KEY);
+  const stored = await page.evaluate((key) => window.localStorage.getItem(key), SETTINGS_STORAGE_KEY);
   expect(JSON.parse(stored ?? '{}')).toMatchObject({ muted: true });
 
   // muted: a UI click starts no sources
@@ -127,12 +118,12 @@ test('mute persists across reloads and silences playback', async ({ page }) => {
   await page.evaluate((key) => {
     const s = JSON.parse(window.localStorage.getItem(key) ?? '{}');
     window.localStorage.setItem(key, JSON.stringify({ ...s, grid: false }));
-  }, SETTINGS_KEY);
+  }, SETTINGS_STORAGE_KEY);
   await startGame(page);
   await page.locator('#btn-mute').click();
   await expect.poll(async () => (await diag(page)).audio.muted).toBe(false);
   await expect(page.locator('#btn-mute')).toHaveAttribute('aria-pressed', 'false');
-  const stored2 = JSON.parse((await page.evaluate((key) => window.localStorage.getItem(key), SETTINGS_KEY)) ?? '{}');
+  const stored2 = JSON.parse((await page.evaluate((key) => window.localStorage.getItem(key), SETTINGS_STORAGE_KEY)) ?? '{}');
   expect(stored2).toMatchObject({ muted: false, grid: false });
 });
 
@@ -173,9 +164,6 @@ test('a broken sound file is reported once and never throws', async ({ page }) =
   await expect.poll(async () => (await diag(page)).audio.starts).toBeGreaterThan(before);
 });
 
-// ---- WP-13: background music -------------------------------------------------------------------
-
-const MUSIC_PATH = '/assets/music/foundation-of-gold.mp3';
 type MusicDiag = {
   enabled: boolean;
   volume: number;
@@ -187,7 +175,6 @@ type MusicDiag = {
   loops: number;
   resumedFrom: number | null;
 };
-/** audio.music is published by AudioManager.state (vite-env.d.ts type update requested in the WP-13 hand-off). */
 const music = async (page: Page): Promise<MusicDiag> => ((await diag(page)).audio as unknown as { music: MusicDiag }).music;
 
 test('music is not requested before Start, then streams, plays and advances', async ({ page }) => {
@@ -206,7 +193,7 @@ test('music is not requested before Start, then streams, plays and advances', as
   await startGame(page);
   await expect.poll(async () => (await music(page)).playing, { timeout: 10_000 }).toBe(true);
   await expect.poll(async () => (await music(page)).loaded, { timeout: 10_000 }).toBe(true);
-  const musicRequests = requests.filter((r) => r.url.includes(MUSIC_PATH));
+  const musicRequests = requests.filter((r) => r.url.includes(MUSIC_URL));
   expect(musicRequests.length).toBeGreaterThan(0);
   expect(musicRequests[0].at).toBeGreaterThanOrEqual(clickAt);
   console.log(
@@ -241,7 +228,7 @@ test('music off stops playback; music on/volume persist across reload; menu duck
   await expect.poll(async () => (await music(page)).enabled).toBe(false);
   await expect.poll(async () => (await music(page)).playing).toBe(false);
   await expect(page.locator('#range-music')).toBeDisabled();
-  const stored = JSON.parse((await page.evaluate((key) => window.localStorage.getItem(key), SETTINGS_KEY)) ?? '{}');
+  const stored = JSON.parse((await page.evaluate((key) => window.localStorage.getItem(key), SETTINGS_STORAGE_KEY)) ?? '{}');
   expect(stored).toMatchObject({ music: false, musicVolume: 0.2 });
 
   await page.locator('#btn-resume').click();
@@ -259,12 +246,12 @@ test('music off stops playback; music on/volume persist across reload; menu duck
   // switching it back on streams and plays, and persists
   await page.locator('#chk-music').click();
   await expect.poll(async () => (await music(page)).playing, { timeout: 10_000 }).toBe(true);
-  const stored2 = JSON.parse((await page.evaluate((key) => window.localStorage.getItem(key), SETTINGS_KEY)) ?? '{}');
+  const stored2 = JSON.parse((await page.evaluate((key) => window.localStorage.getItem(key), SETTINGS_STORAGE_KEY)) ?? '{}');
   expect(stored2).toMatchObject({ music: true, musicVolume: 0.2 });
 });
 
 test('old settings without music fields load with the defaults', async ({ page }) => {
-  await page.evaluate((key) => window.localStorage.setItem(key, JSON.stringify({ muted: false, volume: 0.6, grid: true })), SETTINGS_KEY);
+  await page.evaluate((key) => window.localStorage.setItem(key, JSON.stringify({ muted: false, volume: 0.6, grid: true })), SETTINGS_STORAGE_KEY);
   await page.reload();
   await page.waitForFunction(() => window.__THREE_GAME_DIAGNOSTICS__?.phase === 'title', undefined, { timeout: 15_000 });
   expect(await music(page)).toMatchObject({ enabled: true, volume: 0.5, playing: false, requested: false });
@@ -296,18 +283,13 @@ test('master mute and a hidden page silence music; unmute/show resume it', async
   await expect.poll(async () => (await music(page)).playing).toBe(true);
 });
 
-// ---- WP-18: music resumes where it left off ----------------------------------------------------
-
-/** MusicPlayer.url, the track id in the stored position. */
-const MUSIC_TRACK = '/assets/music/foundation-of-gold.mp3';
-/** Track length in s (docs/assets/audio.md). */
 const MUSIC_DURATION_S = 585.05;
 
 const storedPosition = async (page: Page): Promise<{ track: string; time: number } | null> =>
-  JSON.parse((await page.evaluate((key) => window.localStorage.getItem(key), MUSIC_POSITION_KEY)) ?? 'null');
+  JSON.parse((await page.evaluate((key) => window.localStorage.getItem(key), MUSIC_POSITION_STORAGE_KEY)) ?? 'null');
 
 const storePosition = (page: Page, value: string): Promise<void> =>
-  page.evaluate(([key, v]) => window.localStorage.setItem(key, v), [MUSIC_POSITION_KEY, value] as const);
+  page.evaluate(([key, v]) => window.localStorage.setItem(key, v), [MUSIC_POSITION_STORAGE_KEY, value] as const);
 
 const setPageHidden = (page: Page, hidden: boolean) =>
   page.evaluate((h) => {
@@ -325,7 +307,7 @@ test('music position is saved on hide and on unload, and the next visit resumes 
 
   await setPageHidden(page, true);
   const onHide = await storedPosition(page);
-  expect(onHide).toMatchObject({ track: MUSIC_TRACK });
+  expect(onHide).toMatchObject({ track: MUSIC_URL });
   expect(onHide!.time).toBeGreaterThan(2);
   await setPageHidden(page, false);
   await expect.poll(async () => (await music(page)).playing, { timeout: 10_000 }).toBe(true);
@@ -346,7 +328,7 @@ test('music position is saved on hide and on unload, and the next visit resumes 
 });
 
 test('a saved position inside the end guard starts the music from 0', async ({ page }) => {
-  await storePosition(page, JSON.stringify({ track: MUSIC_TRACK, time: MUSIC_DURATION_S - 2 }));
+  await storePosition(page, JSON.stringify({ track: MUSIC_URL, time: MUSIC_DURATION_S - 2 }));
   await page.reload();
   await startGame(page);
   await expect.poll(async () => (await music(page)).playing, { timeout: 10_000 }).toBe(true);
@@ -358,7 +340,7 @@ test('a saved position inside the end guard starts the music from 0', async ({ p
 test('a resumed track still loops back to 0:00', async ({ page }) => {
   test.setTimeout(60_000);
   const from = MUSIC_DURATION_S - 8;
-  await storePosition(page, JSON.stringify({ track: MUSIC_TRACK, time: from }));
+  await storePosition(page, JSON.stringify({ track: MUSIC_URL, time: from }));
   await page.reload();
   await startGame(page);
   await expect.poll(async () => (await music(page)).resumedFrom, { timeout: 10_000 }).toBe(from);

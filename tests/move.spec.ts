@@ -1,11 +1,10 @@
 /**
- * Move tool (docs/plans/move-objects.md): pick a placed thing up and put it down elsewhere, through
- * real input only (dock clicks by UI_TEST_IDS, the mouse or a finger at cellToClient). Where things
- * stand is read back from the autosave (the save is the source of truth), and the carried object
- * from diagnostics `selection`.
+ * Move tool, through real input. Positions are read back from the autosave, the carried object from
+ * diagnostics `selection`.
  */
 import { mkdirSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+import { SAVE_STORAGE_KEY } from '../src/game/config';
 import type { Cell, ObjectKind, Rotation, SavedTown } from '../src/town/types';
 import {
   byId,
@@ -23,7 +22,6 @@ import {
 } from './helpers';
 
 const ARTIFACTS = 'artifacts/move-objects';
-const SAVE_KEY = 'tiny-town:save:v1';
 const HOUSE_A = { x: 22, z: 20 } as const;
 const HOUSE_B = { x: 30, z: 20 } as const;
 const HOUSE_A_NEW = { x: 22, z: 28 } as const;
@@ -34,7 +32,7 @@ const isMobile = (name: string) => name.startsWith('mobile');
 /** The town as saved (after the 1 s autosave debounce has run). */
 async function savedTown(page: Page): Promise<SavedTown> {
   await expect.poll(async () => (await diagnostics(page)).save.pending, { timeout: 5_000 }).toBe(false);
-  return page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null'), SAVE_KEY);
+  return page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null'), SAVE_STORAGE_KEY);
 }
 
 async function objectsByKind(page: Page, kind: ObjectKind): Promise<Array<{ id: number; anchor: Cell; rotation: number }>> {
@@ -85,7 +83,6 @@ test('pick up a cottage, a refused drop, turn it, put it down, undo / redo, relo
     await shot('1-hover-highlight');
   }
 
-  // Pick it up.
   await pointAt(page, 'cottage', HOUSE_A);
   await expect.poll(async () => (await diagnostics(page)).selection).toEqual({ id: houseA.id, kind: 'cottage', rotation: 0 });
   await expect(byId(page, UI_TEST_IDS.hint)).toContainText(mobile ? 'Tap where it goes' : 'Click where it goes');
@@ -125,13 +122,11 @@ test('pick up a cottage, a refused drop, turn it, put it down, undo / redo, relo
   expect((await objectsByKind(page, 'cottage')).find((o) => o.id === houseA.id)).toEqual({ id: houseA.id, anchor: HOUSE_A_NEW, rotation: 3 });
   expect(await diagnostics(page).then((d) => d.tool), 'the Move tool stays selected for the next pick').toBe('move');
 
-  // Undo puts it back where it was, redo moves it again.
   await byId(page, UI_TEST_IDS.undo).click();
   await expect.poll(async () => (await objectsByKind(page, 'cottage')).find((o) => o.id === houseA.id)).toEqual({ id: houseA.id, anchor: HOUSE_A, rotation: 0 });
   await byId(page, UI_TEST_IDS.redo).click();
   await expect.poll(async () => (await objectsByKind(page, 'cottage')).find((o) => o.id === houseA.id)).toEqual({ id: houseA.id, anchor: HOUSE_A_NEW, rotation: 3 });
 
-  // A reload keeps it where it was put.
   await page.reload();
   await gotoTitle(page);
   await clickStart(page);

@@ -1,23 +1,11 @@
 /**
- * Loads every GLB in MODELS once and exposes normalised templates:
- * scaled to world units, rotated so the model's front faces +z, footprint-centred
- * at the origin with its base on y = 0. Consumers never touch raw GLTF scenes.
- *
- * WP-03 (Rendering) owns this file. What it does beyond loading:
- *  - Shared materials: Kenney kits use one colour-atlas texture per kit folder, so materials are
- *    deduplicated by (source image URL + material parameters). The whole town needs a handful.
- *  - Texture set-up: sRGB colour space for colour maps, anisotropic filtering.
- *  - Per-model mesh merge: every mesh of a model that shares a material is baked into one
- *    geometry in normalised model space, so a model is 1 part per material (1 draw call per
- *    part per InstancedMesh pool in TownRenderer). Part matrices are therefore identity.
- *  - Triangle counts per model (`template.triangles`) for diagnostics/budgets.
- *  - Models with `sway: true` get their own material clone passed to applyWindSway() (WP-08).
- *  - Models with `glow` (WP-16) get a private clone per (source material, glow kind) carrying the
- *    kind's night glow mask (render/nightGlow.ts); `glow` (a GlowRegistry) drives their intensity.
- *    All suburban houses share one "windows" clone, so pools and draw calls don't change.
- *  - Material family (WP-25): with `materialMode` 'lambert' (the Low graphics preset) every shared
- *    GLTF material is converted to MeshLambertMaterial before any clone or patch (render/materials.ts),
- *    so the town, the decor ring, the ghost and IconStudio all follow. Fixed for the page's lifetime.
+ * Loads every GLB in MODELS once and exposes normalised templates: scaled to world units, front
+ * facing +z, footprint-centred at the origin with the base on y = 0.
+ *  - Materials are shared by (atlas image + parameters), and each model is merged into one geometry
+ *    per material, so part matrices are identity.
+ *  - `sway` models get private wind-sway clones; `glow` models share one glow clone per
+ *    (source material, glow kind), so houses with windows still share pools and draw calls.
+ *  - Under 'lambert' every shared GLTF material is converted before any clone or patch.
  */
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
@@ -54,14 +42,13 @@ export class ModelLibrary {
   private readonly materials = new Map<string, THREE.Material>();
   /** Textures kept alive by shared materials (deduplicated by source image URL). */
   private readonly textures = new Map<string, THREE.Texture>();
-  /** Private per-model clones for swaying foliage. */
   private readonly swayMaterials = new Set<THREE.Material>();
-  /** Private night-glow clones keyed by `${source material uuid}|${kind}` (WP-16). */
+  /** Private night-glow clones keyed by `${source material uuid}|${kind}`. */
   private readonly glowMaterials = new Map<string, THREE.Material>();
-  /** Night glow (WP-16): masks, intensity updates and the window stagger uniforms. */
+  /** Night glow masks, intensity and the window stagger uniforms. */
   readonly glow = new GlowRegistry();
 
-  /** 'standard' | 'lambert' (WP-25 boot-time graphics setting); TownRenderer / GhostPreview follow it. */
+  /** Fixed at boot; TownRenderer and GhostPreview follow it. */
   constructor(readonly materialMode: MaterialMode = 'standard') {}
 
   async loadAll(onProgress?: (loaded: number, total: number, label: string) => void): Promise<void> {
@@ -95,12 +82,11 @@ export class ModelLibrary {
     return this.materials.size + this.swayMaterials.size + this.glowMaterials.size;
   }
 
-  /** Distinct textures in use, for diagnostics. */
   get textureCount(): number {
     return this.textures.size;
   }
 
-  /** A plain (non-instanced) Object3D of the model — for ghosts, title scene, debugging. Shares GPU resources. */
+  /** A plain (non-instanced) Object3D of the model; shares GPU resources. */
   createObject(id: ModelId): THREE.Group {
     const group = new THREE.Group();
     group.name = `model:${id}`;
@@ -132,8 +118,8 @@ export class ModelLibrary {
   private normalise(id: ModelId, gltf: GLTF, fileUrl: string): ModelTemplate {
     const spec = MODELS[id];
     const scene = gltf.scene;
-    // root: scale + quarter-turn so "front" faces +z, then translate so base sits at y=0 and the
-    // footprint centre is at the origin (plus any authored offset from the catalog).
+    // Scale and quarter-turn so the front faces +z, then put the base on y = 0 and the footprint
+    // centre at the origin (plus the catalog offset).
     const root = new THREE.Group();
     root.add(scene);
     scene.scale.setScalar(spec.scale);

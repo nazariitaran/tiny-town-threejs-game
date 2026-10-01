@@ -1,30 +1,25 @@
-/**
- * CONTRACT FILE — visual model registry: which GLB draws what, and how to normalise it.
- * Source/licence/measurements for every file: docs/assets/models.json + models.md.
- * WP-03 may tune the numeric fields (scale, rotationOffset, offset) — report changes in hand-off.
- */
 import type { RoadPiece } from '../town/roadTiles';
 import type { EdgeKind, GroundKind, Rotation } from '../town/types';
 
 export interface ModelSpec {
   /** Public URL of the GLB (textures referenced relative to it). */
   url: string;
-  /** Uniform scale from native units to world units (WP-12: CELL_SIZE = 0.5, a road tile = 1). */
+  /** Uniform scale from native units to world units (a road tile = 1). */
   scale: number;
   /** Extra quarter turns (CCW) so the model's front faces +z at rotation 0. */
   rotationOffset: Rotation;
   /** Extra translation after centring, world units [x, y, z]. */
   offset?: readonly [number, number, number];
-  /** Foliage that should sway in the wind (gets its own material clone, see fx/windSway.ts). */
+  /** Foliage that sways in the wind (gets its own material clone). */
   sway?: boolean;
   /**
-   * Night light source (WP-16): the model gets a private material clone per (atlas, kind) with a
-   * swatch glow mask as its emissiveMap (render/nightGlow.ts). Never set on shared road pieces.
+   * Night light source: the model gets a private material clone per (atlas, kind) with a swatch
+   * glow mask as its emissiveMap. Never set on shared road pieces.
    */
   glow?: GlowKind;
 }
 
-/** What lights up at night (docs/plans/wp-16-day-night.md §3). Shops and the church stay dark (WP-17b). */
+/** What lights up at night. */
 export type GlowKind = 'windows' | 'lamp' | 'traffic';
 
 const M = (url: string, scale = 1, rotationOffset: Rotation = 0, extra: Partial<ModelSpec> = {}): ModelSpec => ({
@@ -34,138 +29,103 @@ const M = (url: string, scale = 1, rotationOffset: Rotation = 0, extra: Partial<
   ...extra,
 });
 
-/**
- * WP-17: homes, the supermarket and the church grew one cell each way (e.g. 3 × 3 → 4 × 4), and their
- * models by the same ×4/3 of the depth axis, so a building fills its bigger lot like it did before.
- */
+/** Homes, the supermarket and the church: ×4/3 the kit's native size, so a building fills its lot. */
 const HOME_SCALE = 4 / 3;
 
-// Values from docs/assets/models.json (measured by scripts/inspect-models.mjs).
 // Kenney city/industrial models face −Z natively ⇒ rotationOffset 2.
 // Road pieces' native connections (straight W+E, corner W+S, tee W+E+S, end E) are turned
 // onto the canonical set in town/roadTiles.ts (straight N+S, corner E+S, tee E+S+W, end S).
 export const MODELS = {
-  // ---- Streets
-  // Roads: one tile = one aligned 2 × 2 cell road block (ROAD_TILE_SIZE = 1 world unit), lanes ≈ 0.37.
+  // Roads: one tile = one aligned 2 × 2 cell road block (1 world unit), lanes ≈ 0.37.
   'road-straight': M('/assets/models/roads/road-straight.glb', 1, 1),
   'road-corner': M('/assets/models/roads/road-bend-square.glb', 1, 1),
-  // Junctions draw their centre lines meeting (the "-line" pieces; the plain road-intersection /
-  // road-crossroad left a blank patch in the middle). Zebras are the player's Zebra crossing tool.
+  // Junctions use the "-line" pieces so centre lines meet; the plain ones leave a blank patch in the middle.
   'road-tee': M('/assets/models/roads/road-intersection-line.glb', 1, 0),
   'road-cross': M('/assets/models/roads/road-crossroad-line.glb', 1, 0),
-  // Zebra crossing variants of a road block (ZEBRA_PIECE_MODELS): straight, tee (three arms), cross.
+  // Zebra crossing variants (ZEBRA_PIECE_MODELS).
   'road-crossing': M('/assets/models/roads/road-crossing.glb', 1, 1),
   'road-tee-zebra': M('/assets/models/roads/road-intersection-path.glb', 1, 0),
   'road-cross-zebra': M('/assets/models/roads/road-crossroad-path.glb', 1, 0),
   'road-end': M('/assets/models/roads/road-end-round.glb', 1, 3),
   'road-single': M('/assets/models/roads/road-square.glb', 1, 0),
-  // WP-12: one pavement tile per 0.5 cell (TownRenderer doubles its height so the kerb stays 0.02).
+  // One pavement tile per cell; TownRenderer doubles its height so the kerb stays 0.02.
   'pavement-tile': M('/assets/models/roads/tile-low.glb', 0.5, 0),
-  // v0.3: 3 × 3 road tiles (6 × 6 cells, native 3 units); arms at the middle of each side. Symmetric.
+  // 3 × 3 road tiles (6 × 6 cells); arms at the middle of each side. Symmetric.
   roundabout: M('/assets/models/roads/road-roundabout.glb', 1, 0),
-  // Traffic lights (City Kit Roads): the lamps face −X natively (not −Z like the rest of the kit), so
-  // one quarter turn puts them on +z. 0.52 tall, below the lamppost (0.675).
+  // The lamps face −X natively (not −Z like the rest of the kit), so one quarter turn puts them on +z.
   'traffic-light': M('/assets/models/roads/traffic-light.glb', 1, 1, { glow: 'traffic' }),
   // Its arm overhangs −X after the turn; like the lamppost, the offset puts the pole back mid-cell.
   'traffic-light-hanging': M('/assets/models/roads/traffic-light-hanging.glb', 1, 1, { offset: [-0.103, 0, 0], glow: 'traffic' }),
-  // Pole is at the native origin; the arm overhangs −Z. Bounds-centring moves the pole 0.0867 × scale
-  // off-centre; the offset puts it back mid-cell. WP-12: scale 1 (0.675 tall, arm 0.2): taller than
-  // the bus-stop bench, below the eaves.
+  // The pole is at the native origin and the arm overhangs −Z. Bounds-centring moves the pole
+  // 0.0867 × scale off-centre; the offset puts it back mid-cell.
   lamppost: M('/assets/models/roads/light-curved.glb', 1, 2, { offset: [0, 0, 0.087], glow: 'lamp' }),
-  // WP-12: 2×1 cells (0.76 × 0.34 × 0.37).
   'bus-stop': M('/assets/models/composed/bus-stop.glb', 0.8, 2),
-  // WP-12: ≈ car height (0.15 × 0.24), ~1.2× real so it still reads as a pillar box.
+  // ~1.2× real size so it still reads as a pillar box.
   postbox: M('/assets/models/composed/postbox.glb', 1.4, 2),
-  // WP-23: CreativeTrio kerbside mailbox (Poly Pizza, CC0; composed at game scale: 0.03 × 0.20 × 0.10),
-  // about as tall as the postbox. The door end faces +Z natively.
+  // The door end faces +Z natively.
   mailbox: M('/assets/models/composed/mailbox.glb', 1, 0),
-  // ---- Homes: City Kit Suburban at HOME_SCALE (WP-17: every home grew one cell each way, so ×4/3 of
-  // the kit's native size), nudged back (−z at rotation 0) so a front yard reads between the door and
-  // the street; the nudge grew with the model (0.15 → 0.2), so the yard keeps its share of the lot.
-  // 4 × 4 cells unless noted.
+  // Homes are nudged back (−z at rotation 0) so a front yard reads between the door and the street.
   cottage: M('/assets/models/suburban/building-type-a.glb', HOME_SCALE, 2, { offset: [0, 0, -0.2], glow: 'windows' }),
-  // 3 × 4 cells.
   townhouse: M('/assets/models/suburban/building-type-k.glb', HOME_SCALE, 2, { offset: [0, 0, -0.2], glow: 'windows' }),
   'townhouse-alt': M('/assets/models/suburban/building-type-r.glb', HOME_SCALE, 2, { offset: [0, 0, -0.2], glow: 'windows' }),
-  // Single-storey with a garage: type-i (1.71 × 0.98 × 1.37), L-shaped type-m (1.90 deep: no nudge).
+  // The L-shaped type-m is 1.90 deep, so it gets no nudge.
   bungalow: M('/assets/models/suburban/building-type-i.glb', HOME_SCALE, 2, { offset: [0, 0, -0.2], glow: 'windows' }),
   'bungalow-l': M('/assets/models/suburban/building-type-m.glb', HOME_SCALE, 2, { glow: 'windows' }),
   'family-home': M('/assets/models/suburban/building-type-e.glb', HOME_SCALE, 2, { offset: [0, 0, -0.2], glow: 'windows' }),
-  // Two storeys with an attached garage (1.69–1.90 wide, 1.37–1.45 deep).
   'garage-house-c': M('/assets/models/suburban/building-type-c.glb', HOME_SCALE, 2, { offset: [0, 0, -0.2], glow: 'windows' }),
   'garage-house-o': M('/assets/models/suburban/building-type-o.glb', HOME_SCALE, 2, { offset: [0, 0, -0.2], glow: 'windows' }),
   'garage-house-s': M('/assets/models/suburban/building-type-s.glb', HOME_SCALE, 2, { offset: [0, 0, -0.2], glow: 'windows' }),
   'garage-house-u': M('/assets/models/suburban/building-type-u.glb', HOME_SCALE, 2, { offset: [0, 0, -0.2], glow: 'windows' }),
-  // 5 × 4 cells: type-d (2.34 × 1.65 × 1.37), type-n (2.38 × 1.52 × 1.84: small nudge).
+  // type-n is 1.84 deep, so only a small nudge.
   'big-house-d': M('/assets/models/suburban/building-type-d.glb', HOME_SCALE, 2, { offset: [0, 0, -0.2], glow: 'windows' }),
   'big-house-n': M('/assets/models/suburban/building-type-n.glb', HOME_SCALE, 2, { offset: [0, 0, -0.05], glow: 'windows' }),
-  // ---- Town
-  // KayKit corner shop (composed: normalised to 0.92 × 0.76 × 0.92), 3 × 3 cells at 1.4 (WP-17):
-  // 1.29 × 1.06 × 1.29. The shop front (door, striped awning) faces +Z natively, unlike the Kenney kits.
+  // The shop front faces +Z natively, unlike the Kenney kits.
   'corner-shop': M('/assets/models/composed/corner-shop.glb', 1.4, 0),
-  // WP-23: "Donut Store" by J-Toastie (Poly Pizza, CC-BY 3.0; composed at game scale without its own
-  // ground slab), 3 × 3 cells like the corner shop. Front (awning) faces −Z natively.
+  // The front (awning) faces −Z natively.
   'donut-shop': M('/assets/models/composed/donut-shop.glb', 1, 2),
-  // City Kit Commercial building-e: low, wide, green awning, 5 × 4 cells at HOME_SCALE (WP-17):
-  // 2.19 × 1.19 × 1.34.
   supermarket: M('/assets/models/commercial/building-e.glb', HOME_SCALE, 2),
-  // Poly Pizza church (composed: 0.78 × 1.75 × 1.42), 3 × 4 cells at HOME_SCALE (WP-17):
-  // 1.04 × 2.33 × 1.89, still the tallest building. Tower and door face +Z natively.
+  // Tower and door face +Z natively.
   church: M('/assets/models/composed/church.glb', HOME_SCALE, 0),
-  // Fantasy Town fountain modules + parasols (composed, native 4 × 2.9), 4 × 3 cells.
+  // Composed from Fantasy Town fountain modules and parasols.
   'swimming-pool': M('/assets/models/composed/swimming-pool.glb', 0.5, 2),
-  // Fantasy Town round fountain with its centre tier (native 2 × 2), 2 × 2 cells.
   fountain: M('/assets/models/composed/fountain.glb', 0.45, 0),
-  // WP-23: "Fountain" by Poly by Google (Poly Pizza, CC-BY 3.0; composed at game scale and recoloured):
-  // a round basin with a tiered centre, 3 × 3 cells (1.4 × 0.53 × 1.4). Symmetric.
   'tiered-fountain': M('/assets/models/composed/tiered-fountain.glb', 1, 0),
-  // ---- Nature. WP-12 proportions (toy scale 1 unit ≈ 8 m): trees ≈ cottage height (~0.88).
-  // The oak is the exception: a big round tree on a 2 × 2 cell lot (1 × 1 units, like a road block),
-  // twice the old scale so its crown fills the lot: 0.98 × 1.74 × 1.0.
+  // Trees ≈ cottage height (~0.88), except the oak: a big round tree whose crown fills its 2 × 2 cell lot.
   oak: M('/assets/models/platformer/tree.glb', 0.9, 0, { sway: true }),
   pine: M('/assets/models/platformer/tree-pine.glb', 0.45, 0, { sway: true }),
   birch: M('/assets/models/suburban/tree-large.glb', 1.15, 0, { sway: true }),
   'birch-small': M('/assets/models/suburban/tree-small.glb', 1.15, 0, { sway: true }),
-  // A low round shrub: the oak's canopy, sunk so the trunk is hidden and squashed by MODEL_STYLES
-  // (the same trick as the decor-ring hedgerow; the platformer plant read as birds from above).
+  // The oak's canopy, sunk so the trunk is hidden and squashed by MODEL_STYLES (the platformer plant
+  // reads as birds from above).
   bush: M('/assets/models/platformer/tree.glb', 0.3, 0, { sway: true, offset: [0, -0.26, 0] }),
-  // WP-23: Nature Kit red, yellow and purple flowers in one cell (composed, recoloured: see
-  // compose-models.mjs natureMaterials), one model per flower shape.
+  // Recoloured by compose-models.mjs (natureMaterials); one model per flower shape.
   'tulips-a': M('/assets/models/composed/tulips-a.glb', 1, 0, { sway: true }),
   'tulips-b': M('/assets/models/composed/tulips-b.glb', 1, 0, { sway: true }),
   'tulips-c': M('/assets/models/composed/tulips-c.glb', 1, 0, { sway: true }),
-  // ---- Garden
-  // Suburban planter (bushes in a bed), kit scale: 0.40 × 0.18 × 0.30.
   planter: M('/assets/models/suburban/planter.glb', 1, 2),
-  // Holiday-kit park bench, seat faces +Z natively: 0.34 × 0.22 × 0.19.
+  // The seat faces +Z natively.
   bench: M('/assets/models/holiday/bench.glb', 0.3, 0),
-  // WP-23: Fantasy Town market-stall bench and table (the kit's plain wooden table), at one scale so
-  // they match. Both run along Z natively; a quarter turn lays them along X like the park bench.
+  // Both run along Z natively; a quarter turn lays them along X like the park bench.
   'long-bench': M('/assets/models/fantasy-town/stall-bench.glb', 0.5, 1),
   'garden-table': M('/assets/models/fantasy-town/stall.glb', 0.5, 1),
-  // Poly Pizza swing set (composed: 0.56 × 0.42 × 0.32), 2 × 1 cells; WP-17: 0.87 (0.48 × 0.37 × 0.28).
   swing: M('/assets/models/composed/swing.glb', 0.87, 0),
-  // WP-23: "Slide" by sirkitree (Poly Pizza, CC-BY 3.0; composed at game scale): 0.58 × 0.37 × 0.19,
-  // 2 × 1 cells, as tall as the swing; runs along X.
   slide: M('/assets/models/composed/slide.glb', 1, 0),
-  // Poly Pizza kettle barbecue (composed: 0.15 × 0.20).
   barbecue: M('/assets/models/composed/barbecue.glb', 1, 0),
   // Edge pieces are 1 native unit along X (one cell at scale 0.5); MODEL_STYLES restores fence height.
   hedge: M('/assets/models/platformer/hedge.glb', 0.5, 0),
   'fence-tall': M('/assets/models/composed/fence-tall.glb', 0.5, 0),
   'fence-low': M('/assets/models/composed/fence-small.glb', 0.5, 0),
-  // ---- Ground scatter and decor
-  // Scatter pieces for grass/meadow cells (WP-03 task 6). WP-12: one clump per 0.5 cell.
+  // Scatter for grass/meadow cells, one clump per cell.
   'grass-tuft': M('/assets/models/platformer/grass.glb', 0.35, 0, { sway: true }),
   'meadow-flowers': M('/assets/models/platformer/flowers.glb', 0.35, 0, { sway: true }),
   'meadow-flowers-tall': M('/assets/models/platformer/flowers-tall.glb', 0.35, 0, { sway: true }),
-  // Walkway kit pieces (the ghost preview uses the hub; TownRenderer draws walkways procedurally).
-  // At 1.25 the hub is 0.25² = the WP-12 walkway width (0.5 · CELL_SIZE).
+  // The ghost preview uses the hub; TownRenderer draws walkways procedurally.
+  // At 1.25 the hub is 0.25², the walkway width (0.5 · CELL_SIZE).
   'walkway-hub': M('/assets/models/suburban/path-short.glb', 1.25, 0),
   'walkway-arm': M('/assets/models/suburban/path-long.glb', 1.25, 0),
   'walkway-stones-hub': M('/assets/models/suburban/path-stones-short.glb', 1.25, 0),
   'walkway-stones-arm': M('/assets/models/suburban/path-stones-long.glb', 1.25, 0),
-  // Distant decor ring outside the plot (WP-04 task 3); reuses oak / pine too.
+  // Distant decor ring outside the plot; it also reuses oak / pine.
   'decor-rocks': M('/assets/models/platformer/rocks.glb', 0.3, 0),
 } as const satisfies Record<string, ModelSpec>;
 
@@ -196,14 +156,12 @@ export type GroundVisual =
   | { type: 'flat'; color: string; height: number };
 
 export const GROUND_MODELS: Readonly<Record<Exclude<GroundKind, 'field' | 'road'>, GroundVisual>> = {
-  // Colours sampled from the Kenney kits (docs/assets/models.md). WP-03: walkway = path hub+arms
-  // composition, grass/meadow = flat tile + instanced tuft/flower scatter.
+  // Colours sampled from the Kenney kits; grass/meadow also get an instanced tuft/flower scatter.
   pavement: { type: 'model', model: 'pavement-tile' },
-  // M1 (WP-03): walkway = warm sandstone paving (drawn as a 0.5-wide hub + arms by TownRenderer);
-  // lawns pulled from kit teal toward the WP-04 field green (#84c27c), a little deeper.
+  // Drawn as a 0.5-wide hub + arms by TownRenderer.
   walkway: { type: 'flat', color: '#c9b99a', height: 0.016 },
   grass: { type: 'flat', color: '#6cb562', height: 0.016 },
-  // Owner (2026-09-30): wildflowers sit on the same lawn as grass; only the flower scatter differs.
+  // Same lawn as grass; only the flower scatter differs.
   meadow: { type: 'flat', color: '#6cb562', height: 0.016 },
 };
 

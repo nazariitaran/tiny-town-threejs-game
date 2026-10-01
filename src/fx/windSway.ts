@@ -1,29 +1,13 @@
 /**
- * Wind sway for foliage materials (trees, bushes, meadow flowers, grass tufts).
+ * Wind sway for foliage materials. A patched material clone is shared by every instance of its model,
+ * so per-instance variation comes from the instance's world position. PlacementFx drives the shared uniforms.
  *
- * ModelLibrary (WP-03) calls applyWindSway() on the private material clone of every model with
- * `sway: true`; those clones are shared by every instance of that model (town InstancePools and
- * WP-04's DecorRing), so all per-instance variation comes from the instance's world position.
- * PlacementFx.update() drives the shared uniforms through updateWindSway()/setWindStrength(), so
- * the sway follows the game's animation delta: frozen under reduced motion, rest pose after
- * PlacementFx.stabilize().
- *
- * Shader (shader-cookbook "(c) Wind sway", instancing-aware):
- *  - The offset is computed in WORLD space so every tree leans the same way whatever its rotation,
- *    then mapped back to object space with the inverse of (model × instance) (rotation × uniform
- *    scale ⇒ inverse = Mᵀ / s²). Works for InstancedMesh and for plain meshes (createObject).
- *  - Per-instance phase = world translation of the instance, so neighbours ripple, not march.
- *  - Bend grows with height (linear + quadratic): the base stays planted, crowns move most. Height
- *    is measured along the model's own Y axis, so player-stretched (taller) trees bend by their real height.
- *  - All materials share ONE uniform object, so a frame update is two float writes.
- *  - Shadows use three's internal depth material and do not sway; the motion is a few cm on a
- *    0.7-unit tree, so the mismatch is invisible.
- *
- * WP-08 (Feel & VFX).
+ * The offset is computed in world space, so every tree leans the same way whatever its rotation, then
+ * mapped back to object space with Mᵀ / s² (rotation × uniform scale). Shadows use three's depth
+ * material and don't sway; the motion is a few cm, so the mismatch is invisible.
  */
 import type * as THREE from 'three';
 
-/** Program cache key for every sway-patched material (onBeforeCompile rule, shader-cookbook). */
 export const WIND_SWAY_CACHE_KEY = 'tiny-town:wind-sway:v1';
 
 /** World-space wind heading (xz). */
@@ -70,10 +54,7 @@ interface ShaderLike {
   vertexShader: string;
 }
 
-/**
- * Patch a (private) foliage material so its vertices sway. Idempotent. Materials whose vertex
- * stage has no `#include <begin_vertex>` are left untouched when compiled.
- */
+/** Makes a private foliage material sway. Idempotent. */
 export function applyWindSway(material: THREE.Material): void {
   if (material.userData.windSway) return;
   material.userData.windSway = true;
@@ -87,7 +68,6 @@ export function applyWindSway(material: THREE.Material): void {
   material.needsUpdate = true;
 }
 
-/** Inject the sway chunk into a shader's vertex stage (exported for unit tests). */
 export function patchShader(shader: ShaderLike): void {
   if (!shader.vertexShader.includes('#include <begin_vertex>')) return;
   shader.uniforms.uWindTime = uniforms.uWindTime;
@@ -95,7 +75,7 @@ export function patchShader(shader: ShaderLike): void {
   shader.vertexShader = VERTEX_PARS + shader.vertexShader.replace('#include <begin_vertex>', VERTEX_SWAY);
 }
 
-/** Set the shared wind clock (seconds of accumulated animation time). */
+/** `elapsed`: seconds of accumulated animation time. */
 export function updateWindSway(elapsed: number): void {
   uniforms.uWindTime.value = elapsed;
 }
@@ -105,7 +85,6 @@ export function setWindStrength(strength: number): void {
   uniforms.uWindStrength.value = strength;
 }
 
-/** Current uniform values (diagnostics and tests). Returns a live read, no allocation. */
 export function windTime(): number {
   return uniforms.uWindTime.value;
 }

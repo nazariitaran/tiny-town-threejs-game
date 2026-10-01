@@ -38,14 +38,14 @@ describe('planDecor', () => {
     expect(new Set(plan.map((p) => p.model)).size).toBeLessThanOrEqual(3);
   });
 
-  it('renders the ring at its v0.1 size although the plot trees grew (WP-12)', () => {
+  it('ring trees keep a 0.36 scale whatever the catalog scale of the plot trees', () => {
     expect(MODELS['oak'].scale * TEMPLATE_RESCALE['oak']).toBeCloseTo(0.36, 6);
     expect(MODELS['pine'].scale * TEMPLATE_RESCALE['pine']).toBeCloseTo(0.36, 6);
     expect(TEMPLATE_RESCALE['decor-rocks']).toBe(1);
   });
 });
 
-describe('evenDecorSubset (WP-25 Low: 60% of the ring, spread evenly)', () => {
+describe('evenDecorSubset (Low: 60% of the ring, spread evenly)', () => {
   const plan = planDecor();
   const SECTORS = 16;
   const sectorOf = (x: number, z: number) => Math.floor(((Math.atan2(z, x) + Math.PI) / (2 * Math.PI)) * SECTORS) % SECTORS;

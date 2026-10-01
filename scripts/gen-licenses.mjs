@@ -1,10 +1,8 @@
 #!/usr/bin/env node
-// Writes public/licenses.txt: every open-source package shipped to players (package.json
-// "dependencies" and whatever they depend on), each with its version, licence, source and the
-// full licence text, which MIT and the SIL Open Font License require to travel with the copies.
-// The in-game Credits panel links to it. Dev dependencies (Vite, Playwright…) never reach players.
-// Run: npm run gen:licenses        (after adding, removing or upgrading a dependency)
-//      node scripts/gen-licenses.mjs --check   (part of `npm run verify`: fails if the file is stale)
+// Writes public/licenses.txt: every runtime dependency, transitively, with its version, licence, source
+// and full licence text, which MIT and the SIL Open Font License require to travel with the copies.
+// Run: npm run gen:licenses
+//      node scripts/gen-licenses.mjs --check   (fails if the file is stale)
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,7 +11,6 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(root, 'public/licenses.txt');
 const RULE = '-'.repeat(72);
 
-/** Friendlier titles than the npm package name. */
 const TITLES = {
   three: 'three.js',
   'lil-gui': 'lil-gui (the ?debug tuning panel)',
@@ -42,7 +39,6 @@ function licenceText(dir, name) {
   return readFileSync(join(dir, file), 'utf8').replace(/\r\n/g, '\n').trim();
 }
 
-// Runtime dependencies and everything they pull in, once each.
 const packages = new Map();
 const queue = Object.keys(readJson(join(root, 'package.json')).dependencies ?? {});
 while (queue.length) {

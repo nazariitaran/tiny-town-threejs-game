@@ -1,10 +1,6 @@
 #!/usr/bin/env node
-// Inspect GLB/glTF models without a browser.
-//
-// For every model it reports: native AABB (POSITION accessor min/max pushed
-// through the node hierarchy's TRS/matrix transforms), size, pivot hints,
-// triangle / mesh / material counts, external image + buffer URIs (and whether
-// they exist on disk relative to the model), and file size.
+// Inspects GLB/glTF models without a browser: AABB through the node transforms, size, pivot hints,
+// triangle / mesh / material counts, external URIs (and whether they exist) and file size.
 //
 // Usage:
 //   node scripts/inspect-models.mjs                      # all of public/assets/models
@@ -15,8 +11,7 @@
 //                                                        # GLTFLoader (Node shims; textures are fetched
 //                                                        # from disk and their PNG size is checked)
 //
-// Exit code is 1 if any model fails to parse, references a missing file, or
-// (with --three) fails to load in GLTFLoader.
+// Exits 1 if any model fails to parse, references a missing file, or (with --three) fails to load.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -46,7 +41,7 @@ function collect(p, out) {
   return out;
 }
 
-// ---------- minimal mat4 (column-major, like glTF) ----------
+// Column-major mat4, like glTF.
 const I = () => [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 function mul(a, b) {
   const o = new Array(16).fill(0);
@@ -115,7 +110,6 @@ function inspect(file) {
     return { uri: b.uri ? '(data-uri)' : '(GLB BIN chunk)', exists: true };
   });
 
-  // Bounds + triangles by walking the scene graph.
   const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
   let triangles = 0;
   const meshUse = new Set();
@@ -190,7 +184,6 @@ for (const f of files) {
     console.log(`FAIL ${path.relative(projectRoot, f)}: ${e.message || e}`);
   }
 }
-// ---------- optional: real three.js GLTFLoader pass ----------
 async function threeLoad(files) {
   // Minimal browser shims so GLTFLoader runs in Node.
   globalThis.self ??= globalThis;

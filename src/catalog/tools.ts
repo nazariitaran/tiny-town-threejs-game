@@ -1,7 +1,6 @@
 /**
- * CONTRACT FILE — the build tools shown in the toolbar, in display order.
- * Adding a tool = add a ToolDef here (+ an ObjectDef in objects.ts for object tools,
- * + model entries in models.ts). UI, input, audio and rules all read from this table.
+ * The build tools, in dock order. Adding a tool = a ToolDef here (+ an ObjectDef in objects.ts for
+ * object tools, + model entries in models.ts).
  */
 import type { SfxEvent } from '../audio/sfx';
 import type { BuildAction, Cell, Edge, EdgeKind, GroundKind, ObjectKind, Rotation } from '../town/types';
@@ -16,9 +15,8 @@ export type ModeToolId = 'move' | 'bulldoze';
  *   town:    shops, civic places and the street furniture everyone shares
  *   nature:  things that grow on their own (ground cover, trees, bushes)
  *   garden:  things people build in a yard or park (hedges, fences, furniture)
- * Inside a category tools run surfaces → lines → objects (ground paint, then edges, then placed
- * items); catalog.test.ts keeps that order. Digits 1–9 pick the first nine tools of a category; a category
- * holds at most 12 (WP-23, owner: tools past the ninth have no digit, and ~12 cards fill a desktop row).
+ * Inside a category tools run surfaces → lines → objects (ground paint, then edges, then placed items).
+ * Digits 1–9 pick the first nine tools of a category; a category holds at most 12 (~12 cards fill a desktop row).
  */
 export type ToolCategory = 'streets' | 'homes' | 'town' | 'nature' | 'garden';
 export type ToolLayer = 'ground' | 'object' | 'edge' | 'move' | 'bulldoze';
@@ -31,15 +29,13 @@ export interface ToolDef {
   category: ToolCategory | 'mode';
   layer: ToolLayer;
   drag: DragMode;
-  /** Toolbar icon (rendered from the in-game model by scripts/render-icons.mjs, or a UI svg), public URL. */
+  /** Public URL: rendered from the in-game model by scripts/render-icons.mjs, or a UI svg. */
   icon: string;
-  /** SFX played when this tool successfully places something. */
   sfx: SfxEvent;
   /** One-line gesture hint shown above the dock. */
   hint: string;
 }
 
-/** Tool icons are rendered per tool id (scripts/render-icons.mjs → public/assets/icons/tool-<id>.png). */
 const icon = (id: ToolId): string => `/assets/icons/tool-${id}.png`;
 
 type ToolRow = Omit<ToolDef, 'icon'>;
@@ -50,13 +46,11 @@ const PLANT = 'Click or drag to plant';
 const EDGE = 'Drag along cell edges';
 
 const ROWS: readonly ToolRow[] = [
-  // Streets
   { id: 'road', label: 'Road', category: 'streets', layer: 'ground', drag: 'paint', sfx: 'place-path', hint: 'Drag to lay road — it joins up automatically' },
   { id: 'pavement', label: 'Pavement', category: 'streets', layer: 'ground', drag: 'paint', sfx: 'place-path', hint: 'Drag to lay pavement alongside roads' },
   { id: 'roundabout', label: 'Roundabout', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-path', hint: 'Click to build a roundabout — roads join its four arms' },
   { id: 'zebra-crossing', label: 'Zebra', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-path', hint: 'Click a straight road or a junction to paint a zebra crossing' },
   { id: 'traffic-light', label: 'Traffic light', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-prop-metal', hint: 'Place next to a road · R to rotate' },
-  // Homes (the mailbox moved here from Streets, owner 2026-09-30)
   { id: 'cottage', label: 'Cottage', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'townhouse', label: 'Townhouse', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'bungalow', label: 'Bungalow', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
@@ -64,17 +58,14 @@ const ROWS: readonly ToolRow[] = [
   { id: 'garage-house', label: 'Suburban', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'big-house', label: 'Big house', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'mailbox', label: 'Mailbox', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-prop-metal', hint: PLACE },
-  // Town
   { id: 'tiered-fountain', label: 'Tiered fountain', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: PLACE },
   { id: 'corner-shop', label: 'Corner shop', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'donut-shop', label: 'Donut shop', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'church', label: 'Church', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'supermarket', label: 'Supermarket', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
-  // Street furniture is civic (owner, 2026-09-30): moved here from Streets.
   { id: 'bus-stop', label: 'Bus stop', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: 'Place next to a road · R to rotate' },
   { id: 'postbox', label: 'Postbox', category: 'town', layer: 'object', drag: 'single', sfx: 'place-prop-metal', hint: PLACE },
   { id: 'lamppost', label: 'Lamppost', category: 'town', layer: 'object', drag: 'scatter', sfx: 'place-prop-metal', hint: SCATTER },
-  // Nature
   { id: 'grass', label: 'Grass', category: 'nature', layer: 'ground', drag: 'paint', sfx: 'place-nature', hint: 'Drag to paint lawn' },
   { id: 'meadow', label: 'Wildflowers', category: 'nature', layer: 'ground', drag: 'paint', sfx: 'place-nature', hint: 'Drag to sow a wildflower meadow' },
   { id: 'tulips', label: 'Tulips', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT },
@@ -82,7 +73,6 @@ const ROWS: readonly ToolRow[] = [
   { id: 'oak', label: 'Oak', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT },
   { id: 'pine', label: 'Pine', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT },
   { id: 'birch', label: 'Birch', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT },
-  // Garden
   { id: 'hedge', label: 'Hedge', category: 'garden', layer: 'edge', drag: 'line', sfx: 'place-nature', hint: `${EDGE} to grow a hedge` },
   { id: 'fence-low', label: 'Low fence', category: 'garden', layer: 'edge', drag: 'line', sfx: 'place-prop', hint: `${EDGE} to build a fence` },
   { id: 'fence-tall', label: 'Tall fence', category: 'garden', layer: 'edge', drag: 'line', sfx: 'place-prop', hint: `${EDGE} to build a fence` },
@@ -93,22 +83,17 @@ const ROWS: readonly ToolRow[] = [
   { id: 'barbecue', label: 'Barbecue', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-prop-metal', hint: PLACE },
   { id: 'swing', label: 'Swing', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-prop', hint: PLACE },
   { id: 'slide', label: 'Slide', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-prop', hint: PLACE },
-  // Owner review (WP-23): the pool is a garden thing, not a civic one.
   { id: 'swimming-pool', label: 'Pool', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
-  // Modes. Move picks up a placed object and puts it down elsewhere (not the roundabout or a zebra,
-  // never ground, hedges or fences); its drop plays the moved item's own place sound.
+  // Move carries placed objects only (not the roundabout or a zebra; never ground, hedges or fences);
+  // its drop plays the moved item's own place sound.
   { id: 'move', label: 'Move', category: 'mode', layer: 'move', drag: 'single', sfx: 'place-prop', hint: 'Click something to pick it up' },
   { id: 'bulldoze', label: 'Bulldoze', category: 'mode', layer: 'bulldoze', drag: 'paint', sfx: 'remove', hint: 'Click or drag to remove things' },
 ];
 
-/**
- * Retired tools (owner, 2026-09-30): no longer in the dock, but their kinds stay in the catalog
- * (objects.ts / GROUND_MODELS) so towns that already have them (saves, town files, the demo towns)
- * still load and draw them, and the player can bulldoze them. Placing new ones is not possible.
- */
+/** Not in the dock, but their kinds stay in the catalog so existing towns still load, draw and bulldoze them. */
 export const RETIRED_TOOLS: ReadonlySet<Exclude<ToolId, ModeToolId>> = new Set(['fountain', 'walkway']);
 
-/** Mode tools use a UI svg (the dock shows GLYPHS; the svg is for anything that lists TOOLS with icons). */
+/** The dock shows GLYPHS; these svgs are for anything else that lists TOOLS with icons. */
 const MODE_ICONS: Readonly<Record<ModeToolId, string>> = { move: '/assets/ui/move.svg', bulldoze: '/assets/ui/bulldoze.svg' };
 
 export const TOOLS: readonly ToolDef[] = ROWS.map((row) => ({ ...row, icon: row.category === 'mode' ? MODE_ICONS[row.id as ModeToolId] : icon(row.id) }));
@@ -121,10 +106,7 @@ export const TOOL_CATEGORIES: ReadonlyArray<{ id: ToolCategory; label: string }>
   { id: 'garden', label: 'Garden' },
 ];
 
-/**
- * Icon of model `variant` of an object tool: model 0 is the tool's own icon, the others are
- * tool-<id>-v<n>.png (rendered by scripts/render-icons.mjs, like the tool icons).
- */
+/** Model 0 uses the tool's own icon; the others are tool-<id>-v<n>.png. */
 export const variantIcon = (id: ToolId, variant: number): string => (variant === 0 ? icon(id) : `/assets/icons/tool-${id}-v${variant}.png`);
 
 const byId = new Map<ToolId, ToolDef>(TOOLS.map((tool) => [tool.id, tool]));
@@ -138,10 +120,7 @@ export function toolDef(id: ToolId): ToolDef {
 export const toolsInCategory = (category: ToolCategory): ToolDef[] =>
   TOOLS.filter((tool) => tool.category === category);
 
-/**
- * Translate "tool used at this cell/edge" into a BuildAction for TownEditor. `variant`: the model an
- * object tool builds (the variant picker); ignored by other layers, and left out the rules roll one.
- */
+/** `variant`: the model an object tool builds; ignored by other layers, and when omitted the rules roll one. */
 export function actionForTool(toolId: ToolId, cell: Cell, edge: Edge, rotation: Rotation, variant?: number): BuildAction {
   const def = toolDef(toolId);
   switch (def.layer) {

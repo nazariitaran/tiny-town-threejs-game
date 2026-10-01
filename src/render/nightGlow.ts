@@ -1,41 +1,24 @@
 /**
- * Night glow masks (WP-16b, docs/plans/wp-16-day-night.md §3).
- *
- * Every Kenney atlas here is 512 × 512 in 16 × 4 cells (32 × 128 px), and each glass / lamp / lens
- * face samples one cell. A glow mask is therefore a 16 × 4 DataTexture, ONE texel per atlas cell
- * (NearestFilter, flipY = false like glTF, sRGB): its RGB is the glow colour of that cell, black = no
- * glow. It becomes the material's standard `emissiveMap` with `emissive = #ffffff`, and only
- * `emissiveIntensity` changes with the time of day. Intensity is EXACTLY 0 when `night = 0`, so
- * daytime pixels, baselines and tool icons are untouched (0 × anything = 0 in the shader).
- * Works the same on MeshLambertMaterial (the Low graphics preset, WP-25): same emissive inputs and
- * the same `begin_vertex` / `emissivemap_fragment` chunks.
- *
- * GlowRegistry (one per ModelLibrary):
- *  - `createClone(source, kind)`: a private material clone with the kind's mask (ModelLibrary makes
- *    one per (source material, kind), so draw calls don't change: pools are already per model).
- *  - `register(material)`: any further clone of a glow material (clone() keeps emissiveMap and
- *    userData.glowKind), e.g. TownRenderer's lamppost colour clone, joins the intensity updates.
- *  - `update(sample)`: a handful of number writes per frame, no allocations.
- *  - `windows` clones get the house-by-house stagger patch (chained onBeforeCompile,
- *    customProgramCacheKey, idempotent; the fx/windSway.ts pattern). The per-house seed hashes the
- *    instance translation (instanceMatrix under USE_INSTANCING, modelMatrix for plain meshes), so it
- *    survives reloads. `uLightsOn` / `uLightsOff` are ONE shared object for every patched material.
- *
- * Pure parts (cells, mask data, intensity curves) are exported for unit tests.
+ * Night glow masks. Each Kenney atlas is 16 × 4 cells and each glass / lamp / lens face samples one
+ * cell, so a mask is a 16 × 4 DataTexture with one texel per atlas cell (RGB = glow colour, black =
+ * none). It becomes the material's `emissiveMap` with `emissive = #ffffff`; only `emissiveIntensity`
+ * changes with the time of day, and it is exactly 0 at `night = 0`, so daytime pixels, baselines and
+ * tool icons are untouched.
+ * `windows` materials also get a house-by-house stagger patch seeded by the instance translation,
+ * so it survives reloads.
  */
 import * as THREE from 'three';
 import type { GlowKind } from '../catalog/models';
 import type { DaySample } from '../world/dayCycle';
 import type { LitMaterial } from './materials';
 
-/** Kenney atlas grid (docs/plans/wp-16-day-night.md, facts table). */
+/** Kenney atlas grid. */
 export const ATLAS_COLUMNS = 16;
 export const ATLAS_ROWS = 4;
 
 /** The catalog kinds plus the car material's own mask (LifeSystem). */
 export type GlowMaskKind = GlowKind | 'headlights';
 
-/** Mask resolution per kind: every glow source samples a 16 × 4-cell Kenney atlas. */
 export const MASK_GRID: Readonly<Record<GlowMaskKind, { columns: number; rows: number }>> = {
   windows: { columns: ATLAS_COLUMNS, rows: ATLAS_ROWS },
   lamp: { columns: ATLAS_COLUMNS, rows: ATLAS_ROWS },
@@ -56,7 +39,7 @@ export interface GlowCell {
 const scaled = (hex: number, k: number): number =>
   (Math.round(((hex >> 16) & 0xff) * k) << 16) | (Math.round(((hex >> 8) & 0xff) * k) << 8) | Math.round((hex & 0xff) * k);
 
-/** Measured cells (UV-triangle census on ea54bb5, re-checked for WP-16b). */
+/** Atlas cells measured by a UV-triangle census. */
 export const GLOW_CELLS: Readonly<Record<GlowMaskKind, readonly GlowCell[]>> = {
   // Suburban window glass (119,161,223)–(157,192,237): warm lamplight.
   windows: [{ col: 11, row: 1, color: 0xffc873 }],
@@ -109,15 +92,13 @@ export function createGlowMask(kind: GlowMaskKind): THREE.DataTexture {
   return texture;
 }
 
-// ---- Intensity curves (pure) -------------------------------------------------------------------
-
-/** Tunables (lil-gui `Night lights`). Every curve is exactly 0 at night = 0. */
+/** Every curve is exactly 0 at night = 0. */
 export interface GlowTuning {
   windows: number;
   lamp: number;
   traffic: number;
   headlights: number;
-  /** Lamps switch on across this `night` range (the plan's "on when night > 0.3"). */
+  /** Lamps switch on across this `night` range. */
   lampOnFrom: number;
   lampOnTo: number;
 }
@@ -157,9 +138,6 @@ export function glowIntensity(kind: GlowMaskKind, night: number, tuning: Readonl
   }
 }
 
-// ---- Windows stagger shader patch ----------------------------------------------------------------
-
-/** Program cache key for every window-patched material. */
 export const WINDOW_GLOW_CACHE_KEY = 'tiny-town:window-glow:v1';
 
 export interface WindowGlowUniforms {
@@ -203,7 +181,7 @@ const FRAGMENT_STAGGER = /* glsl */ `#include <emissivemap_fragment>
 totalEmissiveRadiance *= step(vGlowSeed, uLightsOn) * step(uLightsOff, 1.0 - vGlowSeed);
 `;
 
-/** Inject the stagger chunks (exported for unit tests). Shaders without the hooks are left alone. */
+/** Shaders without the hooks are left alone. */
 export function patchWindowShader(shader: ShaderLike, uniforms: WindowGlowUniforms): void {
   if (!shader.vertexShader.includes('#include <begin_vertex>') || !shader.fragmentShader.includes('#include <emissivemap_fragment>')) return;
   shader.uniforms.uLightsOn = uniforms.uLightsOn;
@@ -226,9 +204,6 @@ export function applyWindowStagger(material: THREE.Material, uniforms: WindowGlo
   material.needsUpdate = true;
 }
 
-// ---- Registry -------------------------------------------------------------------------------------
-
-/** Standard or Lambert (WP-25 Low preset): both carry emissive / emissiveMap / emissiveIntensity. */
 type GlowMaterial = LitMaterial;
 
 /** Levels of the light sources this frame (0..1), read by NightLights for pools / halos / beams. */
@@ -289,7 +264,6 @@ export class GlowRegistry {
     if (i >= 0) this.entries.splice(i, 1);
   }
 
-  /** Registered materials (diagnostics / tests). */
   get size(): number {
     return this.entries.length;
   }

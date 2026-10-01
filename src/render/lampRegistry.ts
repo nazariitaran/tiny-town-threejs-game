@@ -1,13 +1,3 @@
-/**
- * Street-lamp registry for NightLights (WP-16b). Pure: no three.js, no DOM (unit-tested in Node).
- *
- *  - Tracks every placed lamppost from `town:changed` facts: object adds/removes on edit/undo/redo;
- *    a 'reset' or 'load' rebuilds the list from the town itself.
- *  - World positions come from the grid helpers (cellToWorld + footprint + rotation), exactly as
- *    TownRenderer places the model, so they survive any change of cell size or catalog scale.
- *  - The lamp head's model-space position is measured once from geometry (`measureCellCentroid`:
- *    the area centroid of the triangles whose UVs sample one atlas cell).
- */
 import { CELL_SIZE, cellToWorld } from '../game/config';
 import { objectDef } from '../catalog/objects';
 import { rotatedFootprint } from '../town/grid';
@@ -19,7 +9,6 @@ export interface Vec3Like {
   z: number;
 }
 
-/** The object kind that carries a street lamp. */
 export const LAMP_KIND: ObjectKind = 'lamppost';
 
 export class LampRegistry {
@@ -38,14 +27,13 @@ export class LampRegistry {
     return this.lamps.values();
   }
 
-  /** Re-read every lamp from the town (populate, reset, load). */
   rebuild(town: TownStateReader): void {
     this.lamps.clear();
     for (const placed of town.objects()) if (placed.kind === this.kind) this.lamps.set(placed.id, { ...placed, anchor: { ...placed.anchor } });
     this.version += 1;
   }
 
-  /** Apply a town:changed fact. Returns true when the lamp set changed. */
+  /** True when the lamp set changed. */
   onTownChanged(changes: readonly TownChange[], cause: 'edit' | 'undo' | 'redo' | 'load' | 'reset', town: TownStateReader): boolean {
     if (cause === 'reset' || cause === 'load') {
       const before = this.lamps.size;

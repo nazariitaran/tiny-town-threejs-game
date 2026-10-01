@@ -1,26 +1,7 @@
 /**
- * Event-driven placement VFX and the wind clock.
- *
- *  - build:placed  → soft dust ring sized by what was built (path small, building large), leaves for
- *                    trees/lawn, petals for wildflowers, and a sparkle ring when a building's
- *                    pop-in lands (fxRecipes.ts).
- *  - build:removed → a low, soft "poof" plus a few small debris chips sized by layer/kind. The poof
- *                    rings the footprint at ground level so the object's shrink-out stays visible.
- *  - Wind sway     → advances the shared foliage uniform (windSway.ts) from the animation delta.
- *
- * Budget: THREE InstancedMeshes (≤ 3 draw calls, 0 when idle — meshes hide when empty): soft dust
- * billboards (dustMaterial.ts), small faceted chips/leaves/petals, and gold sparkles. No shadow
- * casting, preallocated pools and scratch math objects: update() allocates nothing.
- * Randomness only from the injected seeded rng.
- *
- * Reduced motion: Game passes delta 0 and calls stabilize() when the test hook enables it; the OS
- * `prefers-reduced-motion: reduce` setting is honoured too. Either way particles are cleared and
- * not spawned, and foliage returns to its rest pose (wind strength 0), so screenshots are stable.
- * The first update with delta > 0 after stabilize() resumes FX and eases the wind back in.
- *
- * The invalid-placement "shake" lives in GhostPreview (WP-05).
- *
- * WP-08 (Feel & VFX).
+ * Event-driven placement VFX (dust, chips, leaves, petals, sparkles) and the wind clock.
+ * Three InstancedMeshes that hide when empty; update() allocates nothing.
+ * Reduced motion (stabilize() or the OS setting) clears particles and rests the foliage.
  */
 import * as THREE from 'three';
 import type { GameBus } from '../game/events';
@@ -33,7 +14,7 @@ import { setWindStrength, updateWindSway, windStrength, windTime } from './windS
 const DUST_CAPACITY = 320;
 const SOLID_CAPACITY = 256;
 const GLINT_CAPACITY = 96;
-/** Seconds for the breeze to ease back in after reduced motion / stabilize. */
+/** Seconds for the breeze to ease back in after stabilize. */
 const WIND_EASE_IN = 1.2;
 /** Wind clock step cap, so a backgrounded tab doesn't jump the foliage. */
 const MAX_WIND_STEP = 0.1;
@@ -41,12 +22,10 @@ const MAX_WIND_STEP = 0.1;
 export interface FxDiagnostics {
   /** Live particles (including scheduled, not yet started ones). */
   active: number;
-  /** Draw calls the FX layer issues this frame (visible FX meshes; no shadow pass). */
   drawCalls: number;
   /** Particles spawned since start / dropped because a pool was full. */
   spawned: number;
   dropped: number;
-  /** True while reduced motion (test hook or OS setting) suppresses FX. */
   reducedMotion: boolean;
   windTime: number;
   windStrength: number;
@@ -78,7 +57,7 @@ export class PlacementFx {
     windStrength: 1,
   };
 
-  // Scratch objects reused every frame (zero per-frame allocations).
+  // Scratch objects: no per-frame allocations.
   private readonly matrix = new THREE.Matrix4();
   private readonly position = new THREE.Vector3();
   private readonly quaternion = new THREE.Quaternion();
@@ -96,17 +75,16 @@ export class PlacementFx {
         ? window.matchMedia('(prefers-reduced-motion: reduce)')
         : null;
 
-    // Dust: soft, feathered, camera-facing puffs that scale out and fade (no facets, no boulders).
     this.dustMesh = this.createMesh('fx:dust', createDustGeometry(DUST_CAPACITY), createDustMaterial(), DUST_CAPACITY);
     this.dustAlpha = this.dustMesh.geometry.getAttribute(DUST_ALPHA_ATTRIBUTE) as THREE.InstancedBufferAttribute;
-    // Solid: small chips, leaves and petals (faceted Lambert reads well at chip size).
+    // Chips, leaves and petals.
     this.solidMesh = this.createMesh(
       'fx:solid',
       new THREE.IcosahedronGeometry(1, 0),
       new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true }),
       SOLID_CAPACITY,
     );
-    // Glint: unlit gold diamonds for the "building complete" sparkle ring.
+    // Gold diamonds for the building-complete sparkle ring.
     this.glintMesh = this.createMesh(
       'fx:glint',
       new THREE.OctahedronGeometry(1, 0),
@@ -159,7 +137,7 @@ export class PlacementFx {
     this.writeDiagnostics();
   }
 
-  /** FX counters for __THREE_GAME_DIAGNOSTICS__ (a live object, updated every frame). */
+  /** Live object, updated every frame. */
   getDiagnostics(): Readonly<FxDiagnostics> {
     return this.diag;
   }
@@ -183,7 +161,6 @@ export class PlacementFx {
     return this.suppressed || (this.reducedMotionQuery?.matches ?? false);
   }
 
-  /** Clear particles, hide meshes and put foliage in its rest pose. */
   private freeze(): void {
     this.pools.dust.clear();
     this.pools.solid.clear();

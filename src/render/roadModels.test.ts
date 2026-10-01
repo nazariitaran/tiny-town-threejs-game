@@ -1,10 +1,8 @@
 /**
- * Geometric proof that the road MODELS (catalog/models.ts rotationOffset + roadTiles rotation)
- * connect exactly the neighbours of every one of the 16 masks: a side is "open" when the road
- * surface (y ≤ 0.012, below the 0.02 kerb) reaches that cell edge on both sides of its middle and
- * nothing kerb-high stands in between. (v0.3: the zebra-crossing crossroad is one surface quad
- * across each arm, so it has no vertex exactly at the edge middle.)
- * Loads the real GLBs through GLTFLoader in Node (src/testing/gltfNode.ts).
+ * Checks that the road models (rotationOffset + roadTiles rotation) connect exactly the neighbours
+ * of every one of the 16 masks: a side is "open" when the road surface (y ≤ 0.012, below the 0.02
+ * kerb) reaches that cell edge on both sides of its middle and nothing kerb-high stands in between.
+ * Both sides, not the middle: the zebra crossroad is one surface quad per arm, with no vertex there.
  */
 import * as THREE from 'three';
 import { beforeAll, describe, expect, it } from 'vitest';

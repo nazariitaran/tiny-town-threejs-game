@@ -1,17 +1,7 @@
 /**
- * WP-09b bot playtest: a seeded "builder bot" plays 200 steps through REAL input only.
- *
- * Each step it either undoes (dock button, or Ctrl+Z on desktop) or picks a random tool from
- * the dock and clicks / drags random on-screen cells found via `cellToClient`. After every step
- * it checks, from diagnostics only (no pixels):
- *  - a stroke that changed the town committed exactly one undo entry and cleared redo;
- *  - no stuck stroke: moving the mouse with no button held afterwards changes nothing;
- *  - undo pops exactly one entry onto the redo stack.
- * At the end: no console/page errors, frames advanced, ≥ 50 accepted placements,
- * `render.objects === objects`. The metrics JSON is attached and logged.
- *
- * Randomness comes from a seeded PRNG local to this spec (BOT_SEED), and the game itself is
- * seeded through the test hook, so a failing run replays exactly.
+ * A seeded builder bot plays 200 real-input steps: each step undoes, or picks a random tool and
+ * clicks / drags random on-screen cells, then checks the history and town through diagnostics.
+ * Both the bot (BOT_SEED) and the game are seeded, so a failing run replays exactly.
  */
 import { expect, test, type Page } from '@playwright/test';
 import { TOOLS, toolDef, type ToolId } from '../src/catalog/tools';
@@ -142,7 +132,6 @@ test('builder bot: 200 seeded real-input steps keep the town consistent', async 
     const before = await diagnostics(page);
     const label = `step ${step}`;
 
-    // --- Undo (occasionally) -------------------------------------------------------------
     if (before.history.canUndo && rng() < UNDO_CHANCE) {
       if (!mobile && rng() < 0.5) await page.keyboard.press('Control+z');
       else await byId(page, UI_TEST_IDS.undo).click();
@@ -155,7 +144,6 @@ test('builder bot: 200 seeded real-input steps keep the town consistent', async 
       continue;
     }
 
-    // --- Tool stroke -------------------------------------------------------------------
     const toolId = placingTools[int(placingTools.length)] as ToolId;
     await selectTool(page, toolId);
     metrics.toolUse[toolId] = (metrics.toolUse[toolId] ?? 0) + 1;
@@ -209,7 +197,6 @@ test('builder bot: 200 seeded real-input steps keep the town consistent', async 
     const committed = after.history.undoDepth === settled.history.undoDepth + 1;
 
     if (changed) {
-      // A stroke that altered the town must be closed and committed as exactly one undo entry.
       expect(committed, `${label} (${toolId}): town changed, so the stroke must commit one undo entry`).toBe(true);
     }
     if (committed) {
@@ -226,7 +213,6 @@ test('builder bot: 200 seeded real-input steps keep the town consistent', async 
       if (toolId !== 'bulldoze') metrics.rejectedStrokes += 1;
     }
 
-    // No stuck stroke: hovering elsewhere with no button held must not paint anything.
     const hover = await visibleCell();
     if (hover) {
       await page.mouse.move(hover.p.x, hover.p.y, { steps: 4 });

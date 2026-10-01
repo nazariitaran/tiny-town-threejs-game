@@ -3,16 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Tiny Town: build your own cosy dream town</title>
+    <meta name="description" content="A cosy city-builder sandbox in your browser. Lay roads, build homes and shops, plant gardens and watch day turn to night. No goals, no timers. Free, and it works on phones." />
+    <meta name="author" content="Nazarii Taran" />
     <meta name="theme-color" content="#bfe3ff" />
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <title>Tiny Town</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Tiny Town" />
+    <meta property="og:title" content="Tiny Town: build your own cosy dream town" />
+    <meta property="og:description" content="A cosy city-builder sandbox in your browser. No goals, no timers." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:creator" content="@tn255" />
   </head>
   <body>
     <main id="app">
       <canvas id="game-canvas" aria-label="Tiny Town 3D view"></canvas>
       <div id="ui-root"></div>
+      <noscript>
+        <h1>Tiny Town</h1>
+        <p>A cosy city-builder sandbox: lay roads, build homes and shops, plant gardens and watch day turn to night. It needs JavaScript and WebGL to run.</p>
+      </noscript>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

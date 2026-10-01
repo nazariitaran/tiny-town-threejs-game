@@ -1,31 +1,7 @@
 /**
- * WP-10 (Ambient life) — cars wandering the road network.
- *
- * Owns: src/life/**. Logic lives in TrafficSim (pure, unit-tested); this class only loads the car
- * models, listens to town:changed and draws the cars.
- *
- * Rendering: ONE THREE.BatchedMesh holds the four Kenney Car Kit models (sedan, hatchback, van,
- * taxi; all share Textures/colormap.png, so one material) with MAX_CARS pre-allocated instances.
- * Cost: 1 draw call + 1 shadow-map draw call, whatever the car count (renderer.calls counts
- * only the main pass: three resets renderer.info after rendering the shadow map).
- * Cars sit on the road tile top (ROAD_TOP_Y) and keep to the right-hand lane.
- *
- * Game.ts wiring (integrator; see the WP-10 hand-off):
- *   this.life = new LifeSystem(this.scene, this.town, this.bus, fxRand, this.debug, materialMode);
- *     (materialMode: the WP-25 graphics preset's lit material family; Lambert on Low)
- *   load():   await this.life.load();                       (after library.loadAll)
- *   update(): this.life.update(animDelta);                  (after townRenderer.update)
- *   applyTestState / setReducedMotion(true): this.life.settle();
- *   dispose(): this.life.dispose();
- *   diagnostics: life: this.life.getDiagnostics()
- * Reduced motion (animDelta 0) freezes the cars; setPausedForScreenshot skips update entirely.
- *
- * Diagnostics are published by Game as __THREE_GAME_DIAGNOSTICS__.life (getDiagnostics()).
- *
- * Night (WP-16b): setNight(night) thins the traffic (TrafficSim.setDensity(1 − 0.5·night)) and drives
- * the car material's head/tail-light glow (the `headlights` mask of render/nightGlow.ts as its
- * emissiveMap; intensity exactly 0 by day). carPose() hands NightLights what it needs for the
- * headlight beams (position, smoothed heading, pop-in scale, bonnet distance).
+ * Draws TrafficSim's cars: the four Car Kit models share one atlas material in one BatchedMesh with
+ * MAX_CARS pre-allocated instances, so the cost is 1 draw call + 1 shadow draw call whatever the count.
+ * At night the traffic thins and the head/tail lights glow through the `headlights` emissive mask.
  */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -41,15 +17,11 @@ import { CAR_MODELS, MAX_CARS, TrafficSim, type Car } from './TrafficSim';
 
 /** Car Kit files in model-index order (TrafficSim picks 0..CAR_MODELS-1). */
 export const CAR_FILES = ['sedan', 'hatchback-sports', 'van', 'taxi'] as const;
-/** Kenney Car Kit → world units (WP-12: 0.255 wide × 0.43–0.48 long, fits one 0.37 lane). */
+/** Kenney Car Kit → world units: 0.255 wide × 0.43–0.48 long, fits one 0.37 lane. */
 export const CAR_SCALE = 0.17;
-/**
- * Car Kit models already face +Z natively (yellow headlights and the raked windscreen at +Z, red
- * tail lights at −Z; re-measured from UVs for WP-16), which is our "forward": no turn. Until WP-16b
- * this was π and every car drove backwards.
- */
+/** Car Kit models already face +Z (headlights at +Z, tail lights at −Z), which is our forward. */
 const FRONT_ROTATION = 0;
-/** Road / pavement tile top (docs/PLAN.md §1). */
+/** Road / pavement tile top. */
 export const ROAD_TOP_Y = 0.02;
 const POP_IN_S = 0.32;
 /** Visual heading smoothing (1/s); polyline headings step a few degrees per sample. */
@@ -63,18 +35,15 @@ export interface LifeDiagnostics {
   spawned: number;
   despawned: number;
   waiting: number;
-  /**
-   * Main-pass draw calls this layer adds (what diagnostics renderer.calls counts; three resets
-   * renderer.info after the shadow pass), 0 when nothing is drawn.
-   */
+  /** Main-pass draw calls, what renderer.calls counts: three resets renderer.info after the shadow pass. */
   drawCalls: number;
-  /** Extra shadow-map draw calls (not included in renderer.calls). */
+  /** Not included in renderer.calls. */
   shadowDrawCalls: number;
-  /** Every car: fine road cell under it (tests bulldoze under a car with real input) + world position (px, pz). */
+  /** Each car's fine road cell and world position (px, pz). */
   carCells: Array<{ id: number; x: number; z: number; px: number; pz: number }>;
 }
 
-/** Where a drawn car is (NightLights' headlight beams). Written in place by carPose(). */
+/** A drawn car's pose for the headlight beams; written in place by carPose(). */
 export interface CarPose {
   x: number;
   y: number;
@@ -87,7 +56,7 @@ export interface CarPose {
   front: number;
 }
 
-/** Share of the traffic that stays out at full night (plan §5: f = 1 − 0.5·night). */
+/** Traffic density is 1 − NIGHT_TRAFFIC_DROP · night. */
 export const NIGHT_TRAFFIC_DROP = 0.5;
 
 interface CarVisual {
@@ -107,7 +76,7 @@ export class LifeSystem {
   private readonly visuals = new Map<number, CarVisual>();
   private readonly freeSlots: number[] = [];
   private readonly unsubscribe: Array<() => void> = [];
-  /** Debug toggle (lil-gui `Life` folder). */
+  /** lil-gui `Life` folder. */
   private readonly tuning = { visible: true };
   private disposed = false;
   private readonly matrix = new THREE.Matrix4();
@@ -147,7 +116,7 @@ export class LifeSystem {
     this.publish();
   }
 
-  /** Load the car models (≈0.7 MB). Cars simulate before this resolves; they just aren't drawn. */
+  /** Cars simulate before this resolves but aren't drawn. */
   async load(): Promise<void> {
     const loader = new GLTFLoader();
     const gltfs = await Promise.all(CAR_FILES.map((name) => loader.loadAsync(assetUrl(`/assets/models/cars/${name}.glb`))));
@@ -167,7 +136,7 @@ export class LifeSystem {
       (extra as THREE.MeshStandardMaterial).map?.dispose();
       extra.dispose();
     }
-    // Low graphics preset (WP-25): the same material as Lambert (keeps the atlas; emissive set below).
+    // Lambert on the Low preset.
     const shared = litMaterial(material as THREE.Material, this.materialMode) as LitMaterial;
     if (shared.map) {
       shared.map.colorSpace = THREE.SRGBColorSpace;
@@ -175,7 +144,7 @@ export class LifeSystem {
       shared.map.needsUpdate = true;
     }
     shared.side = THREE.FrontSide;
-    // Head/tail lights (WP-16b): glow mask as emissiveMap; intensity follows setNight (0 by day).
+    // Head/tail lights: intensity follows setNight, 0 by day.
     this.glowMask = createGlowMask('headlights');
     shared.emissiveMap = this.glowMask;
     shared.emissive.setRGB(1, 1, 1);
@@ -205,17 +174,14 @@ export class LifeSystem {
     this.sync(0);
   }
 
-  /** Per-frame. animDelta 0 (reduced motion) freezes cars and finishes any pop-in. */
+  /** animDelta 0 freezes cars and finishes any pop-in. */
   update(animDelta: number): void {
     if (animDelta <= 0) this.settle();
     else this.sim.step(Math.min(animDelta, 0.1));
     this.sync(animDelta);
   }
 
-  /**
-   * Day/night (WP-16): 0 day .. 1 full night. Fewer cars at night (newest leave first, they come
-   * back with a pop-in at dawn) and head/tail lights. Called every frame; cheap when nothing changes.
-   */
+  /** 0 day .. 1 full night: fewer cars (newest leave first) and head/tail lights. Called every frame. */
   setNight(night: number): void {
     const n = Math.min(1, Math.max(0, Number.isFinite(night) ? night : 0));
     this.night = n;
@@ -226,10 +192,10 @@ export class LifeSystem {
     if (this.sim.cars.length !== before) this.sync(0);
   }
 
-  /** Headlight glow tunable (lil-gui `Night lights`, set by NightLights). */
+  /** Set by NightLights (lil-gui `Night lights`). */
   readonly headlightTuning = { ...DEFAULT_GLOW_TUNING };
 
-  /** Cars in the simulation (drawn or not). */
+  /** Drawn or not. */
   get carCount(): number {
     return this.sim.cars.length;
   }
@@ -249,7 +215,7 @@ export class LifeSystem {
     return true;
   }
 
-  /** Finish pop-ins and snap headings (test states, reduced motion). */
+  /** Finishes pop-ins and snaps headings. */
   settle(): void {
     for (const car of this.sim.cars) car.age = Math.max(car.age, POP_IN_S);
     for (const car of this.sim.cars) {
@@ -259,7 +225,6 @@ export class LifeSystem {
     this.sync(0);
   }
 
-  /** Cars are drawn into the sun's shadow map (WP-24: it refreshes at its own rate while they drive). */
   get castsShadows(): boolean {
     return this.mesh !== null && this.mesh.castShadow && this.tuning.visible && this.sim.cars.length > 0;
   }
@@ -288,9 +253,7 @@ export class LifeSystem {
     this.visuals.clear();
   }
 
-  // ---------------------------------------------------------------------------------------
-
-  /** Write every car's instance matrix; allocate/release BatchedMesh slots as cars come and go. */
+  /** Allocates and releases BatchedMesh slots as cars come and go. */
   private sync(dt: number): void {
     const mesh = this.mesh;
     if (mesh) {

@@ -1,20 +1,4 @@
-/**
- * WP-10 Ambient life checks (cars on roads), through diagnostics and real input.
- *  1. 10 s video of cars driving the sample-town roads (desktop, zoomed in with the real mouse
- *     wheel). Every sampled car position is on a road cell, cars really move, and the video is
- *     copied to artifacts/wp-10/cars-sample-town.webm.
- *  2. Bulldozing the road under a car (real dock click + real canvas click) removes exactly that
- *     car, and every remaining car is still on a road cell. Cars are frozen with reduced motion
- *     first so the car can't drive off the cell between reading it and clicking.
- *  3. Draw calls: renderer.calls with cars shown minus with cars hidden (lil-gui `Life › cars
- *     visible`, ?debug) must be ≤ 6 and equal the layer's own drawCalls figure; main + shadow
- *     pass together (the shadow pass isn't in renderer.calls) must also be ≤ 6.
- *  4. Determinism + reduced motion: the same seed/state gives the same cars; with reduced motion
- *     the cars don't move.
- *
- * Life diagnostics come from `__THREE_GAME_DIAGNOSTICS__.life` (published by Game). If the
- * LifeSystem isn't constructed in Game.ts, every test here is skipped with that reason.
- */
+/** Ambient cars, checked through diagnostics `life` and real input. Skipped when `life` is not published. */
 import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,8 +8,8 @@ import type { LifeDiagnostics } from '../src/life/LifeSystem';
 import { demoOffset } from '../src/town/sampleTown';
 import { applyState, attachJson, clickCell, diagnostics, gotoTitle, selectTool, trackErrors, waitFrames } from './helpers';
 
-const ARTIFACTS = resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/wp-10');
-const NOT_WIRED = 'LifeSystem is not constructed in Game.ts yet (WP-10 contract request pending)';
+const ARTIFACTS = resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/life');
+const NOT_WIRED = 'LifeSystem diagnostics are not available';
 
 async function life(page: Page): Promise<LifeDiagnostics | null> {
   return page.evaluate(() => {
@@ -56,7 +40,6 @@ function sampleTownRoad(x: number, z: number): boolean {
 /** Road blocks in the sample town (TownStats.roadTiles): 20 + 8 + 8 street blocks + 9 roundabout − 5 shared. */
 const SAMPLE_ROAD_TILES = 40;
 
-/** Same 2×2 road block? */
 const sameBlock = (a: { x: number; z: number }, b: { x: number; z: number }) =>
   Math.floor(a.x / 2) === Math.floor(b.x / 2) && Math.floor(a.z / 2) === Math.floor(b.z / 2);
 
@@ -199,11 +182,9 @@ test('cars are deterministic per seed and freeze with reduced motion', async ({ 
   const a = (await life(page))!.carCells;
   await page.waitForTimeout(800);
   expect((await life(page))!.carCells, 'reduced motion: exact world positions unchanged').toEqual(a);
-  // And with motion back on, they drive.
   await page.evaluate(() => window.__THREE_GAME_TEST_HOOKS__!.setReducedMotion(false));
   await page.waitForTimeout(800);
   expect((await life(page))!.carCells).not.toEqual(a);
-  // A different seed gives a different layout.
   await applyState(page, 'sample-town', 777);
   expect((await life(page))!.carCells).not.toEqual(first.carCells);
   errors.expectNone();

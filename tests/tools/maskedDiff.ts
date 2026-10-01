@@ -1,21 +1,16 @@
 /**
- * Masked PNG diff (WP-16c): proves a baseline change is confined to given rectangles (e.g. the
- * top bar after the day/night time button was added).
- *
- * Counts pixels whose largest channel difference (RGBA, 0–255) exceeds `threshold`, split into
- * inside vs outside the allowed rectangles, and writes an optional diff image:
- *   red = changed outside the mask, yellow = changed inside it, dimmed greyscale = unchanged,
- *   blue outline = the mask rectangles.
+ * Masked PNG diff: proves a baseline change is confined to given rectangles. Counts pixels whose
+ * largest channel difference (RGBA, 0–255) exceeds `threshold`, inside vs outside the rectangles,
+ * and optionally writes a diff image: red = changed outside the mask, yellow = changed inside it,
+ * dimmed greyscale = unchanged, blue outline = the mask rectangles.
  *
  * CLI (Node ≥ 22.18 runs .ts directly by stripping types):
  *   node tests/tools/maskedDiff.ts <before.png> <after.png> --rect x,y,w,h [--rect ...]
  *        [--pad 0] [--scale 1] [--threshold 0] [--out diff.png] [--json report.json] [--max-outside 0]
  *   node tests/tools/maskedDiff.ts --self-test
- * Rectangles are in CSS px; --pad grows each one on every side (e.g. by a box-shadow's reach:
- * the top-bar pills cast `0 3px 8px`, so their shadow reaches ~11 px past the pill), --scale
- * multiplies them (device-pixel screenshots). Rect edges are
- * expanded outwards to whole pixels. Exit code 1 if more than --max-outside pixels changed outside
- * the rectangles (or the image sizes differ), else 0.
+ * Rectangles are in CSS px, expanded outwards to whole pixels; --pad grows each side (e.g. by a
+ * box-shadow's reach), --scale multiplies them (device-pixel screenshots). Exit code 1 if more than
+ * --max-outside pixels changed outside the rectangles, 2 on an error such as differing image sizes.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';

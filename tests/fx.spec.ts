@@ -1,14 +1,4 @@
-/**
- * WP-08 Feel & VFX checks, through real input (dock clicks, mouse at cellToClient) and diagnostics.
- *  1. Journey video (recordVideo): road stroke → house → tree → bulldoze the house. Every step
- *     must spawn particles; the video is attached and copied to artifacts/wp-08/fx-journey.webm.
- *  2. FX draw calls ≤ 3: renderer.calls with a live house burst (sim paused) minus renderer.calls
- *     after reduced motion clears the FX must equal the FX layer's own count, and be ≤ 3.
- *  3. setReducedMotion(true) hides particles and freezes wind sway: two canvas captures 700 ms apart
- *     (simulation NOT paused) are pixel-identical. With motion on, the same captures differ.
- *
- * FX counters come from `__THREE_GAME_DIAGNOSTICS__.fx` (published by Game).
- */
+/** Placement FX, wind sway and reduced motion, through real input and diagnostics `fx`. */
 import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,11 +7,10 @@ import { PNG } from 'pngjs';
 import type { FxDiagnostics } from '../src/fx/PlacementFx';
 import { attachJson, clickCell, clickFootprint, diagnostics, dragCells, gotoTitle, selectTool, startBuilding, trackErrors, waitFrames } from './helpers';
 
-const ARTIFACTS = resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/wp-08');
+const ARTIFACTS = resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/fx');
 
-// WP-12 (48×48 half-unit cells): road blocks on rows 24–25. WP-17: 4 × 4 cottages on rows 20–23
-// just north of the road, the first on x 22–25, the second on x 27–30, and a tree in the one-cell
-// gap between them (x 26). Cottages are clicked at their footprint centre (helpers.footprintPointer).
+// Road blocks on rows 24–25; 4 × 4 cottages on rows 20–23 just north of it, the first on x 22–25,
+// the second on x 27–30.
 const ROAD_FROM: [number, number] = [16, 24];
 const ROAD_TO: [number, number] = [31, 24];
 const HOUSE = { x: 22, z: 20 } as const;
@@ -49,7 +38,6 @@ async function waitFxIdle(page: Page): Promise<void> {
   await expect.poll(async () => (await fx(page)).active, { timeout: 5_000, message: 'FX settle to idle' }).toBe(0);
 }
 
-/** Wait until an action spawned particles; returns the peak drawCalls seen while polling. */
 async function expectBurst(page: Page, spawnedBefore: number, label: string): Promise<FxDiagnostics> {
   await expect.poll(async () => (await fx(page)).spawned, { message: `${label}: particles spawned` }).toBeGreaterThan(spawnedBefore);
   const now = await fx(page);
@@ -92,7 +80,6 @@ test('FX journey video: road, house, tree, bulldoze — and FX draw calls ≤ 3'
   expect(idle.windStrength).toBeGreaterThan(0);
   await record('start (idle)');
 
-  // 1. Road stroke: small kerb-level dust per tile.
   await selectTool(page, 'road');
   let before = (await fx(page)).spawned;
   await dragCells(page, ROAD_FROM, ROAD_TO);
@@ -102,7 +89,7 @@ test('FX journey video: road, house, tree, bulldoze — and FX draw calls ≤ 3'
   await page.waitForTimeout(700);
   await waitFxIdle(page);
 
-  // 2. House: wide dust ring + chips + sparkle ring. Measure FX draw calls on this burst.
+  // Measure the FX draw calls on the house burst.
   await selectTool(page, 'cottage');
   before = (await fx(page)).spawned;
   await clickFootprint(page, 'cottage', HOUSE);
@@ -141,7 +128,6 @@ test('FX journey video: road, house, tree, bulldoze — and FX draw calls ≤ 3'
   await page.waitForTimeout(900);
   await waitFxIdle(page);
 
-  // 3. Tree: leaf burst.
   await selectTool(page, 'oak');
   before = (await fx(page)).spawned;
   await clickCell(page, ...TREE);
@@ -151,7 +137,6 @@ test('FX journey video: road, house, tree, bulldoze — and FX draw calls ≤ 3'
   await page.waitForTimeout(1_000);
   await waitFxIdle(page);
 
-  // 4. Bulldoze the first house: poof + debris.
   await selectTool(page, 'bulldoze');
   const objectsBefore = (await diagnostics(page)).objects;
   before = (await fx(page)).spawned;
@@ -223,8 +208,8 @@ test('reduced motion hides particles and freezes wind sway (stable captures)', a
   expect(reduced.windStrength, 'foliage at rest pose').toBe(0);
 
   // Simulation keeps running (not paused): nothing may move. Let non-FX UI settle first (the
-  // stats count-up and the hover-cell fade run on real time, not the animation delta) and hide
-  // the DOM overlay so the captures compare the 3D view only.
+  // hover-cell fade runs on real time, not the animation delta) and hide the DOM overlay so the
+  // captures compare the 3D view only.
   await page.addStyleTag({ content: '#ui-root { visibility: hidden !important; }' });
   await page.waitForTimeout(1_000);
   await waitFrames(page, 20);

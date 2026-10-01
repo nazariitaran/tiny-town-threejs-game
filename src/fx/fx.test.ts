@@ -1,7 +1,3 @@
-/**
- * WP-08 unit tests: particle pool, burst recipes (sizing, determinism, seeded rng only),
- * wind-sway shader patch, and PlacementFx wiring (bus → pools → ≤ 2 FX meshes, stabilize).
- */
 import * as THREE from 'three';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TOOLS } from '../catalog/tools';
@@ -128,7 +124,7 @@ describe('fx recipes', () => {
   it('classifies removed kinds the same way, and unknown ids as props', () => {
     expect(classify('roundabout')).toBe('road');
     expect(classify('hedge')).toBe('fence');
-    // Retired tools (no dock button; their kinds still load from old towns).
+    // Kinds without a dock tool.
     expect(classify('walkway')).toBe('path');
     expect(classify('fountain')).toBe('building');
     expect(classify('toString')).toBe('prop');
@@ -249,7 +245,7 @@ describe('windSway', () => {
     expect(shader.vertexShader).toContain('uniform float uWindTime;');
     expect(shader.vertexShader).toContain('#ifdef USE_INSTANCING');
     expect(shader.vertexShader).toContain('modelMatrix * instanceMatrix');
-    // Height is measured along the model's own Y axis, so a stretched (taller) tree bends by its real height.
+    // Height along the model's own Y: a stretched tree bends by its real height.
     expect(shader.vertexShader).toContain('length(swayModel[1].xyz)');
     expect(shader.vertexShader).toContain('swayH -= 0.5 * max(swayH - 1.0, 0.0);');
     expect(shader.vertexShader.indexOf('#include <begin_vertex>')).toBeLessThan(shader.vertexShader.indexOf('swayBend'));
@@ -305,12 +301,11 @@ describe('PlacementFx', () => {
     expect(meshes()).toHaveLength(3);
     for (const mesh of meshes()) expect((mesh as THREE.InstancedMesh).castShadow).toBe(false);
 
-    // Particles expire on their own.
     for (let i = 0; i < 120; i += 1) fx.update(1 / 30);
     expect(fx.getDiagnostics().active).toBe(0);
     expect(meshes()).toHaveLength(0);
 
-    // Reduced motion: stabilize clears, blocks spawns and rests the foliage until motion resumes.
+    // stabilize clears, blocks spawns and rests the foliage until delta > 0.
     bus.emit('build:placed', { toolId: 'road', layer: 'ground', cell: { x: 3, z: 3 }, worldX: 0.5, worldZ: 0.5, strokeIndex: 0 });
     fx.stabilize();
     expect(fx.getDiagnostics().active).toBe(0);
@@ -328,8 +323,8 @@ describe('PlacementFx', () => {
   });
 });
 
-describe('removal poof radius follows the footprint (WP-12)', () => {
-  it('hugs a 4×4 house (WP-17), a 2×1 swing and falls back to the minimum for unknown kinds', () => {
+describe('removal poof radius follows the footprint', () => {
+  it('hugs a 4×4 house, a 2×1 swing and falls back to the minimum for unknown kinds', () => {
     expect(footprintPoofRadius('cottage', 0.3)).toBeCloseTo(0.95, 5);
     expect(footprintPoofRadius('townhouse', 0.3)).toBeCloseTo(0.95, 5);
     expect(footprintPoofRadius('swing', 0.3)).toBeCloseTo(0.45, 5);

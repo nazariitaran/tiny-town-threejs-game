@@ -1,16 +1,14 @@
 /**
- * One-frame photo capture (WP-19). Renders the scene to the game canvas at a higher pixel ratio,
- * copies the pixels into a 2D canvas, then restores the ratio and re-renders, all in the same task,
- * so the browser never shows the big frame. Rendering to the canvas (not a render target) keeps the
- * game's tone mapping and sRGB output, so the photo looks exactly like the screen.
+ * One-frame photo capture: renders to the game canvas at a higher pixel ratio, copies the pixels, then
+ * restores the ratio and re-renders in the same task, so the big frame is never shown. Rendering to the
+ * canvas rather than a render target keeps the game's tone mapping and sRGB output.
  *
- * The drawing buffer is not preserved (preserveDrawingBuffer: false), so the copy must follow the
- * render before this task yields.
+ * preserveDrawingBuffer is false, so the copy must follow the render before this task yields.
  */
 import type * as THREE from 'three';
 import { photoPixelRatio } from './photoLayout';
 
-/** The largest render edge this GPU supports (renderbuffer and viewport limits). */
+/** Largest render edge the GPU supports (renderbuffer and viewport limits). */
 export function maxRenderEdge(renderer: THREE.WebGLRenderer): number {
   const gl = renderer.getContext();
   const viewport = gl.getParameter(gl.MAX_VIEWPORT_DIMS) as Int32Array | null;

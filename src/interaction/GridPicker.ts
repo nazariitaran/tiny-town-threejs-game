@@ -1,7 +1,4 @@
-/**
- * Pointer → grid cell / nearest edge, by intersecting the y = 0 plane.
- * WP-05 (Interaction) owns this file.
- */
+/** Pointer → grid cell / nearest edge, by intersecting the y = 0 plane. */
 import * as THREE from 'three';
 import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH, cellToWorld, worldToCell, worldToNearestEdge } from '../game/config';
 import type { Cell, Edge } from '../town/types';

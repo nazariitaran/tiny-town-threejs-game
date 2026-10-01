@@ -1,7 +1,6 @@
 /**
- * Catalog integrity: every referenced file exists, every GLB loads through three's real
- * GLTFLoader (Node shims in src/testing/gltfNode.ts), and normalised sizes fit the grid (same scale/rotation as ModelLibrary).
- * Runs in Node — no browser needed.
+ * Catalog integrity: every referenced file exists, every GLB loads through three's real GLTFLoader
+ * (Node shims in src/testing/gltfNode.ts), and normalised sizes fit the grid (same scale/rotation as ModelLibrary).
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -16,9 +15,8 @@ import { RETIRED_TOOLS, TOOL_CATEGORIES, TOOLS, toolsInCategory, variantIcon, ty
 import { createGlbLoader, PUBLIC_DIR, publicPath } from '../testing/gltfNode';
 
 
-/** Normalised (scaled + rotationOffset) size of each model, filled in beforeAll. */
+/** Normalised (scaled + rotationOffset) size of each model. */
 const sizes = new Map<ModelId, THREE.Vector3>();
-/** Car Kit models at CAR_SCALE (LifeSystem), filled in beforeAll. */
 const carSizes = new Map<string, THREE.Vector3>();
 
 beforeAll(async () => {
@@ -40,7 +38,7 @@ beforeAll(async () => {
   }
 }, 60_000);
 
-/** Size as drawn: normalised size × render/modelStyles.ts MODEL_STYLES non-uniform scale. */
+/** Size as drawn: normalised size × MODEL_STYLES non-uniform scale. */
 function drawn(id: ModelId): THREE.Vector3 {
   const size = sizes.get(id)!.clone();
   const style = MODEL_STYLES[id]?.scale;
@@ -79,7 +77,7 @@ describe('catalog', () => {
     }
   });
 
-  it('every category has at most 12 tools (WP-23: digits 1–9 reach the first nine; ~12 fill a desktop row)', () => {
+  it('every category has at most 12 tools (digits 1–9 reach the first nine; ~12 fill a desktop row)', () => {
     for (const { id } of TOOL_CATEGORIES) {
       expect(toolsInCategory(id).length, id).toBeGreaterThan(0);
       expect(toolsInCategory(id).length, id).toBeLessThanOrEqual(12);
@@ -178,7 +176,7 @@ describe('catalog', () => {
     }
   });
 
-  it('WP-17 footprints: homes and town buildings grew one cell each way; everything else is unchanged', () => {
+  it('footprints of every object kind', () => {
     const footprints = Object.fromEntries(Object.values(OBJECTS).map((def) => [def.kind, def.footprint]));
     expect(footprints).toEqual({
       roundabout: [6, 6], 'zebra-crossing': [2, 2], 'traffic-light': [1, 1], lamppost: [1, 1], 'bus-stop': [2, 1], postbox: [1, 1],
@@ -211,7 +209,7 @@ describe('catalog', () => {
     }
   });
 
-  it('WP-17: homes and town buildings fill their bigger lot (≥ 80 % of it along their longer fit)', () => {
+  it('homes and town buildings fill their lot (≥ 80 % of it along their longer fit)', () => {
     const grown = Object.values(OBJECTS).filter((def) => def.group === 'home' || ['corner-shop', 'supermarket', 'church'].includes(def.kind));
     expect(grown).toHaveLength(9);
     for (const def of grown) {
@@ -223,7 +221,7 @@ describe('catalog', () => {
     }
   });
 
-  it('WP-17: the swing is 10–15 % smaller than its native 0.56 wide set, on the same 2 × 1 cells', () => {
+  it('the swing is 10–15 % smaller than its native 0.56 wide set, on 2 × 1 cells', () => {
     expect(OBJECTS.swing.footprint).toEqual([2, 1]);
     expect(MODELS.swing.scale).toBeGreaterThanOrEqual(0.85);
     expect(MODELS.swing.scale).toBeLessThanOrEqual(0.9);
@@ -247,11 +245,7 @@ describe('catalog', () => {
   });
 });
 
-/**
- * WP-12 proportions (docs/plans/wp-12-scale.md §2). Toy scale: 1 world unit ≈ 8 m, a cell ≈ 4 m.
- * Logs the drawn bounding boxes (w × h × d, world units) so the table in the plan/hand-off can be
- * checked against the real models.
- */
+/** Toy scale: 1 world unit ≈ 8 m, a cell ≈ 4 m. */
 describe('proportions', () => {
   const LANE = 0.37;
   const h = (id: ModelId) => drawn(id).y;
@@ -291,7 +285,6 @@ describe('proportions', () => {
     const carLength = Math.max(...cars().map((c) => c.z));
     expect(cottage.x / carLength).toBeGreaterThan(2.5);
     expect(cottage.x / LANE).toBeGreaterThan(3);
-    // Cars fit a lane.
     for (const car of cars()) expect(car.x).toBeLessThan(LANE);
   });
 
@@ -302,7 +295,7 @@ describe('proportions', () => {
     }
   });
 
-  it('trees reach about the cottage roof (WP-17: 75–100 % of its height) and stay below the townhouse ridges', () => {
+  it('trees reach about the cottage roof (75–100 % of its height) and stay below the townhouse ridges', () => {
     const cottage = h('cottage');
     const townhouseRidge = Math.min(h('townhouse'), h('townhouse-alt'));
     for (const tree of ['pine', 'birch'] as const) {

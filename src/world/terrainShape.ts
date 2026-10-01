@@ -1,9 +1,7 @@
 /**
- * Pure (no three.js) shape functions for the world around the plot: deterministic value noise,
- * the surrounding terrain height field and the plot/border dimensions. Shared by the terrain mesh
- * and the decor ring so trees sit exactly on the ground. Unit-tested in terrainShape.test.ts.
- *
- * WP-04 (World & look).
+ * Pure shape functions for the world around the plot: deterministic value noise, the terrain height
+ * field and the plot/border dimensions. Shared by the terrain mesh and the decor ring so trees sit
+ * exactly on the ground.
  */
 import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
 
@@ -75,9 +73,8 @@ export function distanceToPlot(x: number, z: number): number {
 }
 
 /**
- * Height of the surrounding meadow. Flat (MEADOW_BASE_Y) under and right next to the plot so the
- * diorama slab reads cleanly, gentle undulation from a few cells out, and a ring of soft rolling
- * hills far away that give the title shot a horizon silhouette.
+ * Height of the surrounding meadow: flat next to the plot so the slab reads cleanly, undulating a few
+ * cells out, and rolling hills far away for the title shot's horizon.
  */
 export function terrainHeight(x: number, z: number): number {
   const d = distanceToPlot(x, z);

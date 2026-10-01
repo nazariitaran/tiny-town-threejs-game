@@ -1,38 +1,12 @@
 /**
- * Draws the town from TownState, incrementally, driven by 'town:changed'. WP-03 (Rendering).
+ * Draws the town incrementally from 'town:changed'. Every visual is a set of slots in InstancedMesh
+ * pools keyed by (model, part), so draw calls scale with distinct parts, not with cells.
  *
- *  - Everything is drawn through InstancedMesh pools keyed by (model, part) — see InstancePool.
- *    A "visual" (one ground tile, object or fence) owns one pool slot per part of each of its
- *    pieces; it never owns a mesh. Draw calls scale with distinct (model, part)s, not with cells.
- *  - Incremental: only changed cells, their 4 neighbours (road / walkway re-tiling, meadow scatter
- *    hidden under objects), changed objects and changed edges are touched. A cell whose visual
- *    signature did not change is left alone.
- *  - Pop-in on add (0 → 1.08 → 1, easeOutBack), shrink-out on remove. No animation for cause
- *    'load'/'reset', for neighbour re-tiles, or while reduced motion is on (update(0) settles).
- *    Burst guard: when more than BURST_EVENTS town:changed events or BURST_CHANGES changes
- *    arrive within one frame (scripted test states and sample towns, which WP-02's applyBatch
- *    sends as ONE big 'edit'; undo of a huge stroke), everything settles instantly, so
- *    screenshots taken right after setState() never catch half-grown instances even while paused.
- *    Anything arriving in the same frame after a 'reset'/'load' (setState = reset + build) is
- *    also drawn without animation.
- *    Object ids are reused after reset/load (TownState.clear): removes free the old visual before
- *    the add with the same id, and addObject() defensively frees any visual under that id.
- *  - Moves (Move tool, and undo/redo of one): a remove + add of the same object id in one change
- *    list keeps the object's instances and tweens them from the old pose to the new one (slide on
- *    an ease-in-out, a low hop, the turn slerped), instead of a shrink-out plus a pop-in. No tween
- *    under the same conditions as pop-in (reduced motion, bursts, load / reset).
- *  - Variants: PlacedObject.variant picks from ObjectDef.models. Where an object or edge stands
- *    (footprint centre, turn, the trees' stable scale/yaw jitter from hash(id), ObjectDef.height,
- *    MODEL_STYLES scale) comes from objectPose.ts, which the ghost preview shares.
- *  - Ground: road auto-tiles per 2 × 2 road BLOCK (WP-12: one tile per block, owned by the block's
- *    anchor cell and drawn at the block centre; the other 3 cells draw nothing; roadTiles.ts; a lone
- *    tile = two squashed round caps); pavement = kit
- *    tile; grass/meadow = slightly raised lawn slab with a soft darker lip; meadow adds a
- *    deterministic flower/tuft scatter, one clump per cell (hidden under objects); walkway = a half-cell-wide sandstone
- *    paving hub + an arm towards every walkway/pavement neighbour (procedural slabs).
- *  - Look overrides (MODEL_STYLES, M1 review): the roads atlas's periwinkle kerb/paving texels are
- *    re-tinted to warm stone (one recoloured atlas copy shared by all road pieces); the tall fence is
- *    cream and 1.8× taller, the low fence dark wood; the lamppost is dark iron and stouter.
+ *  - A change touches only its cells and their 4 neighbours (road, walkway and meadow re-tiling).
+ *  - Adds pop in and removes shrink out, except on load / reset, reduced motion or a burst of changes,
+ *    so screenshots right after setState() never catch half-grown instances.
+ *  - A remove + add of the same object id in one change list is a move: the instances slide to the new pose.
+ *  - Object ids are reused after reset / load, so a remove always frees its visual before the next add.
  */
 import * as THREE from 'three';
 import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS, ZEBRA_PIECE_MODELS, type ModelId } from '../catalog/models';
@@ -75,19 +49,18 @@ const BURST_CHANGES = 64;
 const LAWN_HEIGHT = 0.016;
 /** Side (lip) shade of the lawn slab relative to its top. */
 const LAWN_LIP_SHADE = 0.86;
-/** Garden path (walkway): paving width (half a cell so it reads as a path, not a fence). */
+/** Walkway paving width: half a cell, so it reads as a path, not a fence. */
 const WALKWAY_WIDTH = 0.5 * CELL_SIZE;
 const WALKWAY_HEIGHT = 0.016;
 const WALKWAY_LIP_SHADE = 0.78;
-/** Warm-stone multipliers applied to a light periwinkle texel's luminance (M1 review). */
+/** Warm-stone multipliers applied to a light periwinkle texel's luminance. */
 const WARM_STONE: readonly [number, number, number] = [1.17, 1.15, 1.1];
-/** Which clump a meadow cell grows (hashed per cell, stable across reloads). IconStudio uses it too. */
+/** Which clump a meadow cell grows (hashed per cell, stable across reloads). */
 export function meadowScatterModel(cell: Cell): ModelId {
   const pick = hash01(cell.x, cell.z, 1);
   return pick < 0.45 ? 'meadow-flowers' : pick < 0.72 ? 'meadow-flowers-tall' : 'grass-tuft';
 }
 
-/** Edge-layer models (their pools go on the edge layer). */
 const EDGE_MODEL_IDS: ReadonlySet<string> = new Set(Object.values(EDGE_MODELS));
 
 /** Something that can be instanced: a model's merged parts or a procedural tile. */
@@ -139,7 +112,6 @@ interface Visual {
 export interface RenderTuning {
   popInSeconds: number;
   shrinkOutSeconds: number;
-  /** Move tool: how long a moved object takes to slide and hop to its new place. */
   moveSeconds: number;
   /** easeOutBack c1: 1.5 ⇒ peak 1.08. */
   overshoot: number;
@@ -220,12 +192,10 @@ export class TownRenderer {
   }
 
   /**
-   * What is actually drawn (NOT derived from TownState), so tests can compare the two.
-   * objects/groundTiles/edges count live visuals (not ones shrinking out, see `dying`).
-   * drawCallsEstimate = the town's share of the MAIN pass (one call per non-empty pool), the same
-   * pass three's renderer.info.render.calls counts (info is reset after the shadow pass, so shadow
-   * draws never show up there). renderer.calls = drawCallsEstimate + non-town meshes (terrain, sky,
-   * decor, ghost, fx). shadowCallsEstimate = extra shadow-pass calls from shadow-casting pools.
+   * What is actually drawn (not derived from TownState), so tests can compare the two. objects /
+   * groundTiles / edges count live visuals; `dying` counts the ones shrinking out.
+   * drawCallsEstimate is the town's share of the main pass (one call per non-empty pool), the pass
+   * renderer.info.render.calls counts: info is reset after the shadow pass.
    */
   getDiagnostics(): {
     objects: number;
@@ -321,12 +291,10 @@ export class TownRenderer {
     this.flush();
   }
 
-  /** Pop-in / shrink-out tweens are running (WP-24: the shadow map and frame budget follow them). */
   get isAnimating(): boolean {
     return this.animating.size > 0;
   }
 
-  /** Peak pop-in scale for the current tuning (debug/diagnostics). */
   get popPeak(): number {
     return easeOutBackPeak(this.tuning.overshoot);
   }
@@ -348,9 +316,6 @@ export class TownRenderer {
     this.edgesByKey.clear();
     this.animating.clear();
   }
-
-  // ---------------------------------------------------------------------------------------------
-  // Change handling
 
   private applyChanges(changes: readonly TownChange[], cause: 'edit' | 'undo' | 'redo' | 'load' | 'reset'): void {
     if (!this.ready()) {
@@ -412,9 +377,6 @@ export class TownRenderer {
     this.flush();
   }
 
-  // ---------------------------------------------------------------------------------------------
-  // Ground
-
   private refreshGround(cell: Cell, animate: boolean): void {
     const key = cellKey(cell);
     const current = this.groundByCell.get(key);
@@ -465,7 +427,7 @@ export class TownRenderer {
       }
       if (tile.piece === 'single') {
         // Isolated road: two round dead-end caps squashed to half a cell each, back to back, so a
-        // lone tile matches the rounded ends of every other dead end (road-square looked like a slab).
+        // lone tile matches the rounded ends of every other dead end.
         const end = this.modelSource(ROAD_PIECE_MODELS.end, false);
         const north = new THREE.Matrix4().makeTranslation(0, 0, -0.25 * ROAD_TILE_SIZE).multiply(new THREE.Matrix4().makeScale(1, 1, 0.5));
         const south = new THREE.Matrix4().makeRotationY(Math.PI).multiply(north);
@@ -515,7 +477,6 @@ export class TownRenderer {
     return { sig: `walkway:${arms}`, rotation: 0, pieces };
   }
 
-  /** WP-12: one hashed clump per (half-unit) cell, so the density per area matches v0.1's 4 per unit cell. */
   private meadowScatter(cell: Cell): PieceSpec[] {
     const model = meadowScatterModel(cell);
     const x = (hash01(cell.x, cell.z, 2) - 0.5) * 0.36 * CELL_SIZE;
@@ -527,9 +488,6 @@ export class TownRenderer {
     return [{ source: this.modelSource(model, false), local }];
   }
 
-  // ---------------------------------------------------------------------------------------------
-  // Objects and edges
-
   private addObject(placed: PlacedObject, animate: boolean): void {
     this.removeObject(placed.id, false);
     const def = objectDef(placed.kind);
@@ -539,7 +497,7 @@ export class TownRenderer {
       return;
     }
     const model = def.models[placed.variant % def.models.length];
-    // Footprint centre, turned; trees get their stable per-id jitter (objectPose, shared with the ghost).
+    // Trees get their stable per-id jitter (objectPose, shared with the ghost).
     const origin = objectOrigin(placed, def, new THREE.Matrix4());
     const local = styleMatrix(model, new THREE.Matrix4());
     const visual = this.createVisual(`object:${model}`, origin, [{ source: this.modelSource(model, true), local }], animate);
@@ -582,9 +540,6 @@ export class TownRenderer {
       this.freeVisual(visual);
     }
   }
-
-  // ---------------------------------------------------------------------------------------------
-  // Visuals ↔ pools
 
   private createVisual(sig: string, origin: THREE.Matrix4, specs: PieceSpec[], animate: boolean): Visual {
     const visual: Visual = { sig, origin, pieces: [], mode: animate ? 'in' : 'idle', t: 0, from: 1, scale: animate ? 0 : 1 };
@@ -724,14 +679,14 @@ export class TownRenderer {
         : style?.color
         ? template.parts.map((part) => {
             // Private recoloured clone (one per styled model, shared by all its instances).
-            const material = part.material.clone() as LitMaterial; // Lambert on the Low preset (WP-25)
+            const material = part.material.clone() as LitMaterial; // Lambert on the Low preset
             material.map = null;
             material.color.set(style.color!);
             material.name = `${part.material.name}:style:${id}`;
             material.needsUpdate = true;
             this.ownedMaterials.push(material);
-            // WP-16: clone() keeps a glow clone's emissiveMap (the lamppost's lamp face; its UVs
-            // remain although the map is dropped), so the style clone joins the night intensity updates.
+            // clone() keeps a glow clone's emissiveMap (the lamppost's lamp face; its UVs remain
+            // although the map is dropped), so the style clone joins the night intensity updates.
             this.library.glow.register(material);
             return { geometry: part.geometry, material };
           })

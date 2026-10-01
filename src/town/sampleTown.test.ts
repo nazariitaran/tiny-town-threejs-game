@@ -20,7 +20,6 @@ describe('demo towns', () => {
     const result = buildSampleTown(editor);
     expect(result.rejected).toEqual([]);
     expect(editor.state.stats()).toMatchObject({ homes: 8, amenities: 7, trees: 5 });
-    // WP-17: every home kind and the civic buildings, on their bigger lots.
     const kinds = [...editor.state.objects()].map((o) => o.kind);
     for (const kind of ['cottage', 'townhouse', 'bungalow', 'family-home', 'garage-house', 'big-house', 'corner-shop', 'supermarket', 'church'] as const) expect(kinds, kind).toContain(kind);
     editor.undo();
@@ -33,7 +32,7 @@ describe('demo towns', () => {
     buildSampleTown(editor);
     const used = new Set(spy.mock.calls.flatMap(([items]) => items.map((item) => item.toolId)));
     const placing = TOOLS.filter((t) => t.category !== 'mode').map((t) => t.id);
-    expect(placing).toHaveLength(38); // 40 until the fountain and garden path were retired (2026-09-30)
+    expect(placing).toHaveLength(38);
     expect(placing.filter((id) => !used.has(id))).toEqual([]);
   });
 
@@ -69,7 +68,7 @@ describe('demo towns', () => {
     }
   });
 
-  it('stress town fills the plot with zero rejections (100 homes on WP-17 lots, 50 mailboxes)', () => {
+  it('stress town fills the plot with zero rejections (100 homes, 50 mailboxes)', () => {
     const editor = makeEditor();
     const { rejected } = buildStressTown(editor);
     expect(rejected).toEqual([]);

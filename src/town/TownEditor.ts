@@ -1,28 +1,7 @@
 /**
- * The ONLY way the game mutates the town. Wraps TownState + rules + History and
- * publishes facts on the bus. Input/UI call this; the renderer listens to 'town:changed'.
- * WP-02 owns this file.
- *
- * Public API (used by Game.ts / ToolController / sampleTown):
- *  - preview(action)                  dry run for ghosts; never mutates, consumes no id/RNG.
- *  - beginStroke() → apply(action, toolId)* → endStroke()
- *                                     everything in one stroke is ONE undo entry. Inside a stroke,
- *                                     apply() emits town:changed/build:* per cell but
- *                                     history:changed only once, at endStroke().
- *  - applyBatch(items, { silent })    many actions → one town:changed, one undo
- *                                     entry (or joins the open stroke). silent: no build:* events
- *                                     (no sound/FX spam for demo towns).
- *  - undo() / redo()                  cause 'undo' / 'redo'.
- *  - reset(name?)                     empty plot, history cleared, cause 'reset'. Not undoable.
- *                                     The town is called `name` (default DEFAULT_TOWN_NAME).
- *  - load(save)                       replace the town with a VALIDATED save (see parseSave), cause
- *                                     'load' with a full change list (remove old…, add new…),
- *                                     history cleared. Not undoable.
- *  - rename(name)                     WP-20: rename the town (sanitised; blank or unchanged is
- *                                     ignored). Not undoable; SaveStore autosaves it.
- *  - name                             the town's name. reset/load/rename emit 'town:named'.
- *  - serialize(camera?)               current town as SavedTown (for SaveStore).
- *
+ * The only way the game mutates the town: wraps TownState, rules and History and publishes facts on the bus.
+ * Everything between beginStroke() and endStroke() is one undo entry; inside a stroke apply() emits
+ * town:changed and build:* per cell but history:changed only at endStroke().
  * Every change list keeps its primary change last; build events derive from it.
  */
 import { cellToWorld, edgeToWorld, footprintCentreWorld, roadBlockCentreWorld } from '../game/config';
@@ -42,14 +21,13 @@ export interface BatchItem {
 }
 
 export interface BatchOptions {
-  /** Don't emit build:placed/removed per item (demo towns, scripted fills). Default false. */
+  /** Skip build:placed/removed events (no sound/FX spam for demo towns). */
   silent?: boolean;
 }
 
 export interface BatchResult {
   applied: number;
   rejected: Array<{ index: number; item: BatchItem; reason: InvalidReason; message: string }>;
-  /** Every applied change, in order. */
   changes: TownChange[];
 }
 
@@ -58,7 +36,7 @@ type TownCause = 'edit' | 'undo' | 'redo' | 'load' | 'reset';
 export class TownEditor {
   readonly history = new History();
   private stroke: TownChange[] | null = null;
-  /** Placements/removals so far in the current stroke (build:* strokeIndex). */
+  /** build:* strokeIndex within the current stroke. */
   private strokeCount = 0;
   private townName = DEFAULT_TOWN_NAME;
 
@@ -68,12 +46,11 @@ export class TownEditor {
     private readonly rng: () => number,
   ) {}
 
-  /** The town's name (WP-20): always a valid name, DEFAULT_TOWN_NAME until named. */
+  /** Always a valid name; DEFAULT_TOWN_NAME until named. */
   get name(): string {
     return this.townName;
   }
 
-  /** Is a stroke open (between beginStroke and endStroke)? */
   get inStroke(): boolean {
     return this.stroke !== null;
   }
@@ -105,9 +82,8 @@ export class TownEditor {
   }
 
   /**
-   * Apply many actions as one edit: one town:changed (cause 'edit') with all changes, one undo
-   * entry (or appended to the open stroke). Rejected items are skipped and
-   * reported; later items see the effects of earlier ones.
+   * Applies many actions as one town:changed and one undo entry (or joins the open stroke).
+   * Rejected items are skipped and reported; later items see the effects of earlier ones.
    */
   applyBatch(items: readonly BatchItem[], options: BatchOptions = {}): BatchResult {
     const result: BatchResult = { applied: 0, rejected: [], changes: [] };
@@ -154,7 +130,7 @@ export class TownEditor {
     this.publish(changes, 'redo');
   }
 
-  /** Clear the plot (New town) and call the new town `name` (blank → the default). Not undoable. */
+  /** Clears the plot and names the new town `name` (blank → the default). Not undoable. */
   reset(name: string = DEFAULT_TOWN_NAME): void {
     this.stroke = null;
     this.strokeCount = 0;
@@ -164,10 +140,7 @@ export class TownEditor {
     this.setName(name, 'reset');
   }
 
-  /**
-   * Rename the town (WP-20). The name is sanitised (townName.ts); a blank or unchanged name is
-   * ignored. Not undoable: it isn't a build action. Returns whether the name changed.
-   */
+  /** Sanitises `name`; a blank or unchanged name is ignored. Not undoable. Returns whether the name changed. */
   rename(name: string): boolean {
     const clean = sanitizeTownName(name);
     if (!clean || clean === this.townName) return false;
@@ -176,9 +149,8 @@ export class TownEditor {
   }
 
   /**
-   * Replace the town with a saved one. `save` must come from parseSave (validated and clamped to
-   * this plot); a save for a different plot size throws. Emits one town:changed with cause 'load'
-   * whose changes remove the old town and then add the new one; clears history. Not undoable.
+   * `save` must come from parseSave (validated and clamped to this plot); another plot size throws.
+   * Emits one town:changed (cause 'load') that removes the old town, then adds the new one. Not undoable.
    */
   load(save: SavedTown): void {
     if (save.width !== this.state.width || save.depth !== this.state.depth) {
@@ -205,7 +177,7 @@ export class TownEditor {
     this.setName(save.name ?? DEFAULT_TOWN_NAME, 'load');
   }
 
-  /** The current town as a save (deterministic). SaveStore / Game use this for autosave. */
+  /** The current town as a save (deterministic). */
   serialize(camera?: CameraPose): SavedTown {
     return serializeTown(this.state, camera, this.townName);
   }

@@ -32,13 +32,9 @@ function record(bus: GameBus) {
 const snapshot = (editor: TownEditor) => serializeTown(editor.state);
 const road = (x: number, z: number): BuildAction => ({ type: 'paint-ground', kind: 'road', cell: { x, z } });
 
-/**
- * A 50-block snake-shaped road drag over the free south rows of the sample town (one cell per
- * 2 × 2 road block): z=42 west→east (24), z=44 east→west (24), then 2 blocks of z=46.
- */
+/** A 50-block snake-shaped road drag (one cell per 2 × 2 block) over three free rows south of the centred sample town. */
 function fiftyCellStroke(editor: TownEditor): number {
   const cells: Cell[] = [];
-  // Three rows south of the (centred) sample town: 24 + 24 + 2 road blocks.
   for (let x = 0; x < 48; x += 2) cells.push({ x, z: 58 });
   for (let x = 46; x >= 0; x -= 2) cells.push({ x, z: 60 });
   cells.push({ x: 0, z: 62 }, { x: 2, z: 62 });
@@ -179,7 +175,7 @@ describe('TownEditor road paint removes the in-between fence', () => {
   it('multi-cell objects report their footprint centre in build:placed / build:removed', () => {
     const { editor, events } = setup();
     editor.apply({ type: 'place-object', kind: 'townhouse', cell: { x: 10, z: 10 }, rotation: 1 }, 'townhouse');
-    // WP-17: a 3 × 4 townhouse at rotation 1 covers 4 × 3 cells (x 10..13, z 10..12); bulldoze its far corner.
+    // A 3 × 4 townhouse at rotation 1 covers 4 × 3 cells (x 10..13, z 10..12); bulldoze its far corner.
     editor.apply({ type: 'bulldoze', cell: { x: 13, z: 12 }, edge: null }, 'bulldoze');
     const centre = footprintCentreWorld({ x: 10, z: 10 }, [3, 4], 1);
     expect(centre.x).toBeCloseTo(footprintCentreWorld({ x: 10, z: 10 }, [1, 1], 0).x + 1.5 * 0.5, 6);
@@ -326,9 +322,7 @@ describe('TownEditor.reset and load', () => {
     expect(changed).toHaveLength(1);
     expect(changed[0].cause).toBe('load');
     const { changes } = changed[0];
-    // Old town removed first…
     expect(changes[0]).toMatchObject({ layer: 'object', op: 'remove' });
-    // …then every non-field cell, object and fence of the save added.
     const addedObjects = changes.filter((c) => c.layer === 'object' && c.op === 'add').length;
     const addedEdges = changes.filter((c) => c.layer === 'edge' && c.op === 'add').length;
     expect(addedObjects).toBe(save.objects.length);
@@ -354,14 +348,14 @@ describe('TownEditor.reset and load', () => {
   });
 });
 
-describe('TownEditor name (WP-20)', () => {
+describe('TownEditor name', () => {
   it('starts as the default name and reset(name) names the new town', () => {
     const { editor, events } = setup();
     expect(editor.name).toBe(DEFAULT_TOWN_NAME);
     editor.reset('  Puddleton ');
     expect(editor.name).toBe('Puddleton');
     expect(events.of('town:named')).toEqual([{ name: 'Puddleton', cause: 'reset' }]);
-    // A blank name (or none) gives the default: test states and "never named" towns.
+    // A blank name (or none) gives the default.
     editor.reset('   ');
     expect(editor.name).toBe(DEFAULT_TOWN_NAME);
     editor.reset('Bumbleford');

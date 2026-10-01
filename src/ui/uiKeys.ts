@@ -1,11 +1,9 @@
 /**
- * Pure digit-shortcut mapping (WP-06 owns digits; see 03-architecture.md "Keyboard ownership").
- *   1–9          select the Nth tool of the ACTIVE category (pressing the active tool's digit
- *                again deselects it, like clicking its card again)
- *   Shift + 1–5  switch category (Streets / Homes / Town / Nature / Garden)
- *   P            take a photo (WP-19; no modifiers, so Ctrl/Cmd+P still prints)
- * Uses `event.code` (Digit1…/Numpad1…) so Shift and keyboard layouts don't change the mapping.
- * No DOM here so it can be unit-tested.
+ * Keyboard shortcuts:
+ *   1–9          select the Nth tool of the active category; the active tool's digit deselects it
+ *   Shift + 1–5  switch category
+ *   P            take a photo (no modifiers, so Ctrl/Cmd+P still prints)
+ * Uses `event.code` so Shift and keyboard layouts don't change the mapping.
  */
 import { TOOL_CATEGORIES, toolsInCategory, type ToolCategory, type ToolId } from '../catalog/tools';
 
@@ -22,13 +20,11 @@ export interface KeyLike {
   altKey: boolean;
 }
 
-/** 1..9 for Digit1..Digit9 / Numpad1..Numpad9, else null. */
 export function digitOf(code: string): number | null {
   const match = /^(?:Digit|Numpad)([1-9])$/.exec(code);
   return match ? Number(match[1]) : null;
 }
 
-/** P with no modifiers takes a town photo. */
 export function isPhotoKey(key: KeyLike): boolean {
   return key.code === 'KeyP' && !key.ctrlKey && !key.metaKey && !key.altKey && !key.shiftKey;
 }

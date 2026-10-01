@@ -1,12 +1,6 @@
 /**
- * WP-22 Birds: flocks that now and then fly over the town, checked through diagnostics
- * (`__THREE_GAME_DIAGNOSTICS__.birds`) and the `spawnFlock` hook.
- *  1. A flock over the sample town: birds in the altitude band, moving, exactly +1 draw call; the
- *     desktop run watches the whole crossing until the sky is empty (screenshots to artifacts/wp-22/).
- *  2. Test states never launch a flock by themselves (screenshot baselines stay bird-free).
- *  3. Flocks do come by themselves: `?debug&flock=3` gives one on the title screen and while building.
- *  4. No new flock at night; one comes once it is day again.
- *  5. Reduced motion clears the sky.
+ * Bird flocks, through diagnostics `birds` and the `spawnFlock` hook. Test states never launch a flock
+ * by themselves, so screenshot baselines stay bird-free.
  */
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -16,7 +10,7 @@ import type { BirdDiagnostics } from '../src/life/BirdSystem';
 import { ALTITUDE } from '../src/life/FlockSim';
 import { applyState, attachJson, clickStart, gotoTitle, trackErrors, waitFrames } from './helpers';
 
-const ARTIFACTS = resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/wp-22');
+const ARTIFACTS = resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/birds');
 
 async function birds(page: Page): Promise<BirdDiagnostics> {
   return page.evaluate(() => JSON.parse(JSON.stringify(window.__THREE_GAME_DIAGNOSTICS__!.birds)) as BirdDiagnostics);

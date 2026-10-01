@@ -1,9 +1,4 @@
-/**
- * Undo/redo over TownChange lists. One entry = one stroke (press → drag → release).
- *
- * WP-02 owns this file. Depth is capped at HISTORY_LIMIT entries (oldest dropped first);
- * TownEditor clears it on load and on reset (new town). Tested in History.test.ts.
- */
+/** Undo/redo over TownChange lists. One entry = one stroke (press → drag → release); the oldest entries drop first. */
 import type { TownChange } from './types';
 
 /** Inverse of a change list: each change inverted, in reverse order. */
@@ -18,7 +13,6 @@ export function invertChanges(changes: readonly TownChange[]): TownChange[] {
   return inverted;
 }
 
-/** Maximum number of undo entries kept (one entry = one stroke). */
 export const HISTORY_LIMIT = 200;
 
 export class History {

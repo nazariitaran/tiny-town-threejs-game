@@ -1,24 +1,15 @@
 /**
- * WP-16c day/night controls & QA. Real input only (DOM clicks, keys, canvas clicks); `setState`,
- * `setTimeOfDay` and `setReducedMotion` are used for setup, or are themselves the hook under test.
- * State is read from __THREE_GAME_DIAGNOSTICS__.daytime ({ mode, t, phase, pinned, night, ... }).
- *
- * NIGHT_LOOK: checks that need the real night look (WP-16a's keyframes + sweep, WP-16b's lamps).
- * On the contract stubs `night` is always 0, NightLights tracks no lamps and mode switches are
- * instant, so these are skipped until 16a and 16b are merged into v0.3-day-night.
+ * Day/night controls. `setState`, `setTimeOfDay` and `setReducedMotion` are used for setup, or are
+ * themselves the hook under test; everything else is real input.
  */
 import { mkdirSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { TIME_MODES, T_AFTERNOON, T_MORNING, T_NIGHT, type TimeMode } from '../src/world/dayCycle';
 import { applyState, byId, canvasPoint, diagnostics, gotoTitle, openMenuTab, selectTool, startBuilding, trackErrors, UI_TEST_IDS, waitFrames } from './helpers';
 
-// Enabled in WP-16c phase 2 (16a + 16b merged into v0.3-day-night).
-const NIGHT_LOOK = true;
-const NIGHT_LOOK_REASON = 'needs the real night look (WP-16a/16b), enabled in WP-16c phase 2';
-
-/** buildSampleTown places exactly 4 lampposts (src/town/sampleTown.ts, `for (const x of [9, 14, 31, 37])`). */
+/** buildSampleTown places exactly 4 lampposts. */
 const SAMPLE_TOWN_LAMPPOSTS = 4;
-const OUT = 'artifacts/wp-16c';
+const OUT = 'artifacts/daynight';
 const LABEL: Record<TimeMode, string> = { auto: 'Auto', day: 'Day', night: 'Night' };
 
 const daytime = async (page: Page) => (await diagnostics(page)).daytime;
@@ -44,7 +35,7 @@ const topBarLayout = (page: Page) =>
       const r = (el: Element) => el.getBoundingClientRect();
       const brand = r(document.querySelector('.ui-brand')!);
       const actions = r(document.querySelector('.ui-actions')!);
-      // WP-21: the Town file button is display:none on phones (it lives in the menu there).
+      // The Town file button is display:none on phones (it lives in the menu there).
       const shown = [...document.querySelectorAll('.ui-actions button')].filter((b) => r(b).width > 0);
       return {
         parent: button.parentElement!.classList.contains('ui-actions'),
@@ -68,8 +59,7 @@ test.describe('time button (top bar)', () => {
     const layout = await topBarLayout(page);
     expect(layout.parent).toBe(true);
     expect(layout.next).toBe(UI_TEST_IDS.mute);
-    // WP-19 added the photo camera left of the time button; WP-21 the Town file button left of the
-    // camera, on screens wider than 440 px only (phones reach it through the menu).
+    // The Town file button shows on screens wider than 440 px only (phones reach it through the menu).
     const file = info.project.name === 'mobile-chrome' ? [] : [UI_TEST_IDS.townFile];
     expect(layout.order).toEqual([UI_TEST_IDS.undo, UI_TEST_IDS.redo, ...file, UI_TEST_IDS.photo, UI_TEST_IDS.timeMode, UI_TEST_IDS.mute, UI_TEST_IDS.menu]);
     expect(layout.oneRow, 'top bar is one row').toBe(true);
@@ -305,7 +295,7 @@ test('night-town state: sample town pinned at T_NIGHT', async ({ page }) => {
   expect(d.daytime.pinned).toBe(true);
   expect(d.daytime.t).toBeCloseTo(T_NIGHT, 5);
   expect(d.daytime.phase).toBe('night');
-  // Every other state pins the afternoon (today's look).
+  // Every other state pins the afternoon.
   await applyState(page, 'sample-town');
   const s = (await diagnostics(page)).daytime;
   expect(s.pinned).toBe(true);
@@ -335,7 +325,7 @@ test('reduced motion: the clock is frozen and mode switches snap', async ({ page
   await timeButton(page).click(); // → night
   await expect.poll(async () => (await daytime(page)).t, { timeout: 500 }).toBeCloseTo(T_NIGHT, 6);
   expect((await daytime(page)).phase).toBe('night');
-  if (NIGHT_LOOK) expect((await daytime(page)).night).toBeGreaterThan(0.95);
+  expect((await daytime(page)).night).toBeGreaterThan(0.95);
   await timeButton(page).click(); // → auto: continues from the current t, still frozen
   await expectMode(page, 'auto');
   await page.waitForTimeout(500);
@@ -343,62 +333,58 @@ test('reduced motion: the clock is frozen and mode switches snap', async ({ page
   errors.expectNone();
 });
 
-test.describe('night look (phase 2)', () => {
-  test.skip(!NIGHT_LOOK, NIGHT_LOOK_REASON);
+test('night-town: full night, lit windows, a light per lamppost', async ({ page }) => {
+  const errors = trackErrors(page);
+  await gotoTitle(page);
+  await applyState(page, 'night-town');
+  await waitFrames(page, 2);
+  const d = (await diagnostics(page)).daytime;
+  expect(d.night).toBeGreaterThan(0.95);
+  expect(d.lightsOn).toBeGreaterThan(0.9);
+  expect(d.lamps).toBe(SAMPLE_TOWN_LAMPPOSTS);
+  expect(d.drawCalls, 'pools (+ halos on high tier) drawn at night').toBeGreaterThanOrEqual(1);
+  // Back to afternoon: every light source is off and adds no draw calls.
+  await page.evaluate(() => window.__THREE_GAME_TEST_HOOKS__!.setTimeOfDay(0.55));
+  const day = (await diagnostics(page)).daytime;
+  expect(day.night).toBe(0);
+  expect(day.drawCalls).toBe(0);
+  errors.expectNone();
+});
 
-  test('night-town: full night, lit windows, a light per lamppost', async ({ page }) => {
-    const errors = trackErrors(page);
-    await gotoTitle(page);
-    await applyState(page, 'night-town');
-    await waitFrames(page, 2);
-    const d = (await diagnostics(page)).daytime;
-    expect(d.night).toBeGreaterThan(0.95);
-    expect(d.lightsOn).toBeGreaterThan(0.9);
-    expect(d.lamps).toBe(SAMPLE_TOWN_LAMPPOSTS);
-    expect(d.drawCalls, 'pools (+ halos on high tier) drawn at night').toBeGreaterThanOrEqual(1);
-    // Back to afternoon: every light source is off and adds no draw calls.
-    await page.evaluate(() => window.__THREE_GAME_TEST_HOOKS__!.setTimeOfDay(0.55));
-    const day = (await diagnostics(page)).daytime;
-    expect(day.night).toBe(0);
-    expect(day.drawCalls).toBe(0);
-    errors.expectNone();
-  });
+test('a lamppost placed at night is tracked; undo removes it', async ({ page }) => {
+  const errors = trackErrors(page);
+  await gotoTitle(page);
+  await applyState(page, 'empty-build');
+  await page.evaluate(() => window.__THREE_GAME_TEST_HOOKS__!.setTimeOfDay(0.82));
+  expect((await daytime(page)).lamps).toBe(0);
+  await selectTool(page, 'lamppost');
+  const p = await canvasPoint(page, 24, 20);
+  await page.mouse.click(p.x, p.y);
+  await expect.poll(async () => (await daytime(page)).lamps).toBe(1);
+  await byId(page, UI_TEST_IDS.undo).click();
+  await expect.poll(async () => (await daytime(page)).lamps).toBe(0);
+  errors.expectNone();
+});
 
-  test('a lamppost placed at night is tracked; undo removes it', async ({ page }) => {
-    const errors = trackErrors(page);
-    await gotoTitle(page);
-    await applyState(page, 'empty-build');
-    await page.evaluate(() => window.__THREE_GAME_TEST_HOOKS__!.setTimeOfDay(0.82));
-    expect((await daytime(page)).lamps).toBe(0);
-    await selectTool(page, 'lamppost');
-    const p = await canvasPoint(page, 24, 20);
-    await page.mouse.click(p.x, p.y);
-    await expect.poll(async () => (await daytime(page)).lamps).toBe(1);
-    await byId(page, UI_TEST_IDS.undo).click();
-    await expect.poll(async () => (await daytime(page)).lamps).toBe(0);
-    errors.expectNone();
-  });
-
-  test('without reduced motion a mode switch sweeps forward over ~2.5 s', async ({ page }) => {
-    const errors = trackErrors(page);
-    await gotoTitle(page);
-    await startBuilding(page);
-    await timeButton(page).click(); // → day (sweeps from the morning)
-    await expect.poll(async () => (await daytime(page)).t, { timeout: 6_000 }).toBeCloseTo(T_AFTERNOON, 5);
-    await timeButton(page).click(); // → night: 0.55 → 0.82 through dusk
-    const seen = new Set<string>();
-    const samples: number[] = [];
-    for (let i = 0; i < 40; i += 1) {
-      const d = await daytime(page);
-      samples.push(d.t);
-      seen.add(d.phase);
-      if (Math.abs(d.t - T_NIGHT) < 1e-6) break;
-      await page.waitForTimeout(100);
-    }
-    expect(samples.some((t) => t > T_AFTERNOON + 0.01 && t < T_NIGHT - 0.01), `in-between t: ${samples.join(', ')}`).toBe(true);
-    expect(seen.has('dusk'), 'passes through dusk').toBe(true);
-    for (let i = 1; i < samples.length; i += 1) expect(samples[i], 'forward only').toBeGreaterThanOrEqual(samples[i - 1]);
-    await expect.poll(async () => (await daytime(page)).t, { timeout: 5_000 }).toBeCloseTo(T_NIGHT, 5);
-    errors.expectNone();
-  });
+test('without reduced motion a mode switch sweeps forward over ~2.5 s', async ({ page }) => {
+  const errors = trackErrors(page);
+  await gotoTitle(page);
+  await startBuilding(page);
+  await timeButton(page).click(); // → day (sweeps from the morning)
+  await expect.poll(async () => (await daytime(page)).t, { timeout: 6_000 }).toBeCloseTo(T_AFTERNOON, 5);
+  await timeButton(page).click(); // → night: 0.55 → 0.82 through dusk
+  const seen = new Set<string>();
+  const samples: number[] = [];
+  for (let i = 0; i < 40; i += 1) {
+    const d = await daytime(page);
+    samples.push(d.t);
+    seen.add(d.phase);
+    if (Math.abs(d.t - T_NIGHT) < 1e-6) break;
+    await page.waitForTimeout(100);
+  }
+  expect(samples.some((t) => t > T_AFTERNOON + 0.01 && t < T_NIGHT - 0.01), `in-between t: ${samples.join(', ')}`).toBe(true);
+  expect(seen.has('dusk'), 'passes through dusk').toBe(true);
+  for (let i = 1; i < samples.length; i += 1) expect(samples[i], 'forward only').toBeGreaterThanOrEqual(samples[i - 1]);
+  await expect.poll(async () => (await daytime(page)).t, { timeout: 5_000 }).toBeCloseTo(T_NIGHT, 5);
+  errors.expectNone();
 });

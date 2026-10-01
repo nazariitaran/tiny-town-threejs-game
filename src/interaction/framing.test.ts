@@ -35,11 +35,11 @@ describe('build camera framing (readability first)', () => {
     const dockTop = dockTopPx(SAFE_INSETS.wide, 720);
     expect(rect.left).toBeGreaterThanOrEqual(SAFE_INSETS.wide.side - 1);
     expect(rect.right).toBeLessThanOrEqual(1280 - SAFE_INSETS.wide.side + 1);
-    // 64 × 64 plot: the width fit keeps the v0.2 zoom, so the side corners sit just off-screen.
+    // The side corners sit just off-screen.
     expect(rect.right - rect.left).toBeGreaterThan(1280);
     expect(rect.centreY).toBeLessThanOrEqual(dockTop - CENTRE_ABOVE_DOCK_PX);
     expect(rect.centreY).toBeGreaterThan(SAFE_INSETS.wide.top);
-    // Close enough that buildings read (M1 review target ≈ 33–36; unchanged by the 64 × 64 plot).
+    // Close enough that buildings read.
     expect(pose.distance).toBeGreaterThan(32);
     expect(pose.distance).toBeLessThan(40);
   });
@@ -75,7 +75,7 @@ describe('build camera framing (readability first)', () => {
     expect(pose.targetZ).toBe(TITLE_POSE.targetZ);
   });
 
-  it('WP-12 cell pitch at the default pose: ≥ 12 px desktop, ≥ 9 px phone (two cells at the plot centre)', () => {
+  it('cell pitch at the default pose: ≥ 12 px desktop, ≥ 9 px phone (two cells at the plot centre)', () => {
     const pitch = (width: number, height: number) => {
       const pose = defaultPoseFor(width, height);
       const camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 2000);

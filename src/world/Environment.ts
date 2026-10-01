@@ -1,18 +1,7 @@
 /**
  * Sky, lighting, surrounding terrain, fog and the plot's grid overlay.
- *
- * WP-04 (World & look). Public API (constructor, populate, applyGraphics, setGridVisible, update,
- * dispose, sun) is the contract Game.ts relies on.
- *
- * Look: a single "golden afternoon". Warm key sun (shadow frustum fitted to the plot), cool
- * hemisphere fill, a low-intensity RoomEnvironment PMREM for gentle speculars / diffuse fill (every
- * graphics preset since WP-25: Lambert on Low is lit by it too, so every device sees the same colours).
- * The plot is a raised diorama slab; the meadow undulates beyond it and rolls into hazy hills.
- * Fog colour == sky horizon colour, so distant ground melts into the horizon with no seam.
- *
- * WP-16a (day/night): applyDaylight(sample) drives the key light (sun by day, moon at night), the
- * hemisphere fill, fog, env intensity, sky and grid from dayCycle.ts. The afternoon sample (t 0.55)
- * is exactly the constants below, which stay exported for IconStudio.
+ * Fog colour is the sky's horizon colour, so distant ground melts into the horizon with no seam.
+ * The afternoon day sample (t 0.55) equals the constants below, which IconStudio uses directly.
  */
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -49,27 +38,20 @@ export const LIGHTING = {
 };
 
 const SHADOW_DISTANCE = 60;
-/** Tallest thing the plot can hold (with margin) — the shadow frustum must enclose it. */
+/** Tallest thing the plot can hold, with margin: the shadow frustum must enclose it. */
 const PLOT_CONTENT_HEIGHT = 4;
 
-/** Day/night tunables owned by Environment (debug `Daylight` folder). */
 const DAYLIGHT_TUNING = {
   /** Re-aim the key light and refit its shadow frustum only after it has moved this far (degrees). */
   shadowRefitDeg: 0.2,
-  /**
-   * Fog pulled in at night (blended by `night`; the day values are LIGHTING's). The navy horizon
-   * colour then washes over the plot a little, which is what turns green grass into "blue hour".
-   */
-  nightFogNear: 13, // 10 / 170 on the 24-unit plot; scaled with the camera distance (64 × 64 plot)
+  /** Fog pulled in at night: the navy horizon washes over the plot, turning green grass into "blue hour". */
+  nightFogNear: 13,
   nightFogFar: 225,
 };
 
 export class Environment {
   readonly sun: THREE.DirectionalLight;
-  /**
-   * Bumped whenever the sun's shadow must be redrawn from scratch: re-aimed / refitted, or the map
-   * resized (WP-24: the renderer's shadow map no longer redraws every frame).
-   */
+  /** Bumped whenever the sun's shadow must be redrawn: re-aimed, refitted or resized. */
   shadowVersion = 0;
   private readonly root = new THREE.Group();
   private readonly hemi: THREE.HemisphereLight;
@@ -80,22 +62,21 @@ export class Environment {
   private readonly decor = new DecorRing();
   private readonly fog: THREE.Fog;
   private envMap: THREE.Texture | null = null;
-  /** Share of the decor ring drawn (GraphicsProfile.decorFraction), kept for populate(). */
+  /** Kept for populate(). */
   private decorFraction = 1;
 
-  // Day/night state (WP-16a): the last applied time.
   private appliedT = Number.NaN;
   private daylightDirty = false;
   /** Direction the key light and its shadow frustum are currently fitted to. */
   private readonly fittedDir = SUN_DIRECTION.clone();
   private readonly keyDir = new THREE.Vector3();
-  // fitSunShadow scratch (no allocations when the key light moves).
+  // fitSunShadow scratch: no allocations when the key light moves.
   private readonly fitView = new THREE.OrthographicCamera();
   private readonly fitToLight = new THREE.Matrix4();
   private readonly fitBox = new THREE.Box3();
   private readonly fitPoint = new THREE.Vector3();
 
-  /** `materialMode`: the lit material family of the terrain (WP-25, fixed at boot). */
+  /** `materialMode`: the terrain's lit material family, fixed at boot. */
   constructor(
     private readonly scene: THREE.Scene,
     private readonly renderer: THREE.WebGLRenderer,
@@ -105,14 +86,12 @@ export class Environment {
     this.root.name = 'environment';
     scene.add(this.root);
 
-    // --- Sky + fog (fog colour is the sky's horizon colour: seamless horizon).
     this.sky = new Sky(SKY_PALETTE, SUN_DIRECTION);
     this.root.add(this.sky.mesh);
     this.fog = new THREE.Fog(SKY_PALETTE.horizon, LIGHTING.fogNear, LIGHTING.fogFar);
     scene.fog = this.fog;
     scene.background = null;
 
-    // --- Lights.
     this.hemi = new THREE.HemisphereLight(LIGHTING.hemiSky, LIGHTING.hemiGround, LIGHTING.hemiIntensity);
     this.root.add(this.hemi);
     this.sun = new THREE.DirectionalLight(LIGHTING.sunColor, LIGHTING.sunIntensity);
@@ -125,12 +104,11 @@ export class Environment {
     this.root.add(this.sun, this.sun.target);
     this.fitSunShadow();
 
-    // --- Environment lighting (every preset): gentle speculars and diffuse fill from a PMREM.
+    // On every preset, Lambert included, so every device sees the same colours.
     this.envMap = this.createEnvMap();
     scene.environment = this.envMap;
     scene.environmentIntensity = LIGHTING.envIntensity;
 
-    // --- Ground.
     this.terrain = createOuterTerrain(materialMode);
     this.plotBase = createPlotBase(materialMode);
     this.root.add(this.terrain, this.plotBase);
@@ -142,17 +120,13 @@ export class Environment {
     this.installDebug(debug);
   }
 
-  /** Called once after models load: instanced distant tree/bush/rock ring (≤ 4 draw calls). */
+  /** Called once after models load. */
   populate(library: ModelLibrary): void {
     this.decor.populate(library);
     this.decor.setFraction(this.decorFraction);
   }
 
-  /**
-   * The live parts of a graphics preset (WP-25): sun shadow-map size (a resize bumps shadowVersion,
-   * so the map is redrawn), the decor-ring share (spread evenly) and the sky's cloud octaves (a
-   * one-off recompile). The env map stays on at every level. Game applies DPR and frame caps.
-   */
+  /** The live parts of a graphics preset; a cloud-octave change recompiles the sky once. */
   applyGraphics(profile: Readonly<Pick<GraphicsProfile, 'shadowMapSize' | 'decorFraction' | 'skyOctaves'>>): void {
     const size = profile.shadowMapSize;
     if (this.sun.shadow.mapSize.x !== size) {
@@ -167,7 +141,6 @@ export class Environment {
     this.sky.octaves = profile.skyOctaves;
   }
 
-  /** What is applied now (diagnostics). */
   get graphicsState(): { shadowMapSize: number; decorFraction: number; decorInstances: number; skyOctaves: number } {
     return {
       shadowMapSize: this.sun.shadow.mapSize.x,
@@ -181,11 +154,7 @@ export class Environment {
     this.grid.setVisible(visible);
   }
 
-  /**
-   * Day/night (WP-16): key light, hemisphere, fog, sky, env intensity and grid strength for one
-   * moment of the day. Game calls it every frame (and at once from test hooks while paused).
-   * Cheap when nothing changed: skipped while `t` is unchanged; no allocations.
-   */
+  /** Called every frame; skipped while `t` is unchanged, and allocates nothing. */
   applyDaylight(s: Readonly<DaySample>): void {
     if (s.t === this.appliedT && !this.daylightDirty) return;
     this.appliedT = s.t;
@@ -237,10 +206,7 @@ export class Environment {
     this.scene.remove(this.root);
   }
 
-  /**
-   * Aim the key light along `fittedDir` (SUN_DIRECTION until the first day/night change) and fit
-   * its orthographic shadow camera tightly around the plot. Reuses scratch objects.
-   */
+  /** Aims the key light along `fittedDir` and fits its shadow camera tightly around the plot. */
   private fitSunShadow(): void {
     this.shadowVersion += 1;
     this.sun.target.position.set(0, 0, 0);
@@ -311,7 +277,7 @@ export class Environment {
     folder.add(DAYLIGHT_TUNING, 'nightFogNear', 0, 120, 1).name('night fog near').onChange(dirty);
     folder.add(DAYLIGHT_TUNING, 'nightFogFar', 40, 500, 1).name('night fog far').onChange(dirty);
     for (const frame of DAY_KEYFRAMES) {
-      if (frame.name === 'afternoon') continue; // must stay the v0.2 look (baselines, IconStudio)
+      if (frame.name === 'afternoon') continue; // pinned: screenshot baselines and IconStudio rely on it
       this.addKeyframeDebug(folder.addFolder(`${frame.name} (${frame.t})`), frame, dirty);
     }
     folder.close();

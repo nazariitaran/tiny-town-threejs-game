@@ -1,0 +1,13 @@
+{
+  "name": "Tiny Town",
+  "short_name": "Tiny Town",
+  "description": "A cosy city-builder sandbox in your browser.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#bfe3ff",
+  "theme_color": "#bfe3ff",
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

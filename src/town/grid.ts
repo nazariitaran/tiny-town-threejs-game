@@ -1,7 +1,3 @@
-/**
- * CONTRACT FILE — pure grid helpers shared by town logic, renderer, picker and fx.
- * Pure functions only; no three.js. Unit-tested in src/town/grid.test.ts.
- */
 import type { Cell, Edge, Rotation } from './types';
 
 export const cellKey = (cell: Cell): string => `${cell.x},${cell.z}`;
@@ -22,7 +18,6 @@ export const NEIGHBOURS: ReadonlyArray<Readonly<Cell>> = [
   { x: -1, z: 0 },
 ];
 
-/** Footprint in cells after rotation (odd quarter turns swap width/depth). */
 export function rotatedFootprint(footprint: readonly [number, number], rotation: Rotation): [number, number] {
   return rotation % 2 === 0 ? [footprint[0], footprint[1]] : [footprint[1], footprint[0]];
 }
@@ -58,16 +53,12 @@ export function edgeOfCellSide(cell: Cell, sideIndex: 0 | 1 | 2 | 3): Edge {
   }
 }
 
-/** Is the edge on or inside the plot (width × depth)? */
 export function edgeInBounds(edge: Edge, width: number, depth: number): boolean {
   if (edge.side === 'n') return edge.x >= 0 && edge.x < width && edge.z >= 0 && edge.z <= depth;
   return edge.x >= 0 && edge.x <= width && edge.z >= 0 && edge.z < depth;
 }
 
-/**
- * Cells visited by a straight segment between two cells, inclusive and gap-free
- * (4-connected supercover), so fast drags never skip cells.
- */
+/** Cells on a straight segment, inclusive and gap-free (4-connected supercover), so fast drags never skip cells. */
 export function cellsOnLine(from: Cell, to: Cell): Cell[] {
   const cells: Cell[] = [{ x: from.x, z: from.z }];
   let x = from.x;
@@ -94,7 +85,7 @@ export function cellsOnLine(from: Cell, to: Cell): Cell[] {
 
 /**
  * Roads are laid in aligned ROAD_BLOCK × ROAD_BLOCK cell blocks (min corner at even x, z): one road
- * tile covers a whole block, and a block is either all road or has no road at all (WP-12).
+ * tile covers a whole block, and a block is either all road or has no road at all.
  */
 export const ROAD_BLOCK = 2;
 

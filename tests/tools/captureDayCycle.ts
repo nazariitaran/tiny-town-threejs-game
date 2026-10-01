@@ -1,21 +1,16 @@
 /**
- * Day/night evidence capture (WP-16c): records Auto mode with a short debug day
- * (`?debug&day=N`, an N-second day) over the sample town, as a video plus labelled stills.
+ * Records Auto mode over the sample town with a short debug day (`?debug&day=N`, an N-second day),
+ * as a video plus labelled stills.
  *
  *   PORT=5217 npm run dev            # in another shell
- *   node tests/tools/captureDayCycle.ts [--day 20] [--seconds 240] [--out artifacts/wp-16c/day-cycle] [--mobile]
+ *   node tests/tools/captureDayCycle.ts [--day 20] [--seconds 240] [--out artifacts/day-cycle] [--mobile]
  *
- * Runs until the clock has gone once round the day (back past the t it started at), or --seconds
- * of wall time. Game time can lag wall time: the loop clamps delta (0.05 s), so a slow headless
- * frame rate stretches an N-second day (each row records `fps`). The stills (one per wall second)
- * can be assembled into a fixed-length video afterwards, e.g. with ffmpeg.
+ * Runs until the clock has gone once round the day, or --seconds of wall time. Game time can lag
+ * wall time: the loop clamps delta (0.05 s), so a slow headless frame rate stretches an N-second
+ * day (each row records `fps`).
  *
- * Writes <out>/day-cycle.webm (Playwright recordVideo), <out>/still-<nn>-<phase>-t<t>.png every
- * second, named stills for each phase (dusk.png, night.png, dawn.png, day.png: the first frame
- * well inside that phase) and <out>/timeline.json ({ s, t, phase, night, lightsOn, lamps }).
- * The debug panel is hidden through the real `hideDebugUi` hook; the town comes from
- * setState('sample-town') and the pin that state sets is released with setTimeOfDay(null), so the
- * running Auto clock (started in the morning by Start) drives everything.
+ * Writes <out>/day-cycle.webm, <out>/still-<nn>-<phase>-t<t>.png every second, one named still per
+ * phase (dawn.png, day.png, dusk.png, night.png) and <out>/timeline.json.
  */
 import { copyFileSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -34,7 +29,7 @@ function parseArgs(argv: string[]): Args {
     url: `http://127.0.0.1:${process.env.PORT ?? 5188}`,
     day: 20,
     seconds: 240,
-    out: 'artifacts/wp-16c/day-cycle',
+    out: 'artifacts/day-cycle',
     mobile: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
@@ -49,7 +44,7 @@ function parseArgs(argv: string[]): Args {
   return args;
 }
 
-/** A still counts as "inside" a phase once t is this far past the phase start. */
+/** The t range in which a still is named after its phase. */
 const PHASE_MID: Record<string, [number, number]> = {
   dawn: [0.03, 0.08],
   day: [0.3, 0.5],

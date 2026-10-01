@@ -1,24 +1,8 @@
 /**
- * Web Audio SFX manager (WP-07): unlock on the first user gesture, decode every file in SFX_TABLE,
- * play with variant pools, pitch jitter, per-event cooldowns and ui/sfx groups under one master gain.
- *
- * - Mute/volume persist through the SettingsPort (SaveStore → SETTINGS_STORAGE_KEY, merged with the other keys).
- *   The stored values are announced with `audio:changed` right after construction so the UI shows them.
- * - The context is suspended while the page is hidden and resumed when it's visible again.
- * - Load/decode failures are reported once, as a single console.warn listing every failed file; never thrown.
- * - Drag strokes: at most one build sound per BUILD_SOUND_GAP_MS, and placements rise in pitch by
- *   STROKE_PITCH_STEP per consecutive placement (build:placed.strokeIndex; resets with each new stroke).
- * - Per-event base playbackRate (undo 0.89×, redo 1.12×) comes from SFX_TABLE.
- *
- * Music (WP-13): MusicPlayer streams one looping track on its own bus under the master gain. It is
- * created in unlock() (the Start/Continue gesture), so nothing is fetched before Start. Music on/off and
- * music volume persist through the same SettingsPort (`music`, `musicVolume`); it is ducked while the
- * menu is open, paused while muted or hidden. See MusicPlayer.ts and docs/assets/audio.md.
- * Music resume (WP-18): the position is saved through the same port (`get/setMusicPosition`, optional)
- * when the page is hidden or unloaded (`pagehide`), and the next visit resumes from it.
- *
- * Settings come from the SettingsPort (Game passes WP-02's SaveStore). If none is given, the manager
- * runs on DEFAULT_SETTINGS and doesn't persist.
+ * Web Audio SFX and music: unlocks on the first user gesture, decodes every file in SFX_TABLE, and plays
+ * with variant pools, pitch jitter, per-event cooldowns and ui/sfx groups under one master gain.
+ * Music is attached in unlock(), so nothing is fetched before Start. The context is suspended while the
+ * page is hidden.
  */
 import { assetUrl } from '../game/config';
 import type { GameBus } from '../game/events';
@@ -33,38 +17,32 @@ type Group = 'ui' | 'sfx';
 export interface AudioSettings {
   muted: boolean;
   volume: number;
-  /** Background music on (WP-13). */
   music: boolean;
-  /** Music volume 0..1 (WP-13). */
+  /** 0..1. */
   musicVolume: number;
 }
 
-/**
- * Where mute/volume are persisted. Structurally matches WP-02's SaveStore (`getSettings()` /
- * `setSettings(patch)`), so Game can pass its SaveStore instance straight in:
- * `new AudioManager(bus, fxRand, saves)`.
- */
+/** SaveStore satisfies it structurally. */
 export interface SettingsPort extends Partial<MusicPositionPort> {
   getSettings(): Partial<AudioSettings>;
   setSettings(patch: Partial<AudioSettings>): unknown;
 }
 
-/** Minimum gap between two build (place/remove) sounds, so drag-painting never machine-guns. */
+/** Minimum gap between place/remove sounds, so drag-painting never machine-guns. */
 export const BUILD_SOUND_GAP_MS = 60;
-/** Playback-rate rise per consecutive placement in one stroke (+2%). */
+/** Playback-rate rise per consecutive placement in one stroke. */
 export const STROKE_PITCH_STEP = 0.02;
-/** Cap on the stroke pitch rise (+40%, reached at the 20th placement) so long strokes don't squeak. */
+/** Caps the stroke pitch rise so long strokes don't squeak. */
 export const STROKE_PITCH_MAX = 0.4;
 /** Pitch jitter multiplier for placements after the first in a stroke. */
 const STROKE_JITTER_SCALE = 0.35;
 const DEFAULT_SETTINGS: AudioSettings = { muted: false, volume: 0.8, music: true, musicVolume: 0.5 };
-/** Master-gain ramp time constant (s): mute/volume changes fade instead of clicking. */
+/** Master-gain ramp time constant (s), so mute/volume changes don't click. */
 const GAIN_RAMP_S = 0.015;
 
 /** Removal pitch by layer: objects sound heavier, ground tiles lighter. */
 const REMOVE_RATE: Record<'ground' | 'object' | 'edge', number> = { ground: 1.06, object: 0.92, edge: 1 };
 
-/** Used when no SettingsPort is passed: defaults, nothing persisted. */
 const memorySettings: SettingsPort = {
   getSettings: () => ({}),
   setSettings: () => undefined,
@@ -81,10 +59,8 @@ export class AudioManager {
   private readonly unsubscribers: Array<() => void> = [];
   private muted: boolean;
   private volume: number;
-  /** Buffer sources started since boot (diagnostics: audio.starts). */
   private starts = 0;
   private lastBuildSoundAt = -Infinity;
-  /** True while we suspended the context because the page was hidden. */
   private suspendedForHidden = false;
   private loading: Promise<void> | null = null;
   private readonly music: MusicPlayer;
@@ -106,7 +82,7 @@ export class AudioManager {
         this.playBuild(
           this.placeEventFor(toolId),
           1 + Math.min(STROKE_PITCH_MAX, strokeIndex * STROKE_PITCH_STEP),
-          // less random jitter inside a stroke, so the +2% steps read as a rising run
+          // less jitter inside a stroke, so the pitch steps read as a rising run
           strokeIndex > 0 ? STROKE_JITTER_SCALE : 1,
         ),
       ),
@@ -119,7 +95,7 @@ export class AudioManager {
       on('intent:set-volume', ({ volume }) => this.setVolume(volume)),
       bus.on('intent:set-music', ({ enabled }) => this.setMusicEnabled(enabled)),
       bus.on('intent:set-music-volume', ({ volume }) => this.setMusicVolume(volume)),
-      // Duck the music while the menu (or any overlay opened from it) is up.
+      // The menu phase includes overlays opened from the menu.
       on('phase:changed', ({ phase }) => this.music.setDucked(phase === 'menu')),
     );
     document.addEventListener('visibilitychange', this.onVisibilityChange);
@@ -130,7 +106,7 @@ export class AudioManager {
     });
   }
 
-  /** Must be called from a user gesture handler (the title screen's Start button). */
+  /** Must be called from a user gesture handler. */
   async unlock(): Promise<void> {
     if (!this.context) {
       const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -147,7 +123,7 @@ export class AudioManager {
       this.loading = this.loadAll();
       this.music.attach(this.context, this.master);
     }
-    // Starts streaming on the first call; still inside the Start click, so play() is allowed.
+    // Still inside the gesture, so play() is allowed.
     this.syncMusic();
     if (this.context.state !== 'running' && !document.hidden) {
       try {
@@ -220,7 +196,7 @@ export class AudioManager {
     };
   }
 
-  /** Resolves when every file has been fetched and decoded (or failed). For tests/tools. */
+  /** Resolves once every file has been decoded or has failed. */
   whenLoaded(): Promise<void> {
     return this.loading ?? Promise.resolve();
   }
@@ -238,7 +214,6 @@ export class AudioManager {
     this.buffers.clear();
   }
 
-  /** Place/remove sounds share one rate limiter so a fast drag gives at most one sound per gap. */
   private playBuild(event: SfxEvent, rate: number, jitterScale = 1): void {
     const now = performance.now();
     if (now - this.lastBuildSoundAt < BUILD_SOUND_GAP_MS) return;
@@ -257,7 +232,6 @@ export class AudioManager {
     this.bus.emit('music:changed', { enabled, volume });
   }
 
-  /** Music sounds only once unlocked, while unmuted and visible (its own `enabled` is checked inside). */
   private syncMusic(): void {
     if (!this.context) return;
     this.music.setActive(!this.muted && !document.hidden);
@@ -280,7 +254,6 @@ export class AudioManager {
     const ctx = this.context;
     if (!ctx || ctx.state === 'closed') return;
     if (document.hidden) {
-      // Tab close, app switch, minimise: remember where the music is (also while muted, i.e. paused).
       this.music.savePosition();
       if (ctx.state === 'running') {
         this.suspendedForHidden = true;
@@ -316,7 +289,7 @@ export class AudioManager {
         }
       }),
     );
-    // One warning for the whole batch, never a throw: the game plays on without the missing sounds.
+    // One warning for the whole batch; the game plays on without the missing sounds.
     if (failures.length > 0 && this.context === ctx) {
       console.warn(`[audio] ${failures.length} of ${files.size} sound files failed to load/decode: ${failures.join(', ')}`);
     }

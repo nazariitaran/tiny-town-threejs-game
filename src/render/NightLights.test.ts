@@ -1,8 +1,3 @@
-/**
- * WP-16b night lights: the lamp registry (add / remove / undo / reset / load), lamp-head world
- * positions, the UV-cell centroid measurement, and NightLights' visibility / draw-call rules
- * (driven headless: no renderer, the scene's onBeforeRender is called by hand).
- */
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { CELL_SIZE, cellToWorld, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
@@ -58,7 +53,6 @@ describe('LampRegistry', () => {
     expect(registry.count).toBe(0);
     editor.load(save);
     expect(registry.count).toBe(lamps);
-    // A real placement, its undo and redo.
     const before = registry.count;
     expect(editor.apply({ type: 'place-object', kind: 'lamppost', cell: { x: 1, z: 1 }, rotation: 0 }, 'lamppost').ok).toBe(true);
     expect(registry.count).toBe(before + 1);
@@ -66,7 +60,6 @@ describe('LampRegistry', () => {
     expect(registry.count).toBe(before);
     editor.redo();
     expect(registry.count).toBe(before + 1);
-    // Bulldozing a lamp removes it.
     expect(editor.apply({ type: 'bulldoze', cell: { x: 1, z: 1 }, edge: null }, 'bulldoze').ok).toBe(true);
     expect(registry.count).toBe(before);
   });
@@ -89,7 +82,7 @@ describe('lamp head positions', () => {
     expect(out.z).toBeCloseTo(centre.z - 0.177, 6);
     objectPointToWorld(lamp(1, 10, 12, 3), head, out);
     expect(out.x).toBeCloseTo(centre.x - 0.177, 6);
-    // Multi-cell footprints are centred like TownRenderer does (a 2 × 2 roundabout-sized check).
+    // Multi-cell footprints are centred like TownRenderer centres them.
     objectPointToWorld({ kind: 'cottage', anchor: { x: 10, z: 12 }, rotation: 0 }, { x: 0, y: 0, z: 0 }, out);
     expect(out.x).toBeGreaterThanOrEqual(centre.x);
     expect(Math.abs(out.x - centre.x) % (CELL_SIZE / 2)).toBeCloseTo(0, 6);
@@ -109,7 +102,6 @@ describe('lamp head positions', () => {
     expect(c.triangles).toBe(2);
     expect(c.x).toBeCloseTo((2 * (2 / 3) + 0.5 * (10 + 1 / 3)) / 2.5, 6);
     expect(c.y).toBeCloseTo(1, 6);
-    // Indexed geometry gives the same answer.
     const indexed = measureCellCentroid(positions, uvs, [0, 1, 2, 3, 4, 5, 6, 7, 8], 8, 2)!;
     expect(indexed.x).toBeCloseTo(c.x, 6);
     expect(measureCellCentroid(positions, uvs, null, 3, 3)).toBeNull();
@@ -124,7 +116,7 @@ describe('NightLights (headless)', () => {
     scene.onBeforeRender = () => {
       externalHookCalls += 1;
     };
-    const library = new ModelLibrary(); // nothing loaded: the lamp head falls back to the facts table
+    const library = new ModelLibrary(); // nothing loaded: the lamp head uses FALLBACK_HEAD
     const life = new LifeSystem(scene, town, bus, createSeededRandom(2));
     const lights = new NightLights(scene, library, town, bus, life);
     if (state === 'sample') buildSampleTown(editor);
@@ -241,7 +233,7 @@ describe('NightLights (headless)', () => {
   });
 });
 
-describe('fireflies (stretch)', () => {
+describe('fireflies', () => {
   it('pick ≤ 24 stable spots over uncovered meadow cells, none without meadow', () => {
     const { town, editor } = setup();
     expect(pickFireflySpots(town)).toEqual([]);

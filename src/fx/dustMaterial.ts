@@ -1,15 +1,6 @@
 /**
- * Soft dust billboards for the placement/removal puffs (M3 polish: the faceted Lambert puffs read
- * as beige boulders). One InstancedMesh of unit quads:
- *  - billboarded in the vertex shader (the quad is expanded in view space around the instance's
- *    centre), so no camera access or per-frame quaternion work is needed on the CPU;
- *  - radial soft falloff with a faint top-lit gradient: reads as a round puff of dust without any
- *    faceting or hard silhouette;
- *  - per-instance opacity from the `aAlpha` instanced attribute (ParticlePool.alphaAt), and colour
- *    from instanceColor; transparent, no depth write, unlit, tone-mapped like the scene.
- * Procedural (no texture), so it costs no texture slot and works in Node unit tests.
- *
- * WP-08 (Feel & VFX).
+ * Soft dust billboards: unit quads expanded in view space by the vertex shader, radial falloff,
+ * per-instance alpha from `aAlpha`. Procedural, so it works in Node unit tests.
  */
 import * as THREE from 'three';
 

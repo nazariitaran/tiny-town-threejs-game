@@ -1,17 +1,14 @@
-/**
- * CONTRACT FILE — world/grid constants and the ONLY cell↔world mapping.
- * Every module that converts between grid cells and world space must use these.
- */
+// World/grid constants and the only cell↔world mapping: every cell↔world conversion goes through here.
 import { ROAD_BLOCK, rotatedFootprint } from '../town/grid';
 import type { Cell, Edge, Rotation } from '../town/types';
 
-/** Plot size in cells: 64 × 64 half-unit cells = 32 × 32 world units (WP-12 had 48 × 48 = 24 × 24). */
+/** Plot size in cells (32 × 32 world units). */
 export const PLOT_WIDTH = 64;
 export const PLOT_DEPTH = 64;
 
 /**
- * World units per grid cell (WP-12: 0.5). Toy scale: 1 world unit ≈ 8 m, so a cell ≈ 4 m.
- * One Kenney road tile (1 world unit) covers an aligned 2 × 2 road block (ROAD_TILE_SIZE).
+ * World units per grid cell. Toy scale: 1 world unit ≈ 8 m, so a cell ≈ 4 m.
+ * One Kenney road tile (1 world unit) covers an aligned 2 × 2 road block.
  */
 export const CELL_SIZE = 0.5;
 
@@ -22,14 +19,13 @@ export function cellToWorld(cell: Cell, out: { x: number; z: number } = { x: 0, 
   return out;
 }
 
-/** Fractional grid coordinates of a world point: cell x covers [x, x + 1). For anchorForPointer. */
+/** Fractional grid coordinates of a world point: cell x covers [x, x + 1). */
 export function worldToGridPoint(x: number, z: number, out: { x: number; z: number } = { x: 0, z: 0 }): { x: number; z: number } {
   out.x = x / CELL_SIZE + PLOT_WIDTH / 2;
   out.z = z / CELL_SIZE + PLOT_DEPTH / 2;
   return out;
 }
 
-/** World size of one road tile (it covers a ROAD_BLOCK × ROAD_BLOCK block of cells). */
 export const ROAD_TILE_SIZE = CELL_SIZE * ROAD_BLOCK;
 
 /** World-space centre of a (rotated) footprint anchored at its min corner. */
@@ -45,14 +41,13 @@ export function footprintCentreWorld(
   return out;
 }
 
-/** World-space centre of the road block containing `cell`. */
 export function roadBlockCentreWorld(cell: Cell, out: { x: number; z: number } = { x: 0, z: 0 }): { x: number; z: number } {
   out.x = (Math.floor(cell.x / ROAD_BLOCK) * ROAD_BLOCK + ROAD_BLOCK / 2 - PLOT_WIDTH / 2) * CELL_SIZE;
   out.z = (Math.floor(cell.z / ROAD_BLOCK) * ROAD_BLOCK + ROAD_BLOCK / 2 - PLOT_DEPTH / 2) * CELL_SIZE;
   return out;
 }
 
-/** Cell containing a world-space point (may be out of bounds — check with TownState.inBounds). */
+/** May return an out-of-bounds cell; check with TownState.inBounds. */
 export function worldToCell(x: number, z: number, out: Cell = { x: 0, z: 0 }): Cell {
   out.x = Math.floor(x / CELL_SIZE + PLOT_WIDTH / 2);
   out.z = Math.floor(z / CELL_SIZE + PLOT_DEPTH / 2);
@@ -68,7 +63,6 @@ export function edgeToWorld(edge: Edge): { x: number; z: number; alongX: boolean
     : { x: x0, z: z0 + CELL_SIZE / 2, alongX: false };
 }
 
-/** Nearest edge to a world point (used by the picker for fence tools). */
 export function worldToNearestEdge(x: number, z: number): Edge {
   const cell = worldToCell(x, z);
   const localX = x / CELL_SIZE + PLOT_WIDTH / 2 - cell.x; // 0..1 inside the cell
@@ -81,18 +75,12 @@ export function worldToNearestEdge(x: number, z: number): Edge {
   return { x: cell.x, z: cell.z, side: 'w' };
 }
 
-/**
- * Resolve a public asset path ("/assets/...") against Vite's base URL, so the game also works
- * when hosted under a sub-path with a relative `base` (WP-11). Use for EVERY runtime asset URL.
- */
+/** Resolves a public asset path ("/assets/...") against Vite's relative base; use for every runtime asset URL. */
 export function assetUrl(path: string): string {
   return `${import.meta.env.BASE_URL}${path.replace(/^\//, '')}`;
 }
 
-// WP-25: the hidden touch-screen QualityTier / MAX_DPR are gone; the player's graphics preset
-// (game/graphics.ts GRAPHICS_PROFILES, saved in the settings) sets the DPR cap and the rest.
-
 export const SAVE_STORAGE_KEY = 'tiny-town:save:v1';
 export const SETTINGS_STORAGE_KEY = 'tiny-town:settings:v1';
-/** Where the background music resumes on the next visit (WP-18): `{ track, time }`. */
+/** Where the background music resumes on the next visit: `{ track, time }`. */
 export const MUSIC_POSITION_STORAGE_KEY = 'tiny-town:music:v1';

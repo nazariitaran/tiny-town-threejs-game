@@ -5,8 +5,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-// Starting-point render budgets (see threejs-aaa-graphics-builder
-// references/technical-art.md). Over-budget rows are reported, not fatal.
+// Over-budget rows are reported, not fatal.
 const RENDER_BUDGETS = {
   desktop: { calls: 300, triangles: 750_000, geometries: 300, textures: 60 },
   mobile: { calls: 150, triangles: 300_000, geometries: 200, textures: 40 },
@@ -210,8 +209,7 @@ export async function prepareCapture(page, args = {}) {
 
 const round = (value, digits) => Number(value.toFixed(digits));
 
-// Objective pixel statistics used as "Measured Evidence" in the visual
-// scorecard. Computed on a coarse luminance grid so cost stays trivial.
+// Pixel statistics on a coarse luminance grid, so the cost stays trivial.
 function computePixelMetrics(png) {
   const stepX = Math.max(1, Math.floor(png.width / 160));
   const stepY = Math.max(1, Math.floor(png.height / 90));
@@ -274,10 +272,8 @@ function computePixelMetrics(png) {
   };
 }
 
-// Playwright's default headless is chromium_headless_shell, which ships no GPU
-// backend and silently falls back to SwiftShader (CPU). Every frame-time and FPS
-// number measured that way is software-rendered fiction. channel:'chromium' runs
-// the full Chromium build in new headless mode against the real GPU.
+// The default headless shell has no GPU and silently falls back to SwiftShader, so its frame times are
+// meaningless; channel:'chromium' renders headless on the real GPU.
 async function launchBrowser() {
   const { chromium } = await loadDependency('@playwright/test');
   try {
@@ -292,9 +288,8 @@ async function launchBrowser() {
   }
 }
 
-// Records which GPU actually rasterized the run, so a software fallback can never
-// masquerade as performance evidence again. Reuses the game's own context when it
-// is WebGL rather than allocating a second one.
+// Records which GPU rasterized the run, so a software fallback shows up. Reuses the game's own
+// context when it is WebGL rather than allocating a second one.
 async function readGpuInfo(page) {
   const info = await page.evaluate(() => {
     const canvas = document.querySelector('canvas');
@@ -458,7 +453,7 @@ async function main() {
   let report;
   try {
     const context = await browser.newContext(args.mobile
-      // iPhone 13 touch/DPR, but the full 390×844 screen the PLAN §0 gate names (the preset's viewport is 390×664).
+      // iPhone 13 touch/DPR with the full 390×844 screen (the preset's viewport is 390×664).
       ? { ...devices['iPhone 13'], viewport: { width: 390, height: 844 }, userAgent: undefined }
       : { viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
     report = await inspectPage(await context.newPage(), args);

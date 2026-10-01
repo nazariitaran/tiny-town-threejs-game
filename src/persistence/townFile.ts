@@ -1,12 +1,6 @@
 /**
- * Town files (WP-21): a town downloaded to the player's drive and opened again later, on any
- * machine. PURE (no DOM, no three.js); tested in townFile.test.ts. UiRoot reads the file and decodes
- * it here (so the confirm can name the town); Game encodes the live town for a download.
- *
- * The file is JSON: { app: 'tiny-town', kind: 'town', format: 1, exportedAt, town: SavedTown }.
- * `town` is exactly what the autosave stores (the town, its name, the camera pose), so decoding goes
- * through the same parseSave: never trusted, migrated, clamped to the plot. A bare save (the JSON
- * the game keeps in localStorage) opens too.
+ * Town file codec. The file is JSON: { app: 'tiny-town', kind: 'town', format: 1, exportedAt, town: SavedTown },
+ * where `town` is the autosave record and is decoded through parseSave. A bare save opens too.
  */
 import { parseSave, type ParseOptions } from '../town/serialize';
 import { townFileStem } from '../town/townName';
@@ -14,7 +8,7 @@ import type { SavedTown } from '../town/types';
 
 export const TOWN_FILE_APP = 'tiny-town';
 export const TOWN_FILE_KIND = 'town';
-/** The wrapper's own version (the town inside carries the save version). */
+/** Wrapper version; the town inside carries its own save version. */
 export const TOWN_FILE_FORMAT = 1;
 /** A full 64 × 64 town is tens of KB; anything this big is not a town file. */
 export const TOWN_FILE_MAX_BYTES = 2_000_000;
@@ -25,18 +19,18 @@ export interface TownFile {
   app: typeof TOWN_FILE_APP;
   kind: typeof TOWN_FILE_KIND;
   format: number;
-  /** When the town was downloaded (ISO 8601). */
+  /** ISO 8601. */
   exportedAt: string;
   town: SavedTown;
 }
 
 export interface DecodedTownFile {
   town: SavedTown;
-  /** When the file was downloaded, if it says (a bare save doesn't). */
+  /** Null for a bare save. */
   exportedAt: Date | null;
 }
 
-/** Player-facing messages (the panel shows them as they are). */
+/** Player-facing messages, shown verbatim. */
 export const TOWN_FILE_ERRORS = {
   notTown: "That file isn't a Tiny Town town.",
   newer: 'This town was saved by a newer version of Tiny Town.',
@@ -49,14 +43,14 @@ export function encodeTownFile(town: SavedTown, exportedAt: Date): string {
   return JSON.stringify(file);
 }
 
-/** `puddleton-2026-09-29-1432.tinytown.json`, local time (the same stem as the town photo). */
+/** e.g. `puddleton-2026-09-29-1432.tinytown.json`, in local time. */
 export function townFileName(townName: string, date: Date): string {
   return `${townFileStem(townName, date)}${TOWN_FILE_EXTENSION}`;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-/** Read a town file (or a bare save). Never throws; an Error carries a player-facing message. */
+/** Never throws; a returned Error carries a player-facing message. */
 export function decodeTownFile(text: string, options: ParseOptions = {}): DecodedTownFile | Error {
   if (text.length > TOWN_FILE_MAX_BYTES) return new Error(TOWN_FILE_ERRORS.tooBig);
   let data: unknown;

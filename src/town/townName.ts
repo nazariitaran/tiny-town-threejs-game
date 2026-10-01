@@ -1,13 +1,7 @@
-/**
- * Town names (WP-20): the rules for a player's town name, the suggestion list and its random pick.
- * PURE (no three.js, no DOM) so it runs in Node tests. The list itself is owner-supplied data,
- * fetched at load from public/data/default_town_names.json (TOWN_NAMES_PATH), not bundled.
- */
-
-/** Longest name, in characters (Unicode code points). The name field's maxlength matches it. */
+/** In Unicode code points; the name field's maxlength matches it. */
 export const TOWN_NAME_MAX_LENGTH = 30;
 
-/** The name of a town that was never named: old saves, test states, and when the list can't load. */
+/** For a town that was never named: old saves, test states, and when the list can't load. */
 export const DEFAULT_TOWN_NAME = 'Tiny Town';
 
 /** The suggestion list, a JSON array of strings (public path, resolve it with assetUrl). */
@@ -26,7 +20,7 @@ export function sanitizeTownName(raw: string): string {
   return chars.length > TOWN_NAME_MAX_LENGTH ? chars.slice(0, TOWN_NAME_MAX_LENGTH).join('').trimEnd() : clean;
 }
 
-/** Length in characters (code points), as the name field's counter shows it. */
+/** Length in code points, as the name field's counter shows it. */
 export const townNameLength = (name: string): number => Array.from(name).length;
 
 /** A stored name: a string that is already sanitised and not empty. */
@@ -72,7 +66,7 @@ export function townNameSlug(name: string): string {
 }
 
 /**
- * The stem every file named after the town shares (the photo, WP-19; the town file, WP-21):
+ * The stem every file named after the town shares (the photo, the town file):
  * `puddleton-2026-09-28-1432`, local time; `tiny-town-…` when the name has no usable letters.
  */
 export function townFileStem(name: string, date: Date): string {

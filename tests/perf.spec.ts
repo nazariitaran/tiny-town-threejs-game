@@ -1,10 +1,4 @@
-/**
- * WP-24 frame budget, through real input and diagnostics (`__THREE_GAME_DIAGNOSTICS__.perf`):
- *  1. With no input the loop idles at 30 fps; a key press brings it back to 60 at once.
- *  2. The sun's shadow map is redrawn on demand: a still town (no cars, no flock) redraws nothing
- *     frame after frame, and placing a tree redraws it.
- *  3. On a Retina screen (DPR 2) Medium (the default preset) renders at DPR 1.5.
- */
+/** Frame budget and the on-demand shadow map, through real input and diagnostics `perf`. */
 import { expect, test, type Page } from '@playwright/test';
 import { applyState, clickCell, diagnostics, selectTool, trackErrors, gotoTitle, waitFrames } from './helpers';
 

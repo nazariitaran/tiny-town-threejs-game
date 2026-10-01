@@ -1,31 +1,16 @@
 /**
- * WP-10 (Ambient life) — pure traffic simulation. NO three.js, NO DOM (unit-tested in Node).
- *
- * Up to MAX_CARS cars wander the connected road graph (ground kind 'road'). WP-12: the sim runs on
- * the ROAD BLOCK grid (24 × 24 blocks of 2 × 2 cells, one road tile each): below, "cell" means a
- * block, Car.cx/cz are block coordinates and isRoad() reads the block's anchor cell.
- *  - A car crosses one road cell per manoeuvre (see lanePaths.ts) and picks its next exit when it
- *    enters a cell: uniformly among the road neighbours except straight back; U-turn only at a
- *    dead end. It only ever occupies road cells, and buildings can't stand on roads, so cars
- *    never drive through buildings.
- *  - Road features (roundabouts): only the centre block and the 4 arm blocks are drivable. Cars join
- *    or leave through the arms (roadTiles.isFeatureArm) and cross the centre on a ring path round
- *    the island (lanePaths.ringPath) instead of the usual straight/turn manoeuvres.
- *  - The car count follows the road network: target = min(MAX_CARS, drivable cells / CELLS_PER_CAR),
- *    where a drivable cell is a road cell with at least one road neighbour. Spawns are topped up
+ * Pure traffic simulation on the road block grid (2 × 2 cells, one road tile each): below, "cell" means a
+ * block and Car.cx/cz are block coordinates.
+ *  - A car crosses one cell per manoeuvre and picks its next exit on entry: uniformly among the road
+ *    neighbours except straight back; a U-turn only at a dead end.
+ *  - In a roundabout only the centre and the 4 arms are drivable; cars join and leave through the arms
+ *    and cross the centre on a ring path.
+ *  - target = min(MAX_CARS, drivable cells / CELLS_PER_CAR), scaled by the density. Spawns top up
  *    synchronously on every town change, so a state is fully determined by the town + seed.
- *  - Despawn: a car whose current cell OR the cell it is heading into stops being road is removed
- *    at once (bulldozed / repainted road). Extra cars beyond the target are removed newest first.
- *  - Spacing: a car brakes for a car ahead of it in its lane or crossing in front of it;
- *    mutual waits resolve by id, and any wait longer than MAX_WAIT_S gives way.
- *  - Density (WP-16): setDensity(f) scales the target, target = max(1, round(base × f)) while the
- *    network has room for any car (LifeSystem passes f = 1 − 0.5·night). Extra cars leave newest
- *    first, missing ones pop in through the usual top-up; an unchanged target is a no-op, so calling
- *    it every frame costs nothing and never draws from the stream.
- *  - Randomness: a private mulberry32 stream reseeded from the injected rng on 'reset'/'load',
- *    so the spawn layout of a test state is deterministic and gameplay RNG isn't consumed.
- *
- * step(0) (reduced motion) changes nothing: cars freeze in place.
+ *  - A car whose cell or next cell stops being road is removed at once; extra cars leave newest first.
+ *  - Mutual waits resolve by id, and any wait longer than MAX_WAIT_S gives way.
+ *  - A private stream, reseeded on 'reset'/'load', keeps spawn layouts deterministic without
+ *    consuming gameplay randomness.
  */
 import type { TownChange, TownStateReader } from '../town/types';
 import { createSeededRandom } from '../utils/random';
@@ -37,7 +22,6 @@ import { isFeatureArm, isFeatureCentre, roadFeatureAt } from '../town/roadTiles'
 
 export const MAX_CARS = 6;
 export const CELLS_PER_CAR = 6;
-/** Number of car models the renderer offers (sedan, hatchback, van, taxi). */
 export const CAR_MODELS = 4;
 
 export const CRUISE_SPEED = 0.95;
@@ -65,13 +49,13 @@ export interface Car {
   /** Arc length travelled through the current manoeuvre. */
   s: number;
   speed: number;
-  /** World position + unit heading, updated by step(). */
+  /** Unit heading. */
   hx: number;
   hz: number;
   waited: number;
   /** > 0 while the car ignores blockers after waiting too long (breaks any gridlock). */
   pushThrough: number;
-  /** Seconds since spawn (the renderer uses it for the pop-in). */
+  /** Seconds since spawn; drives the pop-in. */
   age: number;
   /** Spawned by a load/reset (no pop-in). */
   instant: boolean;
@@ -106,7 +90,7 @@ export class TrafficSim {
   private readonly probe = { x: 0, z: 0 };
   private readonly probeNext = { x: 0, z: 0 };
   private readonly blockedBy: number[] = [];
-  /** Optional hook for the renderer (instance slots); called after a car is removed. */
+  /** Called after a car is removed. */
   onRemove: ((car: Car) => void) | null = null;
 
   constructor(
@@ -127,17 +111,16 @@ export class TrafficSim {
     };
   }
 
-  /** Clear every car and reseed the private stream (town reset / load / test state). */
+  /** Clears every car and reseeds the private stream. */
   reset(): void {
     while (this.cars.length > 0) this.removeAt(this.cars.length - 1, false);
     this.rand = createSeededRandom(this.drawSeed());
     this.nextId = 1;
-    // A rebuilt town always spawns at full density; the owner re-applies the night right after
-    // (setDensity removes the newest). So a state's cars never depend on the previous state's time.
+    // A rebuilt town spawns at full density and the caller re-applies the night (setDensity removes
+    // the newest), so a state's cars never depend on the previous state's time of day.
     this.densityFactor = 1;
   }
 
-  /** React to a town:changed fact. */
   onTownChanged(changes: readonly TownChange[], cause: 'edit' | 'undo' | 'redo' | 'load' | 'reset'): void {
     if (cause === 'reset' || cause === 'load') this.reset();
     const touchesRoads =
@@ -161,10 +144,7 @@ export class TrafficSim {
     return this.densityFactor;
   }
 
-  /**
-   * Scale the car count (WP-16 night: f = 1 − 0.5·night). Extra cars leave newest first; missing
-   * ones spawn with a pop-in. No-op (no allocation, no randomness) while the target is unchanged.
-   */
+  /** Extra cars leave newest first; missing ones pop in. No allocation or randomness while the target is unchanged. */
   setDensity(factor: number): void {
     const f = Math.min(1, Math.max(0, Number.isFinite(factor) ? factor : 1));
     this.densityFactor = f;
@@ -175,7 +155,7 @@ export class TrafficSim {
     this.topUp(false);
   }
 
-  /** Advance the simulation. dt 0 (reduced motion) is a no-op. */
+  /** dt <= 0 is a no-op. */
   step(dt: number): void {
     if (dt <= 0) return;
     this.computeBlocking();
@@ -204,13 +184,11 @@ export class TrafficSim {
     }
   }
 
-  // ---------------------------------------------------------------------------------------
-
   private drawSeed(): number {
     return Math.floor(this.seedSource() * 0x100000000) >>> 0;
   }
 
-  /** Is block (x, z) drivable road? (Blocks are all road or none, so the anchor cell decides.) */
+  /** Blocks are all road or none, so the anchor cell decides. */
   private isRoad(x: number, z: number): boolean {
     this.probe.x = x * ROAD_BLOCK;
     this.probe.z = z * ROAD_BLOCK;
@@ -220,7 +198,7 @@ export class TrafficSim {
     return !feature || isFeatureCentre(feature, this.probe) || isFeatureArm(feature, this.probe, 0) !== isFeatureArm(feature, this.probe, 1);
   }
 
-  /** Is block (x, z) the centre of a road feature (a roundabout's island tile)? */
+  /** Is block (x, z) a roundabout's island tile? */
   private isRingBlock(x: number, z: number): boolean {
     this.probe.x = x * ROAD_BLOCK;
     this.probe.z = z * ROAD_BLOCK;
@@ -260,7 +238,6 @@ export class TrafficSim {
 
   private readonly exits: Dir[] = [];
 
-  /** Choose where to leave a cell entered heading `inDir`. */
   private chooseExit(x: number, z: number, inDir: Dir): Dir {
     const back = opposite(inDir);
     const options = this.roadExits(x, z, this.exits).filter((d) => d !== back);
@@ -268,7 +245,7 @@ export class TrafficSim {
     return options[Math.min(options.length - 1, Math.floor(this.rand() * options.length))];
   }
 
-  /** Move into the next cell; returns false when the car was removed. */
+  /** Returns false when the car was removed. */
   private advance(index: number, car: Car, path: LanePath): boolean {
     const nx = car.cx + DIR_X[car.outDir];
     const nz = car.cz + DIR_Z[car.outDir];
@@ -395,7 +372,7 @@ export class TrafficSim {
   }
 }
 
-/** The car target for a network capacity `base` at density `f`: max(1, round(base × f)), 0 without room. */
+/** max(1, round(base × f)), capped at base; 0 when the network has no room. */
 export function densityTarget(base: number, f: number): number {
   if (base <= 0) return 0;
   return Math.min(base, Math.max(1, Math.round(base * f)));
