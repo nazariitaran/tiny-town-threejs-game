@@ -12,10 +12,10 @@ interface ThreeGameDiagnostics {
   /** Move tool: the object being carried (its id, kind and the rotation it would be put down with), or null. */
   selection: { id: number; kind: import('./town/types').ObjectKind; rotation: number } | null;
   /**
-   * Variant picker: the active object tool's choice (a model index or 'mix'), `next` = the model its
-   * ghost shows and its next placement builds, `count` = its models. null for tools with one model.
+   * Variant picker: the active object tool's chosen model (what its ghost shows and it builds) and
+   * `count`, its models. null for tools with one model.
    */
-  variant: { choice: number | 'mix'; next: number; count: number } | null;
+  variant: { choice: number; count: number } | null;
   town: import('./town/types').TownStats;
   /** The town's name (WP-20): what the top bar and the photo card show. */
   townName: string;

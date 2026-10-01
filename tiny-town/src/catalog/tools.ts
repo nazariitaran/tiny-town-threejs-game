@@ -122,15 +122,6 @@ export const TOOL_CATEGORIES: ReadonlyArray<{ id: ToolCategory; label: string }>
 ];
 
 /**
- * Variant picker (2026-10-01): which of an object tool's models the next placement builds. A model
- * index, or 'mix' = a random one per placement (the ghost still shows the one that comes next).
- */
-export type VariantChoice = number | 'mix';
-
-/** Multi-model kinds that start on Mix (a dragged flower bed or birch stand looks better mixed). */
-export const VARIANT_DEFAULT_MIX: ReadonlySet<ObjectKind> = new Set<ObjectKind>(['tulips', 'birch']);
-
-/**
  * Icon of model `variant` of an object tool: model 0 is the tool's own icon, the others are
  * tool-<id>-v<n>.png (rendered by scripts/render-icons.mjs, like the tool icons).
  */

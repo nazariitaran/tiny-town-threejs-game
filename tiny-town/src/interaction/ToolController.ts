@@ -20,9 +20,9 @@
  * keeps its id and variant). While carried, the object stays painted blue in place (a second ghost)
  * and the hover ghost follows the pointer, mint or red; R turns it (not trees and plants). Esc or a
  * right-click put it back; so do another tool, undo/redo and leaving the build phase.
- * Variant picker: each multi-model object tool remembers a choice for the session (a model, or 'mix'
- * = a fresh random model per placement). `nextVariant` is the model the ghost shows and every build
- * action of the tool carries, so the click builds exactly what the ghost showed (V / Shift+V cycle).
+ * Variant picker: each multi-model object tool remembers the player's chosen model for the session
+ * (first model until chosen). `chosenVariant` is the model the ghost shows and every build action of
+ * the tool carries, so the click builds exactly what the ghost showed (V / Shift+V cycle).
  *
  * Input: mouse/pen left button = tool (right/middle/Alt+left = camera; a right click without a drag deselects the tool). Touch: one finger = tool
  * (committed after 150 ms or 10 px so a second finger can still turn it into a camera gesture),
@@ -33,7 +33,7 @@
 import * as THREE from 'three';
 import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS, ZEBRA_PIECE_MODELS } from '../catalog/models';
 import { objectDef, type ObjectDef } from '../catalog/objects';
-import { actionForTool, RETIRED_TOOLS, toolDef, VARIANT_DEFAULT_MIX, type DragMode, type ToolId, type VariantChoice } from '../catalog/tools';
+import { actionForTool, RETIRED_TOOLS, toolDef, type DragMode, type ToolId } from '../catalog/tools';
 import type { DebugTools } from '../debug/DebugTools';
 import {
   CELL_SIZE,
@@ -126,8 +126,8 @@ interface Carry {
 /** What diagnostics `selection` publishes. */
 export type SelectionInfo = { id: number; kind: ObjectKind; rotation: Rotation };
 
-/** What diagnostics `variant` publishes: the active tool's choice, the model the next placement builds, and its model count. */
-export type VariantInfo = { choice: VariantChoice; next: number; count: number };
+/** What diagnostics `variant` publishes: the active tool's chosen model (what its ghost shows and it builds) and its model count. */
+export type VariantInfo = { choice: number; count: number };
 
 interface HoverState {
   cell: Cell | null;
@@ -141,10 +141,10 @@ export class ToolController {
   /** Right button press awaiting release: a click without a drag deselects the tool. */
   private rightPress: { pointerId: number; clientX: number; clientY: number } | null = null;
   private rotation: Rotation = 0;
-  /** Variant picker: each multi-model object tool's choice this session (unset → its default). */
-  private readonly variantChoices = new Map<ObjectKind, VariantChoice>();
-  /** The model the active tool's ghost shows and its next placement builds (0 for one-model tools). */
-  private nextVariant = 0;
+  /** Variant picker: each multi-model object tool's chosen model this session (unset → model 0). */
+  private readonly variantChoices = new Map<ObjectKind, number>();
+  /** The model the active tool's ghost shows and its placements build (0 for one-model tools). */
+  private chosenVariant = 0;
   private enabled = false;
   private stroke: Stroke | null = null;
   private pendingTouch: PendingTouch | null = null;
@@ -183,8 +183,6 @@ export class ToolController {
     scene: THREE.Scene,
     /** For GhostPreview models. Templates are ready once phase leaves 'loading'. */
     library: ModelLibrary,
-    /** The gameplay RNG (Game.rng, never the cosmetic one): Mix rolls the next model with it. */
-    private readonly rng: () => number,
     debug?: DebugTools,
   ) {
     this.ghost = new GhostPreview(scene, library);
@@ -248,7 +246,7 @@ export class ToolController {
   /** Variant picker state of the active tool (diagnostics `variant`); null unless it has several models. */
   get variant(): VariantInfo | null {
     const def = this.variantDef();
-    return def ? { choice: this.choiceFor(def.kind), next: this.nextVariant, count: def.variants } : null;
+    return def ? { choice: this.chosenVariant, count: def.variants } : null;
   }
 
   /** Hovered cell plus its validity (diagnostics `hover`); null off-plot. */
@@ -280,30 +278,25 @@ export class ToolController {
     this.toolId = this.toolId === toolId ? null : toolId;
     this.justPlaced.clear();
     this.cameraController.setToolActive(this.toolId !== null);
-    this.resolveNextVariant();
+    this.chosenVariant = this.choiceFor(this.variantDef());
     this.hoverDirty = true;
     this.emitToolChanged();
   }
 
-  /** Variant picker: build `choice` (a model index or 'mix') with the active tool from now on. */
-  selectVariant(choice: VariantChoice): void {
+  /** Variant picker: build model `choice` with the active tool from now on. */
+  selectVariant(choice: number): void {
     const def = this.variantDef();
-    if (!def) return;
-    if (choice !== 'mix' && !(Number.isInteger(choice) && choice >= 0 && choice < def.variants)) return;
-    if (choice === this.choiceFor(def.kind)) return;
+    if (!def || !Number.isInteger(choice) || choice < 0 || choice >= def.variants || choice === this.chosenVariant) return;
     this.variantChoices.set(def.kind, choice);
-    this.resolveNextVariant();
+    this.chosenVariant = choice;
     this.hoverDirty = true;
     this.emitToolChanged();
   }
 
-  /** V / Shift+V: style 1 → … → style n → Mix → style 1 (and back). */
+  /** V / Shift+V: style 1 → … → style n → style 1 (and back). */
   cycleVariant(direction: 1 | -1): void {
     const def = this.variantDef();
-    if (!def) return;
-    const order: VariantChoice[] = [...Array.from({ length: def.variants }, (_, i) => i), 'mix'];
-    const at = order.indexOf(this.choiceFor(def.kind));
-    this.selectVariant(order[(at + direction + order.length) % order.length]);
+    if (def) this.selectVariant((this.chosenVariant + direction + def.variants) % def.variants);
   }
 
   /** The active tool's object definition when it has more than one model, else null. */
@@ -313,24 +306,14 @@ export class ToolController {
     return def.variants > 1 ? def : null;
   }
 
-  private choiceFor(kind: ObjectKind): VariantChoice {
-    return this.variantChoices.get(kind) ?? (VARIANT_DEFAULT_MIX.has(kind) ? 'mix' : 0);
-  }
-
-  /** Pick the model the next placement builds: the chosen one, or a fresh roll for Mix. */
-  private resolveNextVariant(): void {
-    const def = this.variantDef();
-    if (!def) {
-      this.nextVariant = 0;
-      return;
-    }
-    const choice = this.choiceFor(def.kind);
-    this.nextVariant = choice === 'mix' ? Math.min(def.variants - 1, Math.floor(this.rng() * def.variants)) : choice;
+  /** The remembered model of a multi-model tool (0 until the player picks one, and for every other tool). */
+  private choiceFor(def: ObjectDef | null): number {
+    return def ? (this.variantChoices.get(def.kind) ?? 0) : 0;
   }
 
   private emitToolChanged(): void {
     const def = this.variantDef();
-    const variant = def ? { choice: this.choiceFor(def.kind), count: def.variants } : null;
+    const variant = def ? { choice: this.chosenVariant, count: def.variants } : null;
     this.bus.emit('tool:changed', { toolId: this.toolId, rotation: this.rotation, variant });
   }
 
@@ -524,7 +507,7 @@ export class ToolController {
     const target = this.targetCell(pick);
     if (mode === 'single') {
       this.editor.beginStroke();
-      this.applyAction(actionForTool(this.toolId, target, pick.edge, this.rotation, this.nextVariant), target, true);
+      this.applyAction(actionForTool(this.toolId, target, pick.edge, this.rotation, this.chosenVariant), target, true);
       this.editor.endStroke();
       return;
     }
@@ -551,7 +534,7 @@ export class ToolController {
 
     if (mode === 'paint' || mode === 'scatter') {
       stroke.visited.add(this.strokeKey(target));
-      this.applyAction(actionForTool(this.toolId, target, pick.edge, this.rotation, this.nextVariant), target, true);
+      this.applyAction(actionForTool(this.toolId, target, pick.edge, this.rotation, this.chosenVariant), target, true);
     } else if (mode === 'bulldoze') {
       this.bulldozeAt(pick.grid, true);
     }
@@ -574,7 +557,7 @@ export class ToolController {
             if (stroke.visited.has(key)) continue;
             stroke.visited.add(key);
           }
-          this.applyAction(actionForTool(this.toolId, cell, pick.edge, this.rotation, this.nextVariant), cell, false);
+          this.applyAction(actionForTool(this.toolId, cell, pick.edge, this.rotation, this.chosenVariant), cell, false);
         }
         stroke.lastCell = target;
         return;
@@ -585,7 +568,7 @@ export class ToolController {
         const key = this.strokeKey(cell);
         if (stroke.visited.has(key)) return;
         stroke.visited.add(key);
-        this.applyAction(actionForTool(this.toolId, cell, pick.edge, this.rotation, this.nextVariant), cell, false);
+        this.applyAction(actionForTool(this.toolId, cell, pick.edge, this.rotation, this.chosenVariant), cell, false);
         return;
       }
       case 'bulldoze': {
@@ -642,15 +625,13 @@ export class ToolController {
   private applyEdge(edge: Edge, fromPress: boolean): void {
     if (!this.toolId) return;
     const cell = { x: Math.min(edge.x, this.editor.state.width - 1), z: Math.min(edge.z, this.editor.state.depth - 1) };
-    this.applyAction(actionForTool(this.toolId, cell, edge, this.rotation, this.nextVariant), cell, fromPress);
+    this.applyAction(actionForTool(this.toolId, cell, edge, this.rotation, this.chosenVariant), cell, fromPress);
   }
 
   private applyAction(action: BuildAction, cell: Cell, fromPress: boolean): PlanResult {
     const toolId = this.toolId!;
     const result = this.editor.apply(action, toolId);
     if (result.ok && action.type !== 'bulldoze') this.rememberPlaced(result);
-    // Mix: the next placement (and the ghost) gets a fresh model; a fixed choice resolves to itself.
-    if (result.ok && action.type === 'place-object') this.resolveNextVariant();
     // Only a deliberate click reports invalid; drags silently skip blocked cells.
     if (!result.ok && fromPress) this.reportInvalid(result, cell);
     return result;
@@ -908,7 +889,7 @@ export class ToolController {
     }
     if (!this.stroke) this.justPlaced.clear();
 
-    const preview = this.editor.preview(actionForTool(toolId, target, edge ?? pick.edge, this.rotation, this.nextVariant));
+    const preview = this.editor.preview(actionForTool(toolId, target, edge ?? pick.edge, this.rotation, this.chosenVariant));
     const valid = preview.ok || preview.reason === 'no-change';
     const reason = preview.ok || preview.reason === 'no-change' ? null : preview.message;
     const ghostState: GhostState = !valid ? 'invalid' : preview.ok ? 'valid' : 'neutral';
@@ -940,7 +921,7 @@ export class ToolController {
         z: centre.z,
         quarterTurns: marking ? 0 : this.rotation,
         state: ghostState,
-        parts: [marking ?? objectGhostPart(objectDefinition, objectDefinition.models[this.nextVariant % objectDefinition.models.length], 0, null)],
+        parts: [marking ?? objectGhostPart(objectDefinition, objectDefinition.models[this.chosenVariant % objectDefinition.models.length], 0, null)],
         // A road marking previews the marked road tile in its real colours inside the frame (like the
         // road tool), without the mint fill washing out the stripes; invalid keeps the red fill.
         solid: marking !== null,

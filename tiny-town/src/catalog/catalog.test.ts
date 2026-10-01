@@ -12,7 +12,7 @@ import { CAR_FILES, CAR_SCALE } from '../life/LifeSystem';
 import { MODEL_STYLES } from '../render/modelStyles';
 import { EDGE_MODELS, GROUND_MODELS, MODELS, ROAD_PIECE_MODELS, type ModelId } from './models';
 import { heightScale, OBJECT_KINDS, OBJECTS } from './objects';
-import { RETIRED_TOOLS, TOOL_CATEGORIES, TOOLS, toolsInCategory, VARIANT_DEFAULT_MIX, variantIcon, type ToolLayer } from './tools';
+import { RETIRED_TOOLS, TOOL_CATEGORIES, TOOLS, toolsInCategory, variantIcon, type ToolLayer } from './tools';
 import { createGlbLoader, PUBLIC_DIR, publicPath } from '../testing/gltfNode';
 
 
@@ -71,13 +71,12 @@ describe('catalog', () => {
     expect(files).toEqual([...placing.map((tool) => `tool-${tool.id}.png`), ...variantIcons].sort());
   });
 
-  it('variant picker: model 0 is the tool icon, the others tool-<id>-v<n>.png; Mix defaults have several models', () => {
+  it('variant picker: model 0 is the tool icon, the others tool-<id>-v<n>.png', () => {
     for (const tool of TOOLS.filter((t) => t.layer === 'object')) {
       const def = OBJECTS[tool.id as keyof typeof OBJECTS];
       expect(variantIcon(tool.id, 0)).toBe(tool.icon);
       for (let n = 1; n < def.variants; n++) expect(variantIcon(tool.id, n)).toBe(`/assets/icons/tool-${tool.id}-v${n}.png`);
     }
-    for (const kind of VARIANT_DEFAULT_MIX) expect(OBJECTS[kind].variants, kind).toBeGreaterThan(1);
   });
 
   it('every category has at most 12 tools (WP-23: digits 1–9 reach the first nine; ~12 fill a desktop row)', () => {

@@ -12,7 +12,7 @@
 // Styles (ui.css + bundled Nunito) are imported from src/styles.css, NOT here. Tests import
 // UI_TEST_IDS from ./testIds, which has no side effects.
 import { objectDef } from '../catalog/objects';
-import { TOOL_CATEGORIES, toolDef, toolsInCategory, variantIcon, type ToolCategory, type ToolDef, type ToolId, type VariantChoice } from '../catalog/tools';
+import { TOOL_CATEGORIES, toolDef, toolsInCategory, variantIcon, type ToolCategory, type ToolDef, type ToolId } from '../catalog/tools';
 import { assetUrl } from '../game/config';
 import type { GameBus, GameEvents, GamePhase } from '../game/events';
 import { DEFAULT_GRAPHICS, GRAPHICS_PRESETS, GRAPHICS_UI, isGraphicsPreset, type GraphicsPreset } from '../game/graphics';
@@ -64,11 +64,6 @@ function touchHint(hint: string): string {
     .replace(/^Click or drag/, 'Tap or drag')
     .replace(/^Click/, 'Tap');
 }
-/** A chip's data-variant ("0", "1", …, "mix") as a VariantChoice. */
-function parseVariant(value: string): VariantChoice {
-  return value === 'mix' ? 'mix' : Number(value);
-}
-
 /** A multi-model card's corner mark: one dot per model ("there are several of these"). */
 function variantBadge(count: number): string {
   return count > 1 ? `<span class="ui-card-variants" aria-hidden="true">${'<i></i>'.repeat(count)}</span>` : '';
@@ -601,7 +596,7 @@ export class UiRoot {
     else if (target.dataset.menuTab) this.selectMenuTab(target.dataset.menuTab as MenuTab);
     else if (target.hasAttribute('data-back')) this.back();
     else if (target.id === id.retry) window.location.reload();
-    else if (target.dataset.variant) this.bus.emit('intent:select-variant', { choice: parseVariant(target.dataset.variant) });
+    else if (target.dataset.variant) this.bus.emit('intent:select-variant', { choice: Number(target.dataset.variant) });
     else if (target.dataset.category) this.setCategory(target.dataset.category as ToolCategory);
     else if (target.dataset.tool) this.selectTool(target.dataset.tool as ToolId);
   };
@@ -1100,10 +1095,9 @@ export class UiRoot {
       const pressed = card.dataset.tool === this.activeTool;
       card.setAttribute('aria-pressed', String(pressed));
       if (pressed && !same) card.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-      // The selected card shows the model it builds (Mix and every other card: the tool's own icon).
+      // The selected card shows the model it builds (every other card: the tool's own icon).
       const tool = toolDef(card.dataset.tool as ToolId);
-      const choice = pressed ? this.variant?.choice : undefined;
-      const src = assetUrl(typeof choice === 'number' ? variantIcon(tool.id, choice) : tool.icon);
+      const src = assetUrl(pressed && this.variant ? variantIcon(tool.id, this.variant.choice) : tool.icon);
       const img = card.querySelector('img');
       if (img && img.getAttribute('src') !== src) img.setAttribute('src', src);
     }
@@ -1124,7 +1118,7 @@ export class UiRoot {
   }
 
   /**
-   * Variant picker: the strip of model chips (+ Mix) over the selected card, while building with a
+   * Variant picker: the strip of model chips over the selected card, while building with a
    * multi-model tool. The chips are rebuilt only when the tool or its model count changes.
    */
   private renderVariants(): void {
@@ -1142,22 +1136,18 @@ export class UiRoot {
     if (key !== this.variantStripKey) {
       this.variantStripKey = key;
       const label = toolDef(tool).label;
-      const chips = Array.from(
+      strip.innerHTML = Array.from(
         { length: variant.count },
         (_, n) =>
           `<button type="button" class="ui-chip" id="${UI_TEST_IDS.variant(n)}" data-variant="${n}" aria-pressed="false" aria-label="${label}, style ${n + 1} of ${variant.count}" title="Style ${n + 1} (V)"><img src="${assetUrl(variantIcon(tool, n))}" alt="" width="64" height="64" draggable="false" /></button>`,
-      );
-      chips.push(
-        `<button type="button" class="ui-chip ui-chip-mix" id="${UI_TEST_IDS.variant('mix')}" data-variant="mix" aria-pressed="false" aria-label="${label}, mixed styles" title="Mix (V)">${GLYPHS.dice}</button>`,
-      );
-      strip.innerHTML = chips.join('');
+      ).join('');
       strip.hidden = false;
       strip.classList.remove('is-entering');
       void strip.offsetWidth; // restart the slide-up
       strip.classList.add('is-entering');
     }
     for (const chip of strip.querySelectorAll<HTMLElement>('[data-variant]')) {
-      chip.setAttribute('aria-pressed', String(parseVariant(chip.dataset.variant!) === variant.choice));
+      chip.setAttribute('aria-pressed', String(Number(chip.dataset.variant) === variant.choice));
     }
     this.placeVariants();
   }

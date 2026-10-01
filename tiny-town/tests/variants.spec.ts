@@ -1,6 +1,6 @@
 /**
  * Variant picker (docs/plans/variant-picker.md): a multi-model tool opens a strip of style chips over
- * its card, and every placement builds exactly the model the ghost showed (diagnostics `variant.next`).
+ * its card, and every placement builds exactly the chosen model the ghost shows (diagnostics `variant`).
  * Real input only (dock and chip clicks by UI_TEST_IDS, the mouse or a finger at cellToClient); what
  * was built is read back from the autosave.
  */
@@ -78,9 +78,9 @@ test('pick a style: the ghost and every click build it; the choice is remembered
   await selectTool(page, 'townhouse');
   const strip = byId(page, UI_TEST_IDS.variants);
   await expect(strip).toBeVisible();
-  await expect(strip.locator('.ui-chip')).toHaveCount(3); // two styles + Mix
+  await expect(strip.locator('.ui-chip')).toHaveCount(2); // one chip per model, nothing random
   expect(await pressedChip(page)).toBe('0');
-  expect((await diagnostics(page)).variant).toEqual({ choice: 0, next: 0, count: 2 });
+  expect((await diagnostics(page)).variant).toEqual({ choice: 0, count: 2 });
   await expectStripFits(page);
 
   // Style 1 (the first model): built as shown.
@@ -89,7 +89,7 @@ test('pick a style: the ghost and every click build it; the choice is remembered
 
   // Style 2: the ghost, the card's icon and the next two clicks all switch to it.
   await byId(page, UI_TEST_IDS.variant(1)).click();
-  await expect.poll(async () => (await diagnostics(page)).variant).toEqual({ choice: 1, next: 1, count: 2 });
+  await expect.poll(async () => (await diagnostics(page)).variant).toEqual({ choice: 1, count: 2 });
   expect(await pressedChip(page)).toBe('1');
   await expect(byId(page, UI_TEST_IDS.tool('townhouse')).locator('img')).toHaveAttribute('src', /tool-townhouse-v1\.png$/);
   if (!touch) {
@@ -116,7 +116,7 @@ test('pick a style: the ghost and every click build it; the choice is remembered
   await selectTool(page, 'townhouse');
   await expect(strip).toBeVisible();
   expect(await pressedChip(page)).toBe('1');
-  expect((await diagnostics(page)).variant).toMatchObject({ choice: 1, next: 1 });
+  expect((await diagnostics(page)).variant).toEqual({ choice: 1, count: 2 });
 
   // The strip goes with the tool: another category, Bulldoze, deselecting.
   await byId(page, UI_TEST_IDS.category('nature')).click();
@@ -132,21 +132,22 @@ test('pick a style: the ghost and every click build it; the choice is remembered
   errors.expectNone();
 });
 
-test('Mix: each placement builds the model the ghost showed, and V / Shift+V step the choice', async ({ page }, testInfo) => {
+test('tulips: every placement builds the picked style; V / Shift+V step through the styles', async ({ page }, testInfo) => {
   const errors = trackErrors(page);
   const touch = isMobile(testInfo.project.name);
   mkdirSync(ARTIFACTS, { recursive: true });
   await gotoTitle(page);
   await startBuilding(page);
-  await page.evaluate(() => window.__THREE_GAME_TEST_HOOKS__!.seed(12345));
 
   await selectTool(page, 'tulips');
-  expect(await pressedChip(page)).toBe('mix'); // tulips start on Mix
-  const shown: number[] = [];
-  for (let i = 0; i < 8; i++) {
-    const next = (await diagnostics(page)).variant!;
-    expect(next.choice).toBe('mix');
-    shown.push(next.next);
+  await expect(byId(page, UI_TEST_IDS.variants).locator('.ui-chip')).toHaveCount(3);
+  expect(await pressedChip(page)).toBe('0'); // the first model until the player picks
+  const picked: number[] = [];
+  for (let i = 0; i < 6; i++) {
+    const style = i % 3;
+    await byId(page, UI_TEST_IDS.variant(style)).click();
+    await expect.poll(async () => (await diagnostics(page)).variant?.choice).toBe(style);
+    picked.push(style);
     const p = await canvasPoint(page, 26 + i, 30);
     if (touch) await page.touchscreen.tap(p.x, p.y);
     else {
@@ -156,27 +157,26 @@ test('Mix: each placement builds the model the ghost showed, and V / Shift+V ste
     }
     await expectDiagnostics(page, { objects: i + 1 }, `tulips ${i + 1}`);
   }
-  const built = await savedVariants(page, 'tulips');
-  expect(built, 'every tulip is the model its ghost showed').toEqual(shown);
-  expect(new Set(built).size, 'Mix mixes').toBeGreaterThan(1);
-  await page.screenshot({ path: `${ARTIFACTS}/${testInfo.project.name}-tulips-mix.png` });
+  expect(await savedVariants(page, 'tulips'), 'every tulip is the picked style').toEqual(picked);
+  await page.screenshot({ path: `${ARTIFACTS}/${testInfo.project.name}-tulips-picked.png` });
 
   if (!touch) {
-    // V: Mix → style 1 → style 2 …; Shift+V steps back. The pressed chip follows.
+    // V steps forward and wraps; Shift+V steps back. The pressed chip follows.
+    await byId(page, UI_TEST_IDS.variant(0)).click();
     await page.keyboard.press('v');
-    await expect.poll(async () => (await diagnostics(page)).variant).toEqual({ choice: 0, next: 0, count: 3 });
-    expect(await pressedChip(page)).toBe('0');
+    await expect.poll(async () => (await diagnostics(page)).variant).toEqual({ choice: 1, count: 3 });
+    expect(await pressedChip(page)).toBe('1');
     await page.keyboard.press('v');
-    await expect.poll(async () => (await diagnostics(page)).variant?.choice).toBe(1);
+    await page.keyboard.press('v');
+    await expect.poll(async () => (await diagnostics(page)).variant?.choice).toBe(0);
     await page.keyboard.press('Shift+V');
-    await page.keyboard.press('Shift+V');
-    await expect.poll(async () => (await diagnostics(page)).variant?.choice).toBe('mix');
-    expect(await pressedChip(page)).toBe('mix');
+    await expect.poll(async () => (await diagnostics(page)).variant?.choice).toBe(2);
+    expect(await pressedChip(page)).toBe('2');
   }
   errors.expectNone();
 });
 
-test('phone widths: the five Suburban chips fit on screen as 44 px targets', async ({ page }, testInfo) => {
+test('phone widths: the four Suburban chips fit on screen as 44 px targets', async ({ page }, testInfo) => {
   test.skip(!isMobile(testInfo.project.name), 'phone layout');
   mkdirSync(ARTIFACTS, { recursive: true });
   await gotoTitle(page);
@@ -187,7 +187,7 @@ test('phone widths: the five Suburban chips fit on screen as 44 px targets', asy
   ]) {
     await page.setViewportSize(viewport);
     await selectTool(page, 'garage-house');
-    await expect(byId(page, UI_TEST_IDS.variants).locator('.ui-chip')).toHaveCount(5);
+    await expect(byId(page, UI_TEST_IDS.variants).locator('.ui-chip')).toHaveCount(4);
     await expectStripFits(page);
     await page.screenshot({ path: `${ARTIFACTS}/${testInfo.project.name}-${viewport.width}-suburban-strip.png` });
     await byId(page, UI_TEST_IDS.tool('garage-house')).click(); // put it away for the next width

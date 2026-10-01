@@ -652,10 +652,6 @@
   pointer-events: none;
 }
 
-.ui-chip-mix {
-  color: var(--ink-soft);
-}
-
 .ui-chip:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 0 var(--line-strong), var(--shadow-soft);

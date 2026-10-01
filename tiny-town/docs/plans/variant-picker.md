@@ -1,6 +1,6 @@
 # Variant picker: choose which version of a building you place (plan, 2026-10-01)
 
-> **Plan, being implemented on the branch `variant-picker`** (from `d7b2437` on `main`, after the Move tool merged; in the main checkout, owner choice: no worktree). It goes to `main` only after owner approval. As-built facts then go to `03-architecture.md`, `02-interaction-and-ui.md`, `docs/assets/models.md` and `progress.md`.
+> **Plan, implemented on the branch `variant-picker`** (from `d7b2437` on `main`, after the Move tool merged; in the main checkout, owner choice: no worktree) and merged to `main` after owner approval. **Owner review (2026-10-01): the Mix option is removed. The player always chooses**, so every multi-model tool starts on its first model and there is no random choice. Decision 3 and every mention of Mix below are superseded; see "As built". As-built facts are in `03-architecture.md`, `02-interaction-and-ui.md`, `docs/assets/models.md` and `progress.md`.
 
 ## Owner request (2026-10-01)
 > I am a bit annoyed by our variety system of buildings — I never really know if I'm building the exact building of which I see the ghost. […] we should be a bit more explicit about what variants of buildings we have by having some simple mechanism of expanding the tool tile up on hover if that tool has more than one variant, and then whichever the player chooses — we build that.
@@ -141,6 +141,15 @@
 - More models for single-model kinds.
 
 ## As built (2026-10-01)
+- **No Mix (owner review).** The first build had a Mix die chip (a random model per placement, rolled with the gameplay RNG; Tulips and Birch started on it). The owner removed it: "player will always choose". So:
+  - the strip holds one chip per model and nothing else;
+  - every tool starts on model 0 and remembers the player's pick for the session;
+  - `V` / `Shift+V` cycle through the models and wrap;
+  - `ToolController` no longer takes an RNG; `VariantChoice` and `VARIANT_DEFAULT_MIX` are gone;
+  - `intent:select-variant` and `tool:changed` carry a plain model index;
+  - diagnostics `variant` is `{choice, count}`.
+
+  `place-object` still rolls when it gets no variant, which only demo towns and tests do.
 - **Where the strip lives.** `.ui-variants` is a child of `.ui-dock-wrap`, absolutely positioned above the dock; `UiRoot.placeVariants` centres it on the selected card (clamped 8 px inside the viewport) and points its caret at the card, on tray scroll and resize too. It isn't a `data-phase` element (`showPhase` would unhide it); `renderVariants` shows it only in the build phase, with a multi-model tool whose card is in the open tray. So switching to another category hides it until the tool's tray is back. It has `pointer-events: auto`, so a click in a gap between chips never reaches the canvas.
 - **Hints.** The mouse hint of a multi-model tool gains "· V for style"; touch hints are unchanged. Help lists "V · Shift+V — Next style · previous style" and, under Touch, "Styles — Pick one in the row above the item".
 - **No helper changes.** The spec uses the chip ids (`UI_TEST_IDS.variant(n | 'mix')`) and reads variants from the autosave, as `move.spec.ts` does, so `tests/helpers.ts` didn't need `selectVariant` / `placedObjects`.
@@ -148,4 +157,4 @@
 - **Icons.** Only the 10 new `tool-<id>-v<n>.png` files are committed. The same run re-rendered 12 existing tool icons with at most 179 px of GPU noise each, and those were restored, as WP-23 did.
 - **CHANGELOG.** Not touched: there is no unreleased section (the Move tool didn't add one either); the player note belongs in the next release's section.
 - **Baselines.** The plan expected to re-capture the screenshot baselines because of the card badges. They didn't need it: every baseline passed unchanged (the dots stay under the comparison tolerance).
-- **Gates (2026-10-01).** `npm run verify` green: 560 unit tests (new: a chosen variant is built and draws no RNG; out-of-range and non-integer variants fall back to the roll; variant icons and Mix defaults in the catalog). Full e2e on both projects: **185 passed, 25 skipped, 0 failed** (12.3 min), including the new `tests/variants.spec.ts` (5 runs + 1 skipped by design: the phone-width check runs on mobile only). Evidence: `artifacts/variant-picker/` (style-2 ghost, built townhouses, Mix tulips on desktop and phone, the Suburban strip at 390 and 360 px).
+- **Gates (2026-10-01).** First build (with Mix): `npm run verify` green, full e2e 185 passed, 25 skipped, 0 failed (12.3 min). After removing Mix: see `progress.md`. Evidence: `artifacts/variant-picker/` (style-2 ghost, built townhouses, picked tulips on desktop and phone, the four Suburban chips at 390 and 360 px).
