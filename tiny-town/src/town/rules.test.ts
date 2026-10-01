@@ -116,7 +116,7 @@ describe('row 1 — paint-ground: in bounds and kind differs', () => {
 
 // ---------------------------------------------------------------------------------------------
 describe('row 2 — paint-ground under an object: new kind ∈ allowedGround', () => {
-  it('valid: grass/meadow under a house, pavement under a tree/bush/prop, walkway under a prop', () => {
+  it('valid: grass/meadow/pavement under a house, pavement under a tree/bush/prop, walkway under a prop', () => {
     const state = makeState();
     object(state, 'cottage', 1, 1);
     object(state, 'oak', 2, 1);
@@ -124,6 +124,7 @@ describe('row 2 — paint-ground under an object: new kind ∈ allowedGround', (
     object(state, 'lamppost', 4, 1);
     expectOk(plan(state, paint('grass', 1, 1)));
     expectOk(plan(state, paint('meadow', 1, 1)));
+    expectOk(plan(state, paint('pavement', 1, 1)));
     expectOk(plan(state, paint('pavement', 2, 1)));
     expectOk(plan(state, paint('pavement', 3, 1)));
     expectOk(plan(state, paint('walkway', 4, 1)));
@@ -138,10 +139,9 @@ describe('row 2 — paint-ground under an object: new kind ∈ allowedGround', (
     }
   });
 
-  it('invalid: pavement/walkway under a house → "Move the Cottage first"', () => {
+  it('invalid: walkway under a house → "Move the Cottage first"', () => {
     const state = makeState();
     object(state, 'cottage', 1, 1);
-    expectFail(plan(state, paint('pavement', 1, 1)), 'occupied', 'Move the Cottage first');
     expectFail(plan(state, paint('walkway', 1, 1)), 'occupied', 'Move the Cottage first');
   });
 
@@ -340,8 +340,8 @@ describe('row 4 — place-object: footprint in bounds, unoccupied, ground ∈ al
     const state = makeState();
     ground(state, 'pavement', [1, 1]);
     ground(state, 'walkway', [2, 1]);
-    expectFail(plan(state, placeObj('cottage', 1, 1)), 'needs-ground', 'Cottage needs grass, meadow or open field');
-    expectFail(plan(state, placeObj('family-home', 2, 1)), 'needs-ground', 'Family home needs grass, meadow or open field');
+    expectFail(plan(state, placeObj('cottage', 1, 1)), 'needs-ground', 'Cottage needs grass, meadow, pavement or open field');
+    expectFail(plan(state, placeObj('family-home', 2, 1)), 'needs-ground', 'Family home needs grass, meadow, pavement or open field');
     expectFail(plan(state, placeObj('oak', 2, 1)), 'needs-ground', 'Oak needs grass, meadow, pavement or open field');
     expectFail(plan(state, placeObj('bush', 2, 1)), 'needs-ground', 'Bush needs grass, meadow, pavement or open field');
   });
@@ -673,8 +673,8 @@ describe('multi-cell footprints (WP-12; WP-17 sizes: homes 4 × 4, townhouse 3 �
     ground(state, 'road', [4, 4]);
     expectFail(plan(state, placeObj('cottage', 2, 2)), 'blocked-by-road', "Cottage can't go on a road");
     const other = makeState();
-    ground(other, 'pavement', [3, 4]);
-    expectFail(plan(other, placeObj('townhouse', 2, 2)), 'needs-ground', 'Townhouse needs grass, meadow or open field');
+    ground(other, 'walkway', [3, 4]);
+    expectFail(plan(other, placeObj('townhouse', 2, 2)), 'needs-ground', 'Townhouse needs grass, meadow, pavement or open field');
   });
 
   it('rotation swaps the footprint: a 3×4 townhouse at rotation 1 occupies 4×3', () => {
