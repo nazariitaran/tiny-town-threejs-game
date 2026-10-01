@@ -1,16 +1,9 @@
 /**
- * Builder camera: MapControls remapped so the LEFT button / one finger stay free for building.
- * Gesture table: docs/design/02-interaction-and-ui.md §1. WP-05 (Interaction) owns this file.
+ * Builder camera: MapControls remapped so the left button / one finger stay free for building.
  *
- *  Pan    right-drag · WASD / arrows (frame-rate independent, eased) · left-drag with no tool ·
- *         two-finger drag
- *  Orbit  middle-drag · Alt+left-drag (also tilts) · Q / E animated 45° steps · two-finger twist
- *  Zoom   wheel (zoom-to-cursor) · + / − (animated) · pinch
- *  Reset  reset() tweens back to DEFAULT_POSE (F / Home emit intent:reset-camera)
- *  Title  setMode('title'): TITLE_POSE, slow auto-orbit, no input.
- *
- * Clamps: polar 30–70°, distance 6–60 (at least 1.2× the fitted home distance), target over the plot + 2 cells. Tunables live in
- * debug.folder('Camera') with ?debug.
+ *  Pan    right-drag · WASD / arrows · left-drag with no tool · two-finger drag
+ *  Orbit  middle-drag · Alt+left-drag (also tilts) · Q / E 45° steps · two-finger twist
+ *  Zoom   wheel (zoom-to-cursor) · + / − · pinch
  */
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
@@ -21,7 +14,7 @@ import { CENTRE_ABOVE_DOCK_PX, dockTopPx, fitPlotPose, insetsFor } from './frami
 import { easeInOutCubic, easeOutCubic, shortestAngle } from './strokeMath';
 
 const DEG = Math.PI / 180;
-/** defaultPoseFor(1280, 720) rounded (see DEFAULT_POSE). */
+/** defaultPoseFor(1280, 720), rounded. */
 const DESKTOP_TARGET = 1.829;
 const DESKTOP_DISTANCE = 35.843;
 
@@ -33,7 +26,6 @@ export interface CameraPose {
   distance: number;
 }
 
-/** Design angle of the build camera: 45° yaw, 52° polar, looking at the plot centre. */
 const BUILD_ANGLE: CameraPose = {
   targetX: 0,
   targetZ: 0,
@@ -42,11 +34,7 @@ const BUILD_ANGLE: CameraPose = {
   distance: 30,
 };
 
-/**
- * Build start pose on the reference desktop viewport (1280×720, FOV 35): the whole plot between
- * the top bar and the dock. Equal to defaultPoseFor(1280, 720) (unit-tested). Other screens use
- * defaultPoseFor(width, height) — portrait pulls back and tilts steeper.
- */
+/** Build start pose on the reference desktop viewport (1280×720, FOV 35); equals defaultPoseFor(1280, 720). */
 export const DEFAULT_POSE: CameraPose = {
   targetX: DESKTOP_TARGET,
   targetZ: DESKTOP_TARGET,
@@ -56,9 +44,8 @@ export const DEFAULT_POSE: CameraPose = {
 };
 
 /**
- * Build start pose fitted to a viewport (CSS px): the plot fills the width (inside the side
- * insets) and its centre sits midway between the top bar and the dock, at least
- * CENTRE_ABOVE_DOCK_PX above the dock. The front corner may tuck under the dock.
+ * Build start pose fitted to a viewport (CSS px): the plot fills the width and its centre sits
+ * midway between the top bar and the dock, at least CENTRE_ABOVE_DOCK_PX above the dock.
  */
 export function defaultPoseFor(width: number, height: number, fov = 35): CameraPose {
   if (width <= 0 || height <= 0) return { ...DEFAULT_POSE };
@@ -87,7 +74,7 @@ export const TITLE_POSE: CameraPose = {
   targetZ: 2,
   azimuth: Math.PI / 4,
   polar: THREE.MathUtils.degToRad(78),
-  distance: 44, // 34 on the 24-unit (48 × 48) plot; scaled with the 32-unit plot
+  distance: 44,
 };
 
 export type CameraMode = 'title' | 'build';
@@ -139,7 +126,6 @@ const PAN_KEYS: Readonly<Record<string, readonly [number, number]>> = {
 export class CameraController {
   readonly controls: MapControls;
 
-  /** Tunables (debug.folder('Camera')). */
   readonly tuning = {
     /** Keyboard pan speed in camera-distances per second. */
     panSpeed: 0.75,
@@ -171,13 +157,12 @@ export class CameraController {
   private zoomTween: ScalarTween | null = null;
   private poseTween: PoseTween | null = null;
 
-  // Two-finger twist tracking (touch only).
   private readonly touchPoints = new Map<number, { x: number; y: number }>();
   private twistAngle: number | null = null;
   private twistAccum = 0;
   private twisting = false;
 
-  // Scratch objects (no per-frame allocations).
+  // Scratch objects: no per-frame allocations.
   private readonly offset = new THREE.Vector3();
   private readonly spherical = new THREE.Spherical();
   private readonly scratchPose: CameraPose = { ...DEFAULT_POSE };
@@ -220,17 +205,12 @@ export class CameraController {
     this.setPose(pose);
   }
 
-  /**
-   * The build start / reset pose for the current screen: DEFAULT_POSE's angle, pulled back and
-   * shifted so the whole plot sits between the top bar and the dock (portrait tilts steeper and
-   * pulls further back). Falls back to DEFAULT_POSE before the canvas has a size.
-   */
+  /** The build start / reset pose for the current screen. */
   buildPose(): CameraPose {
     const { width, height } = this.viewportSize();
     return defaultPoseFor(width, height, this.camera.fov);
   }
 
-  /** TITLE_POSE on landscape; see titlePoseFor for portrait. */
   titlePose(): CameraPose {
     const { width, height } = this.viewportSize();
     return titlePoseFor(width, height, this.camera.fov);
@@ -240,14 +220,14 @@ export class CameraController {
     return this.mode;
   }
 
-  /** Input gate from ToolController (live only in the 'building' phase). Title mode stays input-free regardless. */
+  /** Input gate from ToolController; title mode stays input-free regardless. */
   setInputEnabled(enabled: boolean): void {
     this.inputEnabled = enabled;
     if (!enabled) this.clearHeldInput();
     this.syncEnabled();
   }
 
-  /** Back to the default build pose (F / Home, 'intent:reset-camera'), as a short eased tween. */
+  /** Back to the build pose (F / Home) as a short eased tween. */
   reset(): void {
     if (this.mode === 'title') {
       this.setPose(this.titlePose());
@@ -338,8 +318,6 @@ export class CameraController {
     this.controls.removeEventListener('start', this.cancelScriptedMoves);
     this.controls.dispose();
   }
-
-  // ---- internals -----------------------------------------------------------------------
 
   private get acceptsInput(): boolean {
     return this.mode === 'build' && this.inputEnabled;
@@ -458,7 +436,6 @@ export class CameraController {
     return THREE.MathUtils.lerp(tween.from, tween.to, k);
   }
 
-  /** Keep the orbit target over the plot (+2 cells margin). */
   private clampTarget(): void {
     const limitX = (PLOT_WIDTH / 2 + 2) * CELL_SIZE;
     const limitZ = (PLOT_DEPTH / 2 + 2) * CELL_SIZE;

@@ -1,6 +1,6 @@
 /**
  * One InstancedMesh for one (model, part): add/remove instances in O(1) with swap-remove,
- * capacity doubling, and a single upload per frame (flush). WP-03.
+ * capacity doubling, and a single upload per frame (flush).
  */
 import * as THREE from 'three';
 

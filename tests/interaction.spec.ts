@@ -1,12 +1,11 @@
 /**
- * WP-05 interaction acceptance checks. Everything is driven through REAL input (Playwright mouse /
- * keyboard / touchscreen, CDP Input.dispatchTouchEvent for multi-touch) at cells located with the
- * cellToClient test hook; diagnostics are only read, never written.
+ * Interaction checks, driven through real input (mouse, keyboard, touchscreen; CDP
+ * Input.dispatchTouchEvent for multi-touch) at cells located with cellToClient.
  */
 import { expect, test, type Page } from '@playwright/test';
 import { clickStart, footprintPoint, footprintPointer } from './helpers';
 
-/** `hover` also carries the validity the UI shows (ToolController.hovered); typed narrower in vite-env.d.ts. */
+/** `hover` also carries the validity the UI shows; vite-env.d.ts types it narrower. */
 type Diagnostics = Omit<NonNullable<Window['__THREE_GAME_DIAGNOSTICS__']>, 'hover'> & {
   hover: { x: number; z: number; valid?: boolean; reason?: string | null } | null;
 };
@@ -83,7 +82,7 @@ test.describe('desktop mouse + keyboard', () => {
     const errors = collectErrors(page);
     await startBuilding(page);
 
-    // 1. Road drag (4,24) → (24,24): 11 road blocks (WP-12: 2×2 cells each), one undo entry.
+    // 1. Road drag (4,24) → (24,24): 11 road blocks of 2×2 cells, one undo entry.
     await selectTool(page, 'streets', 'road');
     const before = await diag(page);
     await drag(page, await cellPoint(page, 4, 24), await cellPoint(page, 24, 24));
@@ -92,16 +91,15 @@ test.describe('desktop mouse + keyboard', () => {
     expect(afterRoad.history.undoDepth).toBe(before.history.undoDepth + 1);
     console.log(`[road] roadTiles=${afterRoad.town.roadTiles} undoDepth ${before.history.undoDepth}→${afterRoad.history.undoDepth}`);
 
-    // 2. Cottage on a valid plot, then over the road: rejected, invalidCount +1. WP-17: the cottage is
-    //    4 × 4 and centres on a cell corner, so the pointer aims at the footprint centre
-    //    (footprintPointer): anchor (11, 14) covers x 11–14, rows 14–17; the pointer is in cell (12, 15).
+    // 2. Cottage on a valid plot, then over the road: rejected, invalidCount +1. The 4 × 4 cottage
+    //    centres on a cell corner: anchor (11, 14) covers x 11–14, rows 14–17; the pointer is in cell (12, 15).
     await selectTool(page, 'homes', 'cottage');
     const plot = footprintPointer('cottage', { x: 11, z: 14 });
     const valid = await assertOnCanvas(page, await footprintPoint(page, 'cottage', { x: 11, z: 14 }), 'cottage plot');
     await page.mouse.move(valid.x, valid.y);
     await page.mouse.click(valid.x, valid.y);
     await expect.poll(async () => (await diag(page)).objects).toBe(1);
-    // M1 fix: the cell we just built on is NOT reported invalid ("Something is already here").
+    // Right after the click, the cell just built on still reads valid.
     await diag(page);
     await diag(page);
     const afterPlace = await diag(page);
@@ -276,7 +274,7 @@ test.describe('desktop mouse + keyboard', () => {
     await page.mouse.move(p.x, p.y, { steps: 2 });
     await shot('ghost-meadow-tile');
 
-    // WP-17 townhouse 3 × 4: anchor (23, 19) = x 23–25, rows 19–22 on the verge north of the road
+    // Townhouse 3 × 4: anchor (23, 19) = x 23–25, rows 19–22 on the verge north of the road
     // (pointer in cell (24, 20)); anchor (23, 23) would cover the road (pointer in cell (24, 24)).
     await selectTool(page, 'homes', 'townhouse');
     p = await assertOnCanvas(page, await footprintPoint(page, 'townhouse', { x: 23, z: 19 }), 'townhouse plot');
@@ -408,9 +406,8 @@ test.describe('mobile touch', () => {
   });
 });
 
-// Evidence for the M3 "valid ghost reads on the green field" fix, at the DEFAULT zoom on both
-// projects. On mobile the ghost is shown via a mouse hover (touch has no hover; on a phone the
-// same ghost shows while the finger is down).
+// Valid ghosts at the DEFAULT zoom on both projects. On mobile the ghost is shown via a mouse hover
+// (touch has no hover; on a phone the same ghost shows while the finger is down).
 test('valid ghost at default zoom: house, road tile, fence (screenshots)', async ({ page }, testInfo) => {
   const errors = collectErrors(page);
   await startBuilding(page);
@@ -424,7 +421,7 @@ test('valid ghost at default zoom: house, road tile, fence (screenshots)', async
     await page.screenshot({ path: testInfo.outputPath(`${project}-${name}-crop.png`), clip });
   };
 
-  // WP-17 townhouse 3 × 4 anchored at (23, 19): the pointer sits in cell (24, 20) (footprintPointer).
+  // Townhouse 3 × 4 anchored at (23, 19): the pointer sits in cell (24, 20).
   await selectTool(page, 'homes', 'townhouse');
   const house = await assertOnCanvas(page, await footprintPoint(page, 'townhouse', { x: 23, z: 19 }), 'townhouse plot');
   await hoverAndShoot(house, 'ghost-valid-house');

@@ -1,24 +1,9 @@
 /**
- * WP-22 (Birds) — pure flock simulation. NO three.js, NO DOM (unit-tested in Node).
- *
- * Every so often a small flock crosses the plot and flies off the far side (docs/plans/wp-22-birds.md):
- *  - Scheduler: the first flock comes FIRST_FLOCK_S after reset, then one every FLOCK_INTERVAL_S,
- *    × TWILIGHT_FACTOR at dawn/dusk and up to TREE_FACTOR_MAX shorter in a leafy town. No new flock
- *    at night (night > NIGHT_CUTOFF); one in the air finishes its crossing. At most MAX_FLOCKS
- *    flocks and MAX_BIRDS birds at once. `auto` off (test states, reduced motion) = no spontaneous
- *    flocks; spawn() still works.
- *  - Path: a quadratic Bézier from ENTRY_RADIUS off-plot, through a control point near the centre
- *    (so it passes over the town), to the far side; constant ground speed; birds grow in / shrink
- *    out over the first / last FADE of the path. Altitude stays inside ALTITUDE, below the sun's
- *    shadow frustum top (Environment PLOT_CONTENT_HEIGHT = 4), so the shadows land on the town.
- *  - Birds: a formation slot (V, loose cloud, tight cloud or line) plus a slow wander; each has its
- *    own flap phase and flap/glide rhythm; the flock banks into its turn. Output per bird: world
- *    position, yaw (+Y rotation, the bird's +Z is its beak), bank (roll about its own +Z), scale and
- *    the inner/outer wing angles (radians, + = tip up) the renderer's vertex shader applies.
- *  - Randomness: a private mulberry32 stream, re-seeded by reset(seed). It never draws from the
- *    game's streams, so a flock never shifts cars, sounds or fx.
- *
- * step(0) (reduced motion) changes nothing: birds freeze in place and the timer stops.
+ * Pure flock simulation: now and then a small flock crosses the plot on a quadratic Bézier through a
+ * point near the centre, at constant ground speed, and flies off the far side.
+ * Per bird it outputs world position, yaw (+Y rotation; the bird's +Z is its beak), bank (roll about its
+ * own +Z), scale and inner/outer wing angles (radians, + = tip up).
+ * Its private seeded stream keeps flocks from shifting the game's other randomness.
  */
 import { createSeededRandom } from '../utils/random';
 
@@ -27,13 +12,13 @@ export const BIRD_SPECIES: readonly BirdSpecies[] = ['pigeon', 'starling', 'goos
 export type Formation = 'v' | 'cloud' | 'tight' | 'line';
 
 export interface SpeciesSpec {
-  /** sRGB colour (the renderer multiplies the bird's vertex shading by it). */
+  /** sRGB; multiplies the bird's vertex shading. */
   color: number;
-  /** Size relative to the base bird (wingspan BIRD_WINGSPAN). */
+  /** Relative to the base bird (BIRD_WINGSPAN). */
   size: number;
   count: readonly [number, number];
   flapHz: number;
-  /** Peak inner-wing angle while flapping (radians). */
+  /** Peak inner-wing angle while flapping, radians. */
   flapAmp: number;
   /** Chance that a flapping bout ends in a glide (otherwise another bout). */
   glideChance: number;
@@ -49,7 +34,6 @@ export const SPECIES: Readonly<Record<BirdSpecies, SpeciesSpec>> = {
   gull: { color: 0xf3f1ea, size: 1.45, count: [2, 4], flapHz: 2.5, flapAmp: 0.65, glideChance: 0.75, flapS: [0.8, 1.8], glideS: [1.5, 3.5], formation: 'line' },
 };
 
-/** Species weights by time of day (dawn/dusk favour starlings). */
 const WEIGHTS_DAY: Readonly<Record<BirdSpecies, number>> = { pigeon: 0.35, starling: 0.2, goose: 0.2, gull: 0.25 };
 const WEIGHTS_TWILIGHT: Readonly<Record<BirdSpecies, number>> = { pigeon: 0.2, starling: 0.45, goose: 0.25, gull: 0.1 };
 
@@ -85,7 +69,7 @@ const WANDER_UP = 0.04;
 export const FADE = 0.06;
 /** Base wingspan (world units, before species size and the renderer's scale). */
 export const BIRD_WINGSPAN = 0.36;
-/** Closest two formation slots may be (ground plane), in wingspans (birds wander ±WANDER on top). */
+/** Minimum gap between formation slots on the ground plane, in wingspans, before wander. */
 const MIN_SLOT_GAP = 1.3;
 /** Slow wander about the slot, in wingspans (side, back); small enough to keep MIN_SLOT_GAP − 2·wander > 0.8. */
 const WANDER_SIDE = 0.16;
@@ -155,9 +139,9 @@ export class FlockSim {
   readonly birds: Bird[] = [];
   /** Bumped whenever `birds` changes membership (the renderer re-writes instance colours). */
   version = 0;
-  /** Spontaneous flocks on/off (test states, reduced motion turn it off). */
+  /** Spontaneous flocks on/off; spawn() works either way. */
   auto = true;
-  /** Debug (`?debug&flock=N`): a fixed wait between flocks instead of the schedule. */
+  /** `?debug&flock=N`: a fixed wait between flocks instead of the schedule. */
   intervalOverride: number | null = null;
   /** Ground speed multiplier (lil-gui). */
   speedScale = 1;
@@ -181,7 +165,7 @@ export class FlockSim {
     return { auto: this.auto, flocks: this.flocks.length, birds: this.birds.length, spawned: this.spawned, nextFlockIn: this.nextIn };
   }
 
-  /** Clear the sky, re-seed and restart the schedule (the first flock comes FIRST_FLOCK_S later). */
+  /** Clears the sky, re-seeds and restarts the schedule. */
   reset(seed: number): void {
     this.rand = createSeededRandom(seed);
     this.clear();
@@ -189,20 +173,20 @@ export class FlockSim {
     this.nextIn = this.intervalOverride ?? this.between(FIRST_FLOCK_S);
   }
 
-  /** Remove every flock in the air (reduced motion); the schedule carries on. */
+  /** Removes every flock in the air; the schedule carries on. */
   clear(): void {
     if (this.flocks.length === 0) return;
     this.flocks.length = 0;
     this.rebuildBirds();
   }
 
-  /** Day/night: `night` 0 day .. 1 full night; `twilight` = dawn or dusk. */
+  /** `night` 0 day .. 1 full night; `twilight` = dawn or dusk. */
   setNight(night: number, twilight: boolean): void {
     this.night = Number.isFinite(night) ? night : 0;
     this.twilight = twilight;
   }
 
-  /** Launch a flock now (test hook / debug), whatever the time of day. Returns its bird count (0 = sky full). */
+  /** Launches a flock now, whatever the time of day. Returns its bird count (0 = sky full). */
   spawn(species?: BirdSpecies): number {
     if (this.flocks.length >= MAX_FLOCKS) return 0;
     const kind = species ?? this.pickSpecies();
@@ -284,16 +268,14 @@ export class FlockSim {
     else this.nextIn = this.interval();
   }
 
-  /** The wait until the next flock, from now (the schedule, or the debug override). */
+  /** Seconds until the next flock, from the schedule or the debug override. */
   interval(): number {
     if (this.intervalOverride !== null) return this.intervalOverride;
     const trees = Math.min(1, Math.max(0, this.treeCount()) / TREES_FULL);
     return this.between(FLOCK_INTERVAL_S) * (this.twilight ? TWILIGHT_FACTOR : 1) * (1 - TREE_FACTOR_MAX * trees);
   }
 
-  // ---------------------------------------------------------------------------------------
-
-  /** Move a flock along its path and pose its birds. Returns true once it has left. */
+  /** Returns true once the flock has left. */
   private advance(flock: Flock, dt: number): boolean {
     this.bezier(flock, flock.u);
     const tangent = Math.hypot(this.point.dx, this.point.dz) || 1;
@@ -311,7 +293,7 @@ export class FlockSim {
     return false;
   }
 
-  /** Place every bird of a flock (point must hold the flock's current Bézier sample). */
+  /** this.point must hold the flock's current Bézier sample. */
   private pose(flock: Flock, dt: number): void {
     const spec = SPECIES[flock.species];
     const fx = Math.sin(flock.yaw);
@@ -336,7 +318,6 @@ export class FlockSim {
     }
   }
 
-  /** Flap/glide rhythm and the two wing angles. */
   private flap(bird: Bird, spec: SpeciesSpec, dt: number): void {
     if (dt > 0) {
       bird.stateLeft -= dt;
@@ -353,7 +334,7 @@ export class FlockSim {
     bird.wingOuter = Math.sin(bird.flapPhase - OUTER_LAG) * bird.amp * OUTER_SHARE;
   }
 
-  /** Formation slots for `count` birds (the leader first). Slots never come closer than MIN_SLOT_GAP wingspans. */
+  /** Leader first; slots are at least MIN_SLOT_GAP wingspans apart. */
   private formation(spec: SpeciesSpec, count: number): Array<{ side: number; back: number; up: number }> {
     const span = BIRD_WINGSPAN * spec.size;
     const slots: Array<{ side: number; back: number; up: number }> = [{ side: 0, back: 0, up: 0 }];

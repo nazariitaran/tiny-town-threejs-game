@@ -1,24 +1,9 @@
 /**
- * Save format: TownState ⇄ SavedTown (= SavedTownV4, town/types.ts), validation and migration.
- * PURE (no three.js, no DOM). WP-02 owns this file; tested in serialize.test.ts.
+ * Save format: TownState ⇄ SavedTown. serializeTown is deterministic (objects by id, edges by key).
  *
- *   serializeTown(state, camera?, name?)  → SavedTown   (deterministic: objects by id, edges by key)
- *   parseSave(unknown | string)    → SavedTown | Error   (never throws)
- *
- * parseSave never trusts its input (it usually comes from localStorage):
- *  - rejects (returns Error) non-objects, bad JSON, missing/unknown/newer `version`, bad
- *    width/depth, and non-array ground/objects/edges;
- *  - migrates older versions through SAVE_MIGRATIONS (keyed on the version they upgrade FROM);
- *  - clamps to the plot size (cells/objects/edges outside it are dropped, a smaller save is
- *    centred on the plot, shifted by a whole number of road blocks, and padded with field), maps unknown ground kinds to field, and drops unknown object/fence
- *    kinds, malformed entries, duplicate ids, overlapping objects, objects on ground they are
- *    not allowed on, duplicate edges and fences between two road cells;
- *  - demotes road cells of partial 2 × 2 road blocks to field (roads come in aligned blocks);
- *  - drops road features (roundabouts) and road markings (zebra crossings) that are not
- *    block-aligned or not standing on road;
- *  - repairs nextObjectId (≥ highest id + 1) and drops a malformed camera pose;
- *  - keeps the town name (WP-20) sanitised, and drops one that is not a string or ends up blank.
- * The result is always loadable by TownEditor.load without throwing.
+ * parseSave treats its input as untrusted and never throws: it returns an Error for an unreadable or
+ * newer save, migrates older versions through SAVE_MIGRATIONS (keyed on the version they upgrade
+ * FROM), and repairs or drops anything that breaks a placement rule, so the result always loads.
  */
 import { PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
 import { OBJECTS } from '../catalog/objects';
@@ -32,7 +17,6 @@ export type RawSave = Record<string, unknown>;
 
 export type CameraPose = NonNullable<SavedTown['camera']>;
 
-/** Anything serializeTown can read (TownState satisfies it). */
 export interface SerializableTown extends TownStateReader {
   readonly nextObjectId: number;
 }
@@ -43,17 +27,10 @@ const EDGE_KINDS: readonly EdgeKind[] = ['hedge', 'fence-low', 'fence-tall'];
 const MAX_SAVE_DIMENSION = 512;
 
 /**
- * Migration hook: SAVE_MIGRATIONS[v] upgrades a raw save of version v to version v + 1.
- * Migrations receive already-JSON-parsed, still-unvalidated objects; parseSave validates after.
- * v0.3 (save v3) re-organised the catalog and dropped the v1 → v2 → v3 path on purpose: an older
- * save is rejected ("No migration from save version 2") and the game starts a fresh town.
- * WP-17 (save v4) grew the home, shop and church footprints; a v3 town would overlap, so there is no
- * v3 → v4 migration either ("No migration from save version 3").
+ * SAVE_MIGRATIONS[v] upgrades a raw save of version v to version v + 1. Migrations receive
+ * JSON-parsed, still-unvalidated objects; parseSave validates after.
  */
 export const SAVE_MIGRATIONS: Readonly<Record<number, (raw: RawSave) => RawSave>> = {};
-
-// ---------------------------------------------------------------------------------------------
-// serialize
 
 export function serializeTown(state: SerializableTown, camera?: CameraPose, name?: string): SavedTown {
   const ground: Array<[GroundKind, number]> = [];
@@ -101,9 +78,6 @@ export function decodeGround(save: Pick<SavedTown, 'ground' | 'width' | 'depth'>
   return out;
 }
 
-// ---------------------------------------------------------------------------------------------
-// parse + validate
-
 export interface ParseOptions {
   /** Plot the save is clamped to. Default PLOT_WIDTH × PLOT_DEPTH. */
   width?: number;
@@ -140,10 +114,9 @@ function parseSaveUnsafe(input: unknown, options: ParseOptions): SavedTown | Err
   }
   if (!isRecord(data)) return new Error('Save is not an object');
 
-  // ---- version + migrations
   let raw: RawSave = data;
   const migrations = options.migrations ?? SAVE_MIGRATIONS;
-  // Version 0 is accepted only if a migration from it exists (pre-release / hand-made saves).
+  // Version 0 is accepted only if a migration from it exists.
   if (!isInt(raw.version) || raw.version < 0) return new Error('Save has no valid version');
   if (raw.version > CURRENT_SAVE_VERSION) return new Error(`Save version ${raw.version} is newer than supported (${CURRENT_SAVE_VERSION})`);
   while ((raw.version as number) < CURRENT_SAVE_VERSION) {
@@ -154,13 +127,12 @@ function parseSaveUnsafe(input: unknown, options: ParseOptions): SavedTown | Err
     if (!isRecord(raw) || raw.version !== from + 1) return new Error(`Migration from save version ${from} failed`);
   }
 
-  // ---- dimensions
   const { width, depth } = raw;
   if (!isInt(width) || !isInt(depth) || width < 1 || depth < 1 || width > MAX_SAVE_DIMENSION || depth > MAX_SAVE_DIMENSION) {
     return new Error('Save has invalid width/depth');
   }
 
-  // ---- ground (RLE over the SAVE's dimensions, re-gridded onto the plot)
+  // Ground is RLE over the SAVE's dimensions, re-gridded onto the plot.
   if (!Array.isArray(raw.ground)) return new Error('Save ground is not a list');
   const saveTotal = width * depth;
   const saveGround: GroundKind[] = [];
@@ -174,8 +146,8 @@ function parseSaveUnsafe(input: unknown, options: ParseOptions): SavedTown | Err
   }
   while (saveGround.length < saveTotal) saveGround.push('field');
 
-  // A smaller save (e.g. a 48 × 48 town on the 64 × 64 plot) is centred, so it keeps its world
-  // position (the plot is centred on the origin) and its road blocks stay aligned.
+  // A smaller save is centred, so it keeps its world position (the plot is centred on the origin)
+  // and its road blocks stay aligned.
   const centreOffset = (plot: number, size: number): number =>
     size < plot ? Math.floor((plot - size) / 2 / ROAD_BLOCK) * ROAD_BLOCK : 0;
   const ox = centreOffset(plotW, width);
@@ -203,7 +175,6 @@ function parseSaveUnsafe(input: unknown, options: ParseOptions): SavedTown | Err
   }
   const groundAt = (x: number, z: number): GroundKind => (x >= 0 && z >= 0 && x < plotW && z < plotD ? plotGround[z * plotW + x] : 'field');
 
-  // ---- objects
   if (!Array.isArray(raw.objects)) return new Error('Save objects is not a list');
   const objects: PlacedObject[] = [];
   const ids = new Set<number>();
@@ -227,7 +198,6 @@ function parseSaveUnsafe(input: unknown, options: ParseOptions): SavedTown | Err
   }
   objects.sort((a, b) => a.id - b.id);
 
-  // ---- edges
   if (!Array.isArray(raw.edges)) return new Error('Save edges is not a list');
   const edges: PlacedEdge[] = [];
   const edgeKeys = new Set<string>();
@@ -244,7 +214,6 @@ function parseSaveUnsafe(input: unknown, options: ParseOptions): SavedTown | Err
   }
   edges.sort(compareEdges);
 
-  // ---- id counter
   let nextObjectId = isInt(raw.nextObjectId) && raw.nextObjectId >= 1 ? raw.nextObjectId : 1;
   for (const o of objects) nextObjectId = Math.max(nextObjectId, o.id + 1);
 

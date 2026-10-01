@@ -1,20 +1,11 @@
 /**
- * Day/night clock and keyframes (WP-16, v0.3). Pure: no three.js, no DOM.
+ * Day/night clock and keyframes. Pure: no three.js, no DOM.
  *
- * CONTRACT (integrator): every exported name and signature in the "Contract" section below.
- * Game.ts, Environment, NightLights, LifeSystem and the UI build against them. WP-16a owns the
- * implementation (keyframes, blending, sweep) and may add exports, but must not change these.
- *
- * Time: `t ∈ [0, 1)` is the fraction of a day (docs/plans/wp-16-day-night.md §1).
- *   dawn 0.00–0.10 · day 0.10–0.65 (afternoon 0.55 = the v0.2 look, exactly) · dusk 0.65–0.75 · night 0.75–1.00
- *
- * WP-16a: keyframed look (smoothstep between neighbours, colours blended in linear RGB, wrapping
- * across 1 → 0), a stylised sun path anchored so t = 0.55 is exactly today's SUN_DIRECTION, a fixed
- * moon, one key light that swaps sun ↔ moon where its intensity is 0 (sunrise 0.05, sunset 0.70),
- * and a clock that sweeps forward to a mode's target over MODE_SWEEP_S.
+ * `t ∈ [0, 1)` is the fraction of a day:
+ *   dawn 0.00–0.10 · day 0.10–0.65 · dusk 0.65–0.75 · night 0.75–1.00
+ * Keyframes blend with smoothstep in linear RGB, wrapping across 1 → 0. One key light swaps between
+ * sun and moon where its intensity is 0 (sunrise 0.05, sunset 0.70).
  */
-
-// ---- Contract ---------------------------------------------------------------------------------
 
 export type TimeMode = 'auto' | 'day' | 'night';
 export type DayPhase = 'dawn' | 'day' | 'dusk' | 'night';
@@ -23,10 +14,8 @@ export type DayPhase = 'dawn' | 'day' | 'dusk' | 'night';
 export const TIME_MODES: readonly TimeMode[] = ['auto', 'day', 'night'];
 
 /**
- * The phases in cycle order: where each ends (fraction of the day, see "Time" above) and how many
- * real seconds it lasts in Auto. The looks are keyed to `t`, so the phases run at different speeds:
- * owner decision (2026-09-30): 5 minutes of day and 2 of night, with a minute each of dawn and
- * dusk, 9 minutes in all (it was an even 10 minutes, so day 5.5 and night 2.5).
+ * The phases in cycle order: where each ends (fraction of the day) and how many real seconds it lasts
+ * in Auto, so the phases run at different speeds.
  */
 export const PHASE_SPANS: ReadonlyArray<{ readonly phase: DayPhase; readonly end: number; readonly seconds: number }> = [
   { phase: 'dawn', end: 0.1, seconds: 60 },
@@ -34,11 +23,11 @@ export const PHASE_SPANS: ReadonlyArray<{ readonly phase: DayPhase; readonly end
   { phase: 'dusk', end: 0.75, seconds: 60 },
   { phase: 'night', end: 1, seconds: 120 },
 ];
-/** Real seconds per day in Auto mode (the sum of PHASE_SPANS). */
+/** Real seconds per day in Auto mode. */
 export const DAY_LENGTH_S = PHASE_SPANS.reduce((sum, span) => sum + span.seconds, 0);
 /** Auto mode starts here on Start (New or Continue). */
 export const T_MORNING = 0.12;
-/** Day mode, the title screen and every test state except night-town: today's look, exactly. */
+/** Day mode, the title screen and every test state except night-town. */
 export const T_AFTERNOON = 0.55;
 /** Night mode and the night-town test state: early night, every lit house on. */
 export const T_NIGHT = 0.82;
@@ -58,14 +47,11 @@ export interface Vec3 {
   z: number;
 }
 
-/**
- * Everything the world needs for one moment of the day. Written in place by sampleDay() into a
- * caller-owned object (no per-frame allocations).
- */
+/** Everything the world needs for one moment of the day; sampleDay() writes it in place. */
 export interface DaySample {
   t: number;
   phase: DayPhase;
-  /** Unit vector TOWARDS the key light: the sun by day, the moon at night (one DirectionalLight). */
+  /** Unit vector towards the key light: the sun by day, the moon at night. */
   keyDir: Vec3;
   keyColor: Rgb;
   keyIntensity: number;
@@ -86,11 +72,11 @@ export interface DaySample {
   moonDir: Vec3;
   /** 0..1 moon disc/halo visibility. */
   moonVisible: number;
-  /** 1 = today's bright clouds, ~0.25 at night. */
+  /** 1 = bright day clouds, ~0.25 at night. */
   cloudShade: number;
   /** 0..1 star field. */
   stars: number;
-  /** scene.environmentIntensity (every graphics preset since WP-25). */
+  /** scene.environmentIntensity. */
   envIntensity: number;
   /** 0 day .. 1 full night. Drives every light source (windows, lamps, lenses, headlights). */
   night: number;
@@ -131,7 +117,6 @@ export function createDaySample(): DaySample {
   return sampleDay(T_AFTERNOON, out);
 }
 
-/** Phase of a time of day (boundaries 0.10 / 0.65 / 0.75). */
 export function phaseAt(t: number): DayPhase {
   return PHASE_SPANS[spanIndex(wrap01(t))].phase;
 }
@@ -144,8 +129,8 @@ function spanIndex(u: number): number {
 }
 
 /**
- * The Auto clock: `t` after `seconds` of real time, each phase at its own speed (PHASE_SPANS).
- * Pure and allocation-free; whole days are skipped first, so any delta is at most one lap.
+ * The Auto clock: `t` after `seconds` of real time, each phase at its own speed.
+ * Allocation-free; whole days are skipped first, so any delta is at most one lap.
  */
 export function advanceCycle(t: number, seconds: number): number {
   let time = wrap01(t);
@@ -203,18 +188,16 @@ export function sampleDay(t: number, out: DaySample): DaySample {
 }
 
 /**
- * The game clock. Auto advances `t` through the phases at their own speeds (advanceCycle; a
- * debug `dayLengthS` other than DAY_LENGTH_S scales them all); Day and Night hold their target.
- * Switching mode sweeps `t` forward to the new target over MODE_SWEEP_S (or snaps). A pin (tests,
- * title screen) overrides everything until released.
+ * The game clock. Auto advances `t` through the phases; Day and Night hold their target. Switching
+ * mode sweeps `t` forward to the new target over MODE_SWEEP_S. A pin overrides everything until released.
  */
 export class DayClock {
   private currentMode: TimeMode;
   private time: number;
   private pinned: number | null = null;
-  /** Real seconds per Auto day. Debug only (Game sets it from `?debug&day=N` for evidence captures). */
+  /** Real seconds per Auto day; debug only (`?debug&day=N`). */
   dayLengthS = DAY_LENGTH_S;
-  // Mode sweep (no allocations): from `sweepFrom`, forward by `sweepDistance`, eased over MODE_SWEEP_S.
+  // Mode sweep: from `sweepFrom`, forward by `sweepDistance`, eased over MODE_SWEEP_S.
   private sweeping = false;
   private sweepFrom = 0;
   private sweepDistance = 0;
@@ -243,7 +226,6 @@ export class DayClock {
     return this.pinned !== null;
   }
 
-  /** True while a mode switch is still sweeping the clock towards its target. */
   get isSweeping(): boolean {
     return this.sweeping;
   }
@@ -295,7 +277,7 @@ export class DayClock {
     this.sweepElapsed = 0;
   }
 
-  /** Start of a building session (Start → New or Continue): Auto ⇒ morning, else the mode's time. */
+  /** Start of a building session: Auto ⇒ morning, else the mode's time. */
   startDay(): void {
     this.time = modeTarget(this.currentMode);
     this.sweeping = false;
@@ -306,13 +288,10 @@ export class DayClock {
     this.pinned = t === null ? null : wrap01(t);
   }
 
-  /** The current look into `out`. */
   sample(out: DaySample): DaySample {
     return sampleDay(this.t, out);
   }
 }
-
-// ---- Keyframes (WP-16a) ------------------------------------------------------------------------
 
 /** One authored moment of the day. Colours are display-space (sRGB), like '#rrggbb'. */
 export interface DayKeyframe {
@@ -373,9 +352,8 @@ function keyframe(name: string, t: number, s: KeyframeSpec): DayKeyframe {
 }
 
 /**
- * The v0.2 "golden afternoon" (Environment.ts LIGHTING / SKY_PALETTE / SUN_DIRECTION).
- * sampleDay(T_AFTERNOON) reproduces these exactly; Environment keeps its own exports (IconStudio
- * imports LIGHTING) and the unit test pins both copies to the same numbers.
+ * The golden afternoon. sampleDay(T_AFTERNOON) reproduces it exactly; Environment keeps its own copy
+ * (LIGHTING, SKY_PALETTE, SUN_DIRECTION) and a unit test pins both to the same numbers.
  */
 export const AFTERNOON = {
   sunColor: 0xffe6c4,
@@ -400,8 +378,8 @@ const NIGHT_SPEC: KeyframeSpec = {
 };
 
 /**
- * Keyframes in time order (debug-tunable in the lil-gui `Daylight` folder). Key intensity is 0 at
- * sunrise (0.05) and sunset (0.70): that is where the one key light swaps between sun and moon.
+ * Keyframes in time order. Key intensity is 0 at sunrise and sunset, where the one key light swaps
+ * between sun and moon.
  */
 export const DAY_KEYFRAMES: DayKeyframe[] = [
   keyframe('pre-dawn', 0.015, {
@@ -468,27 +446,23 @@ export const DAY_KEYFRAMES: DayKeyframe[] = [
   keyframe('late night', 0.95, NIGHT_SPEC),
 ];
 
-/** Tunables that are not keyframed (debug `Daylight` folder). */
 export const DAY_TUNING = {
   /** The key light never drops below this elevation (degrees): no endless shadows at dawn/dusk. */
   minKeyElevationDeg: 15,
 };
-
-// ---- Sun and moon ------------------------------------------------------------------------------
 
 const DEG = Math.PI / 180;
 /** Sunrise and sunset: key light intensity 0, where it swaps between sun and moon. */
 export const T_SUNRISE = 0.05;
 export const T_SUNSET = 0.7;
 const T_NOON = 0.35;
-/** Peak sun elevation at noon. */
 const SUN_MAX_ELEVATION = 55 * DEG;
 /** How deep the (invisible) sun dips at midnight. */
 const SUN_NIGHT_DEPTH = 40 * DEG;
 /** Azimuth swept from sunrise to sunset (east → towards the camera → west). */
 const SUN_DAY_SWEEP = 190 * DEG;
 
-/** Today's SUN_DIRECTION, normalised the way THREE.Vector3.normalize() does it. */
+/** SUN_DIRECTION, normalised the way THREE.Vector3.normalize() does it. */
 const SUN_ANCHOR: Readonly<Vec3> = (() => {
   const { x, y, z } = AFTERNOON.sunDirection;
   const inv = 1 / Math.sqrt(x * x + y * y + z * z);
@@ -539,7 +513,7 @@ function sunAzimuth(u: number): number {
 
 function sunDirection(u: number, out: Vec3): void {
   if (u === T_AFTERNOON) {
-    // The analytic path lands here to ~1e-16; copy the anchor so the v0.2 look is bit-identical.
+    // The analytic path lands here to ~1e-16; copy the anchor so the afternoon is bit-identical.
     out.x = SUN_ANCHOR.x;
     out.y = SUN_ANCHOR.y;
     out.z = SUN_ANCHOR.z;
@@ -573,8 +547,6 @@ function dirFromAngles(elevation: number, azimuth: number, out: Vec3): void {
   out.z = c * Math.sin(azimuth);
 }
 
-// ---- Night curves ------------------------------------------------------------------------------
-
 const LIGHTS_OFF_MAX = 0.35;
 
 /** 0 by day → 1 through dusk (0.64–0.76), 1 all night, back to 0 across dawn (0.01–0.09). */
@@ -601,8 +573,6 @@ export function lightsOffAt(t: number): number {
   return 0;
 }
 
-// ---- Helpers (WP-16a may change) ----------------------------------------------------------------
-
 export function wrap01(t: number): number {
   return t - Math.floor(t);
 }
@@ -616,7 +586,6 @@ function smoothstep(edge0: number, edge1: number, x: number): number {
   return smooth01((x - edge0) / (edge1 - edge0));
 }
 
-/** Symmetric cubic ease-in-out on [0, 1]. */
 function easeInOut(p: number): number {
   return p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
 }

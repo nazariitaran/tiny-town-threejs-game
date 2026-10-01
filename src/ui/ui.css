@@ -1,8 +1,3 @@
-/*
- * Tiny Town UI components (WP-06). Tokens are in src/styles.css. Layout per
- * docs/design/02-interaction-and-ui.md §4 (desktop) and "Mobile" (≤ 760 px or coarse pointer).
- */
-
 #ui-root [hidden] {
   display: none !important;
 }
@@ -59,7 +54,7 @@
   backdrop-filter: blur(6px);
 }
 
-/* ------------------------------------------------------------------ title mark */
+/* Title mark */
 
 .ui-mark {
   display: inline-flex;
@@ -104,7 +99,7 @@
     0 0.2em 0.45em rgba(60, 40, 20, 0.3);
 }
 
-/* ------------------------------------------------------------------ buttons */
+/* Buttons */
 
 .ui-btn {
   display: inline-flex;
@@ -214,7 +209,7 @@
   color: var(--brick-dark);
 }
 
-/* ------------------------------------------------------------------ loading / title / error */
+/* Loading, title, error */
 
 .ui-screen {
   position: absolute;
@@ -304,7 +299,6 @@
   gap: 12px;
 }
 
-/* WP-21: "Open a town file" and "Credits" side by side under the title's buttons. */
 .ui-title-links {
   display: flex;
   flex-wrap: wrap;
@@ -318,8 +312,7 @@
   box-shadow: var(--shadow-soft);
 }
 
-/* Author's links (owner, 2026-10-01): a quiet pill in the title's bottom-right corner (below the
-   title links on phones), and a centred row at the bottom of Credits. Icons follow the text colour. */
+/* Author's links */
 .ui-author {
   display: flex;
   align-items: center;
@@ -366,7 +359,7 @@
   pointer-events: auto;
   opacity: 0.85;
   transition: opacity var(--fast) var(--ease);
-  /* backwards only: once in, :hover can still lift the opacity. */
+  /* backwards only, so :hover can still lift the opacity once it has faded in. */
   animation: ui-fade-in 600ms 240ms var(--ease) backwards;
 }
 
@@ -375,9 +368,8 @@
   opacity: 1;
 }
 
-/* Phones: the corner would crowd the centred buttons, so it is centred at the bottom edge and the
-   title's buttons rise to make room. (A direct child of .ui-title: .ui-title-bottom's rise animation
-   would make it the containing block.) */
+/* Phones: centred at the bottom edge, and the title's buttons rise to make room. It is a direct child of
+   .ui-title because .ui-title-bottom's rise animation would make that the containing block. */
 @media (max-width: 600px) {
   .ui-author-title {
     left: 0;
@@ -412,7 +404,7 @@
   display: none;
 }
 
-/* ------------------------------------------------------------------ top bar */
+/* Top bar */
 
 .ui-hud {
   transition: opacity var(--fast) var(--ease), filter var(--fast) var(--ease);
@@ -427,7 +419,6 @@
   top: var(--safe-top);
   left: var(--safe-left);
   right: var(--safe-right);
-  /* One row: brand pill left, action pill right, both var(--topbar-h) tall. */
   height: var(--topbar-h);
   display: flex;
   justify-content: space-between;
@@ -435,8 +426,7 @@
   gap: 8px;
 }
 
-/* WP-20: the brand pill is a button showing the town's name (click / tap to rename it). A long name
-   ends in an ellipsis; the pill gives way to the action pill, never the other way round. */
+/* A long town name ends in an ellipsis; the brand pill gives way to the action pill, never the other way round. */
 .ui-brand {
   flex: 0 1 auto;
   height: var(--topbar-h);
@@ -470,8 +460,6 @@
   padding: 0 4px;
 }
 
-/* WP-16c: time-of-day button (Auto / Day / Night). The glyph shows the mode; a quiet tint
-   tells Day and Night apart at a glance (Auto keeps the ink colour like its neighbours). */
 .ui-time-btn[data-mode='day'] {
   color: #b0701a;
 }
@@ -480,7 +468,7 @@
   color: #45559c;
 }
 
-/* ------------------------------------------------------------------ dock */
+/* Dock */
 
 .ui-dock-wrap {
   position: absolute;
@@ -494,10 +482,10 @@
 }
 
 .ui-hint {
-  /* Top-centre just under the one-row top bar, so it never covers the build area above the dock. */
+  /* Just under the top bar, so it never covers the build area. */
   position: absolute;
   top: calc(var(--safe-top) + var(--topbar-h) + 10px);
-  /* Centred with left/right + auto margins (no `translate`: lightningcss drops it next to `transform`). */
+  /* Centred with auto margins, not `translate`: lightningcss drops it next to `transform`. */
   left: var(--gutter);
   right: var(--gutter);
   width: fit-content;
@@ -648,7 +636,7 @@
   color: #fff;
 }
 
-/* Variant picker: a dot per model in the card's top-left corner ("there are several of these"). */
+/* A dot per model tells the player a card has several variants. */
 .ui-card-variants {
   position: absolute;
   top: 7px;
@@ -671,8 +659,7 @@
   opacity: 1;
 }
 
-/* Variant picker strip: floats above the dock over the selected card (UiRoot.placeVariants sets
-   left and --caret-x), outside the scrolling tray so it is never clipped. */
+/* Variant picker strip: UiRoot.placeVariants sets left and --caret-x. It sits outside the scrolling tray so it is never clipped. */
 .ui-variants {
   position: absolute;
   bottom: calc(100% + 10px);
@@ -754,7 +741,7 @@
 .ui-tabbar {
   display: flex;
   align-items: center;
-  /* The row stays centred under a tray wider than it (and so still when the category changes). */
+  /* Stays centred under a wider tray, so it doesn't move when the category changes. */
   justify-content: center;
   gap: 6px;
   min-width: 0;
@@ -812,7 +799,7 @@
   position: relative;
 }
 
-/* Open category = tint + underline (the selected ITEM is the raised, outlined card). */
+/* Open category: tint + underline (the selected item is the raised, outlined card). */
 .ui-tab[aria-pressed='true'] {
   background: var(--green-tint);
   color: var(--green-dark);
@@ -878,14 +865,14 @@
   box-shadow: inset 0 -2px 0 var(--brick-dark);
 }
 
-/* Move tool: sky blue, like the in-world highlight on the object it points at or carries. */
+/* Move tool: sky blue, matching its in-world highlight. */
 .ui-mode-move[aria-pressed='true'] {
   background: var(--blue);
   color: #fff;
   box-shadow: inset 0 -2px 0 #2f78bf;
 }
 
-/* ------------------------------------------------------------------ cursor tooltip */
+/* Cursor tooltip */
 
 .ui-tooltip {
   position: fixed;
@@ -927,7 +914,7 @@
   animation: ui-shake 260ms ease-in-out;
 }
 
-/* ------------------------------------------------------------------ overlays */
+/* Overlays */
 
 .ui-modal {
   position: absolute;
@@ -983,7 +970,7 @@
   color: var(--ink-soft);
 }
 
-/* Credits: one group per kind (3D models, sounds, music, font, software); links open a new tab. */
+/* Credits */
 .ui-credits {
   gap: 14px;
 }
@@ -1067,7 +1054,7 @@
   cursor: pointer;
 }
 
-/* WP-16c: "Time of day" row: label left, a 3-way segmented control (native radios) right. */
+/* Time of day: a segmented control built on native radios. */
 .ui-seg-field {
   justify-content: space-between;
   gap: 8px;
@@ -1136,7 +1123,6 @@
   outline-offset: 1px;
 }
 
-/* WP-13: "Music volume" sits under the Music switch, its label aligned with the row labels above. */
 .ui-field-sub {
   margin-top: -6px;
   padding-left: 42px;
@@ -1150,10 +1136,9 @@
   cursor: default;
 }
 
-/* ------------------------------------------------------------------ menu tabs (WP-25) */
+/* Menu tabs */
 
-/* Heading + Resume, then the tab bar, then the open tab's page. A column so that on short screens
-   only the pages area scrolls (heading, Resume and the tabs stay put). */
+/* A column so that on short screens only the pages area scrolls; heading, Resume and the tabs stay put. */
 .ui-menu-panel {
   display: flex;
   flex-direction: column;
@@ -1164,7 +1149,6 @@
   flex: none;
 }
 
-/* The tab bar wears the segmented-control look of "Time of day", taller: glyph over label. */
 .ui-menu-tabs {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1216,10 +1200,9 @@
   outline-offset: 1px;
 }
 
-/* Every page sits in the same grid cell, so the area is as tall as the tallest page and the menu
-   keeps its size when the tab changes. A hidden page keeps its box but is invisible, so it takes
-   no clicks, no focus and is out of the accessibility tree. The side/bottom padding keeps focus
-   rings clear of the scroll clip. */
+/* Every page sits in the same grid cell, so the menu keeps its size when the tab changes. A hidden page
+   keeps its box but is invisible: no clicks, no focus, out of the accessibility tree. The side/bottom
+   padding keeps focus rings clear of the scroll clip. */
 .ui-menu-pages {
   display: grid;
   flex: 0 1 auto;
@@ -1238,8 +1221,7 @@
   min-width: 0;
 }
 
-/* Menu buttons keep their label on one line; the paired ones (Rename town | New town) get
-   slimmer side padding so both fit a 390 px phone. */
+/* The paired buttons (Rename town | New town) get slimmer side padding so both fit a 390 px phone. */
 .ui-menu-page .ui-btn {
   white-space: nowrap;
 }
@@ -1315,11 +1297,10 @@
   color: var(--ink-soft);
 }
 
-/* ------------------------------------------------------------------ photo (WP-19) */
+/* Photo */
 
-/* The preview: the framed photo as a slightly tilted print with a strip of washi tape (the tape and
-   tilt are only here; the saved file is the straight card). --print-ar = card width / height, set by
-   UiRoot; the print is as big as fits under the title and above the buttons. */
+/* The tilt and washi tape exist only in the preview; the saved file is the straight card.
+   UiRoot sets --print-ar (card width / height). */
 .ui-photo-panel {
   width: min(600px, 100%);
   justify-items: center;
@@ -1397,8 +1378,7 @@
   flex: 1 1 0;
 }
 
-/* WP-20: the name dialog (a new town's name, or a rename): the field with a die for another
-   random name, a character counter, Cancel + Start building / Save. */
+/* Name dialog */
 .ui-name-form {
   display: grid;
   gap: 10px;
@@ -1449,8 +1429,7 @@
   cursor: default;
 }
 
-/* WP-21: the Town file panel (Download / Open a town file…) and its status line. The menu row is the
-   phones' way in (the top-bar button doesn't fit there, see the 440 px query below). */
+/* Town file panel */
 .ui-town-file-row {
   display: none;
 }
@@ -1471,7 +1450,7 @@
   font-size: 0.9rem;
 }
 
-/* Camera flash over everything when the shutter fires (off under reduced motion). */
+/* Camera flash when the shutter fires. */
 .ui-flash {
   position: absolute;
   inset: 0;
@@ -1485,7 +1464,7 @@
   animation: ui-flash 380ms ease-out;
 }
 
-/* ------------------------------------------------------------------ motion */
+/* Motion */
 
 @keyframes ui-shake {
   0%, 100% { transform: translateX(0); }
@@ -1547,17 +1526,16 @@
     animation-iteration-count: 1 !important;
     transition-duration: 1ms !important;
   }
-  /* No flash for players who asked for less motion. */
   #ui-root .ui-flash {
     display: none;
   }
 }
 
-/* ------------------------------------------------------------------ mobile */
+/* Mobile */
 
 @media (max-width: 760px), (pointer: coarse) {
-  /* Still one row on phones: taller pills for 44 px touch targets. (#ui-root, not :root: this file
-     is imported before the :root tokens in styles.css, which would otherwise win.) */
+  /* 44 px touch targets. Set on #ui-root, not :root: this file is imported before the :root tokens in
+     styles.css, which would otherwise win. */
   #ui-root {
     --topbar-h: 52px;
   }
@@ -1604,8 +1582,8 @@
   }
 
 
-  /* Five tabs + three modes (Rotate · Move · Bulldoze) in one row: each takes its label's width, at
-     least a 44 px touch target, and the leftover is shared; so "Bulldoze" gets the room it needs. */
+  /* Each button takes its label's width, at least 44 px, and the leftover is shared, so "Bulldoze" gets
+     the room it needs. */
   .ui-tab,
   .ui-mode {
     flex: 1 1 auto;
@@ -1675,10 +1653,9 @@
   }
 }
 
-/* WP-16c / WP-20: six 44 px actions need ~290 px. On phones up to 440 px wide the town's name
-   gets a smaller size and whatever room is left (an ellipsis cuts it: ~7 characters at 412 px);
-   below 400 px that would be 2–3 characters, so the brand is the round icon-only badge there (the
-   menu's heading shows the full name). Keeps the top bar one row at 360, 390 and 412 (Pixel 7) px. */
+/* Six 44 px actions need ~290 px. Up to 440 px wide the town's name gets a smaller size and whatever
+   room is left; below 400 px that is 2–3 characters, so the brand becomes an icon-only badge (the
+   menu heading shows the full name). Keeps the top bar one row at 360, 390 and 412 px. */
 @media (max-width: 440px) {
   .ui-topbar {
     gap: 6px;
@@ -1690,7 +1667,7 @@
     font-size: 0.66rem;
   }
 
-  /* WP-21: a seventh 44 px action doesn't fit one row here; the menu carries Town file instead. */
+  /* A seventh 44 px action doesn't fit one row here; the menu carries Town file instead. */
   .ui-town-file-btn {
     display: none;
   }
@@ -1735,8 +1712,8 @@
 
 }
 
-/* Below 390 px eight 44 px dock buttons can't fit one row (owner, 2026-10-01): the categories take
-   the first row and the modes (Rotate · Move · Bulldoze) a second one, so every target stays 44 px. */
+/* Below 390 px eight 44 px dock buttons can't fit one row: the categories take the first row and the
+   modes (Rotate · Move · Bulldoze) a second one. */
 @media (max-width: 389px) {
   .ui-tabbar {
     flex-wrap: wrap;

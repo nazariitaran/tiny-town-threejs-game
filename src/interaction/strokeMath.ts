@@ -1,9 +1,7 @@
 /**
- * Pure stroke/gesture helpers for the interaction layer (WP-05). No three.js, no DOM, so they
- * are unit-tested in Node (strokeMath.test.ts).
- *
- * "Grid units" below are continuous plot coordinates: gx = worldX / CELL_SIZE + PLOT_WIDTH / 2,
- * so cell (x, z) spans [x, x + 1) × [z, z + 1) and edge lines sit on integer values.
+ * Pure stroke/gesture helpers. "Grid units" are continuous plot coordinates:
+ * gx = worldX / CELL_SIZE + PLOT_WIDTH / 2, so cell (x, z) spans [x, x + 1) × [z, z + 1) and edge
+ * lines sit on integer values.
  */
 import type { Cell, Edge } from '../town/types';
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Regenerates src/audio/sfxTable.ts from docs/assets/audio.json (the audio sourcing manifest).
+// Regenerates src/audio/sfxTable.ts from docs/assets/audio.json.
 // Run: npm run gen:sfx
 import { readFileSync, writeFileSync } from 'node:fs';
 
@@ -17,7 +17,7 @@ export interface SfxEntry {
   volume: number;
   pitchJitter: number;
   cooldownMs: number;
-  /** Base playback rate (e.g. undo 0.89×, redo 1.12× share one file). Default 1. */
+  /** Default 1; undo and redo share one file at different rates. */
   playbackRate?: number;
 }
 

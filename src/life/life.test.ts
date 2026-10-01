@@ -9,10 +9,7 @@ import { TownEditor } from '../town/TownEditor';
 import { densityTarget, MAX_CARS, TrafficSim } from './TrafficSim';
 import { PLOT_DEPTH, PLOT_WIDTH, roadBlockCentreWorld, worldToCell } from '../game/config';
 
-/**
- * The sim runs on road BLOCKS (2 × 2 cells, WP-12). Coordinates in these tests are block
- * coordinates; paint() fills all 4 cells of each block.
- */
+/** Coordinates are road block coordinates; paint() fills all 4 cells of each block. */
 function paint(town: TownState, blocks: Array<[number, number]>, after: GroundKind = 'road'): TownChange[] {
   const changes: TownChange[] = [];
   for (const [bx, bz] of blocks) {
@@ -68,7 +65,6 @@ describe('lane paths', () => {
         samplePath(path, path.length, sample);
         expect(sample.x).toBeCloseTo(DIR_X[outDir] * 0.5 - DIR_Z[outDir] * LANE_OFFSET, 5);
         expect(sample.z).toBeCloseTo(DIR_Z[outDir] * 0.5 + DIR_X[outDir] * LANE_OFFSET, 5);
-        // Stays inside the cell, no jumps.
         let px = Number.NaN;
         let pz = Number.NaN;
         for (let s = 0; s <= path.length; s += 0.01) {
@@ -80,7 +76,6 @@ describe('lane paths', () => {
           px = sample.x;
           pz = sample.z;
         }
-        // Exit heading equals the out direction.
         samplePath(path, path.length, sample);
         expect(sample.hx).toBeCloseTo(DIR_X[outDir], 1);
         expect(sample.hz).toBeCloseTo(DIR_Z[outDir], 1);
@@ -158,8 +153,8 @@ describe('TrafficSim', () => {
     }
     expect(sim.cars.length).toBe(MAX_CARS);
     expect(sim.stats.despawned).toBe(0);
-    expect(visited.size).toBeGreaterThan(25); // they really wander the network
-    expect(turns).toBeGreaterThan(0); // and choose at junctions / dead ends
+    expect(visited.size).toBeGreaterThan(25);
+    expect(turns).toBeGreaterThan(0);
   });
 
   it('cars never overlap for long (following distance + gridlock breaker)', () => {
@@ -197,7 +192,6 @@ describe('TrafficSim', () => {
     expect(sim.cars.find((c) => c.id === victim.id)).toBeUndefined();
     expect(sim.stats.despawned).toBeGreaterThanOrEqual(1);
     for (const car of sim.cars) expect(town.getGround({ x: car.cx * 2, z: car.cz * 2 })).toBe('road');
-    // The count is topped back up to what the remaining network supports.
     expect(sim.cars.length).toBe(Math.min(count, sim.stats.target));
     expect(sim.stats.target).toBeGreaterThanOrEqual(count - 1);
   });
@@ -231,7 +225,6 @@ describe('traffic: roundabouts', () => {
         const path = ringPath(inDir as Dir, outDir as Dir);
         const start = samplePath(path, 0, { x: 0, z: 0, hx: 0, hz: 0 });
         const end = samplePath(path, path.length, { x: 0, z: 0, hx: 0, hz: 0 });
-        // Entry on the incoming edge's right lane, exit on the outgoing edge's right lane.
         expect(start.x).toBeCloseTo(-DIR_X[inDir] * 0.5 - DIR_Z[inDir] * LANE_OFFSET, 5);
         expect(start.z).toBeCloseTo(-DIR_Z[inDir] * 0.5 + DIR_X[inDir] * LANE_OFFSET, 5);
         expect(end.x).toBeCloseTo(DIR_X[outDir] * 0.5 - DIR_Z[outDir] * LANE_OFFSET, 5);
@@ -318,8 +311,7 @@ describe('traffic: night density (WP-16b)', () => {
     const b = sampleSim(9);
     b.setDensity(1);
     expect(b.cars.map((c) => [c.id, c.x, c.z])).toEqual(a.cars.map((c) => [c.id, c.x, c.z]));
-    // Night, then a load: the town respawns at full density whatever the previous time of day was
-    // (so a test state never depends on the one before it); the owner then re-applies the night.
+    // Night, then a load: the town respawns at full density whatever the previous time of day.
     const d = sampleSim(9);
     d.setDensity(0.5);
     expect(d.density).toBe(0.5);

@@ -1,20 +1,12 @@
 /**
- * Camera-centred gradient sky dome: top→horizon gradient, sun disc + halo aligned with the key
- * light, a warm glow along the horizon on the sun side, and soft stylised clouds from value-noise
- * fbm in the same shader. One draw call, no textures.
- *
- * Colours are authored in DISPLAY space and the shader skips tone mapping, so the horizon colour
- * matches the scene fog exactly (three applies fog after tone mapping, in output colour space).
- *
- * WP-04 (World & look). WP-16a (day/night): cloud shade, hash-noise stars behind the clouds, a
- * small moon disc + halo, and the sun disc/halo/bloom fading with uSunVisible. At the afternoon
- * values (uStars 0, uCloudShade 1, uSunVisible 1, uMoonVisible 0) the maths reduces exactly to
- * the v0.2 sky: every new term is multiplied by 0 or mixed with weight 0.
+ * Camera-centred sky dome: gradient, horizon glow, sun and moon discs with halos, fbm clouds and stars
+ * in one shader. Colours are authored in display space and the shader skips tone mapping, so the
+ * horizon matches the scene fog exactly (three applies fog after tone mapping, in output colour space).
  */
 import * as THREE from 'three';
 import type { DaySample, Rgb } from './dayCycle';
 
-/** fbm octaves of the full cloud look (the Medium / High presets). */
+/** Cloud fbm octaves on Medium and High. */
 export const SKY_FULL_OCTAVES = 5;
 
 /** A THREE.Color holding raw display-space (sRGB) components, for shaders that skip colour management. */
@@ -70,7 +62,7 @@ float noise(vec2 p) {
   return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
              mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
 }
-// SKY_OCTAVES (define, WP-25 graphics presets): 5 = the full look; Low uses 3. Fewer octaves add
+// SKY_OCTAVES: 5 = the full look; the Low preset uses 3. Fewer octaves add
 // the dropped octaves' mean (a - 0.5^6 after the loop), so the cloud cover stays about the same.
 float fbm(vec2 p) {
   float s = 0.0;
@@ -241,7 +233,6 @@ export class Sky {
     this.uniforms.uSunDir.value.copy(dir).normalize();
   }
 
-  /** Day/night (WP-16a): palette, sun/moon and night-sky strength for one moment of the day. */
   applyDaylight(s: Readonly<DaySample>): void {
     const u = this.uniforms;
     setDisplay(u.uTop.value, s.skyTop);

@@ -1,27 +1,15 @@
 /**
  * Placement rules: BuildAction + current state → the exact TownChanges to apply, or why not.
- * PURE: never mutates `state`; fully unit-tested in rules.test.ts (one test per rule-table row).
- *
- * Implements docs/design/03-architecture.md §Placement rules. WP-02 owns this file.
+ * Never mutates `state`.
  *
  * Invariants every successful plan keeps:
- *  - The PRIMARY change is LAST in the list (TownEditor derives build:placed/removed from it),
- *    e.g. road paint = [fence removals…, ground change]; fence replace = [remove old, add new].
- *  - Object ids and RNG draws are only consumed on success, after every check passed.
+ *  - The PRIMARY change is LAST in the list; TownEditor derives build:placed/removed from it.
+ *  - Object ids and RNG draws are consumed only on success, after every check has passed.
  *  - `no-change` is silent: its message is '' and callers must never show it.
- *  - Road blocks (WP-12): roads come in aligned 2 × 2 blocks and a block is all road or has no road.
- *    Painting road on any cell converts its whole block; painting another kind on a road cell, or
- *    bulldozing it, converts the whole block. The CLICKED cell's ground change is last (primary).
- *  - Road features (ObjectDef.roadFeature: the roundabout) are block-aligned objects that stand on
- *    road. Placing one = [fence removals…, ground → road…, object add]; bulldozing it =
- *    [ground → field…, object remove]. Its road can't be repainted while it stands.
- *  - Road markings (ObjectDef.roadMarking: the zebra crossing) are block-aligned objects on one road
- *    block that already is a straight or a junction. Placing / bulldozing one = just the object add /
- *    remove (the road stays). Its road can't be repainted while it stands.
- *  - Moving (the Move tool) = [remove old, add moved] with the SAME id and variant, so undo, saves and
- *    the renderer's per-id look follow it. The new spot passes the placing checks (checkObjectSpot)
- *    with the object's own old footprint not counting as occupied. Road features and road markings
- *    don't move; trees and plants keep their rotation (their look comes from their id).
+ *  - A 2 × 2 road block is all road or none: painting or bulldozing one cell converts the whole block.
+ *  - Road features (roundabout) and road markings (zebra) are block-aligned and lock their road
+ *    against repainting while they stand.
+ *  - A move is [remove, add] with the SAME id and variant, so undo, saves and the per-id look follow it.
  */
 import { cellKey, edgeCells, edgeInBounds, edgeKey, edgeOfCellSide, footprintCells, NEIGHBOURS, ROAD_BLOCK, roadBlockCells } from './grid';
 import { ZEBRA_PIECE_MODELS } from '../catalog/models';
@@ -30,9 +18,9 @@ import { roadMask, roadTileFor } from './roadTiles';
 import type { BuildAction, Cell, GroundKind, InvalidReason, PlanResult, Rotation, TownChange, TownStateReader } from './types';
 
 export interface PlanContext {
-  /** Reserve an object id for an add (TownState.allocateObjectId). Called only on success. */
+  /** Reserves an object id; called only on success. */
   nextId(): number;
-  /** Seeded RNG for variant selection. Called only on success, only for multi-variant kinds, and only when the action names no variant. */
+  /** Seeded RNG for variants; called only on success, for multi-variant kinds, when the action names no variant. */
   rng(): number;
 }
 
@@ -46,7 +34,7 @@ export const GROUND_LABELS: Readonly<Record<GroundKind, string>> = {
   walkway: 'walkway',
 };
 
-/** Fixed player-facing messages (the ones that don't depend on a label). */
+/** Player-facing messages that don't depend on a label. */
 export const RULE_MESSAGES = {
   outOfBounds: 'Outside your plot',
   occupied: 'Something is already here',
@@ -221,7 +209,6 @@ function checkObjectSpot(
   return null;
 }
 
-/** Can the Move tool pick this kind up? Everything but road features and road markings. */
 export function isMovable(def: ObjectDef): boolean {
   return !def.roadFeature && !def.roadMarking;
 }
@@ -245,7 +232,7 @@ function planPlaceObject(state: TownStateReader, action: Extract<BuildAction, { 
       if (before !== 'road') changes.push({ layer: 'ground', cell: { x: cell.x, z: cell.z }, before, after: 'road' });
     }
   }
-  // The variant picker sends the model the ghost showed; without one (demo towns, tests) roll as before.
+  // The variant picker sends the model the ghost showed; without one (demo towns, tests) roll one.
   const chosen = action.variant;
   const variant =
     chosen !== undefined && Number.isInteger(chosen) && chosen >= 0 && chosen < def.variants

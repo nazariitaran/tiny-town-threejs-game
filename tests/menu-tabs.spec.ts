@@ -1,14 +1,6 @@
 /**
- * WP-25b: the tabbed menu (Town · Graphics · Sound · Help) and the Graphics tab UI.
- *
- * Covered here: WAI-ARIA tabs (click / tap, arrows, Home / End, roving tabindex, automatic
- * activation), the tab remembered for the page session, sub-views returning to the same tab, a
- * steady panel size, the Graphics radios / description / reload notice rendering from the last
- * `graphics:changed` fact, and the phone layout (390 × 844 and Pixel 7).
- *
- * The Graphics checks compare the tab with what the engine last said (diagnostics `graphics`,
- * WP-25a): picking Low must come back as Low with the reload notice. The full flow (Low → saved →
- * reload → MSAA off + Lambert → Medium → reload) is `graphics-menu.spec.ts` (WP-25c).
+ * The tabbed menu (Town · Graphics · Sound · Help) and the Graphics tab UI. The Graphics checks
+ * compare the tab with diagnostics `graphics`; the full reload flow is in `graphics-menu.spec.ts`.
  */
 import { mkdirSync } from 'node:fs';
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
@@ -19,7 +11,7 @@ import { byId, diagnostics, gotoTitle, openMenuTab, startBuilding, trackErrors, 
 const OUT = 'artifacts/wp-25/menu';
 const ids = UI_TEST_IDS;
 const LABELS: Record<MenuTab, string> = { town: 'Town', graphics: 'Graphics', sound: 'Sound', help: 'Help' };
-/** The controls each tab must carry (every menu id kept from before WP-25). */
+/** The controls each tab must carry. */
 const CONTENT: Record<MenuTab, string[]> = {
   town: [ids.timeModeGroup, ids.renameTown, ids.newTown, ids.townFileMenu],
   graphics: [ids.graphicsGroup, ids.graphicsReload, ids.grid],
@@ -31,7 +23,6 @@ const tab = (page: Page, t: MenuTab) => byId(page, ids.menuTab(t));
 const panel = (page: Page, t: MenuTab) => byId(page, ids.menuTabPanel(t));
 const phase = async (page: Page) => (await diagnostics(page)).phase;
 
-/** What the engine last said (diagnostics.graphics, WP-25a). */
 async function engineGraphics(page: Page): Promise<{ preset: GraphicsPreset; reloadRequired: boolean }> {
   const { preset, reloadRequired } = (await diagnostics(page)).graphics;
   return { preset, reloadRequired };
@@ -84,13 +75,11 @@ test('tabs: roles, contents, click / tap switching and a steady panel size', asy
     await expect(panel(page, t)).toHaveAttribute('aria-labelledby', ids.menuTab(t));
     for (const control of CONTENT[t]) await expect(panel(page, t).locator(`#${control}`)).toHaveCount(1);
   }
-  // The heading and Resume stay above the tabs.
   const menuBox = (await byId(page, ids.menuPanel).boundingBox())!;
   const resumeBox = (await byId(page, ids.resume).boundingBox())!;
   const tabsBox = (await page.locator('#ui-menu-tabs').boundingBox())!;
   expect(resumeBox.y + resumeBox.height).toBeLessThanOrEqual(tabsBox.y);
 
-  // Opens on Town (the default).
   await expectSelected(page, 'town');
 
   const heights: number[] = [];
@@ -165,14 +154,12 @@ test('the last tab is remembered on reopen; Back from a sub-view returns to the 
   await expectSelected(page, 'help');
   await expect(byId(page, ids.help)).toBeFocused();
 
-  // Credits → Back → Help.
   await byId(page, ids.credits).click();
   await expect(byId(page, ids.creditsPanel)).toBeVisible();
   await byId(page, ids.creditsClose).click();
   await expectSelected(page, 'help');
   await expect(byId(page, ids.credits)).toBeFocused();
 
-  // Town → New town → Cancel → Town; Rename → Cancel → Town.
   await openMenuTab(page, 'town');
   await byId(page, ids.newTown).click();
   await expect(byId(page, ids.confirmPanel)).toBeVisible();
@@ -217,7 +204,6 @@ test('Graphics tab: Quality radios, description and reload notice follow the las
   const description = page.locator('#ui-graphics-desc');
   const notice = page.locator('.ui-graphics-reload');
 
-  /** The radios show the engine's last fact. */
   const expectRendered = async (label: string) => {
     const fact = await engineGraphics(page);
     const shown = fact.preset;
@@ -265,7 +251,7 @@ test('Graphics tab: Quality radios, description and reload notice follow the las
   await expectRendered('after Medium');
   await expect(notice).toBeHidden();
 
-  // Show grid moved here and still works.
+  // Show grid toggles from this tab.
   const grid = byId(page, ids.grid);
   const before = await grid.isChecked();
   await grid.click();

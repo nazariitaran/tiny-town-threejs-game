@@ -1,7 +1,5 @@
 /**
- * CONTRACT FILE — town data model. Pure data: NO three.js imports anywhere in src/town/.
- *
- * Grid conventions (see docs/design/03-architecture.md §Grid):
+ * Town data model. Grid conventions:
  *  - The plot is `width × depth` cells. Cell {x, z}: x ∈ [0, width), z ∈ [0, depth).
  *  - +x → world +X (east), +z → world +Z (south, towards the default camera).
  *  - Edges are canonicalised as the NORTH (−z) or WEST (−x) side of a cell.
@@ -19,10 +17,7 @@
 
 export type GroundKind = 'field' | 'grass' | 'meadow' | 'road' | 'pavement' | 'walkway';
 
-/**
- * Placeable objects, grouped as in the dock (catalog/tools.ts TOOL_CATEGORIES).
- * Ids name what the thing IS (not a model file); visuals live in catalog/models.ts.
- */
+/** Placeable objects, grouped by dock category. Ids name the thing, not a model file. */
 export type ObjectKind =
   // Streets
   | 'roundabout'
@@ -62,7 +57,6 @@ export type ObjectKind =
   | 'slide'
   | 'barbecue';
 
-/** Things that run along cell edges (Garden). */
 export type EdgeKind = 'hedge' | 'fence-low' | 'fence-tall';
 
 export type Rotation = 0 | 1 | 2 | 3;
@@ -86,7 +80,7 @@ export interface PlacedObject {
   kind: ObjectKind;
   anchor: Cell;
   rotation: Rotation;
-  /** Visual variant index (e.g. colour/tree shape) chosen via the seeded RNG at placement time. */
+  /** Visual variant index (e.g. colour, tree shape). */
   variant: number;
 }
 
@@ -107,14 +101,11 @@ export type TownChange =
 /** What the player asked for at one cell/edge. Produced by ToolController, consumed by TownEditor. */
 export type BuildAction =
   | { type: 'paint-ground'; kind: Exclude<GroundKind, 'field'>; cell: Cell }
-  /**
-   * `variant`: which of the kind's models to build (the variant picker; the ghost shows it). Absent or
-   * out of range → the rules roll one with the seeded RNG (demo towns, tests).
-   */
+  /** Absent or out-of-range `variant` → the rules roll one with the seeded RNG. */
   | { type: 'place-object'; kind: ObjectKind; cell: Cell; rotation: Rotation; variant?: number }
   | { type: 'place-edge'; kind: EdgeKind; edge: Edge }
   | { type: 'bulldoze'; cell: Cell; edge: Edge | null }
-  /** Move tool: put placed object `id` down anchored at `cell`, turned `rotation` (same id and variant). */
+  /** Re-places object `id` at `cell` and `rotation`, keeping its id and variant. */
   | { type: 'move-object'; id: number; cell: Cell; rotation: Rotation };
 
 export type InvalidReason =
@@ -158,15 +149,7 @@ export interface TownStateReader {
   stats(): TownStats;
 }
 
-/**
- * Versioned save format. Bump `version` (and add a migration in serialize.ts if old saves must load).
- * V4 (WP-17): homes, shops and the church got bigger footprints (e.g. 3 × 3 → 4 × 4), so a v3 town
- * would overlap; v3 saves are rejected ("No migration from save version 3") and the game starts fresh.
- * V3 (v0.3): the catalog re-organised (object/edge kinds renamed, roundabouts). Older saves are
- * rejected, so the game starts a fresh town; v0.3 dropped the v1/v2 migrations on purpose.
- * The plot is now 64 × 64; parseSave centres a smaller (48 × 48) v4 save on it.
- * V2 (WP-12): 48 × 48 half-unit cells, roads in aligned 2 × 2 blocks, multi-cell houses.
- */
+/** Versioned save format. A format change bumps `version` and needs a SAVE_MIGRATIONS step in serialize.ts. */
 export interface SavedTownV4 {
   version: 4;
   width: number;
@@ -177,12 +160,8 @@ export interface SavedTownV4 {
   edges: PlacedEdge[];
   nextObjectId: number;
   camera?: { targetX: number; targetZ: number; azimuth: number; polar: number; distance: number };
-  /**
-   * The player's name for the town (WP-20; optional, no version bump): 1–30 characters, sanitised
-   * (town/townName.ts). A save without one loads as DEFAULT_TOWN_NAME.
-   */
+  /** 1–30 characters, sanitised (townName.ts). Absent → DEFAULT_TOWN_NAME. */
   name?: string;
 }
 
-/** The current save format. */
 export type SavedTown = SavedTownV4;

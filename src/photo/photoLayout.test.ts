@@ -44,14 +44,12 @@ describe('photoFrameLayout', () => {
     it(`frames a ${w} × ${h} capture as a Polaroid`, () => {
       const l = photoFrameLayout(w, h);
       const s = Math.min(w, h);
-      // The capture is placed 1:1, with equal borders left, right and top.
       expect(l.photo).toEqual({ x: l.photo.x, y: l.photo.x, width: w, height: h });
       expect(l.width - l.photo.width - l.photo.x).toBe(l.photo.x);
-      // Deep bottom strip, about 4× the side border.
+      // Bottom strip about 4× the side border.
       const bottom = l.height - l.photo.y - l.photo.height;
       expect(bottom / l.photo.x).toBeGreaterThan(3.5);
       expect(bottom).toBeCloseTo(s * 0.2, -1);
-      // The caption sits inside the strip, title above the date line, nothing past the card.
       const stripTop = l.photo.y + l.photo.height;
       expect(l.title.baseline - l.title.fontPx * 0.74).toBeGreaterThan(stripTop);
       expect(l.line.baseline).toBeGreaterThan(l.title.baseline);

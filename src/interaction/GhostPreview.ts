@@ -1,21 +1,12 @@
 /**
- * Ghost preview for the active tool (WP-05). Owned by ToolController, built from the
- * ModelLibrary it already receives (createObject API only). Never shares materials with the town:
- * each source material gets one translucent clone, re-tinted in place when the state changes.
+ * Translucent preview of the active tool's target. Each source material gets its own ghost clone,
+ * never shared with the town, re-tinted in place when the state changes.
  *
- *  - parts: one or more translucent models (an object, a fence, or the pieces of a ground tile:
- *    the auto-tiled road piece, the pavement tile, walkway hub + arms, lawn tufts / flowers),
- *    tinted valid (soft white-green), invalid (brick red) or remove (bulldoze target, pulsing).
- *    Parts carry the same MODEL_STYLES scale as the town (render/objectPose.ts). A remove ghost
- *    lies exactly on the object it will remove (same pose, same sway) and is pulled towards the
- *    camera in depth, so it paints that object's visible surfaces red: no enlarged shell, no
- *    hidden faces showing through. `selected` (Move tool) does the same in a lighter sky blue.
- *  - tile:  a flat fill (ground colour, or the state tint) with a crisp rectangular frame on top,
- *           sized to the target in cells (a multi-cell footprint, a 2 × 2 road block, a fence strip);
- *           the frame keeps a constant border width whatever the size (WP-12)
+ *  - parts: models posed exactly as the town draws them. A remove or selected ghost lies on the
+ *    object itself and is pulled towards the camera in depth, so it paints that object's visible
+ *    surfaces without hidden faces showing through.
+ *  - tile: a flat fill with a rectangular frame of constant border width, sized in cells.
  *
- * It follows the cursor with a light lerp, animates rotation over 100 ms, shakes on an invalid
- * click (±0.05 for 150 ms) and is hidden off-plot / outside the build phase.
  * Tints are not tone-mapped, so brick red stays brick red over the green field.
  */
 import * as THREE from 'three';
@@ -31,11 +22,7 @@ import { shortestAngle } from './strokeMath';
 
 export type GhostState = 'valid' | 'invalid' | 'remove' | 'selected' | 'neutral';
 
-/**
- * Model tint / rim per state. Valid is a cool mint that separates from the warm yellow-green field;
- * brick red (design doc §6 accent) is shared by invalid and remove, on tiles and models alike; sky
- * blue (the §6 focus/info accent) marks the object the Move tool points at or carries.
- */
+/** Model tint / rim per state. Valid is a cool mint that separates from the warm yellow-green field. */
 export const GHOST_TINTS: Readonly<Record<GhostState, string>> = {
   valid: '#7dffc0',
   invalid: '#d8392b',
@@ -44,30 +31,25 @@ export const GHOST_TINTS: Readonly<Record<GhostState, string>> = {
   neutral: '#ffffff',
 };
 
-/** Tile fill colour when no ground colour is given (valid: pale mint, reads brighter than the field). */
+/** Tile fill colour when no ground colour is given. */
 const FILL_COLORS: Readonly<Record<GhostState, string>> = { valid: '#c4ffe4', invalid: '#d8392b', remove: '#d8392b', selected: '#4a9be8', neutral: '#ffffff' };
-/** Cell frame colour: valid is a near-white mint line with a mint glow around it. */
 const FRAME_COLORS: Readonly<Record<GhostState, string>> = { valid: '#f4fffa', invalid: '#d8392b', remove: '#d8392b', selected: '#4a9be8', neutral: '#ffffff' };
-/** Tile fill opacity per state (fill = ground colour for ground tools, else FILL_COLORS). */
 const FILL_OPACITY: Readonly<Record<GhostState, number>> = { valid: 0.5, invalid: 0.62, remove: 0.62, selected: 0.45, neutral: 0.16 };
 const FRAME_OPACITY: Readonly<Record<GhostState, number>> = { valid: 1, invalid: 0.95, remove: 0.95, selected: 0.95, neutral: 0.45 };
-/** Additive mint glow around the frame, valid only (its opacity breathes gently). */
 const GLOW_COLOR = '#56f5a8';
 const GLOW_OPACITY = 0.42;
-/** Fresnel rim strength per state (soft mint rim on valid models). */
 const RIM_STRENGTH: Readonly<Record<GhostState, number>> = { valid: 1.1, invalid: 0.5, remove: 0.6, selected: 0.8, neutral: 0.3 };
 /**
  * Red states (invalid, remove): how far the surface colour goes to the tint. Applied in the shader
  * after the colour atlas and vertex colours, so a green roof turns red, not red × green = brown.
  */
 const RED_RECOLOR = 0.88;
-/** Remove ghost opacity: the red paint covers the object, with only a hint of it showing through. */
 const REMOVE_OPACITY = 0.9;
-/** Selected (Move tool): a lighter blue wash, so the object's own colours still show through. */
+/** Lighter than RED_RECOLOR, so the object's own colours still show through. */
 const SELECTED_RECOLOR = 0.6;
 const SELECTED_OPACITY = 0.7;
 
-/** States drawn exactly on a town object (bulldoze target, Move selection): see applyTint. */
+/** States drawn exactly on a town object (bulldoze target, Move selection). */
 const onObject = (state: GhostState): boolean => state === 'remove' || state === 'selected';
 
 /** A model placed inside the ghost, in cell-local coordinates (before the ghost's own yaw). */
@@ -80,15 +62,14 @@ export interface GhostPart {
   /** Yaw in radians; overrides quarterTurns (a placed tree's hashed yaw). */
   yaw?: number;
   scale?: number;
-  /** Extra vertical stretch (a tree taller than its kit model; footprint and width stay). */
+  /** Extra vertical stretch (a tree taller than its kit model). */
   scaleY?: number;
 }
 
 /**
- * The ghost part of an object's model, posed as TownRenderer draws it (objectPose): the ghost's root
- * stands at the footprint centre with quarterTurns 0. A placement preview passes rotation 0 and
- * id null and turns the root instead (so R animates); a bulldoze target passes the placed object's
- * rotation and id, which gives a tree its own yaw and size.
+ * The ghost part of an object's model, posed as TownRenderer draws it, with the ghost root at the
+ * footprint centre. A placement preview passes rotation 0 and id null and turns the root instead (so
+ * R animates); a bulldoze target passes the placed object's rotation and id (a tree's own yaw and size).
  */
 export function objectGhostPart(def: ObjectDef, model: ModelId, rotation: Rotation, id: number | null): GhostPart {
   const pose = objectPose(def, rotation, id);
@@ -104,7 +85,6 @@ export interface GhostShowOptions {
   parts: readonly GhostPart[];
   /** Fill colour of the tile (ground tools show their own colour); defaults to the state tint. */
   fillColor?: string;
-  /** Fill opacity override. */
   fillOpacity?: number;
   showTile?: boolean;
   /** Ground tiles: keep the parts' real colours and draw them nearly opaque (valid/neutral only). */
@@ -124,7 +104,7 @@ export class GhostPreview {
   private readonly glow: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
   private tileW = 0;
   private tileD = 0;
-  /** Shared by every ghost material's shader patch: fresnel rim and red recolour (updated in place). */
+  /** Shared by every ghost material's shader patch, updated in place. */
   private readonly ghostUniforms = {
     uGhostRimColor: { value: new THREE.Color(GHOST_TINTS.valid) },
     uGhostRimStrength: { value: 1 },
@@ -163,7 +143,6 @@ export class GhostPreview {
     this.fill.name = 'ghost-fill';
     this.fill.position.y = 0.036;
     this.fill.renderOrder = 10;
-    // Rectangular frames (outer edge on the tile edge, border 0.09 cell); rebuilt in place by setTileSize.
     this.frame = new THREE.Mesh(
       rectRingGeometry(),
       new THREE.MeshBasicMaterial({ color: GHOST_TINTS.neutral, transparent: true, opacity: 0.5, depthWrite: false, toneMapped: false }),
@@ -171,7 +150,7 @@ export class GhostPreview {
     this.frame.name = 'ghost-frame';
     this.frame.position.y = 0.04;
     this.frame.renderOrder = 12;
-    // Soft glow band just outside the frame (additive, so it brightens the field rather than covering it).
+    // Additive, so the glow brightens the field rather than covering it.
     this.glow = new THREE.Mesh(
       rectRingGeometry(),
       new THREE.MeshBasicMaterial({
@@ -233,7 +212,6 @@ export class GhostPreview {
     this.glow.visible = state === 'valid';
   }
 
-  /** Invalid click feedback: a quick sideways shake. */
   shake(): void {
     this.shakeTime = this.tuning.shakeDuration;
   }
@@ -263,7 +241,6 @@ export class GhostPreview {
     this.modelHolder.position.x = shakeOffset;
     this.tileGroup.position.x = shakeOffset;
     if (this.tileState === 'valid') {
-      // Gentle breathing glow (cheap: one uniform write, no allocations).
       this.glowTime += delta;
       this.glow.material.opacity = GLOW_OPACITY * (0.75 + 0.25 * Math.sin(this.glowTime * 4));
     }
@@ -273,7 +250,7 @@ export class GhostPreview {
       const pulse = 0.5 + 0.5 * Math.sin(this.pulseTime * 9);
       for (const material of this.ghostMaterials.values()) material.emissiveIntensity = 0.4 + 0.45 * pulse;
     } else if (this.modelState === 'selected') {
-      // Slow breathing: "this is the one you're holding", calmer than the bulldoze pulse.
+      // Slow breathing, calmer than the bulldoze pulse.
       this.pulseTime += delta;
       const pulse = 0.5 + 0.5 * Math.sin(this.pulseTime * 3.5);
       for (const material of this.ghostMaterials.values()) material.emissiveIntensity = 0.15 + 0.25 * pulse;
@@ -293,7 +270,6 @@ export class GhostPreview {
     this.pool.clear();
   }
 
-  /** Size the tile to w × d cells (rebuilds the frame/glow rings in place only when it changes). */
   private setTileSize(w: number, d: number): void {
     if (w === this.tileW && d === this.tileD) return;
     this.tileW = w;
@@ -362,8 +338,7 @@ export class GhostPreview {
     let ghost = this.ghostMaterials.get(source);
     if (ghost) return ghost;
     const standard = source as LitMaterial;
-    // Same lit family as the library (WP-25: Lambert on the Low preset; the rim patch hooks
-    // `#include <common>` / `opaque_fragment` and reads vViewPosition / normal, present in both).
+    // Same lit family as the library; the rim patch's chunks and varyings exist in both.
     ghost = createLitMaterial({
       map: standard.map ?? null,
       color: standard.color ? standard.color.clone() : new THREE.Color('#ffffff'),
@@ -375,8 +350,8 @@ export class GhostPreview {
       depthWrite: false,
     }, this.library.materialMode);
     ghost.name = `ghost:${source.name}`;
-    // Soft fresnel rim in the state colour, and in the red states the surface colour (atlas texel ×
-    // vertex colour × material colour) pulled to the tint (shared uniforms: one extra program for all ghosts).
+    // Fresnel rim in the state colour; red and selected states pull the surface colour (atlas texel ×
+    // vertex colour × material colour) to the tint. Shared uniforms: one extra program for all ghosts.
     const uniforms = this.ghostUniforms;
     ghost.onBeforeCompile = (shader) => {
       shader.uniforms.uGhostRimColor = uniforms.uGhostRimColor;
@@ -392,8 +367,7 @@ export class GhostPreview {
         );
     };
     ghost.customProgramCacheKey = () => 'tiny-town-ghost-rim';
-    // Foliage sways like the town's copy (shared wind uniforms + world position), so a remove ghost
-    // stays on its tree. Chains after the rim patch.
+    // Foliage sways like the town's copy, so a remove ghost stays on its tree. Chains after the rim patch.
     if (source.userData.windSway) applyWindSway(ghost);
     this.baseColors.set(ghost, ghost.color.clone());
     this.ghostMaterials.set(source, ghost);
@@ -405,9 +379,8 @@ export class GhostPreview {
     const base = this.baseColors.get(material);
     const calm = state === 'valid' || state === 'neutral';
     const solid = calm && this.modelSolid;
-    // Red and selected states keep the base colour here: the shader replaces the textured colour with
-    // the tint (uGhostRecolor), so every model reads the same brick red / sky blue. Calm states only
-    // lean to the tint.
+    // Red and selected states keep the base colour: the shader recolours the textured colour
+    // (uGhostRecolor), so every model reads the same brick red / sky blue. Calm states only lean to the tint.
     if (base) material.color.copy(base).lerp(this.tint, solid || !calm ? 0 : state === 'valid' ? 0.15 : 0.2);
     material.emissive.copy(this.tint);
     material.emissiveIntensity = solid ? 0.06 : state === 'valid' ? 0.2 : calm ? 0.12 : state === 'selected' ? 0.3 : 0.5;
@@ -420,10 +393,9 @@ export class GhostPreview {
       : state === 'selected'
       ? SELECTED_OPACITY
       : 0.78;
-    // Ground ghosts (a road piece, a zebra) lie exactly on the tile they replace, in every state, and
-    // a remove ghost exactly on its object: pull them towards the camera in depth so they win the
-    // depth test on the surfaces they share (no z-fighting), while the town's depth still hides
-    // the ghost's own back and inner faces.
+    // Ground ghosts lie exactly on the tile they replace and on-object ghosts on their object: pull them
+    // towards the camera in depth so they win on shared surfaces (no z-fighting), while the town's depth
+    // still hides the ghost's own back and inner faces.
     const offset = this.modelSolid || onObject(state);
     material.polygonOffset = offset;
     material.polygonOffsetFactor = offset ? -1 : 0;
@@ -446,7 +418,7 @@ function rectRingGeometry(): THREE.BufferGeometry {
   return geometry;
 }
 
-/** Rewrite a rectRingGeometry for inner half-extents (ix, iz) and outer (ox, oz). No allocations. */
+/** Rewrite a rectRingGeometry for inner half-extents (ix, iz) and outer (ox, oz). */
 function writeRectRing(geometry: THREE.BufferGeometry, ix: number, iz: number, ox: number, oz: number): void {
   const position = geometry.getAttribute('position') as THREE.BufferAttribute;
   const corners = [-1, -1, 1, -1, 1, 1, -1, 1];

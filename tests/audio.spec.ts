@@ -1,12 +1,4 @@
-/**
- * WP-07 audio checks, all through real input (clicks, mouse drags) and the published diagnostics.
- *  - Start unlocks the AudioContext and decodes every SFX file with no load/decode warnings.
- *  - A 30-tile road drag is rate-limited: audio.starts rises by 10..30.
- *  - Mute persists across a reload (SETTINGS_STORAGE_KEY) and the mute button reflects it (aria-pressed).
- *  - Hiding the page suspends the context; showing it resumes.
- *  - A broken sound file produces exactly one console warning and the game keeps going.
- * WP-13 music checks and WP-18 music resume (position saved on hide/unload, resumed on the next visit).
- */
+/** Sound effects and music, through real input and diagnostics `audio`. */
 import { expect, test, type Page } from '@playwright/test';
 import { clickStart, openMenuTab } from './helpers';
 
@@ -72,8 +64,7 @@ test('a 30-tile road drag is rate-limited to 10..30 sound starts', async ({ page
   await expect.poll(async () => (await diag(page)).tool).toBe('road');
   await page.waitForTimeout(200);
 
-  // An L-shaped stroke (WP-12: one point per 2×2 road block): 20 blocks along z=12, then 10 more
-  // down x=42 → 30 road tiles.
+  // An L-shaped stroke, one point per 2×2 road block: 20 blocks along z=12, then 10 more down x=42.
   const path: Array<[number, number]> = [];
   for (let x = 4; x <= 42; x += 2) path.push([x, 12]);
   for (let z = 14; z <= 32; z += 2) path.push([42, z]);
@@ -173,8 +164,6 @@ test('a broken sound file is reported once and never throws', async ({ page }) =
   await expect.poll(async () => (await diag(page)).audio.starts).toBeGreaterThan(before);
 });
 
-// ---- WP-13: background music -------------------------------------------------------------------
-
 const MUSIC_PATH = '/assets/music/foundation-of-gold.mp3';
 type MusicDiag = {
   enabled: boolean;
@@ -187,7 +176,6 @@ type MusicDiag = {
   loops: number;
   resumedFrom: number | null;
 };
-/** audio.music is published by AudioManager.state (vite-env.d.ts type update requested in the WP-13 hand-off). */
 const music = async (page: Page): Promise<MusicDiag> => ((await diag(page)).audio as unknown as { music: MusicDiag }).music;
 
 test('music is not requested before Start, then streams, plays and advances', async ({ page }) => {
@@ -296,11 +284,8 @@ test('master mute and a hidden page silence music; unmute/show resume it', async
   await expect.poll(async () => (await music(page)).playing).toBe(true);
 });
 
-// ---- WP-18: music resumes where it left off ----------------------------------------------------
-
 /** MusicPlayer.url, the track id in the stored position. */
 const MUSIC_TRACK = '/assets/music/foundation-of-gold.mp3';
-/** Track length in s (docs/assets/audio.md). */
 const MUSIC_DURATION_S = 585.05;
 
 const storedPosition = async (page: Page): Promise<{ track: string; time: number } | null> =>

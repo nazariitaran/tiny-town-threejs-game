@@ -1,9 +1,4 @@
-/**
- * Draws the Polaroid around a captured view and encodes it (WP-19). Layout comes from
- * photoLayout.ts; colours and glyphs match the UI (cream panel, ink, brick brand badge,
- * the time-of-day sun / moon), so the photo looks like part of the game. The title is the
- * player's town name (WP-20), shrunk or cut to fit the strip.
- */
+/** Draws the Polaroid around a captured view and encodes it; colours and glyphs match the UI. */
 import { GLYPHS } from '../ui/glyphs';
 import type { DayPhase } from '../world/dayCycle';
 import { fitCaptionTitle, PHOTO_JPEG_QUALITY, PHOTO_MIME, photoCaption, photoFrameLayout, photoSkyGlyph, type Rect } from './photoLayout';
@@ -76,21 +71,19 @@ export async function framePhoto(shot: HTMLCanvasElement, phase: DayPhase, date:
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('No 2D canvas for the photo');
 
-  // Paper: cream, a touch warmer towards the caption.
   const paper = ctx.createLinearGradient(0, 0, 0, layout.height);
   paper.addColorStop(0, PAPER_TOP);
   paper.addColorStop(1, PAPER_BOTTOM);
   ctx.fillStyle = paper;
   ctx.fillRect(0, 0, layout.width, layout.height);
 
-  // The view, 1:1, with a hairline so bright skies don't melt into the paper.
+  // Hairline so bright skies don't melt into the paper.
   const p = layout.photo;
   ctx.drawImage(shot, p.x, p.y);
   ctx.strokeStyle = HAIRLINE;
   ctx.lineWidth = layout.lineWidth;
   ctx.strokeRect(p.x - layout.lineWidth / 2, p.y - layout.lineWidth / 2, p.width + layout.lineWidth, p.height + layout.lineWidth);
 
-  // Brand badge: the top bar's brick square with the white house.
   const b = layout.badge;
   ctx.fillStyle = BRICK;
   roundedRect(ctx, b, b.width * 0.28);

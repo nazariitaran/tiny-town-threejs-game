@@ -1,17 +1,11 @@
 /**
- * Fixed-capacity particle pool in structure-of-arrays form. Pure TypeScript (no three.js, no DOM)
- * so it is unit-testable and allocation-free: spawn() writes into preallocated typed arrays and
- * step() integrates and swap-removes dead particles in place.
- *
- * A particle with a negative age is "scheduled" (delayed start, e.g. the sparkle ring that waits
- * for a building's pop-in): it occupies a slot but does not move and renders at scale 0.
- *
- * WP-08 (Feel & VFX).
+ * Fixed-capacity, allocation-free particle pool in structure-of-arrays form; dead particles are swap-removed.
+ * A particle with a negative age is scheduled (delayed start): it holds a slot but doesn't move and renders at scale 0.
  */
 
 /** How a particle's size evolves over its life (see sizeAt()). */
 export const Curve = {
-  /** Soft dust / poof billboard: scales OUT over its life while its alpha fades to 0 (alphaAt()). */
+  /** Dust billboard: grows while alphaAt() fades it out. */
   Puff: 0,
   /** Debris, leaves, petals: full size, shrinks in the last quarter. */
   Chip: 1,
@@ -29,13 +23,13 @@ export interface ParticleSpec {
   vz: number;
   /** Seconds. */
   life: number;
-  /** Seconds before the particle starts (0 = now). */
+  /** Seconds before the particle starts. */
   delay: number;
   /** World-unit radius at full size. */
   size: number;
   /** Downward acceleration (negative = buoyant, rises). */
   gravity: number;
-  /** Velocity damping per second (exponential-ish). */
+  /** Velocity damping per second. */
   drag: number;
   /** Spin rate (rad/s) around the particle's tumble axes. */
   spin: number;
@@ -55,7 +49,6 @@ export const MAX_STEP = 1 / 20;
 
 export class ParticlePool {
   count = 0;
-  /** Total spawn() calls that got a slot (diagnostics). */
   spawned = 0;
   /** spawn() calls dropped because the pool was full. */
   dropped = 0;
@@ -178,7 +171,6 @@ export class ParticlePool {
     }
   }
 
-  /** Remove everything (reduced motion, screenshots). */
   clear(): void {
     this.count = 0;
   }
@@ -205,10 +197,7 @@ export class ParticlePool {
     }
   }
 
-  /**
-   * Opacity multiplier (0..1) of particle `i`. Puffs fade in over the first 12 % of their life
-   * hold, then ease out to exactly 0 at the end; other curves are opaque while alive (they shrink instead).
-   */
+  /** Opacity (0..1): puffs fade in, then ease out to exactly 0; other curves stay opaque and shrink instead. */
   alphaAt(i: number): number {
     const age = this.age[i];
     if (age <= 0) return 0;

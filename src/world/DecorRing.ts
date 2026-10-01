@@ -1,16 +1,9 @@
 /**
- * Decor around the plot, built once models are loaded. One InstancedMesh per model part (the decor
- * models are single-part colour-atlas meshes), so ≤ 4 draw calls.
- *
- * Layout (deterministic, fixed seed):
- *  1. Hedgerow frame just outside the kerb: runs of low round shrubs (the `oak` canopy, sunk so
- *     its trunk is buried, and squashed) with gaps, hedgerow trees behind it, tree clumps on the
- *     corners and rock pairs at the ends of runs. Reads as an authored field boundary at the default
- *     build camera instead of scattered specks.
- *  2. Open meadow (the title camera orbits through it at r ≈ 33).
- *  3. Forest belt of groves, thinned where it would project behind the top bar at DEFAULT_POSE.
- *
- * WP-04 (World & look).
+ * Deterministic decor around the plot, one InstancedMesh per model part:
+ *  1. a hedgerow frame just outside the kerb (squashed, sunk `oak` canopies as shrubs, hedgerow trees,
+ *     corner clumps, rock pairs at run ends);
+ *  2. open meadow, which the title camera orbits through;
+ *  3. a forest belt, thinned where it would show behind the top bar at DEFAULT_POSE.
  */
 import * as THREE from 'three';
 import { MODELS, type ModelId } from '../catalog/models';
@@ -28,19 +21,16 @@ export interface DecorInstance {
   /** Ground height under the instance. */
   y: number;
   scale: number;
-  /** Vertical squash (1 = none). Shrubs are squashed canopies. */
+  /** Vertical squash (1 = none). */
   squash: number;
   /** Fraction of the model's height pushed below ground (shrubs bury the trunk). */
   sink: number;
   rotation: number;
-  /** Which layer placed it (for tests/tuning). */
   layer: 'hedge' | 'hedge-tree' | 'corner' | 'rock' | 'belt';
 }
 
 const DECOR_SEED = 0x7a11e;
-/**
- * Instance caps per model (oak 408, pine 204, rocks 100 tris per instance): ≈ 75k triangles.
- */
+/** Instance caps: ≈ 75k triangles (oak 408, pine 204, rocks 100 tris each). */
 const DECOR_BUDGET: Readonly<Record<DecorId, number>> = {
   'oak': 150,
   'pine': 120,
@@ -48,16 +38,11 @@ const DECOR_BUDGET: Readonly<Record<DecorId, number>> = {
 };
 /** Hedgerow centre line, measured from the plot edge (outside the kerb). */
 export const HEDGE_OFFSET = KERB_WIDTH + 1.9;
-/** Nothing may sit closer to the plot edge than this. */
 export const DECOR_CLEAR_MARGIN = 1.2;
-/**
- * Inner radius of the forest belt. The title camera orbits at ~43 units from the centre, so the
- * band between the hedgerow frame and the belt stays open meadow (no trees filling the lens).
- * (46 / 105 on the 24-unit plot; scaled for the 32-unit, 64 × 64 plot.)
- */
+/** Forest belt inner radius: beyond the title camera's orbit (~43 units), so the meadow it flies over stays open. */
 const BELT_INNER = 60;
 const BELT_OUTER = 120;
-/** Build-camera vertical FOV (Game.ts creates PerspectiveCamera(35, …)). */
+/** Must match the build camera's vertical FOV. */
 const BUILD_FOV = 35;
 /** Screen band (CSS px from the top) that the top bar covers at the default pose. */
 export const TOP_BAR_BAND_PX = 64;
@@ -96,11 +81,7 @@ function makeTopBandTest(): (x: number, y0: number, y1: number, z: number) => bo
   };
 }
 
-/**
- * WP-12: the plot trees grew (oak/pine catalog scale 0.36 → 0.45) but the ring was planned for the
- * v0.1 templates. Planned scales stay in v0.1 units; this factor is applied when the instances are
- * composed, so the ring renders exactly as before (same plan, same sizes).
- */
+/** Ring scales are planned for a 0.36 tree scale; this maps them onto the catalog's scale. */
 const RING_SCALE_BASE = 0.36;
 export const TEMPLATE_RESCALE: Readonly<Record<DecorId, number>> = {
   'oak': RING_SCALE_BASE / MODELS['oak'].scale,
@@ -108,10 +89,10 @@ export const TEMPLATE_RESCALE: Readonly<Record<DecorId, number>> = {
   'decor-rocks': 1,
 };
 
-/** Approximate normalised model height (world units at scale 1, v0.1 templates) for the top-band test. */
+/** Approximate model height at ring scale 1, for the top-band test. */
 const MODEL_HEIGHT: Readonly<Record<DecorId, number>> = { 'oak': 0.72, 'pine': 0.72, 'decor-rocks': 0.2 };
 
-/** Deterministic placement (three.js maths only, no GPU objects). Sorted nearest first. */
+/** Deterministic placement, sorted nearest first. */
 export function planDecor(): DecorInstance[] {
   const rng = createSeededRandom(DECOR_SEED);
   const out: DecorInstance[] = [];
@@ -169,7 +150,6 @@ export function planDecor(): DecorInstance[] {
       if (present) {
         const [x, z] = side.map(u, HEDGE_OFFSET + wobble);
         place('oak', x, z, 1.95 + rng() * 0.55, 'hedge', { squash: 0.58, sink: 0.45, spacing: false });
-        // A hedgerow tree every so often, just behind the hedge.
         if (rng() < 0.13) {
           const [tx, tz] = side.map(u + (rng() - 0.5) * 0.6, HEDGE_OFFSET + 1.3 + rng() * 0.8);
           place(rng() < 0.55 ? 'oak' : 'pine', tx, tz, 1.6 + rng() * 0.6, 'hedge-tree');
@@ -227,11 +207,8 @@ export function planDecor(): DecorInstance[] {
 const DECOR_MODELS: readonly DecorId[] = ['oak', 'pine', 'decor-rocks'];
 
 /**
- * Which of `angles.length` instances to keep for a share `fraction` (0..1] of the ring, spread evenly
- * around it (WP-25): instances are ranked by angle about the plot centre and every 1/fraction-th
- * one is kept (an error-diffusion stride, so any arc keeps ≈ fraction of what it had). Deterministic;
- * returns ascending indices into `angles`. fraction ≥ 1 keeps everything; ≤ 0 keeps nothing.
- * (Nearest-first, the pre-WP-25 low tier, dropped the belt trees in front of the orbiting title camera.)
+ * Ascending indices of the instances kept for a share `fraction` of the ring: ranked by angle about the
+ * plot centre with an error-diffusion stride, so any arc keeps about `fraction` of what it had.
  */
 export function evenDecorSubset(angles: readonly number[], fraction: number): number[] {
   const n = angles.length;
@@ -252,7 +229,6 @@ export class DecorRing {
   /** Per mesh: every instance matrix (plan order) and each instance's angle about the plot centre. */
   private readonly fullMatrices: Float32Array[] = [];
   private readonly angles: number[][] = [];
-  /** Share of each mesh drawn (GraphicsProfile.decorFraction), spread evenly around the ring. */
   private fraction = 1;
 
   constructor() {
@@ -305,10 +281,7 @@ export class DecorRing {
     this.applyFraction();
   }
 
-  /**
-   * Draw this share (0..1] of every decor mesh, spread evenly around the ring (WP-25 graphics
-   * presets; Low = 0.6). A change rewrites the instance buffers once; 1 restores the full plan order.
-   */
+  /** Draws this share (0..1] of every decor mesh, spread evenly; a change rewrites the instance buffers once. */
   setFraction(fraction: number): void {
     const next = Math.min(1, Math.max(0, fraction));
     if (next === this.fraction) return;

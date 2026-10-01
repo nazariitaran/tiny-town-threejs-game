@@ -1,13 +1,7 @@
 /**
- * Ground meshes: the buildable plot as a raised diorama slab (field top + warm sandstone kerb + soil faces,
- * one vertex-coloured mesh) and the surrounding meadow disc that undulates gently and rolls into
- * distant hills (one vertex-coloured mesh). Heights come from terrainShape.ts.
- *
- * WP-04 owns the plot field / terrain colours; WP-03 owns ground-tile colours (GROUND_MODELS).
- * Field is a lighter, warmer sibling of the kit greens (#4ab480 / #3da679) so painted lawns and
- * meadows still read against it.
- *
- * WP-04 (World & look).
+ * Ground meshes, each one vertex-coloured mesh: the plot as a raised diorama slab (field, kerb, soil
+ * faces) and the surrounding meadow disc rolling into distant hills. The field is a lighter, warmer
+ * sibling of the ground-tile greens so painted lawns and meadows still read against it.
  */
 import * as THREE from 'three';
 import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
@@ -77,7 +71,7 @@ class GeometryBuilder {
   }
 }
 
-/** The plot slab: subtly mottled field, cream kerb, soil faces. `mode`: the lit material family (WP-25). */
+/** The plot slab: subtly mottled field, cream kerb, soil faces. */
 export function createPlotBase(mode: MaterialMode = 'standard'): THREE.Mesh {
   const g = new GeometryBuilder();
   const field = new THREE.Color(TERRAIN_PALETTE.field);

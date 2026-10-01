@@ -1,11 +1,6 @@
 /**
- * Offline icon renderer (WP-03). NOT imported by the game: `scripts/render-icons.mjs` loads it in a
- * browser through the dev server and writes the PNGs to public/assets/icons/.
- *
- * Every icon is drawn through the real in-game pipeline — ModelLibrary + TownRenderer on a tiny fake
- * town — so MODEL_STYLES, the warmed roads atlas, the procedural walkway/lawn slabs and the catalog
- * scales/offsets all match what the player places. Same 3/4 angle (front-right, 30° elevation),
- * orthographic, transparent background, the game's sun/hemisphere colours and tone mapping.
+ * Offline icon renderer, loaded by `scripts/render-icons.mjs` through the dev server (the game never imports it).
+ * Icons are drawn by the real ModelLibrary + TownRenderer on a tiny fake town, so they match what the player places.
  */
 import * as THREE from 'three';
 import { OBJECTS, objectDef } from '../catalog/objects';
@@ -18,14 +13,13 @@ import { LIGHTING } from '../world/Environment';
 import { ModelLibrary } from './ModelLibrary';
 import { meadowScatterModel, TownRenderer } from './TownRenderer';
 
-/** What to build for one icon: ground cells, objects, fences, and the cell the camera frames. */
 interface IconScene {
   ground?: Array<[number, number, GroundKind]>;
   object?: ObjectKind;
-  /** Which of the object's models (the variant picker's chip icons, tool-<id>-v<n>.png); default 0. */
+  /** Model index, for the variant picker's chip icons; default 0. */
   variant?: number;
   edge?: EdgeKind;
-  /** Clip everything to the framed cell / road block (roads/walkways continue out of frame instead of capping). */
+  /** Clip to the framed cell / road block, so roads and walkways run out of frame instead of capping. */
   clipToCentre?: boolean;
   /** Frame the centre road block (2 × 2 cells) instead of the centre cell. */
   roadBlock?: boolean;
@@ -39,7 +33,6 @@ const line = (kind: GroundKind): Array<[number, number, GroundKind]> => [
   [C, C, kind],
   [C + 1, C, kind],
 ];
-/** Three road blocks in a row (WP-12: a road tile covers a 2 × 2 block). */
 const roadLine = (): Array<[number, number, GroundKind]> => {
   const cells: Array<[number, number, GroundKind]> = [];
   for (let bx = C - ROAD_BLOCK; bx <= C + ROAD_BLOCK; bx += ROAD_BLOCK) {
@@ -72,8 +65,7 @@ function sceneForTool(toolId: string): IconScene | null {
     case 'grass':
       return { ground: [[C, C, toolId]] };
     case 'meadow': {
-      // The clump is hashed per cell: use the first cell next to the centre that grows the short
-      // flowers, so the icon reads as wildflowers whatever the plot size (the 64 × 64 centre grows a tuft).
+      // The clump is hashed per cell: use the first cell from the centre that grows flowers.
       let x = C;
       while (meadowScatterModel({ x, z: C }) !== 'meadow-flowers') x += 1;
       return { ground: [[x, C, 'meadow']] };
@@ -140,10 +132,7 @@ class FakeTown implements TownStateReader {
 const ABOVE_GROUND = new THREE.Box3(new THREE.Vector3(-100, 0, -100), new THREE.Vector3(100, 100, 100));
 const NO_BUS = { on: () => () => {} } as unknown as GameBus;
 
-/**
- * Render every tool icon, plus one per extra model of a multi-model object tool (the variant picker's
- * chips); returns { '/assets/icons/tool-<id>.png' | '/assets/icons/tool-<id>-v<n>.png': 'data:image/png;base64,…' }.
- */
+/** Every tool icon plus one per extra model of a multi-model tool, as { icon path: PNG data URL }. */
 export async function renderToolIcons(size = 128, supersample = 2): Promise<Record<string, string>> {
   const library = new ModelLibrary();
   await library.loadAll();
@@ -183,7 +172,6 @@ export async function renderToolIcons(size = 128, supersample = 2): Promise<Reco
     const town = new FakeTown(spec);
     const townRenderer = new TownRenderer(scene, library, town, NO_BUS);
     townRenderer.rebuildAll();
-    // Recentre on the framed cell / road block / object footprint.
     const anchor = { x: C, z: C };
     const world = spec.roadBlock
       ? roadBlockCentreWorld(anchor)
@@ -223,7 +211,6 @@ export async function renderToolIcons(size = 128, supersample = 2): Promise<Reco
   return result;
 }
 
-/** World-space bounds of every instance drawn under `root`. */
 function instancedBounds(root: THREE.Object3D): THREE.Box3 {
   const box = new THREE.Box3();
   const instance = new THREE.Matrix4();

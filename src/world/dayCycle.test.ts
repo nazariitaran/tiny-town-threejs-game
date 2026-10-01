@@ -28,10 +28,7 @@ import {
   type Vec3,
 } from './dayCycle';
 
-/**
- * The v0.2 look, copied from Environment.ts (LIGHTING / SKY_PALETTE / SUN_DIRECTION) so this test
- * needs no WebGL. If Environment's constants ever change, both must change together.
- */
+/** The afternoon look, copied from Environment.ts so this test needs no WebGL; keep the two in sync. */
 const V02 = {
   sunColor: '#ffe6c4',
   sunIntensity: 3.0,

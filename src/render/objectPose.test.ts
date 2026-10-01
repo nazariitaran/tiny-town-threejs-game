@@ -22,7 +22,7 @@ describe('objectPose', () => {
       expect(pose.scale).toBeGreaterThanOrEqual(0.88);
       expect(pose.scale).toBeLessThan(1.12);
       expect(pose.scaleY).toBe(2);
-      // The turn the player chose doesn't matter: the same id always grows the same tree.
+      // Rotation is ignored: the same id always grows the same tree.
       expect(objectPose(objectDef('pine'), 3, id)).toEqual(pose);
     }
   });

@@ -1,26 +1,12 @@
 /**
- * WP-09b visual regression: screenshot baselines for `title`, `sample-town`, `asset-gallery` and
- * (WP-16c) `night-town` on every project (desktop-chrome 1280×720, mobile-chrome Pixel 7).
+ * Screenshot baselines for every state in STATES, on every project. Before comparing pixels the
+ * scene must be settled and frozen, no cell hovered (the hover highlight fades on real time), no DOM
+ * UI animation running (they run on real time, not the paused game clock) and two captures 400 ms
+ * apart byte-identical.
  *
- * Capture procedure (prepareDeterministicState in helpers.ts): load → reduced motion → pause →
- * seed(12345) → setState (acknowledged, built while already frozen) → hide debug UI → fonts →
- * 2 frames. Before comparing pixels we also require:
- *  - settled diagnostics (renderer matches TownState, no pop-in/dying, no particles, no autosave
- *    pending) and a frozen camera, town and car set across frames;
- *  - no hovered cell (the hover highlight fades on real time; the mouse never enters the canvas);
- *  - the DOM UI settled: no CSS animation/transition still running under #ui-root (tray slide,
- *    hint fade, phase fades run on real time, not the paused game clock);
- *  - two captures 400 ms apart are byte-identical, so nothing on screen is still moving.
- *
- * Baselines are committed under tests/visual-regression.spec.ts-snapshots/. A missing baseline
- * FAILS. Regenerate deliberately after an approved look change:
+ * A missing baseline FAILS. Regenerate deliberately after an approved look change, then review every PNG:
  *   PORT=5210 npx playwright test tests/visual-regression.spec.ts --update-snapshots
- * and review every PNG before committing.
- *
- * Platform caveat: baselines are per OS (Playwright appends the platform, e.g.
- * `title-desktop-chrome-darwin.png`) because GPU raster and font hinting differ. Only darwin
- * baselines exist; a Linux CI job would fail on missing `-linux` files until it generates and
- * commits its own set (ideally from the same pinned Playwright/Chromium Docker image it runs in).
+ * Baselines are per OS (GPU raster and font hinting differ); only darwin baselines exist.
  */
 import { expect, test, type Page } from '@playwright/test';
 import { diagnostics, prepareDeterministicState, trackErrors } from './helpers';
@@ -33,7 +19,6 @@ const STATES = [
   { name: 'title', phase: 'title', minObjects: 0 },
   { name: 'sample-town', phase: 'building', minObjects: 1 },
   { name: 'asset-gallery', phase: 'building', minObjects: 1 },
-  // WP-16c: the sample town pinned at T_NIGHT (lit windows, lamp pools/halos, fireflies).
   { name: 'night-town', phase: 'building', minObjects: 1 },
 ] as const;
 

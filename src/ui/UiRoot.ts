@@ -1,16 +1,8 @@
 /**
- * DOM UI (WP-06): loading, title, build HUD (top bar + dock with category tabs, item tray and
- * mode buttons), hint line, cursor tooltip, menu / confirm / controls help / credits / photo /
- * town name overlays and the error screen. Layout and states follow docs/design/02-interaction-and-ui.md §4–§7.
- *
- * Talks to the game ONLY via the bus: emits `intent:*` / `ui:sfx`, renders facts
- * (`phase:changed`, `tool:changed`, `history:changed`, `audio:changed`, ...).
- *
- * UI-owned state: the active dock category and the digit shortcuts (see uiKeys.ts).
- * Keep the element ids listed in UI_TEST_IDS stable — Playwright tests select by them.
+ * DOM UI. Talks to the game only via the bus: emits `intent:*` / `ui:sfx` and renders facts.
+ * Owns the active dock category and the digit shortcuts. Playwright selects by the ids in UI_TEST_IDS.
  */
-// Styles (ui.css + bundled Nunito) are imported from src/styles.css, NOT here. Tests import
-// UI_TEST_IDS from ./testIds, which has no side effects.
+// Styles are imported from src/styles.css, not here, so this module has no CSS side effects.
 import { objectDef } from '../catalog/objects';
 import { TOOL_CATEGORIES, toolDef, toolsInCategory, variantIcon, type ToolCategory, type ToolDef, type ToolId } from '../catalog/tools';
 import { assetUrl } from '../game/config';
@@ -27,7 +19,7 @@ import { MENU_TABS, UI_TEST_IDS, type MenuTab } from './testIds';
 import { digitAction, isPhotoKey } from './uiKeys';
 
 type ModalView = 'menu' | 'confirm' | 'help' | 'credits' | 'photo' | 'name' | 'file' | 'file-confirm';
-/** The name dialog (WP-20) names a new town or renames this one, and returns to where it opened. */
+/** `from` is where the dialog returns to. */
 type NameDialog = { mode: 'new' | 'rename'; from: 'title' | 'menu' | 'building' };
 type UiSfx = 'ui-hover' | 'ui-click' | 'ui-open' | 'ui-close';
 
@@ -35,33 +27,30 @@ const HINT_MAX_USES = 3;
 const HINT_MS = 3500;
 const PICK_HINT_MOUSE = 'Pick something below, then click the map to build';
 const PICK_HINT_TOUCH = 'Pick an item below · two fingers move the view';
-/** Move tool, while carrying (the FIXED ones for trees and plants, which can't be turned). */
+/** Move tool while carrying; the FIXED ones are for trees and plants, which can't be turned. */
 const CARRY_HINT_MOUSE = 'Click where it goes · R to rotate · Esc to cancel';
 const CARRY_HINT_MOUSE_FIXED = 'Click where it goes · Esc to cancel';
 const CARRY_HINT_TOUCH = 'Tap where it goes · tap Rotate to turn it';
 const CARRY_HINT_TOUCH_FIXED = 'Tap where it goes';
 const CARRY_HINTS: ReadonlySet<string> = new Set([CARRY_HINT_MOUSE, CARRY_HINT_MOUSE_FIXED, CARRY_HINT_TOUCH, CARRY_HINT_TOUCH_FIXED]);
-/** Appended to a multi-model tool's mouse hint (touch players see the variant strip instead). */
+/** Appended to a multi-model tool's mouse hint. */
 const VARIANT_HINT = ' · V for style';
 
-/** Models of an object tool (1 for every other tool): more than one gets the variant badge and strip. */
 function modelCount(tool: ToolDef): number {
   return tool.layer === 'object' ? objectDef(tool.id as Parameters<typeof objectDef>[0]).variants : 1;
 }
 
-/** An external link in the Credits panel (a new tab, so the game keeps running). */
+/** Opens in a new tab, so the game keeps running. */
 function link(href: string, text: string): string {
   return `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
 }
 
-/** The author's pages (owner, 2026-10-01): the title screen's corner and the bottom of Credits. */
 const AUTHOR_LINKS = [
   { href: 'https://github.com/nazariitaran/tiny-town-threejs-game', label: 'Tiny Town on GitHub', glyph: GLYPHS.github },
   { href: 'https://www.linkedin.com/in/nazariitaran', label: 'LinkedIn', glyph: GLYPHS.linkedin },
   { href: 'https://x.com/tn255', label: 'X (Twitter)', glyph: GLYPHS.x },
 ] as const;
 
-/** "Author's links" with one icon link per platform (new tab, so the game keeps running). */
 function authorLinks(extraClass: string): string {
   const links = AUTHOR_LINKS.map(
     ({ href, label, glyph }) => `<a class="ui-author-link" href="${href}" target="_blank" rel="noopener noreferrer" aria-label="${label}" title="${label}">${glyph}</a>`,
@@ -72,32 +61,29 @@ function authorLinks(extraClass: string): string {
 const CC0 = link('https://creativecommons.org/publicdomain/zero/1.0/', 'CC0');
 const CC_BY = link('https://creativecommons.org/licenses/by/3.0/', 'CC BY 3.0');
 
-/** Catalog hints are written for mouse + keys; reword them for touch (no key cues). */
+/** Catalog hints are written for mouse + keys; this rewords them for touch. */
 function touchHint(hint: string): string {
   return hint
     .replace(/ · R to rotate$/, ' · tap Rotate to turn it')
     .replace(/^Click or drag/, 'Tap or drag')
     .replace(/^Click/, 'Tap');
 }
-/** A multi-model card's corner mark: one dot per model ("there are several of these"). */
 function variantBadge(count: number): string {
   return count > 1 ? `<span class="ui-card-variants" aria-hidden="true">${'<i></i>'.repeat(count)}</span>` : '';
 }
 
 const INVALID_TOOLTIP_MS = 1500;
 const PHOTO_DEVELOPING = 'Developing…';
-/** Music note for the menu's Music row (WP-13; same 24×24, 2 px stroke style as GLYPHS). */
+/** Music note for the menu's Music row. */
 const MUSIC_GLYPH =
   '<svg class="ui-glyph" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg>';
 
-/** Day/night modes (WP-16c): label + glyph for the top-bar button and the menu row. */
 const TIME_MODE_UI: Record<TimeMode, { label: string; glyph: string }> = {
   auto: { label: 'Auto', glyph: GLYPHS.timeAuto },
   day: { label: 'Day', glyph: GLYPHS.timeDay },
   night: { label: 'Night', glyph: GLYPHS.timeNight },
 };
 
-/** Menu tabs (WP-25): label + glyph, in MENU_TABS order. */
 const MENU_TAB_UI: Record<MenuTab, { label: string; glyph: string }> = {
   town: { label: 'Town', glyph: GLYPHS.homes },
   graphics: { label: 'Graphics', glyph: GLYPHS.graphics },
@@ -116,21 +102,20 @@ export class UiRoot {
   private phase: GamePhase = 'loading';
   private category: ToolCategory = 'streets';
   private activeTool: ToolId | null = null;
-  /** Variant picker: the active tool's model choice and count (tool:changed), null for one-model tools. */
+  /** Null for one-model tools. */
   private variant: GameEvents['tool:changed']['variant'] = null;
-  /** Which tool and model count the strip's chips were built for (rebuilt when either changes). */
+  /** Tool and model count the strip's chips were built for. */
   private variantStripKey = '';
-  /** Move tool: something turnable is being carried (the Rotate button is live). */
+  /** Move tool: a turnable object is being carried. */
   private carryRotatable = false;
-  /** Move tool pick-ups so far (the carry hint shows for the first few, like tool hints). */
+  /** Move tool pick-ups; the carry hint shows for the first few. */
   private carries = 0;
   private muted = false;
   private volume = 0.8;
-  /** Last `daytime:changed` fact (Game emits it at boot with the stored mode). */
   private timeMode: TimeMode = 'auto';
   private dayPhase: DayPhase = 'day';
   private modal: ModalView | null = null;
-  /** View to show when the pending `intent:open-menu` lands (`?` opens help directly). */
+  /** View to show when the pending `intent:open-menu` lands. */
   private pendingView: ModalView | null = null;
   private readonly toolUses = new Map<ToolId, number>();
   private hintTimer = 0;
@@ -142,27 +127,17 @@ export class UiRoot {
   private pointerTouch = false;
   private hoverKey: string | null = null;
   private quietHoverKey: string | null = null;
-  /** The latest framed photo (WP-19) and the object URL the preview shows it through. */
   private photo: { blob: Blob; fileName: string; url: string } | null = null;
-  /** The town's name (WP-20; from `town:named`) and the name dialog's purpose while it is open. */
   private townName = DEFAULT_TOWN_NAME;
   private nameDialog: NameDialog = { mode: 'new', from: 'title' };
-  /** Town file (WP-21): where the panel opened from, and the decoded file waiting for its confirm. */
   private fileFrom: 'title' | 'menu' | 'building' = 'building';
   private pendingFile: DecodedTownFile | null = null;
-  /** Menu tabs (WP-25): the open tab (kept for this page session) and the menu control a sub-view opened from. */
+  /** Kept until the page reloads. */
   private menuTab: MenuTab = 'town';
   private menuReturnFocus: HTMLElement | null = null;
-  /**
-   * Last `graphics:changed` fact (WP-25). Game emits it at boot; until it does (or if it never
-   * does), the Graphics tab shows the default preset.
-   */
   private graphics: { preset: GraphicsPreset; reloadRequired: boolean } = { preset: DEFAULT_GRAPHICS, reloadRequired: false };
 
-  /**
-   * `suggestTownName(avoid)` draws a random name from the suggestion list (Game owns the list and its
-   * seeded stream), never `avoid` when there is another choice.
-   */
+  /** `suggestTownName(avoid)` returns a random suggestion, never `avoid` when there is another choice. */
   constructor(
     host: HTMLElement,
     private readonly bus: GameBus,
@@ -215,7 +190,6 @@ export class UiRoot {
         this.volume = volume;
         this.renderAudio();
       }),
-      // WP-13: music settings rows.
       bus.on('music:changed', ({ enabled, volume }) => {
         this.el<HTMLInputElement>(UI_TEST_IDS.music).checked = enabled;
         const range = this.el<HTMLInputElement>(UI_TEST_IDS.musicVolume);
@@ -225,16 +199,14 @@ export class UiRoot {
       bus.on('intent:toggle-grid', ({ visible }) => {
         this.el<HTMLInputElement>(UI_TEST_IDS.grid).checked = visible;
       }),
-      // WP-16c: day/night mode (button + menu row) render from the fact, never from the intent.
       bus.on('daytime:changed', ({ mode, phase }) => {
         this.timeMode = mode;
         this.dayPhase = phase;
         this.renderTimeMode();
       }),
-      // WP-19: the photo preview fills in when the framed photo is ready.
       bus.on('photo:ready', (photo) => this.showPhoto(photo)),
       bus.on('photo:error', () => this.renderPhotoState('error', "The photo didn't come out. Close this and try again.")),
-      // WP-21: the live town as a file, answered in the same click as intent:export-town.
+      // Answered in the same click as intent:export-town.
       bus.on('town-file:ready', ({ blob, fileName }) => {
         downloadBlob(blob, fileName);
         this.renderFileStatus('ok', `Saved as ${fileName}`);
@@ -242,12 +214,10 @@ export class UiRoot {
         keep.textContent = `Saved as ${fileName}`;
         keep.disabled = true;
       }),
-      // WP-20: the top bar shows the town's name.
       bus.on('town:named', ({ name }) => {
         this.townName = name;
         this.renderTownName();
       }),
-      // WP-25: the Graphics tab renders from the fact, never from the intent.
       bus.on('graphics:changed', ({ preset, reloadRequired }) => {
         this.graphics = { preset, reloadRequired };
         this.renderGraphics();
@@ -281,8 +251,6 @@ export class UiRoot {
     this.root.innerHTML = '';
     delete this.root.dataset.phase;
   }
-
-  // ---------------------------------------------------------------- markup
 
   private template(): string {
     const id = UI_TEST_IDS;
@@ -571,8 +539,6 @@ export class UiRoot {
       </section>`;
   }
 
-  // ---------------------------------------------------------------- input
-
   private readonly onClick = (event: MouseEvent): void => {
     const target = (event.target as HTMLElement).closest('button');
     if (!target || target.disabled) return;
@@ -581,7 +547,6 @@ export class UiRoot {
     if (!quiet) this.sfx('ui-click');
 
     if (target.id === id.start) {
-      // Continue goes straight in; a new town is named first (WP-20).
       if (this.hasSave()) this.bus.emit('intent:start', { mode: 'continue' });
       else this.openNameDialog({ mode: 'new', from: 'title' });
     } else if (target.id === id.townName) this.openNameDialog({ mode: 'rename', from: 'building' });
@@ -618,7 +583,6 @@ export class UiRoot {
     else if (target.dataset.tool) this.selectTool(target.dataset.tool as ToolId);
   };
 
-  /** The name dialog's form (Enter in the field or its submit button). */
   private readonly onSubmit = (event: SubmitEvent): void => {
     if (!(event.target as HTMLElement).closest(`#${UI_TEST_IDS.namePanel}`)) return;
     event.preventDefault();
@@ -670,7 +634,7 @@ export class UiRoot {
   };
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
-    // Esc closes an overlay even from the town name field (WP-20); every other key there is typing.
+    // Esc closes an overlay even from the town name field; every other key there is typing.
     if (event.code === 'Escape' && this.modal && !event.isComposing) {
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -722,9 +686,6 @@ export class UiRoot {
     this.selectMenuTab(next);
   };
 
-  // ---------------------------------------------------------------- actions
-
-  /** Show `tab`'s panel and focus its tab button (the menu remembers it until the page reloads). */
   private selectMenuTab(tab: MenuTab): void {
     this.menuTab = tab;
     this.renderMenuTab();
@@ -757,14 +718,14 @@ export class UiRoot {
     this.renderPhotoState('ready', `Saved as ${this.photo.fileName}`);
   }
 
-  /** "Clear" in the new-town confirm: name the new town first; nothing is cleared until it is named. */
+  /** Nothing is cleared until the new town is named. */
   private confirmNewTown(): void {
     this.openNameDialog({ mode: 'new', from: this.phase === 'title' ? 'title' : 'menu' });
   }
 
   /**
-   * The name dialog (WP-20). From the title it opens over the title; from the top bar it enters the
-   * menu phase (like the photo view); from the menu or the confirm it replaces that panel.
+   * From the title it opens over the title; from the top bar it enters the menu phase (like the photo
+   * view); from the menu or the confirm it replaces that panel.
    */
   private openNameDialog(dialog: NameDialog): void {
     this.nameDialog = dialog;
@@ -776,7 +737,6 @@ export class UiRoot {
     } else this.openModal('name');
   }
 
-  /** Fill the dialog: a random suggestion for a new town, the current name for a rename. */
   private startNameView(): void {
     const { mode } = this.nameDialog;
     const panel = this.el(UI_TEST_IDS.namePanel);
@@ -819,9 +779,6 @@ export class UiRoot {
     }
   }
 
-  // ---------------------------------------------------------------- town file (WP-21)
-
-  /** Top bar (from building, like the photo view) or the phone menu row (from the menu). */
   private openFilePanel(from: 'menu' | 'building'): void {
     this.fileFrom = from;
     if (from === 'building') {
@@ -832,12 +789,11 @@ export class UiRoot {
     } else this.openModal('file');
   }
 
-  /** The system file picker (inside the click that asked for it). */
+  /** Must run inside the click that asked for it. */
   private chooseTownFile(): void {
     this.el<HTMLInputElement>(UI_TEST_IDS.fileInput).click();
   }
 
-  /** Read and check the picked file; a good one goes to the confirm, a bad one to the panel's status line. */
   private async readTownFile(input: HTMLInputElement): Promise<void> {
     const file = input.files?.[0];
     input.value = ''; // picking the same file again still fires 'change'
@@ -859,14 +815,13 @@ export class UiRoot {
     this.openModal('file-confirm');
   }
 
-  /** The panel: no Download on the title (there is no town yet). */
+  /** No Download on the title: there is no town yet. */
   private startFileView(): void {
     this.button(UI_TEST_IDS.fileDownload).hidden = this.fileFrom === 'title';
     this.el(UI_TEST_IDS.fileClose).textContent = this.fileFrom === 'building' ? 'Back to town' : 'Back';
     this.renderFileStatus('idle', '');
   }
 
-  /** "Open Bumbleford?", when it was saved, and what it replaces (nothing on a fresh title). */
   private startFileConfirmView(): void {
     const file = this.pendingFile;
     if (!file) return;
@@ -909,7 +864,6 @@ export class UiRoot {
     status.textContent = text;
   }
 
-  /** "n / 30" under the field; a blank name can't be submitted. */
   private renderNameCount(): void {
     const value = this.el<HTMLInputElement>(UI_TEST_IDS.nameInput).value;
     this.el('ui-name-count').textContent = `${townNameLength(value)} / ${TOWN_NAME_MAX_LENGTH}`;
@@ -935,7 +889,7 @@ export class UiRoot {
   private openModal(view: ModalView): void {
     const wasOpen = this.modal !== null;
     const from = this.modal;
-    // A sub-view opened from the menu gives focus back to the control that opened it (WP-25).
+    // A sub-view opened from the menu gives focus back to the control that opened it.
     if (from === 'menu' && view !== 'menu') {
       const active = document.activeElement;
       this.menuReturnFocus = active instanceof HTMLElement && this.el(UI_TEST_IDS.menuPanel).contains(active) ? active : null;
@@ -984,8 +938,6 @@ export class UiRoot {
     for (const el of this.root.querySelectorAll<HTMLElement>('.ui-hud, .ui-title')) el.inert = inert;
   }
 
-  // ---------------------------------------------------------------- facts → DOM
-
   private showPhase(phase: GamePhase): void {
     const previous = this.phase;
     this.phase = phase;
@@ -1004,9 +956,6 @@ export class UiRoot {
     this.renderVariants();
   }
 
-  // ---------------------------------------------------------------- photo (WP-19)
-
-  /** Flash, then an empty print in the shape the photo will have while it develops. */
   private startPhotoView(): void {
     const flash = this.root.querySelector<HTMLElement>('.ui-flash')!;
     flash.classList.remove('is-on');
@@ -1043,7 +992,6 @@ export class UiRoot {
     return this.root.querySelector<HTMLElement>('.ui-print')!;
   }
 
-  /** WP-20: the top-bar pill and the photo's alt text follow the town's name. */
   private renderTownName(): void {
     const brand = this.button(UI_TEST_IDS.townName);
     brand.querySelector('.ui-town-name')!.textContent = this.townName;
@@ -1101,7 +1049,7 @@ export class UiRoot {
     if (!same) {
       tray.innerHTML = wanted
         .map(
-          // Digits 1–9 reach the first nine tools; later ones (WP-23) have no badge and no shortcut.
+          // Digits 1–9 reach the first nine tools; later ones have no badge and no shortcut.
           (tool, i) => `<button type="button" class="ui-card" id="${UI_TEST_IDS.tool(tool.id)}" data-tool="${tool.id}" aria-pressed="false" aria-label="${tool.label}" title="${i < 9 ? `${tool.label} (${i + 1})` : tool.label}">
           <img src="${assetUrl(tool.icon)}" alt="" width="64" height="64" draggable="false" onerror="this.style.visibility='hidden'" /><span class="ui-card-label">${tool.label}</span>${i < 9 ? `<kbd>${i + 1}</kbd>` : ''}${variantBadge(modelCount(tool))}</button>`,
         )
@@ -1134,10 +1082,6 @@ export class UiRoot {
     this.renderVariants();
   }
 
-  /**
-   * Variant picker: the strip of model chips over the selected card, while building with a
-   * multi-model tool. The chips are rebuilt only when the tool or its model count changes.
-   */
   private renderVariants(): void {
     const strip = this.el(UI_TEST_IDS.variants);
     const tool = this.activeTool;
@@ -1169,7 +1113,6 @@ export class UiRoot {
     this.placeVariants();
   }
 
-  /** Centre the variant strip over the selected card (kept on screen; its caret points at the card). */
   private readonly placeVariants = (): void => {
     const strip = this.root.querySelector<HTMLElement>(`#${UI_TEST_IDS.variants}`);
     if (!strip || strip.hidden || !this.activeTool) return;
@@ -1187,7 +1130,6 @@ export class UiRoot {
     strip.style.setProperty('--caret-x', `${Math.round(Math.min(Math.max(centre - left, 18), width - 18))}px`);
   };
 
-  /** Edge fades on the tray frame when more items are scrolled off either side. */
   private readonly updateTrayCue = (): void => {
     const tray = this.root.querySelector<HTMLElement>(`#${UI_TEST_IDS.tray}`);
     const frame = tray?.parentElement;
@@ -1197,10 +1139,6 @@ export class UiRoot {
     frame.classList.toggle('has-more-right', tray.scrollLeft < max - 2);
   };
 
-  /**
-   * Move tool (selection:changed): while something is carried the hint says how to put it down, and
-   * the Rotate button turns it (not trees and plants). Putting it down or back restores the tool's state.
-   */
   private onSelectionChanged({ id, rotation, rotatable }: GameEvents['selection:changed']): void {
     const carrying = id !== null;
     this.carryRotatable = carrying && rotatable;
@@ -1233,7 +1171,6 @@ export class UiRoot {
     if (document.activeElement !== volume) volume.value = String(this.volume);
   }
 
-  /** Top-bar time button + menu radios from the last `daytime:changed` fact. */
   private renderTimeMode(): void {
     const { label, glyph } = TIME_MODE_UI[this.timeMode];
     const next = TIME_MODE_UI[TIME_MODES[(TIME_MODES.indexOf(this.timeMode) + 1) % TIME_MODES.length]].label;
@@ -1248,7 +1185,6 @@ export class UiRoot {
     for (const mode of TIME_MODES) this.el<HTMLInputElement>(UI_TEST_IDS.timeModeOption(mode)).checked = mode === this.timeMode;
   }
 
-  /** Menu tabs (WP-25): one selected tab (roving tabindex) and its panel; the others are hidden. */
   private renderMenuTab(): void {
     for (const tab of MENU_TABS) {
       const selected = tab === this.menuTab;
@@ -1259,7 +1195,6 @@ export class UiRoot {
     }
   }
 
-  /** Graphics tab (WP-25) from the last `graphics:changed` fact: the checked preset, its description, the reload notice. */
   private renderGraphics(): void {
     const { preset, reloadRequired } = this.graphics;
     for (const p of GRAPHICS_PRESETS) this.el<HTMLInputElement>(UI_TEST_IDS.graphicsOption(p)).checked = p === preset;
@@ -1280,7 +1215,7 @@ export class UiRoot {
     this.el(UI_TEST_IDS.hint).classList.remove('is-visible');
   }
 
-  /** Drop any refusal tooltip. `afterPlacement` also mutes the hover reason for the current spot. */
+  /** `afterPlacement` also mutes the hover reason for the current spot. */
   private clearTooltip(afterPlacement = false): void {
     window.clearTimeout(this.tooltipTimer);
     this.flashReason = null;
@@ -1314,10 +1249,8 @@ export class UiRoot {
   }
 
   /**
-   * Mouse: anchored near the pointer but never under it (above-right).
-   * Touch / coarse pointer: a finger hides the spot anyway, so the tooltip sits top-centre in the
-   * free scene area below the top bar and the hint pill. In both cases it never overlaps the top
-   * bar, the hint pill or the dock.
+   * Mouse: above-right of the pointer, never under it. Touch: top-centre, since a finger hides the spot
+   * anyway. It never overlaps the top bar, the hint pill or the dock.
    */
   private positionTooltip(): void {
     const tip = this.el(UI_TEST_IDS.tooltip);
@@ -1351,8 +1284,6 @@ export class UiRoot {
     this.hideHint();
     this.clearTooltip();
   }
-
-  // ---------------------------------------------------------------- helpers
 
   private sfx(event: UiSfx): void {
     this.bus.emit('ui:sfx', { event });

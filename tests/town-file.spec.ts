@@ -1,8 +1,6 @@
 /**
- * WP-21 town file: download the town, open a file back (with a confirm), from the game and from the
- * title. Real input only: the top-bar Town file button (desktop) or the menu row (phones), the file
- * chooser, the panel and confirm buttons; `applyState` is setup. Test files are made in Node from
- * the real sample town (encodeTownFile), so no fixture can drift from the save format.
+ * Town file: download the town and open a file back, from the game and from the title. Test files are
+ * made in Node from the real sample town (encodeTownFile), so no fixture can drift from the save format.
  */
 import { mkdirSync, readFileSync } from 'node:fs';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
@@ -71,7 +69,6 @@ test.describe('town file', () => {
     await expect.poll(() => phase(page)).toBe('building');
     const before = await diagnostics(page);
 
-    // Download: a file named after the town, holding the live town.
     await openFilePanel(page, info);
     const [download] = await Promise.all([page.waitForEvent('download'), byId(page, UI_TEST_IDS.fileDownload).click()]);
     expect(download.suggestedFilename()).toMatch(/^bumbleford-\d{4}-\d{2}-\d{2}-\d{4}\.tinytown\.json$/);

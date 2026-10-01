@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-// Fails if any tracked text file in the repo contains an absolute home-directory path
-// (macOS /Users/… or Linux /home/…). Docs should use repo-relative paths or <REPO ROOT>.
-// Run: node scripts/check-no-local-paths.mjs (first step of `npm run verify`)
+// Fails if any tracked text file contains an absolute home-directory path (/Users/… or /home/…).
+// Run: node scripts/check-no-local-paths.mjs
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

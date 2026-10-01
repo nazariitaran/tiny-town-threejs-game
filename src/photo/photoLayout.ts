@@ -1,22 +1,17 @@
-/**
- * Town photo maths (WP-19): capture pixel ratio, Polaroid frame layout, caption and file name.
- * Pure (no DOM, no three.js) so it runs in Node tests; PhotoFrame.ts draws what this lays out.
- * WP-20: the caption's title is the player's town name, fitted to the strip (fitCaptionTitle).
- */
+/** Town photo maths: capture pixel ratio, Polaroid layout, caption and file name. Pure, for Node tests. */
 import { DEFAULT_TOWN_NAME, townFileStem } from '../town/townName';
 import type { DayPhase } from '../world/dayCycle';
 
-/** Wanted long edge of the captured 3D view, in device pixels (the frame adds a border around it). */
+/** Target long edge of the captured view, in device pixels, before the frame's border. */
 export const PHOTO_LONG_EDGE = 2400;
-/** Never render the capture larger than this on either edge, whatever the GPU allows. */
+/** Max capture edge, whatever the GPU allows. */
 export const PHOTO_MAX_EDGE = 4096;
 export const PHOTO_MIME = 'image/jpeg';
 export const PHOTO_JPEG_QUALITY = 0.92;
 
 /**
- * Pixel ratio for the one-frame photo render: at least the screen's own ratio, raised until the long
- * edge reaches PHOTO_LONG_EDGE, and capped so neither edge exceeds `maxEdge` (the GPU's renderbuffer /
- * viewport limit) or PHOTO_MAX_EDGE.
+ * Pixel ratio for the photo render: at least the screen's ratio, raised until the long edge reaches
+ * PHOTO_LONG_EDGE, capped so neither edge exceeds `maxEdge` (the GPU limit) or PHOTO_MAX_EDGE.
  */
 export function photoPixelRatio(cssWidth: number, cssHeight: number, screenRatio: number, maxEdge: number): number {
   const long = Math.max(1, cssWidth, cssHeight);
@@ -33,27 +28,21 @@ export interface Rect {
 
 /** Everything PhotoFrame draws, in pixels of the final image. */
 export interface PhotoFrameLayout {
-  /** The whole card = the saved image. */
   width: number;
   height: number;
-  /** Where the captured view goes (its own size, never scaled). */
+  /** The captured view, unscaled. */
   photo: Rect;
   /** Hairline around the photo. */
   lineWidth: number;
-  /** Brand badge (brick square with the house glyph), left of the title. */
   badge: Rect;
-  /** `maxWidth`: room for the title between the badge and the sun / moon (WP-20: long town names). */
+  /** `maxWidth`: room for the title between the badge and the sun / moon. */
   title: { x: number; baseline: number; fontPx: number; maxWidth: number };
   line: { x: number; baseline: number; fontPx: number };
-  /** Sun / moon glyph, right-aligned in the bottom strip. */
+  /** Sun / moon glyph. */
   sky: Rect;
 }
 
-/**
- * A Polaroid around a `photoWidth × photoHeight` capture. Proportions follow the short edge, so a
- * landscape desktop shot and a portrait phone shot get the same look: a thin border on three sides
- * and a deep bottom strip holding the caption.
- */
+/** A Polaroid around the capture; proportions follow the short edge, so landscape and portrait shots match. */
 export function photoFrameLayout(photoWidth: number, photoHeight: number): PhotoFrameLayout {
   const w = Math.max(1, Math.round(photoWidth));
   const h = Math.max(1, Math.round(photoHeight));
@@ -88,13 +77,9 @@ export function photoFrameLayout(photoWidth: number, photoHeight: number): Photo
   };
 }
 
-/** Which sky glyph the frame shows: a moon at night, a sun otherwise. */
 export const photoSkyGlyph = (phase: DayPhase): 'sun' | 'moon' => (phase === 'night' ? 'moon' : 'sun');
 
-/**
- * The town's name over "28 Sep 2026" (date in the player's locale unless one is given). No words for
- * the time of day: the frame's sun / moon says it (owner decision).
- */
+/** The town's name over "28 Sep 2026" (in the player's locale unless one is given). */
 export function photoCaption(townName: string, date: Date, locale?: string): { title: string; line: string } {
   const day = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' }).format(date);
   return { title: townName || DEFAULT_TOWN_NAME, line: day };
@@ -104,9 +89,8 @@ export function photoCaption(townName: string, date: Date, locale?: string): { t
 export const MIN_TITLE_SCALE = 0.6;
 
 /**
- * Fit the caption title into `maxWidth` px (WP-20): full size if it fits; else a smaller font, down to
- * MIN_TITLE_SCALE; else that size with the end cut and an ellipsis. `measure(text, fontPx)` is the
- * text width in px (a canvas measureText in PhotoFrame; widths scale with the font size).
+ * Fits the title into `maxWidth` px: full size, else a smaller font down to MIN_TITLE_SCALE, else that
+ * size cut with an ellipsis. `measure` returns the width in px and must scale with the font size.
  */
 export function fitCaptionTitle(
   text: string,

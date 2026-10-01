@@ -1,6 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// Same PORT as vite.config.ts, so each worktree's test run gets its own dev server.
 const port = Number(process.env.PORT ?? 5188);
 const baseURL = `http://127.0.0.1:${port}`;
 
@@ -30,18 +29,15 @@ export default defineConfig({
       name: 'desktop-chrome',
       use: {
         ...devices['Desktop Chrome'],
-        // devices['Desktop Chrome'] sets no channel, so Playwright launches the
-        // bundled headless shell, which has no GPU backend and falls back to
-        // SwiftShader (CPU) — roughly 4x slower raster and meaningless FPS.
-        // The full Chromium build renders headless on the real GPU.
+        // The default headless shell has no GPU and falls back to SwiftShader;
+        // full Chromium renders headless on the real GPU.
         channel: 'chromium',
         viewport: { width: 1280, height: 720 },
       },
     },
     {
-      // Chromium mobile emulation (touch, 412×915, DPR 2.6). Chromium rather than WebKit so
-      // multi-touch gestures can be driven through CDP Input.dispatchTouchEvent (two-finger
-      // pan/pinch), and because only Chromium is installed. Real iOS Safari needs a device check.
+      // Chromium rather than WebKit so multi-touch gestures can be driven through CDP
+      // Input.dispatchTouchEvent. Real iOS Safari needs a device check.
       name: 'mobile-chrome',
       use: {
         ...devices['Pixel 7'],

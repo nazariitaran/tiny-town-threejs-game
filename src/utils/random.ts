@@ -1,13 +1,6 @@
 /**
- * Deterministic seeded RNG (mulberry32). Route ALL gameplay randomness through
- * a seeded generator instead of Math.random so the __THREE_GAME_TEST_HOOKS__
- * seed() hook keeps visual baselines and bot playtests reproducible.
- */
-/**
- * A fresh 32-bit seed per page load, for a stream that SHOULD differ between visits: only the
- * town-name suggestions (WP-20), so new players don't all get the same first name. Gameplay and
- * cosmetic streams stay on the fixed seed. The seed() test hook re-seeds such a stream, so tests
- * stay deterministic.
+ * A fresh 32-bit seed per page load, only for streams that should differ between visits (town-name
+ * suggestions). The seed() test hook re-seeds them, so tests stay deterministic.
  */
 export function entropySeed(): number {
   const buffer = new Uint32Array(1);
@@ -15,6 +8,7 @@ export function entropySeed(): number {
   return buffer[0] || Date.now() >>> 0;
 }
 
+/** Deterministic mulberry32 RNG; all gameplay randomness uses one so the seed() test hook keeps runs reproducible. */
 export function createSeededRandom(seed: number): () => number {
   let state = seed >>> 0;
   return () => {

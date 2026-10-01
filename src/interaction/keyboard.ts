@@ -1,5 +1,3 @@
-/** Shared keyboard guards for ToolController / CameraController (WP-05). */
-
 /** True when a key event should go to a text field / editable element, not the game. */
 export function isEditableTarget(target: EventTarget | null): boolean {
   if (!target || typeof (target as HTMLElement).tagName !== 'string') return false;

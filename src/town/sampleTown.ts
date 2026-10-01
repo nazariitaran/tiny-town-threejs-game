@@ -1,12 +1,8 @@
 /**
- * Deterministic demo layout used by the 'sample-town' / 'active-play' test states
- * (screenshots, perf baselines) and a future "Load example town" menu item.
- * Uses only real BuildActions through the editor, so it also exercises the rules.
- * WP-02 owns this file; keep buildSampleTown using every placing tool at least once with ZERO
- * rejections (sampleTown.test.ts asserts it).
- *
- * All builders queue their actions and apply them with `editor.applyBatch(items, { silent: true })`:
- * one town:changed, one undo entry, and no per-item build:* events (no sound/FX spam).
+ * Deterministic demo layouts for the 'sample-town' / 'active-play' test states (screenshots, perf
+ * baselines). They use only real BuildActions through the editor, so they also exercise the rules;
+ * buildSampleTown must use every placing tool with ZERO rejections (sampleTown.test.ts asserts it).
+ * Builders apply their actions as one silent batch: one town:changed, one undo entry, no build:* events.
  */
 import type { ToolId } from '../catalog/tools';
 import type { BatchItem, TownEditor } from './TownEditor';
@@ -19,13 +15,10 @@ export interface DemoTownResult {
   rejected: string[];
 }
 
-/** The sample town and the asset gallery are laid out on this many cells (the v0.2 plot). */
+/** The sample town and the asset gallery are laid out on this many cells. */
 const DEMO_LAYOUT_SIZE = 48;
 
-/**
- * Cells the 48 × 48 demo layouts are shifted by so they sit centred on the plot (8 on the 64 × 64
- * plot); a whole number of road blocks, so roads stay aligned.
- */
+/** Shift that centres the demo layouts on the plot, in whole road blocks so roads stay aligned. */
 export function demoOffset(plotSize: number): number {
   return Math.max(0, Math.floor((plotSize - DEMO_LAYOUT_SIZE) / 2 / ROAD_BLOCK) * ROAD_BLOCK);
 }
@@ -67,20 +60,9 @@ function roadRect(run: (toolId: ToolId, action: BuildAction) => void, x0: number
 }
 
 /**
- * The sample town (laid out on 48 × 48 half-unit cells, shifted by demoOffset() to the centre of the
- * 64 × 64 plot; the coordinates below are layout coordinates): a main street (rows 24–25) and a side street
- * (columns 22–23) meeting at a roundabout (cells 20–25 × 22–27), 1-cell pavements on rows 23 and 26
- * with street furniture. WP-17 (bigger lots: homes 4 × 4, townhouse 3 × 4, big house 5 × 4):
- *  - north of the main street, homes on rows 19–22 face south onto the pavement;
- *  - the civic corner south-east of the roundabout: corner shop, supermarket and church facing north,
- *    then a townhouse;
- *  - west of the side street, south of the roundabout: a donut shop facing the street and a tiered
- *    fountain (WP-23);
- *  - south-west: a cottage, a garden path down to a fountain with a bench and a meadow with a pool;
- *  - a back garden behind the north-west homes (bench, barbecue, swing, slide, planter, a table with
- *    two long benches, bushes and tulips inside a low fence and a hedge), a tall-fence run
- *    along the east lawn, and five trees.
- * Uses every placing tool.
+ * The sample town, in 48 × 48 layout coordinates shifted by demoOffset(): a main street (rows 24–25)
+ * and a side street (columns 22–23) meeting at a roundabout (cells 20–25 × 22–27), with homes, a civic
+ * corner, gardens and trees. Uses every placing tool.
  */
 export function buildSampleTown(editor: TownEditor): DemoTownResult {
   const { run, commit } = demoBuilder(editor, (item) => `${item.toolId}@${JSON.stringify(item.action)}`, true);
@@ -131,7 +113,7 @@ export function buildSampleTown(editor: TownEditor): DemoTownResult {
   place('supermarket', 30, 27, 2);
   place('church', 36, 27, 2);
   place('townhouse', 40, 27, 2);
-  // West of the side street (WP-23): the donut shop faces the street (east), the tiered fountain below it.
+  // West of the side street: the donut shop faces the street (east), the tiered fountain below it.
   place('donut-shop', 19, 28, 1);
   place('tiered-fountain', 18, 33);
   // South-west: a cottage by the garden path, a fountain with a bench, the pool in the meadow.
@@ -149,7 +131,7 @@ export function buildSampleTown(editor: TownEditor): DemoTownResult {
   place('planter', 17, 15);
   place('bush', 7, 17);
   place('bush', 19, 17);
-  // WP-23: a table between two long benches, a slide and a row of tulips along the fence.
+  // A table between two long benches, a slide and a row of tulips along the fence.
   place('long-bench', 10, 16);
   place('garden-table', 10, 17);
   place('long-bench', 10, 18);
@@ -173,17 +155,17 @@ export function galleryMaskBlock(mask: number): { x: number; z: number } {
 
 /** Where each object kind stands in the asset gallery (rotation 0), as its anchor cell. */
 export const GALLERY_OBJECTS: ReadonlyArray<readonly [ObjectKind, number, number]> = [
-  // Row 1 (z 22–27): the big pieces, one free cell between neighbours (WP-17 footprints).
+  // Row 1 (z 22–27): the big pieces, one free cell between neighbours.
   ['roundabout', 0, 22], ['supermarket', 7, 22], ['swimming-pool', 13, 22], ['big-house', 18, 22],
   ['church', 24, 22], ['cottage', 28, 22], ['family-home', 33, 22], ['garage-house', 38, 22],
   ['bungalow', 43, 22],
   // Row 2 (z 26–29): small things; the bus stop and traffic light stand behind a stub of road; then
-  // the townhouse, garage and corner shop at the east end.
+  // the townhouse, mailbox and corner shop at the east end.
   ['fountain', 7, 26], ['swing', 10, 26], ['bench', 13, 26], ['barbecue', 15, 26], ['planter', 17, 26],
   ['postbox', 19, 26], ['lamppost', 21, 26], ['oak', 23, 26], ['pine', 25, 26], ['birch', 27, 26],
   ['bush', 29, 26], ['bus-stop', 32, 28], ['traffic-light', 35, 28],
   ['townhouse', 37, 26], ['mailbox', 41, 26], ['corner-shop', 43, 26],
-  // Row 3 (z 31–33, WP-23): the new pieces.
+  // Row 3 (z 31–33).
   ['tiered-fountain', 7, 31], ['donut-shop', 11, 31], ['tulips', 15, 31], ['long-bench', 17, 31],
   ['garden-table', 19, 31], ['slide', 21, 31],
   // The zebra crossing marks the road cluster of mask 5 (a north–south straight, galleryMaskBlock(5)).
@@ -194,8 +176,9 @@ export const GALLERY_OBJECTS: ReadonlyArray<readonly [ObjectKind, number, number
  * Every road connection mask (16) as isolated little clusters of road blocks (4-block spacing so arms
  * never touch), plus every object kind at rotation 0 (front should face the default camera, i.e. +z),
  * ground kinds and every edge kind, for visual verification of tiling/orientation/proportions.
- * Layout (cells, 48 × 48, shifted by demoOffset() like the sample town): mask centres at block coords (1 + 4c, 1 + 4r), mask = r * 6 + c;
- * objects per GALLERY_OBJECTS on rows 22–33; ground swatches + edge runs on rows 42–43.
+ * Layout (cells, 48 × 48, shifted by demoOffset() like the sample town): mask centres at block coords
+ * (1 + 4c, 1 + 4r), mask = r * 6 + c; objects per GALLERY_OBJECTS on rows 22–33; ground swatches +
+ * edge runs on rows 42–43.
  */
 export function buildAssetGallery(editor: TownEditor): DemoTownResult {
   const { run, commit } = demoBuilder(editor, (item) => item.toolId, true);
@@ -223,13 +206,9 @@ export function buildAssetGallery(editor: TownEditor): DemoTownResult {
 }
 
 /**
- * A dense, fully built plot for performance budgets. Deterministic. A 12 × 12 cell repeat (WP-17:
- * 4-deep lots): road rows at z 0/12/…/60 and road columns at x 0/12/…/60 (2 × 2 blocks), a pavement
- * row either side of each block of lots, and between them two rows of 4-deep lots facing opposite
- * ways. Each lot is 10 cells wide: the north-facing row holds a cottage, a suburban home, a mailbox and
- * trees; the south-facing row a townhouse, a tree column, a suburban home, a mailbox and trees (mostly
- * birch, on open field). WP-23: the mailbox and a tree took the removed garage's 1 × 2 spot. Suburban homes (800–1 330 triangles), not family homes (1 731): the mobile
- * budget. Lampposts and postboxes stand on the pavements.
+ * A dense, fully built plot for performance budgets. Deterministic: a 12 × 12 cell repeat of road rows
+ * and columns, pavements, and two rows of 4-deep lots facing opposite ways. Suburban homes
+ * (800–1 330 triangles), not family homes (1 731), keep it inside the mobile budget.
  */
 export function buildStressTown(editor: TownEditor): DemoTownResult {
   const { run, commit } = demoBuilder(editor, (item) => item.toolId);

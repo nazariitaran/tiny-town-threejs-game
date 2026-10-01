@@ -1,14 +1,9 @@
 /**
- * Where a placed object's or edge's model is drawn: the one definition shared by TownRenderer and
- * the ghost preview, so the bulldoze highlight lies exactly on what it will remove.
- *
- *  - Pose: plain objects turn by their quarter turn at size 1. Trees and plants get a stable yaw
- *    (any angle) and ±12 % size from hash(id) (never the RNG, so it survives reloads), and
- *    ObjectDef.height stretches Y only, so a tall tree keeps its crown inside its cell. A preview
- *    (no id yet) has no jitter.
- *  - Matrices: object origin = T(footprint centre) · R(yaw) · S(scale, scale · scaleY, scale);
- *    edge origin = T(edge centre) · R(0 or a quarter turn); then MODEL_STYLES' non-uniform scale
- *    on the model itself (instance = origin · S(pop-in) · style).
+ * Where a placed object's or edge's model is drawn, shared by TownRenderer and the ghost preview
+ * so the bulldoze highlight lies exactly on what it will remove.
+ * Trees and plants get a stable yaw and ±12 % size from hash(id), so the jitter survives reloads.
+ * ObjectDef.height stretches Y only, so a tall tree keeps its crown inside its cell.
+ * Instance matrix = origin · S(pop-in) · style.
  */
 import * as THREE from 'three';
 import type { ModelId } from '../catalog/models';
@@ -24,18 +19,16 @@ const NO_SCALE: readonly [number, number, number] = [1, 1, 1];
 export interface ObjectPose {
   /** Yaw in radians. */
   yaw: number;
-  /** Uniform size. */
   scale: number;
   /** Extra vertical stretch on top of `scale`. */
   scaleY: number;
 }
 
-/** True for objects drawn with the per-id jitter (trees and plants). */
 export function hasJitter(def: ObjectDef): boolean {
   return def.group === 'tree' || def.group === 'plant';
 }
 
-/** The pose of an object of `def` turned `rotation`; `id` null = a placement preview (no jitter). */
+/** `id` null is a placement preview (no jitter). */
 export function objectPose(def: ObjectDef, rotation: Rotation, id: number | null, out: ObjectPose = { yaw: 0, scale: 1, scaleY: 1 }): ObjectPose {
   out.scaleY = heightScale(def);
   if (id !== null && hasJitter(def)) {
@@ -66,7 +59,6 @@ export function edgeOrigin(edge: Edge, out: THREE.Matrix4): THREE.Matrix4 {
   return out.makeRotationY(world.alongX ? 0 : QUARTER).setPosition(world.x, 0, world.z);
 }
 
-/** MODEL_STYLES' non-uniform scale of a model (1, 1, 1 when it has none). */
 export function styleScale(model: ModelId): readonly [number, number, number] {
   return MODEL_STYLES[model]?.scale ?? NO_SCALE;
 }

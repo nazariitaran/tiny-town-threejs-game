@@ -1,10 +1,7 @@
 import * as THREE from 'three';
 import { effectivePixelRatio } from '../game/graphics';
 
-/**
- * `antialias` (MSAA) is fixed for the context's lifetime: it comes from the boot graphics preset
- * (WP-25; off on Low), and changing it needs a page reload.
- */
+/** `antialias` (MSAA) is fixed for the context's lifetime; changing it needs a page reload. */
 export function createRenderer(canvas: HTMLCanvasElement, options: { antialias: boolean } = { antialias: true }): THREE.WebGLRenderer {
   const renderer = new THREE.WebGLRenderer({
     canvas,
@@ -17,12 +14,12 @@ export function createRenderer(canvas: HTMLCanvasElement, options: { antialias: 
   renderer.toneMappingExposure = 1.05;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
-  // WP-24: Game redraws the shadow map only when something that casts has changed (ShadowScheduler).
+  // ShadowScheduler redraws the shadow map only when a caster changes.
   renderer.shadowMap.autoUpdate = false;
   return renderer;
 }
 
-/** Size the drawing buffer to the canvas: pixel ratio = min(devicePixelRatio × renderScale, maxDpr) (WP-25). */
+/** Sizes the drawing buffer to the canvas at min(devicePixelRatio × renderScale, maxDpr). */
 export function resizeRenderer(
   renderer: THREE.WebGLRenderer,
   camera: THREE.PerspectiveCamera,

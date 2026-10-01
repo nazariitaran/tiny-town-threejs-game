@@ -16,7 +16,7 @@ function ok(result: SavedTown | Error): SavedTown {
   return result;
 }
 
-/** A minimal valid current (v4) save for a w×d plot with all-field ground. */
+/** A minimal valid current save for a w×d plot with all-field ground. */
 function blank(w = PLOT_WIDTH, d = PLOT_DEPTH): SavedTown {
   return { version: 4, width: w, depth: d, ground: [['field', w * d]], objects: [], edges: [], nextObjectId: 1 };
 }
@@ -168,7 +168,7 @@ describe('parseSave rejects corrupted / foreign data without throwing', () => {
   });
 
   it('rejects a v3 save with "No migration from save version 3" (WP-17: bigger footprints, fresh town)', () => {
-    // A v0.3 town: a 3 × 3 cottage next to a 3 × 3 family home would overlap as 4 × 4 lots.
+    // 3 cells apart: fine as 3 × 3 lots, overlapping as 4 × 4.
     const objects = [
       { id: 1, kind: 'cottage', anchor: { x: 2, z: 2 }, rotation: 0, variant: 0 },
       { id: 2, kind: 'family-home', anchor: { x: 5, z: 2 }, rotation: 0, variant: 0 },

@@ -1,25 +1,15 @@
 #!/usr/bin/env node
-// Builds the few "composed" GLBs the game needs that no kit ships as a single
-// model. Output goes to public/assets/models/composed/. Re-run after changing
-// a recipe:  node scripts/compose-models.mjs
+// Builds the composed GLBs in public/assets/models/composed/ from the source models in assets-src/.
+// Run: node scripts/compose-models.mjs
 //
-//  * merge recipes: copy nodes/meshes/materials from existing Kenney GLBs
-//    (source files under assets-src/, CC0) into one GLB, each part wrapped in
-//    a node with its own translation / Y-rotation / scale. External textures
-//    are embedded, so every composed GLB is self-contained.
-//  * primitive recipes: simple flat-shaded low-poly shapes written directly
-//    (used for the postbox, which no CC0 kit in this style provides).
+//  * merge recipes copy parts of existing GLBs into one self-contained GLB (textures embedded),
+//    each part under a node with its own translation / Y-rotation / scale;
+//  * primitive recipes write simple flat-shaded shapes directly;
+//  * Poly Pizza recipes rescale one model to game units and give it flat materials
+//    (metalness 0, roughness 1), so it doesn't render dark next to the kits.
 //
-//  * normalised recipes: one Poly Pizza model (assets-src/polypizza/, CC0 or
-//    CC-BY 3.0, see docs/assets/CREDITS.md) rescaled to game units, optionally
-//    turned (rotY; the church and corner shop keep their native +Z front, the
-//    catalog's rotationOffset handles it) and given flat Kenney-style materials
-//    (metalness 0, roughness 1),
-//    so it doesn't render dark next to the kits.
-//
-// Conventions for everything written here (same as the Kenney city kits):
-// Y-up, metres-agnostic "city units" where a road tile is 1 x 1, pivot at the
-// centre of the footprint with the base on y = 0, front facing -Z.
+// Conventions (same as the Kenney city kits): Y-up, a road tile is 1 x 1, pivot at the centre of the
+// footprint with the base on y = 0, front facing -Z.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -33,7 +23,6 @@ const kit = (pack, file) => path.join(SRC, pack, 'Models/GLB format', file);
 const natureKit = (file) => path.join(SRC, 'nature-kit', 'Models/GLTF format', file);
 const poly = (file) => path.join(SRC, 'polypizza', file);
 
-// ---------------------------------------------------------------- GLB I/O
 function readGlb(file) {
   const buf = fs.readFileSync(file);
   if (buf.readUInt32LE(0) !== 0x46546c67) throw new Error(`${file}: not a GLB`);
@@ -61,7 +50,6 @@ function writeGlb(file, json, bin) {
   fs.writeFileSync(file, Buffer.concat([h, jh, jsonBuf, bh, binBuf]));
 }
 
-// ---------------------------------------------------------------- merge
 function merge(parts, generator) {
   const out = {
     asset: { version: '2.0', generator },
@@ -159,10 +147,7 @@ function merge(parts, generator) {
   return { json: JSON.parse(JSON.stringify(out)), bin: Buffer.concat(chunks) };
 }
 
-/**
- * Flat Kenney-style materials: metalness 0, roughness 1, no metal/roughness map. Many Poly Pizza
- * exports ship metallicFactor 0.4, which renders almost black without an environment map.
- */
+/** Many Poly Pizza exports ship metallicFactor 0.4, which renders almost black without an environment map. */
 function flatMaterials(glb) {
   for (const m of glb.json.materials || []) {
     const pbr = (m.pbrMetallicRoughness ||= {});
@@ -232,9 +217,8 @@ function pruneTextures(glb) {
 }
 
 /**
- * Kenney Nature Kit look fix (it was rejected in v0.1 for this): every material is a plain colour
- * with metallicFactor 1, and the factors are sRGB values stored as if linear. Metalness 0, the factors
- * converted sRGB → linear, and the kit's teal leaves remapped to the Platformer greens.
+ * The Nature Kit's materials have metallicFactor 1 and sRGB colour factors stored as if linear. This zeroes
+ * metalness, converts the factors to linear and remaps the kit's teal leaves to the Platformer greens.
  */
 const NATURE_GREENS = { grass: '#4fae5c', leafsGreen: '#4fae5c', leafsDark: '#3d9a55' };
 function natureMaterials(glb) {
@@ -248,8 +232,7 @@ function natureMaterials(glb) {
   return glb;
 }
 
-// ---------------------------------------------------------------- primitives
-// Minimal flat-shaded mesh builder -> glTF (no textures, one material per part).
+// Flat-shaded, untextured glTF from triangle lists.
 function primitiveGlb(shapes, generator) {
   const json = { asset: { version: '2.0', generator }, scene: 0, scenes: [{ nodes: [0] }], nodes: [{ name: 'root', children: [] }], meshes: [], materials: [], accessors: [], bufferViews: [], buffers: [] };
   const chunks = []; let binLen = 0;
@@ -287,7 +270,7 @@ function primitiveGlb(shapes, generator) {
   json.buffers.push({ byteLength: binLen });
   return { json, bin: Buffer.concat(chunks) };
 }
-// Shape helpers (triangles wound counter-clockwise seen from outside).
+// Triangles are wound counter-clockwise seen from outside.
 function cylinder(r, y0, y1, seg, { cz = 0, cx = 0, top = true, bottom = true } = {}) {
   const t = [];
   for (let i = 0; i < seg; i++) {
@@ -322,28 +305,24 @@ function box(x0, x1, y0, y1, z0, z1) {
   ];
 }
 
-// ---------------------------------------------------------------- recipes
 const GEN = 'tiny-town scripts/compose-models.mjs';
 const recipes = {
-  // Bus shelter: Kenney commercial canopy + holiday-kit park bench + roads-kit
-  // street-sign pole. Open side / bench faces -Z (the kerb), like the city kits.
+  // Bus shelter: the open side faces -Z (the kerb).
   'bus-stop': () => merge([
     { file: kit('city-kit-commercial', 'detail-overhang-wide.glb'), name: 'canopy', translation: [0, 0, 0.135], rotY: 180, scale: 0.9 },
     { file: kit('holiday-kit', 'bench.glb'), name: 'bench', translation: [0, 0, 0.1], rotY: 0, scale: 0.26 },
     { file: kit('city-kit-roads', 'road-sign-street.glb'), name: 'sign', translation: [0.34, 0, -0.12], rotY: 180, scale: 0.9 },
   ], GEN),
-  // Tall fence edge piece: two suburban-kit fence panels -> 1 cell long along X, centred,
-  // slightly lowered (0.23 tall) so it reads as a garden privacy fence next to 0.75-scaled houses.
+  // Two fence panels, 1 cell long along X, lowered to 0.23 so it reads as a garden fence next to the houses.
   'fence-tall': () => merge([
     { file: kit('city-kit-suburban', 'fence.glb'), name: 'panel-a', translation: [-0.25, 0, 0], scale: [1.0526, 0.85, 1.0526] },
     { file: kit('city-kit-suburban', 'fence.glb'), name: 'panel-b', translation: [0.25, 0, 0], scale: [1.0526, 0.85, 1.0526] },
   ], GEN),
-  // Small fence edge piece: fantasy-town fence (native: runs along Z on the +X cell edge),
-  // rotated to run along X, re-centred on z = 0 and squashed to garden-fence height.
+  // The native fence runs along Z on the +X cell edge; turned to run along X and re-centred on z = 0.
   'fence-small': () => merge([
     { file: kit('fantasy-town-kit', 'fence.glb'), name: 'fence', translation: [0, 0, 0.4625], rotY: 90, scale: [1, 0.37, 1] },
   ], GEN),
-  // Postbox: red pillar box built from primitives (no CC0 match in the Kenney style).
+  // Built from primitives: no CC0 kit has a postbox in this style.
   postbox: () => {
     const red = [214, 58, 52], dark = [52, 55, 72], black = [36, 38, 50], gold = [240, 190, 70];
     return primitiveGlb([
@@ -355,20 +334,17 @@ const recipes = {
       { name: 'plate', material: 'plate', color: gold, tris: box(-0.014, 0.014, 0.07, 0.092, -0.0465, -0.042) },
     ], GEN);
   },
-  // ---- v0.3 catalog additions -------------------------------------------------
-  // Pool: Kenney Fantasy Town square fountain basin (stone rim + water; the modular edge/corner
-  // pieces leave floor gaps between their water) stretched to a 4 x 2 basin at the back and squashed
-  // to pool height, with two commercial-kit parasol tables on the deck in front.
-  // Native 4 x 3 units; the catalog scales it by 0.5 onto 4 x 3 cells. Deck side = -Z (front).
+  // A stretched fountain basin, since the modular pool pieces leave gaps in the water.
+  // Native 4 x 3 units; the catalog scales it by 0.5 onto 4 x 3 cells. The deck faces -Z.
   'swimming-pool': () => merge([
     { file: kit('fantasy-town-kit', 'fountain-square.glb'), name: 'basin', translation: [0, 0, 0.5], scale: [2, 0.4, 1] },
     { file: kit('city-kit-commercial', 'detail-parasol-a.glb'), name: 'parasol-a', translation: [-1.1, 0, -1.05], scale: 1.6 },
     { file: kit('city-kit-commercial', 'detail-parasol-b.glb'), name: 'parasol-b', translation: [1.1, 0, -1.05], scale: 1.6 },
   ], GEN),
-  // Fountain: Fantasy Town round fountain with its centre tier, as shipped (2 x 2 units).
+  // As shipped, 2 x 2 units.
   fountain: () => merge([{ file: kit('fantasy-town-kit', 'fountain-round-detail.glb'), name: 'fountain' }], GEN),
-  // Poly Pizza models, normalised (see the header). Scale factors map the source units onto game
-  // world units directly (the catalog uses scale 1); rotY turns the front to -Z.
+  // Poly Pizza models: scale maps source units straight to world units (the catalog uses scale 1); rotY turns
+  // the front to -Z, except for the church and corner shop, whose +Z front the catalog's rotationOffset handles.
   // "Church" by Poly by Google (CC-BY 3.0): 1.75 tall, 0.78 x 1.42 base.
   church: () => flatMaterials(merge([{ file: poly('church-steeple-salmon.glb'), name: 'church', scale: 0.01265, rotY: 0 }], GEN)),
   // "Building" by Kay Lousberg (CC0): KayKit corner shop, 0.92 x 0.76 x 0.92.
@@ -377,13 +353,9 @@ const recipes = {
   barbecue: () => flatMaterials(merge([{ file: poly('bbq-kettle-red.glb'), name: 'grill', scale: 0.157 }], GEN)),
   // "Swing set" by Poly by Google (CC-BY 3.0): 0.42 tall, frame turned to run along X (0.56 long).
   swing: () => flatMaterials(merge([{ file: poly('swing-set-wood.glb'), name: 'swing', scale: 0.00367, rotY: 90 }], GEN)),
-  // ---- WP-23 additions -------------------------------------------------------
-  // "Donut Store" by J-Toastie (CC-BY 3.0): its own grey pavement slab ("Ground") is dropped so the shop
-  // stands on our ground. Front (awning, windows) faces -Z natively, like the Kenney kits.
-  // Its one texture (a window gradient) becomes flat glass, so the shop adds no texture to the budget.
+  // "Donut Store" by J-Toastie (CC-BY 3.0): its pavement slab is dropped and its one texture becomes flat glass.
   'donut-shop': () => flatMaterials(recolor(dropMaterials(merge([{ file: poly('donut-store.glb'), name: 'donut-shop', scale: 0.4 }], GEN), ['Ground']), { Glass: '#8cc4e0' })),
-  // "Fountain" by Poly by Google (CC-BY 3.0): a round basin with a tiered centre. The native stone is
-  // near-black and the water olive, so both are recoloured to the Kenney fountain's stone and water.
+  // "Fountain" by Poly by Google (CC-BY 3.0): the near-black stone and olive water are recoloured to match the Kenney fountain.
   'tiered-fountain': () => flatMaterials(recolor(merge([{ file: poly('fountain-tiered.glb'), name: 'fountain', scale: 0.107 }], GEN), {
     lambert3SG: '#d8d2cc', lambert4SG: '#b9b1ab', lambert5SG: '#6fb6dc',
   })),
@@ -391,9 +363,7 @@ const recipes = {
   slide: () => flatMaterials(merge([{ file: poly('slide-red.glb'), name: 'slide', scale: 2.2 }], GEN)),
   // "Mailbox" by CreativeTrio (CC0): a kerbside mailbox on a post (small palette texture kept).
   mailbox: () => flatMaterials(merge([{ file: poly('mailbox-post.glb'), name: 'mailbox', scale: 0.36 }], GEN)),
-  // Tulips: the Nature Kit's red, yellow and purple flower in one cell (0.5 units), in three shapes
-  // (A, B, C) for the object's variants. Native flowers are ~0.16 wide and 0.19–0.29 tall; at ×0.7 they
-  // stay under the bush (owner review: ×1.15 was huge).
+  // Three Nature Kit flowers in one 0.5-unit cell, one GLB per shape (the object's variants); ×0.7 keeps them under the bush.
   ...Object.fromEntries(['A', 'B', 'C'].map((shape, v) => [`tulips-${shape.toLowerCase()}`, () => natureMaterials(merge([
     { file: natureKit(`flower_red${shape}.glb`), name: 'red', translation: [-0.07, 0, -0.055], rotY: 20 + 40 * v, scale: 0.7 },
     { file: natureKit(`flower_yellow${shape}.glb`), name: 'yellow', translation: [0.075, 0, -0.035], rotY: 140 + 40 * v, scale: 0.7 },

@@ -1,14 +1,7 @@
 /**
- * When to redraw the sun's shadow map (WP-24). Pure: no three.js.
- *
- * The renderer runs with `shadowMap.autoUpdate = false`; Game asks `step()` once per rendered frame.
- * Redrawing every caster every frame was the largest per-frame cost that grows with the town.
- *  - Redraw at once when the town changed (`invalidate()` on town:changed), the key light was
- *    re-aimed or the map resized (Environment.shadowVersion), and on every frame while pop-in /
- *    shrink-out tweens run (`settling`).
- *  - Moving casters that aren't the town — cars and birds — refresh at a lower rate of their own
- *    (30 Hz each: at 15 Hz a car's shadow visibly lagged behind the car and caught up in steps).
- *  - Otherwise the map is reused: static towns cost no shadow pass at all.
+ * When to redraw the sun's shadow map (the renderer runs with `shadowMap.autoUpdate = false`).
+ * Redraws at once after `invalidate()` and on every frame while tweens settle; cars and birds
+ * refresh at their own rate (at 15 Hz a car's shadow visibly lags the car); otherwise the map is reused.
  */
 export interface ShadowSchedulerTuning {
   /** Redraws per second while cars are on the roads. */
@@ -20,7 +13,7 @@ export interface ShadowSchedulerTuning {
 export const DEFAULT_SHADOW_TUNING: Readonly<ShadowSchedulerTuning> = { carHz: 30, birdHz: 30 };
 
 export interface ShadowFrame {
-  /** Town tweens are running (every frame). */
+  /** Town tweens are running. */
   settling: boolean;
   /** Cars are drawn and moving. */
   cars: boolean;
@@ -38,7 +31,6 @@ export class ShadowScheduler {
   private dirty = true;
   private sinceRedraw = Infinity;
 
-  /** The next frame must redraw the map. */
   invalidate(): void {
     this.dirty = true;
   }
@@ -48,7 +40,7 @@ export class ShadowScheduler {
     this.sinceRedraw += Math.max(delta, 0);
     let redraw = this.dirty || frame.settling;
     if (!redraw) {
-      // Cars and birds together: the faster of the two rates, so neither caster's shadow lags.
+      // The faster of the two rates, so neither caster's shadow lags.
       const hz = Math.max(frame.birds ? this.tuning.birdHz : 0, frame.cars ? this.tuning.carHz : 0);
       redraw = hz > 0 && this.sinceRedraw >= 1 / hz - PERIOD_SLACK_S;
     }

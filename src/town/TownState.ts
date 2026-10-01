@@ -1,9 +1,6 @@
 /**
- * Authoritative town data store. Pure (no three.js). It stores and applies
- * changes; it does NOT decide whether a change is allowed — that is rules.ts.
- *
- * WP-02 owns this file (extend, don't rewrite the API). Only TownEditor calls the
- * mutating methods (applyChanges / clear / restoreNextObjectId / allocateObjectId).
+ * Authoritative town data store. It applies changes; rules.ts decides whether they are allowed.
+ * Only TownEditor calls the mutating methods.
  */
 import { cellKey, edgeKey, footprintCells, ROAD_BLOCK } from './grid';
 import { objectDef } from '../catalog/objects';
@@ -62,7 +59,6 @@ export class TownState implements TownStateReader {
     return this.edgesByKey.values();
   }
 
-  /** Reserve a fresh object id (used by rules when planning a placement). */
   allocateObjectId(): number {
     return this.nextId++;
   }
@@ -75,10 +71,7 @@ export class TownState implements TownStateReader {
     this.nextId = Math.max(this.nextId, value);
   }
 
-  /**
-   * Set the id counter exactly (used when loading a save), but never below
-   * (highest live id + 1), so ids stay unique.
-   */
+  /** Sets the id counter exactly, but never below (highest live id + 1). */
   restoreNextObjectId(value: number): void {
     let floor = 1;
     for (const id of this.objectsById.keys()) floor = Math.max(floor, id + 1);
@@ -107,10 +100,7 @@ export class TownState implements TownStateReader {
     }
   }
 
-  /**
-   * Clear everything back to an empty field and restart object ids at 1 (so rebuilt demo towns
-   * are id-for-id deterministic). Returns the changes that did it (for the renderer).
-   */
+  /** Restarts object ids at 1 so rebuilt demo towns are id-for-id deterministic. Returns the changes. */
   clear(): TownChange[] {
     const changes: TownChange[] = [];
     for (const object of this.objectsById.values()) changes.push({ layer: 'object', op: 'remove', object });
@@ -128,7 +118,7 @@ export class TownState implements TownStateReader {
 
   stats(): TownStats {
     const stats: TownStats = { homes: 0, residents: 0, amenities: 0, trees: 0, roadTiles: 0, props: 0, fences: this.edgesByKey.size };
-    // One road tile per aligned 2 × 2 road block (WP-12): count the blocks' min-corner cells.
+    // One road tile per aligned 2 × 2 road block: count the blocks' min-corner cells.
     for (let z = 0; z < this.depth; z += ROAD_BLOCK) {
       for (let x = 0; x < this.width; x += ROAD_BLOCK) if (this.ground[z * this.width + x] === 'road') stats.roadTiles += 1;
     }

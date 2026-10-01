@@ -1,19 +1,7 @@
 /**
- * Burst recipes: which particles a build:placed / build:removed event emits. Pure TypeScript
- * (no three.js, no DOM), seeded RNG only, so the output is deterministic and unit-tested.
- *
- * Sizing (PLAN WP-08): effects scale with what was built. A road tile gets a small kerb-level
- * dust ring, a tree drops leaves, wildflowers throw petals, a building gets a wide dust ring,
- * a few chips and a sparkle ring timed to land as its pop-in (TownRenderer, 0.22 s) finishes.
- * Removal is a low "poof" ringing the footprint (delayed a beat and kept at ground level, so the
- * object's shrink-out stays visible) plus a few small debris chips sized by layer/kind. Inside a
- * drag stroke (strokeIndex > 0) counts drop so a 30-tile road stays readable, not a sandstorm.
- *
- * Three pools ⇒ at most three draw calls: `dust` (soft feathered billboards that scale out and
- * fade), `solid` (small faceted chips, leaves, petals) and `glint` (unlit gold sparkles).
- * M3 polish: dust used to be faceted Lambert icosahedra that read as beige boulders.
- *
- * WP-08 (Feel & VFX).
+ * Burst recipes: which particles a build:placed / build:removed event emits, sized by what was built.
+ * Pure and seeded, so the output is deterministic. Inside a drag stroke (strokeIndex > 0) counts drop
+ * so a long road stays readable.
  */
 import { OBJECTS, type ObjectGroup } from '../catalog/objects';
 import { CELL_SIZE } from '../game/config';
@@ -41,7 +29,7 @@ function hex(value: number): Rgb {
 }
 
 export const PALETTES = {
-  // Dust: light, warm, low-contrast (unlit billboards, so these are close to on-screen values).
+  // Dust is unlit, so these are close to on-screen values.
   dustPath: [hex(0xf3ead9), hex(0xefe4cf), hex(0xf7f0e3)],
   dustRoad: [hex(0xece6dc), hex(0xe6dfd3), hex(0xf2ede5)],
   dustNature: [hex(0xefe9cf), hex(0xe8ebcc)],
@@ -76,7 +64,6 @@ interface Burst {
   palette: readonly Rgb[];
 }
 
-/** Effect class per object group (catalog/objects.ts). */
 const GROUP_FX: Readonly<Record<ObjectGroup, FxClass>> = {
   road: 'road',
   street: 'prop',
@@ -87,7 +74,7 @@ const GROUP_FX: Readonly<Record<ObjectGroup, FxClass>> = {
   garden: 'prop',
 };
 
-/** Map a tool id (placed) or removed kind to its effect class. */
+/** Effect class for a placed tool id or a removed kind. */
 export function classify(id: string): FxClass {
   if (id === 'road') return 'road';
   if (id === 'pavement' || id === 'walkway') return 'path';
@@ -99,17 +86,14 @@ export function classify(id: string): FxClass {
   return def ? GROUP_FX[def.group] : 'prop';
 }
 
-/**
- * WP-12: removal-poof ring radius for a (multi-cell) object: ≈ half its longer footprint side, so the
- * ring hugs a 3×3 cottage as well as a 2×1 swing; never below `min`.
- */
+/** Removal-poof radius: about half the object's longer footprint side. */
 export function footprintPoofRadius(kind: string, min: number): number {
   const def = Object.prototype.hasOwnProperty.call(OBJECTS, kind) ? OBJECTS[kind as ObjectKind] : undefined;
   if (!def) return min;
   return Math.max(min, (Math.max(def.footprint[0], def.footprint[1]) * CELL_SIZE) / 2 - 0.05);
 }
 
-/** Fewer particles per cell once a drag stroke is under way (never below `min`). */
+/** Fewer particles per cell once a drag stroke is under way. */
 export function strokeCount(base: number, strokeIndex: number, min = 1): number {
   if (strokeIndex <= 0) return base;
   const factor = strokeIndex < 4 ? 0.6 : 0.4;
@@ -123,7 +107,7 @@ const spec: ParticleSpec = {
 
 const lerp = (range: Range, t: number): number => range[0] + (range[1] - range[0]) * t;
 
-/** Emit `burst.count` particles evenly around (x, z) with seeded jitter. Returns how many got a slot. */
+/** Emits `burst.count` particles evenly around (x, z). Returns how many got a slot. */
 export function emitBurst(pool: ParticlePool, rng: () => number, x: number, z: number, burst: Burst, scale = 1): number {
   let emitted = 0;
   const offset = rng() * Math.PI * 2;
@@ -156,8 +140,6 @@ export function emitBurst(pool: ParticlePool, rng: () => number, x: number, z: n
   return emitted;
 }
 
-// ---- building blocks --------------------------------------------------------------------------
-
 /** Soft dust ring at kerb level, drifting outward and slightly up while it scales out and fades. */
 const dust = (count: number, radius: number, size: Range, palette: readonly Rgb[], speed: Range = [0.35, 0.7]): Burst => ({
   count, radius, radiusJitter: 0.08, y: [0.02, 0.06], speed, up: [0.08, 0.22], size, life: [0.55, 0.8],
@@ -169,7 +151,6 @@ const flakes = (count: number, y: Range, palette: readonly Rgb[], up: Range = [0
   gravity: 2.2, drag: 2.4, spin: [6, 11], flat: 0.22, curve: Curve.Chip, palette,
 });
 
-/** Small tumbling chips (never boulders: ≤ 0.035 world units). */
 const debris = (count: number, palette: readonly Rgb[], y: Range = [0.08, 0.25], size: Range = [0.02, 0.032]): Burst => ({
   count, radius: 0.12, radiusJitter: 0.18, y, speed: [0.6, 1.2], up: [1.2, 2.0], size, life: [0.7, 0.95],
   gravity: 6, drag: 1.2, spin: [7, 14], flat: 0.5, curve: Curve.Chip, palette,
@@ -180,19 +161,12 @@ const sparkleRing = (count: number, radius: number, delay: Range): Burst => ({
   life: [0.6, 0.85], gravity: -0.1, drag: 1, flat: 1.8, delay, curve: Curve.Glint, palette: PALETTES.glint,
 });
 
-/**
- * Removal poof: a soft ring AROUND the footprint at ground level (radius ≈ the object's half
- * width), starting a beat late so the shrink-out (TownRenderer, 0.15 s) is seen first, then rolling
- * outward. It never covers the object's centre.
- */
+/** Removal poof: a ground-level ring around the footprint, delayed so the object's shrink-out is seen first. */
 const poof = (count: number, radius: number, size: Range): Burst => ({
   count, radius, radiusJitter: 0.06, y: [0.02, 0.07], speed: [0.55, 0.95], up: [0.1, 0.3], size, life: [0.55, 0.8],
   gravity: -0.2, drag: 3.4, delay: [0.05, 0.12], curve: Curve.Puff, palette: PALETTES.poof,
 });
 
-// ---- recipes ----------------------------------------------------------------------------------
-
-/** Effects for one placed thing at world (x, z). */
 export function emitPlaced(pools: FxPools, rng: () => number, id: string, x: number, z: number, strokeIndex: number): void {
   const n = (base: number, min = 1) => strokeCount(base, strokeIndex, min);
   switch (classify(id)) {
@@ -233,7 +207,6 @@ export function emitPlaced(pools: FxPools, rng: () => number, id: string, x: num
   }
 }
 
-/** Effects for one removed thing (build:removed.layer / kind) at world (x, z). */
 export function emitRemoved(
   pools: FxPools,
   rng: () => number,

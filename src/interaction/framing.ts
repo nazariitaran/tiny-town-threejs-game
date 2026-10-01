@@ -1,12 +1,9 @@
 /**
- * Aspect-aware camera framing (WP-05). Readability first: the plot is fitted WIDTH-wise (its
- * left/right corners inside the side insets) and its centre is placed at a chosen screen height,
- * so the near corner may tuck under the dock and the far corner may reach the top bar, while the
- * plot centre always stays clear above the dock. Used for the build start / reset pose and the
- * portrait title pose. Runs only on mode changes and resets, never per frame.
+ * Aspect-aware camera framing: the plot is fitted width-wise (side corners inside the side insets)
+ * and its centre is placed at a chosen screen height, so the near corner may tuck under the dock
+ * while the centre stays clear above it. Runs on mode changes and resets only.
  *
- * The HUD insets mirror WP-06's layout (desktop dock ≤ 150 px + gap; mobile dock ≈ bottom 32 %).
- * If the UI layout changes, retune SAFE_INSETS here.
+ * SAFE_INSETS mirror the HUD layout (desktop dock ≤ 150 px + gap; mobile dock ≈ bottom 32 %).
  */
 import * as THREE from 'three';
 import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
@@ -18,20 +15,18 @@ export interface ScreenInsets {
   /** CSS px covered by the dock, or a fraction of the height when ≤ 1. */
   bottom: number;
   /**
-   * CSS px kept between the plot's side corners and the screen edge. Larger = the camera stays
-   * further back; negative lets the side corners run off-screen (phones, so cells stay tappable).
+   * CSS px kept between the plot's side corners and the screen edge. Negative lets the corners run
+   * off-screen (phones, so cells stay tappable).
    */
   side: number;
 }
 
-/** Build-view insets per layout. Narrow = the mobile layout (≤ 760 px wide). */
+/** Build-view insets per layout; narrow is the mobile layout. */
 export const SAFE_INSETS: Readonly<{ wide: ScreenInsets; narrow: ScreenInsets }> = {
-  // side −42 (64 × 64 plot; was 128 on the 48 × 48 plot): the same zoom as before, so a townhouse
-  // still reads clearly. The plot spans ~1.07× a 1280 px screen; its side corners sit just off-screen.
+  // The plot spans ~1.07× a 1280 px screen, side corners just off-screen, so a townhouse reads clearly.
   wide: { top: 76, bottom: 172, side: -42 },
-  // side −412 (64 × 64 plot; WP-12 −260, was −150): on phones the plot is ~3.1× the screen width (its
-  // side corners are off-screen, reachable by panning) so the 0.5-unit cells stay ≥ 9 px (≈ 10.6) at the
-  // default pose; the centre stays well above the dock. Small props still want a pinch-zoom on touch.
+  // On phones the plot is ~3.1× the screen width (corners reachable by panning) so the 0.5-unit cells
+  // stay ≥ 9 px at the default pose.
   narrow: { top: 76, bottom: 0.32, side: -412 },
 };
 

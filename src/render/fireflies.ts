@@ -1,13 +1,7 @@
 /**
- * Fireflies over meadows at night (WP-16b stretch, docs/plans/wp-16-day-night.md §5).
- *
- *  - Up to MAX_FIREFLIES soft additive points, ONE InstancedMesh of camera-facing sprites (+1 draw
- *    call at night, only when the town has an uncovered meadow cell).
- *  - Spots: every free meadow cell ranked by a stable hash of its coordinates (never Math.random, no
- *    RNG stream consumed, survives reloads), the first MAX_FIREFLIES win; jittered inside the cell.
- *  - Motion runs in the vertex shader on the wind clock (fx/windSway.ts windTime / windStrength),
- *    so it freezes under reduced motion and while paused, and rests (no drift, steady glow) after
- *    PlacementFx.stabilize(): screenshots stay deterministic.
+ * Fireflies over free meadow cells at night: one InstancedMesh of camera-facing additive sprites.
+ * Spots are hash-ranked per cell so they survive reloads. Motion runs on the wind clock, so it
+ * freezes under reduced motion and while paused, and rests after PlacementFx.stabilize().
  */
 import * as THREE from 'three';
 import { cellToWorld } from '../game/config';
@@ -24,7 +18,7 @@ export interface FireflySpot {
   z: number;
 }
 
-/** Deterministic spots over uncovered meadow cells (row-major scan, hash-ranked). Allocates: call on change only. */
+/** Hash-ranked spots over uncovered meadow cells. Allocates: call on change only. */
 export function pickFireflySpots(town: TownStateReader, max = MAX_FIREFLIES): FireflySpot[] {
   const cells: Array<{ x: number; z: number; rank: number }> = [];
   const cell = { x: 0, z: 0 };
@@ -86,7 +80,6 @@ export class Fireflies {
     this.mesh.matrixAutoUpdate = false;
   }
 
-  /** The town changed: re-pick the spots before the next night render. */
   invalidate(): void {
     this.dirty = true;
   }

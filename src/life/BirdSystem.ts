@@ -1,25 +1,7 @@
 /**
- * WP-22 (Birds) — flocks that now and then fly over the town (docs/plans/wp-22-birds.md).
- *
- * Owns: FlockSim (pure, unit-tested: schedule, paths, formations, flapping) and its drawing.
- *
- * Rendering: ONE THREE.InstancedMesh of a procedural low-poly bird (createBirdGeometry: 18
- * triangles, a faceted body, a tail and two-segment wings, flat-shaded like the Kenney kits), at
- * most MAX_BIRDS instances with a per-instance colour (the species) and a per-instance `aFlap`
- * (inner, outer wing angle) the CPU writes every frame. The vertex shader folds the wings about
- * their two hinges; the same patch is on the shadow depth material, so the shadow flaps too.
- * Cost while a flock is up: +1 main-pass and +1 shadow draw call, ≤ 16 × 18 triangles; the mesh is
- * hidden (0 calls) when the sky is empty. No asset, no licence, no per-frame allocation.
- *
- * Game.ts wiring (WP-22):
- *   this.birds = new BirdSystem(this.scene, this.town, this.seedValue ^ BIRD_SEED_SALT, this.debug, materialMode);
- *     (materialMode: the WP-25 graphics preset's lit family; the flap patch works on Lambert too)
- *   update():        this.birds.update(animDelta)             (after life.update)
- *   applyDaylight(): this.birds.setDaylight(night, phase)
- *   applyTestState:  this.birds.reset(seed); this.birds.setAuto(false)   (until a reload)
- *   setReducedMotion(true): this.birds.settle()               (clears the sky)
- *   hooks:           spawnFlock(species?)
- *   diagnostics:     birds: this.birds.getDiagnostics()
+ * Flocks that now and then fly over the town: one InstancedMesh of a procedural 18-triangle bird with a
+ * per-instance colour (the species) and `aFlap` (inner, outer wing angle) written every frame. The vertex
+ * shader folds the wings; the shadow depth material has the same patch, so the shadow flaps too.
  */
 import * as THREE from 'three';
 import type { DebugTools } from '../debug/DebugTools';
@@ -34,20 +16,19 @@ const OUTER_HINGE = 0.1;
 const BIRD_CACHE_KEY = 'tiny-town:bird-flap:v1';
 
 export interface BirdDiagnostics {
-  /** Spontaneous flocks on (off in test states and under reduced motion). */
+  /** Spontaneous flocks on. */
   auto: boolean;
   flocks: number;
   birds: number;
   /** Flocks launched since the last reset. */
   spawned: number;
-  /** Seconds until the next spontaneous flock is due. */
+  /** Seconds. */
   nextFlockIn: number;
   species: BirdSpecies[];
-  /** Main-pass draw calls this layer adds (0 with an empty sky). */
   drawCalls: number;
-  /** Extra shadow-map draw calls (not in renderer.calls). */
+  /** Not counted in renderer.calls. */
   shadowDrawCalls: number;
-  /** Every bird's world position (rounded to mm). */
+  /** Rounded to mm. */
   positions: Array<{ x: number; y: number; z: number }>;
 }
 
@@ -118,47 +99,46 @@ export class BirdSystem {
     }
   }
 
-  /** Per frame. animDelta 0 (reduced motion / paused clock) freezes birds and the schedule. */
+  /** animDelta 0 freezes birds and the schedule. */
   update(animDelta: number): void {
     this.sim.step(Math.min(animDelta, 0.1));
     this.sync();
   }
 
-  /** Day/night: no new flocks at night, more at dawn and dusk. Cheap; called every frame. */
+  /** No new flocks at night, more at dawn and dusk. Called every frame. */
   setDaylight(night: number, phase: DayPhase): void {
     this.sim.setNight(night, phase === 'dawn' || phase === 'dusk');
   }
 
-  /** Spontaneous flocks on/off (Game: off in test states, under reduced motion). */
+  /** Spontaneous flocks on/off. */
   setAuto(on: boolean): void {
     this.sim.auto = on;
   }
 
-  /** Debug `?debug&flock=N`: a fixed N-second wait between flocks (null = the normal schedule). */
+  /** `?debug&flock=N`: a fixed N-second wait between flocks; null = the normal schedule. */
   setIntervalOverride(seconds: number | null): void {
     this.sim.intervalOverride = seconds;
   }
 
-  /** Clear the sky, re-seed, restart the schedule (test states, the seed hook). */
+  /** Clears the sky, re-seeds and restarts the schedule. */
   reset(seed: number): void {
     this.sim.reset(seed);
     this.sync();
   }
 
-  /** Reduced motion: a bird frozen in mid-air looks broken, so the sky is cleared. */
+  /** Clears the sky for reduced motion: a bird frozen in mid-air looks broken. */
   settle(): void {
     this.sim.clear();
     this.sync();
   }
 
-  /** Launch a flock now (test hook, lil-gui). Returns its bird count; 0 when the sky is full. */
+  /** Returns the flock's bird count; 0 when the sky is full. */
   spawnFlock(species?: BirdSpecies): number {
     const count = this.sim.spawn(species);
     this.sync();
     return count;
   }
 
-  /** A flock is drawn into the sun's shadow map (WP-24: it refreshes at its own rate while birds fly). */
   get castsShadows(): boolean {
     return this.mesh.visible && this.mesh.castShadow && this.mesh.count > 0;
   }
@@ -187,9 +167,7 @@ export class BirdSystem {
     this.depthMaterial.dispose();
   }
 
-  // ---------------------------------------------------------------------------------------
-
-  /** Write every bird's instance matrix and wing angles (colours only when the set changed). */
+  /** Colours are rewritten only when the set of birds changed. */
   private sync(): void {
     const birds = this.sim.birds;
     const mesh = this.mesh;
@@ -218,15 +196,14 @@ export class BirdSystem {
   }
 }
 
-/** Is `name` one of the species (test hook input)? */
 export function isBirdSpecies(name: unknown): name is BirdSpecies {
   return typeof name === 'string' && (BIRD_SPECIES as readonly string[]).includes(name);
 }
 
 /**
- * The base bird (wingspan 0.36 units, beak towards +Z, back up, +X = its left wing), 18 triangles,
- * non-indexed: `color` is a grey shading pattern (the species colour multiplies it), `aWing` tells
- * the vertex shader which part a vertex belongs to (0 body/tail, 1 inner wing, 2 outer wing).
+ * The base bird: wingspan 0.36 units, beak towards +Z, back up, +X = its left wing; non-indexed.
+ * `color` is a grey shading pattern the species colour multiplies; `aWing` is the part
+ * (0 body/tail, 1 inner wing, 2 outer wing).
  */
 export function createBirdGeometry(): THREE.BufferGeometry {
   const positions: number[] = [];
@@ -239,7 +216,7 @@ export function createBirdGeometry(): THREE.BufferGeometry {
       wing.push(part);
     }
   };
-  // Body: a faceted dart (nose, tail root, back ridge, belly, flanks).
+  // Body: a faceted dart.
   const nose = [0, 0.005, 0.12];
   const tailRoot = [0, 0.01, -0.09];
   const top = [0, 0.035, 0];
@@ -271,15 +248,14 @@ export function createBirdGeometry(): THREE.BufferGeometry {
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('color', new THREE.Float32BufferAttribute(colours, 3));
   geometry.setAttribute('aWing', new THREE.Float32BufferAttribute(wing, 1));
-  geometry.computeVertexNormals(); // flat shading derives its own; kept for completeness
+  geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
   return geometry;
 }
 
 /**
- * Fold the wings in the vertex shader: an outer-wing vertex turns about the wrist by aFlap.y, then
- * every wing vertex turns about the shoulder by aFlap.x (+ = tip up, mirrored per side). Works for
- * the lit material and the shadow depth material (both include begin_vertex).
+ * Folds the wings: an outer-wing vertex turns about the wrist by aFlap.y, then every wing vertex turns
+ * about the shoulder by aFlap.x (+ = tip up, mirrored per side). Needs a material with begin_vertex.
  */
 function applyWingFlap(material: THREE.Material): void {
   material.onBeforeCompile = (shader) => {

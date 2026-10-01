@@ -50,7 +50,6 @@ describe('paceFrame', () => {
 
   it('restarts the grid after a long gap (hidden tab) instead of bursting to catch up', () => {
     expect(paceFrame(10_000, 16.7, 60)).toBe(10_000);
-    // The next tick one display frame later is skipped.
     expect(paceFrame(10_008.3, 10_000, 60)).toBeNull();
   });
 });

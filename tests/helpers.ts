@@ -1,13 +1,9 @@
 /**
- * Shared Playwright helpers for Tiny Town specs (WP-09 owns this file; other WPs may import it).
- *
- * Rules these helpers enforce:
- *  - Gameplay steps use REAL input only: DOM clicks on UI_TEST_IDS buttons, and mouse
- *    clicks/drags at `cellToClient` coordinates. `setState` is for setup, never for faking
- *    a step a test asserts.
- *  - Before any canvas click, `canvasPoint` checks the point actually hits the canvas, so a
- *    UI panel covering a cell fails loudly instead of silently eating the click.
- *  - Assert diagnostics (`window.__THREE_GAME_DIAGNOSTICS__`), not pixels.
+ * Shared Playwright helpers.
+ *  - Gameplay steps use real input only: DOM clicks on UI_TEST_IDS buttons and mouse input at
+ *    `cellToClient` points. `setState` is for setup, never for faking a step a test asserts.
+ *  - `canvasPoint` checks the point hits the canvas, so a UI panel covering a cell fails loudly.
+ *  - Assert diagnostics, not pixels.
  */
 import { expect, type Page, type TestInfo } from '@playwright/test';
 import type { ToolCategory, ToolId } from '../src/catalog/tools';
@@ -55,17 +51,13 @@ export async function waitFrames(page: Page, frames = 3): Promise<void> {
   await page.waitForFunction((target) => (window.__THREE_GAME_DIAGNOSTICS__?.frame ?? 0) >= target, start + frames);
 }
 
-/** `query` (optional, e.g. '?graphics=low'): URL parameters for the boot (WP-25). */
+/** `query`: URL parameters for the boot, e.g. '?graphics=low'. */
 export async function gotoTitle(page: Page, query = ''): Promise<void> {
   await page.goto(`/${query}`);
   await expect(page.locator('#game-canvas')).toBeVisible();
   await page.waitForFunction(() => window.__THREE_GAME_DIAGNOSTICS__?.phase === 'title', undefined, { timeout: 15_000 });
 }
 
-/**
- * Title → building through the real Start button. A new town is named first (WP-20): the name
- * dialog opens with a suggested name, which is accepted as it is. Continue goes straight in.
- */
 export async function startBuilding(page: Page): Promise<void> {
   await clickStart(page);
 }
@@ -137,12 +129,11 @@ export async function gridPoint(page: Page, gx: number, gz: number): Promise<Poi
 }
 
 /**
- * Where to point so an object tool lands on `anchor` (WP-17 footprints). ToolController centres the
- * footprint on the pointer (grid.anchorForPointer): on an odd axis the pointer sits on the middle
- * cell's centre; on an even axis the footprint centre is a cell CORNER, and a cell-centre pointer
- * is exactly on the rounding boundary (it may land either side). So on even axes we aim a quarter
- * cell short of that corner (inside cell anchor + size/2 − 1), which rounds to `anchor` with ±¼ cell
- * of slack. `cell` is the hovered cell (diagnostics.hover), `grid` the fractional pointer.
+ * Where to point so an object tool lands on `anchor`. The footprint is centred on the pointer
+ * (grid.anchorForPointer): on an odd axis the pointer sits on the middle cell's centre; on an even
+ * axis the footprint centre is a cell corner, where a cell-centre pointer is exactly on the rounding
+ * boundary. So even axes aim a quarter cell short of that corner, which rounds to `anchor` with ±¼
+ * cell of slack. `cell` is the hovered cell (diagnostics.hover), `grid` the fractional pointer.
  */
 export function footprintPointer(kind: ObjectKind, anchor: Cell, rotation: Rotation = 0): { cell: Cell; grid: { x: number; z: number } } {
   const [w, d] = rotatedFootprint(objectDef(kind).footprint, rotation);
@@ -183,10 +174,7 @@ export async function dragCells(page: Page, from: [number, number], to: [number,
   await page.mouse.up();
 }
 
-/**
- * Setup only: seed + apply a named test state and assert the acknowledgement.
- * Never use this to skip a gameplay step a test is asserting.
- */
+/** Setup only: seeds and applies a named test state. Never use it to skip a step a test asserts. */
 export async function applyState(page: Page, name: string, seed = 12345): Promise<{ state: string }> {
   const ack = await page.evaluate(
     async ([stateName, seedValue]) => {
@@ -201,15 +189,11 @@ export async function applyState(page: Page, name: string, seed = 12345): Promis
   return ack;
 }
 
-/**
- * Setup for screenshot baselines / canvas captures (WP-09b): load, reduce motion, pause,
- * then seed + apply the state (already frozen), hide debug UI and let two frames render.
- * Used by tests/visual-regression.spec.ts (the capture procedure for baselines).
- */
+/** Setup for screenshot baselines and canvas captures: a frozen, seeded state with the debug UI hidden. */
 export async function prepareDeterministicState(page: Page, name: string, seed = 12345): Promise<void> {
   await gotoTitle(page);
-  // Order matters (WP-09b): freeze time BEFORE the state exists, so nothing (ambient cars,
-  // title orbit, clouds) advances between setState and the capture.
+  // Order matters: freeze time BEFORE the state exists, so nothing (ambient cars, title orbit,
+  // clouds) advances between setState and the capture.
   //  1. Reduced motion while still running: the next frames tick every animation with
   //     delta/elapsed 0 (clouds back to t=0, wind at rest, particles cleared).
   //  2. Pause: simulation stops entirely; rendering continues.
@@ -267,15 +251,11 @@ function subset<T extends object>(source: T, keys: Partial<T>): Partial<T> {
   return out;
 }
 
-/** Attach a JSON blob (metrics, diagnostics trail) to the test report. */
 export async function attachJson(testInfo: TestInfo, name: string, value: unknown): Promise<void> {
   await testInfo.attach(name, { body: JSON.stringify(value, null, 2), contentType: 'application/json' });
 }
 
-/**
- * Menu tabs (WP-25): open the menu if it is closed (☰, building phase), then select `tab` with a real
- * click and wait for its panel. Every menu control lives on one tab (Town / Graphics / Sound / Help).
- */
+/** Opens the menu if it is closed, then selects `tab` with a real click and waits for its panel. */
 export async function openMenuTab(page: Page, tab: MenuTab): Promise<void> {
   const menu = page.locator(`#${UI_TEST_IDS.menuPanel}`);
   if (!(await menu.isVisible())) {

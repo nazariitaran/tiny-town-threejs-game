@@ -1,8 +1,6 @@
 /**
- * Variant picker (docs/plans/variant-picker.md): a multi-model tool opens a strip of style chips over
- * its card, and every placement builds exactly the chosen model the ghost shows (diagnostics `variant`).
- * Real input only (dock and chip clicks by UI_TEST_IDS, the mouse or a finger at cellToClient); what
- * was built is read back from the autosave.
+ * Variant picker: a multi-model tool opens a strip of style chips over its card, and every placement
+ * builds exactly the model the ghost shows. What was built is read back from the autosave.
  */
 import { mkdirSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
@@ -83,7 +81,6 @@ test('pick a style: the ghost and every click build it; the choice is remembered
   expect((await diagnostics(page)).variant).toEqual({ choice: 0, count: 2 });
   await expectStripFits(page);
 
-  // Style 1 (the first model): built as shown.
   await place(page, 'townhouse', TOWNHOUSES[0], touch);
   await expectDiagnostics(page, { objects: 1 }, 'first townhouse');
 

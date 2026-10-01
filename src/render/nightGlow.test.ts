@@ -1,7 +1,3 @@
-/**
- * WP-16b night glow masks: row order, cell indices (pinned against the plan's facts table AND the
- * real GLBs' UVs), intensity curves (exactly 0 by day), the registry and the window stagger patch.
- */
 import * as THREE from 'three';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { MODELS, type ModelId } from '../catalog/models';
@@ -28,7 +24,6 @@ const cells = (kind: GlowMaskKind) => GLOW_CELLS[kind].map((c) => `${c.col},${c.
 
 describe('glow masks', () => {
   it('are 16 × 4 (atlas kinds), one RGBA texel per cell, black except the glow cells', () => {
-    // WP-17b: only the four atlas kinds remain (the church's own-texture mask is gone).
     expect(Object.keys(MASK_GRID).sort()).toEqual(['headlights', 'lamp', 'traffic', 'windows']);
     expect(Object.keys(GLOW_CELLS).sort()).toEqual(['headlights', 'lamp', 'traffic', 'windows']);
     for (const kind of ['windows', 'lamp', 'traffic', 'headlights'] as const) expect(MASK_GRID[kind]).toEqual({ columns: 16, rows: 4 });
@@ -105,7 +100,7 @@ describe('which catalog models glow (WP-17b: shops and the church stay dark at n
 });
 
 describe('glow masks against the real assets', () => {
-  /** Triangle census of a GLB (native space) per glow cell. */
+  /** Each glow GLB's geometries, in native space. */
   const census = new Map<string, THREE.BufferGeometry[]>();
 
   beforeAll(async () => {
@@ -248,7 +243,6 @@ describe('GlowRegistry', () => {
     expect(shader.vertexShader).toContain('#include <begin_vertex>');
     expect(shader.fragmentShader).toContain('totalEmissiveRadiance *= step(vGlowSeed, uLightsOn) * step(uLightsOff, 1.0 - vGlowSeed);');
     expect(shader.fragmentShader.indexOf('#include <emissivemap_fragment>')).toBeLessThan(shader.fragmentShader.indexOf('totalEmissiveRadiance *= step'));
-    // A shader without the hooks is left alone.
     const plain = { uniforms: {}, vertexShader: 'void main() {}', fragmentShader: 'void main() {}' };
     patchWindowShader(plain, { uLightsOn: { value: 0 }, uLightsOff: { value: 0 } });
     expect(plain.vertexShader).toBe('void main() {}');

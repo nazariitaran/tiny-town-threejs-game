@@ -1,9 +1,6 @@
 /**
- * Composition root. Creates every system, wires them through the event bus, owns the
+ * Composition root: creates every system, wires them through the event bus, and owns the
  * phase machine (loading → title → building ⇄ menu) and the per-frame update order.
- *
- * OWNERSHIP: integrator only. Workstreams change their own modules behind the APIs used
- * here; if an API must change, say so in the hand-off and the integrator updates this file.
  */
 import * as THREE from 'three';
 import { AudioManager } from '../audio/AudioManager';
@@ -39,15 +36,14 @@ import { createGameBus, type GamePhase } from './events';
 import { effectivePixelRatio, GRAPHICS_PROFILES, isGraphicsPreset, needsReload, type GraphicsPreset, type GraphicsProfile } from './graphics';
 import { materialFamily } from '../render/materials';
 
-/** Named states for __THREE_GAME_TEST_HOOKS__.setState (canvas inspector, visual tests, bots). */
-// Every state pins the clock to afternoon (the v0.2 look) except 'night-town' (sample town at T_NIGHT).
+/** Test-hook states; each pins the clock to afternoon except 'night-town' (sample town at T_NIGHT). */
 export const TEST_STATES = ['title', 'empty-build', 'sample-town', 'active-play', 'asset-gallery', 'stress-town', 'night-town'] as const;
 type TestState = (typeof TEST_STATES)[number];
 
-/** Birds (WP-22) run on their own stream, derived from the seed (they never draw from fxRng). */
+/** Birds run on their own stream derived from the seed, never drawing from fxRng. */
 const BIRD_SEED_SALT = 0xb12d5eed;
 
-/** `?graphics=low|medium|high` (WP-25): boot with this preset without saving it (tests, evidence). */
+/** `?graphics=low|medium|high`: boot with this preset without saving it. */
 const GRAPHICS_URL_PARAM = 'graphics';
 
 function graphicsOverride(): GraphicsPreset | null {
@@ -60,12 +56,11 @@ export class Game {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(35, 1, 0.1, 900);
-  /** WP-24: 60 fps while the player interacts, 30 fps when idle (the world never stops animating). */
   private readonly frameBudget = new FrameBudget();
-  /** WP-24: the sun's shadow map is redrawn only when a caster changed (autoUpdate is off). */
+  /** The sun's shadow map is redrawn only when a caster changed (autoUpdate is off). */
   private readonly shadows = new ShadowScheduler();
   private shadowVersion = -1;
-  /** Seconds since the previous rendered frame (for the shadow scheduler). */
+  /** Seconds since the previous rendered frame. */
   private frameDelta = 0;
   private readonly lastCameraPosition = new THREE.Vector3();
   private readonly lastCameraQuaternion = new THREE.Quaternion();
@@ -75,30 +70,21 @@ export class Game {
     () => this.frameBudget.targetFps,
   );
   private readonly saves = new SaveStore();
-  /**
-   * Graphics preset (WP-25): the page boots with the `?graphics=` override, else the saved one
-   * (Medium by default, every device). `bootGraphics` fixed MSAA and the material family; the live
-   * parts follow `graphics` (Game.applyGraphics).
-   */
+  /** Fixes MSAA and the material family until a reload; the live parts follow `graphics`. */
   private readonly bootGraphics: GraphicsPreset = graphicsOverride() ?? this.saves.getSettings().graphics;
   private graphics: GraphicsPreset = this.bootGraphics;
   private readonly tuning: DebugTuning = { exposure: 1.0, maxDpr: GRAPHICS_PROFILES[this.bootGraphics].maxDpr, renderScale: GRAPHICS_PROFILES[this.bootGraphics].renderScale, showStats: false };
-  /** What the page really runs with (diagnostics): the context's MSAA and the lit material family in the scene. */
+  /** What the page really runs with: the context's MSAA and the lit material family in the scene. */
   private antialias = false;
   private materialInUse: 'standard' | 'lambert' | 'mixed' | 'none' = 'none';
   private perfDebug: ReturnType<DebugTools['folder']> = null;
-  // Route ALL randomness through these (never Math.random) so seed() keeps tests deterministic.
-  // Gameplay (variants) and cosmetic (audio/fx jitter) streams are separate, so playing a sound
-  // never changes which house variant the next placement gets.
+  // All randomness goes through these so seed() keeps tests deterministic. Gameplay (variants) and
+  // cosmetic (audio/fx jitter) streams are separate, so playing a sound never changes the next house variant.
   private seedValue = 1;
   private rng = createSeededRandom(this.seedValue);
   private fxRng = createSeededRandom(this.seedValue ^ 0x9e3779b9);
-  /**
-   * Town-name suggestions (WP-20): a third stream, seeded afresh on every page load (a fixed seed
-   * would give every new player the same first name); seed() pins it for tests.
-   */
+  /** Seeded afresh per page load, else every new player gets the same first name suggestion; seed() pins it. */
   private nameRng = createSeededRandom(entropySeed());
-  /** The owner's suggestion list (public/data/default_town_names.json), loaded with the models. */
   private townNames: string[] = [];
   private gridPreferred = true;
   private invalidCount = 0;
@@ -114,10 +100,10 @@ export class Game {
   private readonly fx: PlacementFx;
   private readonly life: LifeSystem;
   private readonly nightLights: NightLights;
-  /** Flocks over the town (WP-22). Spontaneous flocks stay off after a test state until a reload. */
   private readonly birds: BirdSystem;
+  /** Spontaneous flocks stay off after a test state until a reload. */
   private birdsAuto = true;
-  /** Day/night (WP-16): the clock, the sample it writes every frame, the last announced mode/phase. */
+  /** Day/night: the clock, the sample it writes every frame, the last announced mode/phase. */
   private readonly clock: DayClock;
   private readonly daySample = createDaySample();
   private announcedDay: { mode: TimeMode; phase: DayPhase } | null = null;
@@ -129,7 +115,7 @@ export class Game {
   private ready: Promise<void>;
   private frame = 0;
   private pausedForScreenshot = false;
-  /** Photos (WP-19): diagnostics only; the framed blob travels on `photo:ready`. */
+  /** Diagnostics only; the framed blob travels on `photo:ready`. */
   private readonly photo: ThreeGameDiagnostics['photo'] = { taken: 0, developing: false, last: null };
   private reducedMotion = false;
   /** OS "reduce motion": the day cycle still runs, but mode switches snap instead of sweeping. */
@@ -142,7 +128,6 @@ export class Game {
     this.renderer = createRenderer(canvas, { antialias: boot.antialias });
     this.antialias = this.renderer.getContextAttributes()?.antialias === true;
     this.renderer.toneMappingExposure = this.tuning.exposure;
-    // Workstreams add their own tunables with debug.folder('<Name>') (only when ?debug is set).
     this.debug = new DebugTools(this.tuning, () => {
       this.renderer.toneMappingExposure = this.tuning.exposure;
       resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr, this.tuning.renderScale);
@@ -167,7 +152,7 @@ export class Game {
     this.bus.on('intent:set-graphics', ({ preset }) => this.setGraphics(preset));
     this.bus.on('intent:reload-graphics', () => this.reloadForGraphics());
 
-    // Persistence: autosave 1 s after edits (never on 'load'); flush on page hide.
+    // Autosave 1 s after edits (never on 'load'); flush on page hide.
     this.saves.attachAutosave(this.bus, () => this.editor.serialize(this.cameraController.getPose()));
     window.addEventListener('pagehide', this.onPageHide);
     this.gridPreferred = this.saves.getSettings().grid;
@@ -272,7 +257,7 @@ export class Game {
     }
   }
 
-  /** The name suggestions (WP-20). Never fails the load: without them the suggestion is "Tiny Town". */
+  /** Never fails the load: without names the suggestion is "Tiny Town". */
   private async loadTownNames(): Promise<void> {
     try {
       const response = await fetch(assetUrl(TOWN_NAMES_PATH));
@@ -319,7 +304,6 @@ export class Game {
     this.trackActivity();
   }
 
-  /** Frame loop render: the shadow map is redrawn only when the scheduler says so (WP-24). */
   private render(): void {
     if (this.environment.shadowVersion !== this.shadowVersion) {
       this.shadowVersion = this.environment.shadowVersion;
@@ -344,9 +328,8 @@ export class Game {
   }
 
   /**
-   * WP-24 frame budget: input keeps the loop at the active rate (FrameBudget listens for it); so do
-   * a gliding camera (damping after a drag, a reset tween) and town pop-in tweens. The title
-   * screen's slow auto-orbit doesn't count: the title idles at the idle rate.
+   * Input keeps the loop at the active rate (FrameBudget listens for it); so do a gliding camera and
+   * town pop-in tweens. The title screen's slow auto-orbit doesn't count, so the title idles.
    */
   private trackActivity(): void {
     const camera = this.camera;
@@ -358,11 +341,7 @@ export class Game {
     if ((cameraMoved && this.phase !== 'title') || this.townRenderer.isAnimating || this.photo.developing) this.frameBudget.markActive();
   }
 
-  /**
-   * The live parts of a graphics preset (WP-25), at boot and on every change: DPR cap (resize),
-   * shadow-map size / decor share / sky octaves (Environment), frame caps, lamp halos. MSAA and the
-   * material family stay what the page booted with (`needsReload`). Overwrites the debug sliders.
-   */
+  /** Applies the live parts of a preset (MSAA and the material family stay as booted); overwrites the debug sliders. */
   applyGraphics(profile: Readonly<GraphicsProfile>): void {
     this.tuning.maxDpr = profile.maxDpr;
     this.tuning.renderScale = profile.renderScale;
@@ -374,7 +353,6 @@ export class Game {
     for (const controller of this.perfDebug?.parent?.controllersRecursive() ?? []) controller.updateDisplay();
   }
 
-  /** intent:set-graphics: save the choice, apply the live parts, announce whether a reload is needed. */
   private setGraphics(preset: GraphicsPreset): void {
     if (!isGraphicsPreset(preset)) return;
     this.graphics = preset;
@@ -387,10 +365,7 @@ export class Game {
     this.bus.emit('graphics:changed', { preset: this.graphics, reloadRequired: needsReload(this.bootGraphics, this.graphics) });
   }
 
-  /**
-   * intent:reload-graphics: flush the save, then reload so MSAA and the material follow the saved
-   * preset. A `?graphics=` override would win again on reload, so it is dropped from the URL.
-   */
+  /** Reloads so MSAA and the material follow the saved preset; a `?graphics=` override would win again, so it is dropped. */
   private reloadForGraphics(): void {
     this.saves.flush();
     const url = new URL(window.location.href);
@@ -402,10 +377,7 @@ export class Game {
     }
   }
 
-  /**
-   * The lit material family the scene really draws with (diagnostics; after load and test states).
-   * Placement FX (`fx:*`) are excluded: their chips have always been Lambert, on every preset.
-   */
+  /** The lit material family the scene draws with. Placement FX (`fx:*`) are Lambert on every preset, so they're excluded. */
   private measureMaterials(): void {
     const families = new Set<string>();
     this.scene.traverse((object) => {
@@ -419,7 +391,6 @@ export class Game {
     this.materialInUse = families.size === 0 ? 'none' : families.size > 1 ? 'mixed' : ([...families][0] as 'standard' | 'lambert');
   }
 
-  /** `?debug`: lil-gui `Performance` folder (frame caps, idle delay, shadow refresh rates). */
   private installPerfDebug(): void {
     const folder = this.debug.folder('Performance');
     this.perfDebug = folder;
@@ -433,10 +404,9 @@ export class Game {
   }
 
   /**
-   * Town photo (WP-19). Entering the menu phase (the UI shows the photo view, not the menu) hides
-   * the ghost, the hover frame and the grid and pauses the clock; then one higher-resolution frame
-   * is captured in this same task. Framing and JPEG encoding finish asynchronously; the framing
-   * code is loaded on the first photo (it keeps the main chunk under the 900 kB warning limit).
+   * Entering the menu phase (the UI shows the photo view) hides the ghost, hover frame and grid and
+   * pauses the clock; one higher-resolution frame is captured synchronously, then framed and encoded
+   * asynchronously. The framing code is lazy-loaded to keep the main chunk under the 900 kB warning limit.
    */
   private takePhoto(): void {
     if (this.phase !== 'building' || this.photo.developing) return;
@@ -469,7 +439,7 @@ export class Game {
       }, fail);
   }
 
-  /** Town file (WP-21): the live town (not the stored autosave, which trails by 1 s), in the same task. */
+  /** Serialises the live town synchronously, not the stored autosave (which trails by 1 s). */
   private exportTown(): void {
     if (this.phase !== 'building' && this.phase !== 'menu') return;
     const date = new Date();
@@ -478,10 +448,9 @@ export class Game {
   }
 
   /**
-   * Town file (WP-21): replace the town with an opened (validated) file. Not undoable, like Continue.
-   * The save is written at once, so a reload continues the opened town; opening a file is the
-   * player's own act, so it also turns autosave back on after a test state. From the title this is
-   * the Start click (audio unlocks, the morning starts); from the menu the time of day carries on.
+   * Not undoable. The save is written at once so a reload continues the opened town, and autosave
+   * turns back on after a test state. From the title this acts as Start (audio unlocks, the morning
+   * starts); from the menu the time of day carries on.
    */
   private openTown(save: SavedTown): void {
     const fromTitle = this.phase === 'title';
@@ -497,7 +466,7 @@ export class Game {
     this.applyDaylight();
   }
 
-  /** `?debug&day=N`: an N-second Auto day (evidence captures); lil-gui `Clock` folder. Debug only. */
+  /** `?debug&day=N`: an N-second Auto day; lil-gui `Clock` folder. */
   private installClockDebug(): void {
     if (!this.debug.enabled) return;
     const day = Number(new URLSearchParams(window.location.search).get('day'));
@@ -505,7 +474,7 @@ export class Game {
     this.debug.folder('Clock')?.add(this.clock, 'dayLengthS', 10, 1200, 1).name('day length (s)');
   }
 
-  /** `?debug&flock=N`: a flock every N seconds (evidence captures, playtests). Debug only. */
+  /** `?debug&flock=N`: a flock every N seconds. */
   private installBirdDebug(): void {
     if (!this.debug.enabled) return;
     const every = Number(new URLSearchParams(window.location.search).get('flock'));
@@ -514,7 +483,7 @@ export class Game {
     this.birds.reset(this.seedValue ^ BIRD_SEED_SALT);
   }
 
-  /** Change the day/night mode: persisted; the clock sweeps to it (snaps under reduced motion). */
+  /** Persisted; the clock sweeps to the new mode (snaps under reduced motion). */
   private setTimeMode(mode: TimeMode): void {
     this.clock.setMode(mode, this.reducedMotion || this.prefersReducedMotion?.matches === true);
     this.saves.setSettings({ timeMode: mode });
@@ -522,9 +491,8 @@ export class Game {
   }
 
   /**
-   * Sample the clock and drive every day/night consumer. The title screen (and loading) always
-   * shows the afternoon unless a test pinned the clock; the chosen mode takes effect on Start.
-   * Called every frame and at once from test hooks (they must work while paused for screenshots).
+   * Samples the clock and drives every day/night consumer. The title and loading screens show the
+   * afternoon unless a test pinned the clock. Also called from test hooks, which must work while paused.
    */
   private applyDaylight(): void {
     const live = this.clock.isPinned || this.phase === 'building' || this.phase === 'menu';
@@ -537,7 +505,6 @@ export class Game {
     this.announceDaytime();
   }
 
-  /** daytime:changed when the mode or the phase changes (never per frame). */
   private announceDaytime(): void {
     const mode = this.clock.mode;
     const phase = this.daySample.phase;
@@ -561,7 +528,7 @@ export class Game {
     if (name === 'night-town') buildSampleTown(this.editor);
     this.setPhase(name === 'title' ? 'title' : 'building');
     this.cameraController.setMode(name === 'title' ? 'title' : 'build');
-    // Pinned until setTimeOfDay(null) or a reload: existing states keep today's afternoon look.
+    // Pinned until setTimeOfDay(null) or a reload.
     this.clock.pin(name === 'night-town' ? T_NIGHT : T_AFTERNOON);
     this.applyDaylight();
     this.townRenderer.settle();
@@ -573,8 +540,7 @@ export class Game {
   }
 
   private installTestHooks(): void {
-    // Consumed by scripts/inspect-threejs-canvas.mjs, tests/*.spec.ts and bot playtests.
-    // Keep them REAL: no-op hooks make screenshot baselines flaky.
+    // Keep them real: no-op hooks make screenshot baselines flaky.
     window.__THREE_GAME_TEST_HOOKS__ = {
       seed: (value: number) => {
         this.seedValue = value;
@@ -626,10 +592,7 @@ export class Game {
     };
   }
 
-  /**
-   * `window.__THREE_GAME_DIAGNOSTICS__` is a getter: each read (tests, the canvas inspector) builds
-   * a fresh snapshot of the current state, so rendered frames never allocate for it.
-   */
+  /** A getter: each read builds a fresh snapshot, so rendered frames never allocate for it. */
   private installDiagnostics(): void {
     Object.defineProperty(window, '__THREE_GAME_DIAGNOSTICS__', {
       configurable: true,

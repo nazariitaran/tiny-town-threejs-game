@@ -1,15 +1,6 @@
 /**
- * WP-25c: the Graphics tab end to end, with the real engine and real input only (dock and menu
- * clicks / taps, the keyboard, the Continue button; no test hooks, no DOM forcing).
- *
- *  - Medium (the default) → Low in the menu: the live parts apply at once (DPR cap 1, 30 / 30 fps,
- *    1024 shadows, 60% decor, no halos), the choice is saved, and the reload notice offers
- *    "Reload now" because MSAA and the material change → Reload now → Continue: the same town,
- *    booted on Low with no MSAA and Lambert, no notice → Medium → notice → reload → Standard + MSAA.
- *  - Medium → High (and back) applies live with no notice: MSAA and the material don't change.
- *
- * The desktop project runs at DPR 2 here so the DPR cap visibly moves (Medium 1.5 → Low 1 → High 2);
- * the phone keeps Pixel 7's 2.625.
+ * The Graphics tab end to end, through real input only. The desktop project runs at DPR 2 so the
+ * DPR cap visibly moves (Medium 1.5 → Low 1 → High 2); the phone keeps Pixel 7's 2.625.
  */
 import { mkdirSync } from 'node:fs';
 import { devices, expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
@@ -122,24 +113,21 @@ test('Medium → Low → Reload now → the same town on Low (no MSAA, Lambert) 
   await clickFootprint(page, 'cottage', { x: 22, z: 20 });
   const built = await expectDiagnostics(page, { objects: 1, town: { roadTiles: 8, homes: 1 } }, 'road + cottage');
 
-  // 1. Graphics tab on a fresh start: Medium, its description, no notice.
   await openMenuTab(page, 'graphics');
   await expectTab(page, 'medium', false);
   await expectLive(page, 'medium', 'medium');
   expect((await diagnostics(page)).graphics).toMatchObject({ antialias: true, material: 'standard' });
 
-  // 2. Low: live parts at once, saved, and the notice asks for a reload (MSAA + material).
+  // Low applies its live parts at once; MSAA and the material need a reload.
   await press(info, segment(page, 'low'));
   await expectLive(page, 'low', 'medium');
   await expectTab(page, 'low', true);
   expect((await diagnostics(page)).perf.targetFps).toBe(30);
   expect(await savedGraphics(page)).toBe('low');
-  // Evidence: the Graphics tab on Low with the reload notice, as the engine left it.
   await expect.poll(() => byId(page, ids.menuPanel).evaluate((el) => el.getAnimations({ subtree: true }).length)).toBe(0);
   mkdirSync(OUT, { recursive: true });
   await page.screenshot({ path: `${OUT}/graphics-low-reload-${info.project.name}.png` });
 
-  // 3. Reload now → Continue: the town survived, and the page booted on Low.
   await reloadNow(page, info);
   await clickStart(page);
   await expectDiagnostics(page, { objects: built.objects, town: { roadTiles: built.town.roadTiles, homes: built.town.homes } }, 'the town persisted');
@@ -149,13 +137,11 @@ test('Medium → Low → Reload now → the same town on Low (no MSAA, Lambert) 
   await openMenuTab(page, 'graphics');
   await expectTab(page, 'low', false);
 
-  // 4. Back to Medium: the live parts return, and the notice asks for a reload again.
   await press(info, segment(page, 'medium'));
   await expectLive(page, 'medium', 'low');
   await expectTab(page, 'medium', true);
   expect(await savedGraphics(page)).toBe('medium');
 
-  // 5. Reload now → Continue: Standard materials and MSAA again.
   await reloadNow(page, info);
   await clickStart(page);
   await expectDiagnostics(page, { objects: built.objects, town: { roadTiles: built.town.roadTiles, homes: built.town.homes } }, 'the town persisted again');

@@ -1,34 +1,13 @@
 /**
- * Owns the active tool + rotation, turns pointer gestures into TownEditor strokes, publishes
- * hover/validity for UI, and drives the GhostPreview. Tool keyboard shortcuts live here; camera
- * keys (WASD/arrows, Q/E, +/−) live in CameraController. WP-05 (Interaction) owns this file.
+ * Owns the active tool and rotation, turns pointer gestures into TownEditor strokes, publishes hover
+ * validity and drives the GhostPreview. Camera keys live in CameraController.
  *
- * Tool semantics (docs/design/02-interaction-and-ui.md §3):
- *  - paint   (ground tools, bulldoze): every crossed cell, gap-free; bulldoze samples the drag
- *            path and passes an edge only when the pointer is within 0.3 cell of it (0.4 on touch).
- *            Road strokes visit each 2 × 2 road block once (WP-12: a road paint converts a block).
- *  - scatter (trees, lamppost): each new valid cell the pointer visits
- *  - single  (buildings, props): click only
- *  - line    (fences): straight run of edges, axis locked by the first movement; a click places
- *            the nearest edge on release
- * Objects (WP-12: multi-cell footprints) are anchored so the footprint is centred on the pointer
- * (grid.anchorForPointer; R re-centres it), and the ghost tile covers the whole footprint.
- * Every stroke is one undo entry. Only a deliberate click reports build:invalid (throttled to one
- * per 400 ms per reason); drags skip blocked cells silently.
- * Move tool: a click picks up a movable object (everything but the roundabout and zebra crossings;
- * never ground, hedges or fences) and a second click puts it down (one undo entry, `move-object`
- * keeps its id and variant). While carried, the object stays painted blue in place (a second ghost)
- * and the hover ghost follows the pointer, mint or red; R turns it (not trees and plants). Esc or a
- * right-click put it back; so do another tool, undo/redo and leaving the build phase.
- * Variant picker: each multi-model object tool remembers the player's chosen model for the session
- * (first model until chosen). `chosenVariant` is the model the ghost shows and every build action of
- * the tool carries, so the click builds exactly what the ghost showed (V / Shift+V cycle).
+ * Drag modes: paint (every crossed cell; roads once per 2 × 2 block), scatter (each new valid cell),
+ * single (click only), line (fences: a straight edge run, axis locked by the first movement).
+ * Every stroke is one undo entry; only a deliberate click reports build:invalid.
  *
- * Input: mouse/pen left button = tool (right/middle/Alt+left = camera; a right click without a drag deselects the tool). Touch: one finger = tool
- * (committed after 150 ms or 10 px so a second finger can still turn it into a camera gesture),
- * two fingers = camera. pointercancel, lostpointercapture, window blur and visibilitychange all end
- * strokes. Keys: B bulldoze · M move · R / Shift+R rotate · V / Shift+V next / previous style · Esc put back / deselect (no tool → intent:open-menu) ·
- * F / Home reset camera · Ctrl/Cmd+Z undo · Shift+Ctrl/Cmd+Z / Ctrl+Y redo. Digits belong to WP-06.
+ * Touch: one finger becomes the tool after TOUCH_COMMIT_MS or TOUCH_COMMIT_PX, so a second finger
+ * can still turn it into a camera gesture.
  */
 import * as THREE from 'three';
 import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS, ZEBRA_PIECE_MODELS } from '../catalog/models';
@@ -74,13 +53,12 @@ import { clampCellNearPlot, isNearEdge, KeyedThrottle, lineEdges, lockAxis, segm
 
 /** Lawn/meadow slab top height in TownRenderer (tufts and flowers stand on it). */
 const LAWN_TOP = 0.02;
-/** Ghost tile sizes in cells: one cell, one 2 × 2 road block. */
 const ONE_TILE: readonly [number, number] = [1, 1];
 const BLOCK_TILE: readonly [number, number] = [ROAD_BLOCK, ROAD_BLOCK];
-/** Pavement tile top colour (docs/assets/models.md, warmed) for block ghosts. */
+/** Pavement tile top colour, for block ghosts. */
 const PAVEMENT_FILL = '#c7c2b8';
 
-/** What diagnostics `hover` publishes: the cell plus the validity the UI shows for it. */
+/** What diagnostics `hover` publishes. */
 export type HoverInfo = Cell & { valid: boolean; reason: string | null };
 
 /** Touch: a single finger becomes a tool stroke after this long / this far (px). */
@@ -118,7 +96,7 @@ interface Carry {
   id: number;
   kind: ObjectKind;
   variant: number;
-  /** The rotation it would be put down with (starts at its own; R turns it when rotatable). */
+  /** The rotation it would be put down with. */
   rotation: Rotation;
   rotatable: boolean;
 }
@@ -126,7 +104,7 @@ interface Carry {
 /** What diagnostics `selection` publishes. */
 export type SelectionInfo = { id: number; kind: ObjectKind; rotation: Rotation };
 
-/** What diagnostics `variant` publishes: the active tool's chosen model (what its ghost shows and it builds) and its model count. */
+/** What diagnostics `variant` publishes. */
 export type VariantInfo = { choice: number; count: number };
 
 interface HoverState {
@@ -141,7 +119,7 @@ export class ToolController {
   /** Right button press awaiting release: a click without a drag deselects the tool. */
   private rightPress: { pointerId: number; clientX: number; clientY: number } | null = null;
   private rotation: Rotation = 0;
-  /** Variant picker: each multi-model object tool's chosen model this session (unset → model 0). */
+  /** Each multi-model object tool's chosen model this session (unset → model 0). */
   private readonly variantChoices = new Map<ObjectKind, number>();
   /** The model the active tool's ghost shows and its placements build (0 for one-model tools). */
   private chosenVariant = 0;
@@ -181,7 +159,7 @@ export class ToolController {
     private readonly cameraController: CameraController,
     private readonly bus: GameBus,
     scene: THREE.Scene,
-    /** For GhostPreview models. Templates are ready once phase leaves 'loading'. */
+    /** Templates are ready once the phase leaves 'loading'. */
     library: ModelLibrary,
     debug?: DebugTools,
   ) {
@@ -237,19 +215,19 @@ export class ToolController {
     return this.rotation;
   }
 
-  /** Move tool: what is being carried (diagnostics `selection`); null when nothing is. */
+  /** Diagnostics `selection`; null when nothing is carried. */
   get selection(): SelectionInfo | null {
     const carry = this.carry;
     return carry ? { id: carry.id, kind: carry.kind, rotation: carry.rotation } : null;
   }
 
-  /** Variant picker state of the active tool (diagnostics `variant`); null unless it has several models. */
+  /** Diagnostics `variant`; null unless the active tool has several models. */
   get variant(): VariantInfo | null {
     const def = this.variantDef();
     return def ? { choice: this.chosenVariant, count: def.variants } : null;
   }
 
-  /** Hovered cell plus its validity (diagnostics `hover`); null off-plot. */
+  /** Diagnostics `hover`; null off-plot. */
   get hovered(): HoverInfo | null {
     return this.hoverInfo;
   }
@@ -283,7 +261,7 @@ export class ToolController {
     this.emitToolChanged();
   }
 
-  /** Variant picker: build model `choice` with the active tool from now on. */
+  /** Build model `choice` with the active tool from now on. */
   selectVariant(choice: number): void {
     const def = this.variantDef();
     if (!def || !Number.isInteger(choice) || choice < 0 || choice >= def.variants || choice === this.chosenVariant) return;
@@ -306,7 +284,6 @@ export class ToolController {
     return def.variants > 1 ? def : null;
   }
 
-  /** The remembered model of a multi-model tool (0 until the player picks one, and for every other tool). */
   private choiceFor(def: ObjectDef | null): number {
     return def ? (this.variantChoices.get(def.kind) ?? 0) : 0;
   }
@@ -321,7 +298,7 @@ export class ToolController {
   rotate(direction: 1 | -1): void {
     const carry = this.carry;
     if (carry) {
-      // Carrying (Move tool): R turns the carried object, not the tools' shared rotation.
+      // Carrying: R turns the carried object, not the tools' shared rotation.
       if (!carry.rotatable) return;
       carry.rotation = nextRotation(carry.rotation, direction === 1 ? -1 : 1);
       this.hoverDirty = true;
@@ -366,8 +343,6 @@ export class ToolController {
     this.selectionGhost.dispose();
   }
 
-  // ---- pointer ----------------------------------------------------------------------------
-
   private readonly onPointerDown = (event: PointerEvent): void => {
     if (!this.enabled) return;
     if (event.pointerType === 'touch') {
@@ -382,8 +357,8 @@ export class ToolController {
         return;
       }
     }
-    // Right-click never builds; Alt+left orbits the camera. A right *click* (no drag) drops the tool like Escape;
-    // a right drag is still the camera pan, so the decision waits for pointerup.
+    // A right click (no drag) drops the tool like Escape; a right drag is the camera pan, so the
+    // decision waits for pointerup. Alt+left orbits the camera.
     if (event.button === 2 && event.pointerType !== 'touch') {
       this.rightPress = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY };
       return;
@@ -491,8 +466,6 @@ export class ToolController {
     this.beginStroke(pending.pointerId, pending.clientX, pending.clientY);
   }
 
-  // ---- strokes ----------------------------------------------------------------------------
-
   private beginStroke(pointerId: number, clientX: number, clientY: number): void {
     if (!this.toolId) return;
     const pick = this.picker.pick(clientX, clientY);
@@ -592,7 +565,7 @@ export class ToolController {
     }
   }
 
-  /** One bulldoze sample: cell under the point, plus the nearest edge when within 0.3 cell. */
+  /** One bulldoze sample: the cell under the point, plus the nearest edge when within range. */
   private bulldozeAt(point: GridPoint, fromPress: boolean): void {
     const stroke = this.stroke;
     if (!stroke) return;
@@ -645,8 +618,6 @@ export class ToolController {
       this.bus.emit('build:invalid', { toolId: this.toolId, cell: { ...cell }, reason: result.message });
     }
   }
-
-  // ---- move tool --------------------------------------------------------------------------
 
   /** Move tool click: pick up the object under the pointer, or put the carried one down. */
   private moveClick(pick: PickResult): void {
@@ -842,8 +813,6 @@ export class ToolController {
     }
   }
 
-  // ---- hover + ghost ----------------------------------------------------------------------
-
   private refreshHover(): void {
     this.hoverDirty = false;
     this.syncSelectionGhost();
@@ -999,8 +968,8 @@ export class ToolController {
         if (ground === 'walkway' || ground === 'pavement') mask |= 1 << i;
       });
       const arms = mask === 0 ? 0b0101 : mask; // a lone walkway reads as a short north–south path
-      // WP-12: the hub piece (0.25² = the walkway width, half a cell) at the centre, plus one more
-      // hub per connected side, shifted a quarter cell so it overlaps the centre and ends on the cell edge.
+      // The hub piece (the walkway width, half a cell) at the centre, plus one more hub per connected
+      // side, shifted a quarter cell so it overlaps the centre and ends on the cell edge.
       const parts: GhostPart[] = [{ model: 'walkway-hub' }];
       NEIGHBOURS.forEach((offset, i) => {
         if (arms & (1 << i)) parts.push({ model: 'walkway-hub', x: offset.x * 0.25 * CELL_SIZE, z: offset.z * 0.25 * CELL_SIZE });
@@ -1009,7 +978,7 @@ export class ToolController {
     }
     const visual = GROUND_MODELS[kind];
     if (visual.type === 'model') return { parts: [{ model: visual.model }] };
-    // WP-12: one clump per (half-unit) cell, like the renderer's meadow scatter.
+    // One clump per cell, like the renderer's meadow scatter.
     if (kind === 'meadow') return { fill: visual.color, parts: [{ model: 'meadow-flowers', y: LAWN_TOP }] };
     return { fill: visual.color, parts: [{ model: 'grass-tuft', y: LAWN_TOP, scale: 0.9 }] };
   }
@@ -1037,8 +1006,6 @@ export class ToolController {
     this.hoverInfo = next.cell ? { x: next.cell.x, z: next.cell.z, valid: next.valid, reason: next.reason } : null;
     this.bus.emit('hover:changed', { cell: next.cell, edge: next.edge, valid: next.valid, reason: next.reason });
   }
-
-  // ---- keyboard -----------------------------------------------------------------------------
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     if (!this.enabled || isEditableTarget(event.target)) return;
@@ -1074,7 +1041,6 @@ export class ToolController {
         else this.bus.emit('intent:open-menu');
         break;
       case 'KeyT':
-        // WP-16: cycle the day/night mode (Game reads the current mode; UI shows it).
         if (!event.repeat) this.bus.emit('intent:cycle-time-mode');
         break;
       case 'KeyF':

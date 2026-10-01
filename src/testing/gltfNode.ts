@@ -1,8 +1,7 @@
 /**
- * Test-only (Vitest, Node): load the real GLBs under public/ through three's GLTFLoader.
- * Never imported by the game. Installs the minimal browser shims GLTFLoader needs to resolve
- * external textures from disk: `self`, `fetch` for file: URLs and a `createImageBitmap` that
- * only reads a PNG's size.
+ * Test-only (Vitest, Node): loads the real GLBs under public/ through three's GLTFLoader, with the
+ * browser shims it needs for external textures: `self`, `fetch` for file: URLs and a
+ * `createImageBitmap` that only reads a PNG's size.
  */
 import fs from 'node:fs';
 import path from 'node:path';

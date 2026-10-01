@@ -1,7 +1,6 @@
 /**
- * Catalog integrity: every referenced file exists, every GLB loads through three's real
- * GLTFLoader (Node shims in src/testing/gltfNode.ts), and normalised sizes fit the grid (same scale/rotation as ModelLibrary).
- * Runs in Node — no browser needed.
+ * Catalog integrity: every referenced file exists, every GLB loads through three's real GLTFLoader
+ * (Node shims in src/testing/gltfNode.ts), and normalised sizes fit the grid (same scale/rotation as ModelLibrary).
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -16,9 +15,8 @@ import { RETIRED_TOOLS, TOOL_CATEGORIES, TOOLS, toolsInCategory, variantIcon, ty
 import { createGlbLoader, PUBLIC_DIR, publicPath } from '../testing/gltfNode';
 
 
-/** Normalised (scaled + rotationOffset) size of each model, filled in beforeAll. */
+/** Normalised (scaled + rotationOffset) size of each model. */
 const sizes = new Map<ModelId, THREE.Vector3>();
-/** Car Kit models at CAR_SCALE (LifeSystem), filled in beforeAll. */
 const carSizes = new Map<string, THREE.Vector3>();
 
 beforeAll(async () => {
@@ -40,7 +38,7 @@ beforeAll(async () => {
   }
 }, 60_000);
 
-/** Size as drawn: normalised size × render/modelStyles.ts MODEL_STYLES non-uniform scale. */
+/** Size as drawn: normalised size × MODEL_STYLES non-uniform scale. */
 function drawn(id: ModelId): THREE.Vector3 {
   const size = sizes.get(id)!.clone();
   const style = MODEL_STYLES[id]?.scale;
@@ -247,11 +245,7 @@ describe('catalog', () => {
   });
 });
 
-/**
- * WP-12 proportions (docs/plans/wp-12-scale.md §2). Toy scale: 1 world unit ≈ 8 m, a cell ≈ 4 m.
- * Logs the drawn bounding boxes (w × h × d, world units) so the table in the plan/hand-off can be
- * checked against the real models.
- */
+/** Toy scale: 1 world unit ≈ 8 m, a cell ≈ 4 m. */
 describe('proportions', () => {
   const LANE = 0.37;
   const h = (id: ModelId) => drawn(id).y;
@@ -291,7 +285,6 @@ describe('proportions', () => {
     const carLength = Math.max(...cars().map((c) => c.z));
     expect(cottage.x / carLength).toBeGreaterThan(2.5);
     expect(cottage.x / LANE).toBeGreaterThan(3);
-    // Cars fit a lane.
     for (const car of cars()) expect(car.x).toBeLessThan(LANE);
   });
 

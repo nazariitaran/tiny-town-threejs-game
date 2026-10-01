@@ -1,22 +1,15 @@
 /**
- * WP-10 (Ambient life) — pure lane geometry. NO three.js, NO DOM (unit-tested in Node).
- *
- * A car crosses one road TILE at a time (WP-12: a 2 × 2 cell road block, ROAD_TILE_SIZE = 1 world
- * unit; below "cell" means that tile) along a "manoeuvre": it enters through the edge it
- * is travelling across (`inDir`) and leaves through `outDir`. Traffic keeps to the RIGHT, so
- * every manoeuvre starts and ends on the right-hand lane centre (LANE_OFFSET from the middle
- * of the road; Kenney road tiles have two ≈0.37-wide lanes between the kerbs).
- *
+ * Pure lane geometry. A car crosses one road tile ("cell" below) per manoeuvre: it enters through the
+ * edge it is travelling across (`inDir`) and leaves through `outDir`. Traffic keeps to the right, so
+ * every manoeuvre starts and ends on the right-hand lane centre.
  *  - straight  (out == in):      a line through the cell.
  *  - right turn (out == in + 1): a tight quarter arc around the near corner.
  *  - left turn  (out == in + 3): a wide quarter arc that crosses the oncoming lane.
- *  - U-turn     (out == in + 2): only at dead ends; drive to the middle, loop round, drive back.
+ *  - U-turn     (out == in + 2): drive to the middle, loop round, drive back.
+ *  - ring (roundabout centre): counter-clockwise round the island; see buildRingPath.
  *
- *  - ring (roundabout centre tile): join the circle round the island, drive round it
- *    counter-clockwise (right-hand traffic) and leave on the exit's right-hand lane; see ringPath.
- *
- * Paths are pre-sampled polylines in tile-local coordinates (tile centre = origin,
- * world units), so sampling is allocation-free.
+ * Paths are pre-sampled polylines in tile-local world units (tile centre = origin), so sampling is
+ * allocation-free.
  */
 import { ROAD_TILE_SIZE } from '../game/config';
 

@@ -1,7 +1,4 @@
-/**
- * WP-09a smoke: boot without errors, phase machine, and the test-hook contract.
- * Asserts diagnostics only (no pixels) so UI/visual work in other WPs doesn't break it.
- */
+/** Smoke: boot without errors, the phase machine and the test-hook contract. Diagnostics only, no pixels. */
 import { expect, test } from '@playwright/test';
 import { applyState, attachJson, byId, diagnostics, gotoTitle, prepareDeterministicState, startBuilding, trackErrors, UI_TEST_IDS, waitFrames } from './helpers';
 

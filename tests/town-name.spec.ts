@@ -1,8 +1,3 @@
-/**
- * WP-20 name your town. Real input only: Start, the name dialog (field, die, Cancel / submit, Enter,
- * Esc), the top-bar name pill, the menu's Rename town and New town, the camera button. State comes
- * from __THREE_GAME_DIAGNOSTICS__ (townName, phase, save) and the DOM.
- */
 import { mkdirSync, readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { TOWN_NAMES_PATH } from '../src/town/townName';
@@ -31,7 +26,6 @@ async function nameAndStart(page: Page, name: string): Promise<void> {
   await expect.poll(() => phase(page)).toBe('building');
 }
 
-/** Wait until the debounced autosave has written. */
 async function waitForSave(page: Page): Promise<void> {
   await expect.poll(async () => (await diagnostics(page)).save.pending, { timeout: 5_000 }).toBe(false);
 }
@@ -77,7 +71,7 @@ test.describe('name your town', () => {
     await expect(pill).toHaveAttribute('aria-label', 'Puddleton Parva, rename town');
     await expect(pill.locator('.ui-town-name')).toHaveText('Puddleton Parva');
     if (info.project.name === 'desktop-chrome') await expect(pill.locator('.ui-town-name')).toBeVisible();
-    // Audio was unlocked by the dialog's click (it's where the game starts now).
+    // The dialog's click starts the game, so it unlocks audio.
     await expect.poll(async () => (await diagnostics(page)).audio.unlocked).toBe(true);
     errors.expectNone();
   });
@@ -203,7 +197,7 @@ test.describe('name your town', () => {
     await nameAndStart(page, 'W'.repeat(30));
     const bar = await page.evaluate(() => {
       const rect = (s: string) => document.querySelector(s)!.getBoundingClientRect();
-      // Visible actions only: WP-21's Town file button is display:none on phones.
+      // Visible actions only: the Town file button is display:none on phones.
       const buttons = [...document.querySelectorAll('.ui-actions button')].map((b) => b.getBoundingClientRect()).filter((r) => r.width > 0);
       return { brand: rect('#btn-town-name'), actions: rect('.ui-actions'), buttons, width: window.innerWidth };
     });

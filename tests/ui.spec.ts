@@ -1,7 +1,3 @@
-/**
- * WP-06 UI acceptance checks (owned by WP-06). Real clicks/keys only; state is read from
- * __THREE_GAME_DIAGNOSTICS__. Screenshots land in artifacts/wp-06/.
- */
 import { mkdirSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { TOOL_CATEGORIES, toolsInCategory } from '../src/catalog/tools';
@@ -64,7 +60,6 @@ test('every category shows its tools and selecting one sets diagnostics.tool', a
   const last = page.locator(id(UI_TEST_IDS.tool(lastTools[lastTools.length - 1].id)));
   await last.click();
   await expect.poll(async () => (await diag(page)).tool).toBeNull();
-  // Bulldoze mode button toggles.
   await page.locator(id(UI_TEST_IDS.bulldoze)).click();
   await expect.poll(async () => (await diag(page)).tool).toBe('bulldoze');
   await page.locator(id(UI_TEST_IDS.bulldoze)).click();
@@ -77,7 +72,6 @@ test('the five category tabs render their tools in catalog order, each with a lo
   await start(page);
   expect(TOOL_CATEGORIES.map((c) => c.id)).toEqual(['streets', 'homes', 'town', 'nature', 'garden']);
   await expect(page.locator(`#${UI_TEST_IDS.dock} [data-category]`)).toHaveCount(5);
-  // Streets is the category open on start.
   await expect(page.locator(id(UI_TEST_IDS.category('streets')))).toHaveAttribute('aria-pressed', 'true');
   const counts: Record<string, number> = {};
   for (const category of TOOL_CATEGORIES) {
@@ -120,16 +114,16 @@ test('digit shortcuts: 1–9 pick a tool in the active category, Shift+1–5 swi
   await expect(page.locator(id(UI_TEST_IDS.tool('bungalow')))).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('Digit3'); // same digit again deselects
   await expect.poll(async () => (await diag(page)).tool).toBeNull();
-  // Shift+3 = Town: 1 = tiered fountain (the plain fountain is retired).
+  // Shift+3 = Town: 1 = tiered fountain.
   await page.keyboard.press('Shift+Digit3');
   await expect(page.locator(id(UI_TEST_IDS.category('town')))).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('Digit1');
   await expect.poll(async () => (await diag(page)).tool).toBe('tiered-fountain');
-  // Shift+4 = Nature: 6 = pine (WP-23: Tulips is 3).
+  // Shift+4 = Nature: 6 = pine.
   await page.keyboard.press('Shift+Digit4');
   await page.keyboard.press('Digit6');
   await expect.poll(async () => (await diag(page)).tool).toBe('pine');
-  // Shift+5 = Garden: 1 = hedge (the garden path is retired).
+  // Shift+5 = Garden: 1 = hedge.
   await page.keyboard.press('Shift+Digit5');
   await expect(page.locator(id(UI_TEST_IDS.category('garden')))).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('Digit1');
@@ -175,7 +169,7 @@ test('refusal tooltip shows on an invalid click and is gone after the next succe
   await page.locator(id(UI_TEST_IDS.category('homes'))).click();
   await page.locator(id(UI_TEST_IDS.tool('cottage'))).click();
 
-  // WP-17 cottages are 4 × 4: the first on x 17–20, rows 16–19; the second on x 27–30, rows 16–19.
+  // Cottages are 4 × 4: the first on x 17–20, rows 16–19; the second on x 27–30, rows 16–19.
   await clickFootprint(page, 'cottage', { x: 17, z: 16 });
   await expect.poll(async () => (await diag(page)).town.homes).toBe(1);
   const invalidBefore = (await diag(page)).invalidCount;
@@ -254,7 +248,6 @@ test('menu opens and closes; New town asks for confirmation', async ({ page }, i
   const homes = (await diag(page)).town.homes;
   expect(homes).toBeGreaterThan(0);
 
-  // Open via ☰, close via Resume.
   await page.locator(id(UI_TEST_IDS.menu)).click();
   await expect.poll(async () => (await diag(page)).phase).toBe('menu');
   await expect(page.locator(id(UI_TEST_IDS.menuPanel))).toBeVisible();
@@ -286,7 +279,7 @@ test('menu opens and closes; New town asks for confirmation', async ({ page }, i
   await expect(page.locator(id(UI_TEST_IDS.menuPanel))).toBeVisible();
   expect((await diag(page)).town.homes).toBe(homes);
 
-  // New town → confirm → Clear → name the new town (WP-20) empties it and returns to building.
+  // New town → confirm → Clear → name the new town empties it and returns to building.
   await page.locator(id(UI_TEST_IDS.newTown)).click();
   await page.locator(id(UI_TEST_IDS.confirmClear)).click();
   await expect(page.locator(id(UI_TEST_IDS.namePanel))).toBeVisible();
@@ -439,7 +432,6 @@ test('stress-town screenshots: no overlap or clipping at 4 sizes (Buildings tray
   }
 });
 
-// ---- WP-13: music settings rows in the menu -----------------------------------------------------
 test('menu music rows: ≥ 44 px targets inside the panel, keyboard reachable, screenshot', async ({ page }, info) => {
   const errors = trackErrors(page);
   await start(page);

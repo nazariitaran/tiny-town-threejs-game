@@ -1,8 +1,7 @@
 /**
  * Road auto-tiling: which road piece + rotation to draw for a road BLOCK, given which of its
- * 4 neighbouring blocks are also road. PURE (tested in roadTiles.test.ts).
- * WP-12: roads are aligned ROAD_BLOCK × ROAD_BLOCK cell blocks (one tile each, drawn at the block
- * centre); tiling runs on the block grid (neighbours ±ROAD_BLOCK cells from the block anchor).
+ * 4 neighbouring blocks are also road. Each block is one tile drawn at the block centre; tiling
+ * runs on the block grid (neighbours ±ROAD_BLOCK cells from the block anchor).
  *
  * Mask bits follow grid.NEIGHBOURS order: N=1, E=2, S=4, W=8.
  * Canonical connections at rotation 0 (after the per-model rotationOffset in catalog/models.ts

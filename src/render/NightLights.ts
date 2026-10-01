@@ -1,33 +1,10 @@
 /**
- * Night light sources (WP-16b, docs/plans/wp-16-day-night.md §3–§4). No real PointLights.
- *
- *  - Glow masks on windows / lamp faces / traffic lenses live on ModelLibrary's glow clones
- *    (render/nightGlow.ts); update() drives them through `library.glow` (a few number writes).
- *  - Pools of lamplight: ONE InstancedMesh of flat additive quads on the ground under every lamp
- *    head (+1 draw call at night, whatever the lamp count).
- *  - Halos: ONE InstancedMesh of camera-facing additive sprites at the lamp heads (+1). Always built;
- *    drawn only while `lampHalos` (the graphics preset's GraphicsProfile.lampHalos, WP-25; off on Low).
- *  - Headlight beams: ONE InstancedMesh of short additive cones on the road ahead of each car
- *    (≤ MAX_CARS; +1), from LifeSystem.carPose().
- *  - Fireflies (stretch, render/fireflies.ts): ≤ 24 sprites over meadow cells in full night (+1).
- *  - All of them are `visible = false` while night < VISIBLE_FROM, so daytime draw calls and pixels
- *    are unchanged.
- *  - Lamp registry (render/lampRegistry.ts): from `town:changed` and the grid helpers, so it is
- *    scale-agnostic. The lamp head is measured once at populate() from the lamppost's lamp-cell UV
- *    triangles, then MODEL_STYLES.lamppost.scale is applied (rotation/offset come from the object).
- *  - Instance writes happen in a chained `scene.onBeforeRender`, so whatever renders (the frame loop,
- *    or a test hook while paused for a screenshot) draws the current lamps and cars.
- *  - Shader warm-up: the first render after populate() draws each layer once with a zero-scale
- *    instance (no fragments), so the three programs compile at load, not at the first dusk.
- *
- * Game.ts wiring (integrator, contract commit):
- *   new NightLights(scene, library, town, bus, life, debug)
- *   applyGraphics(): nightLights.setLampHalos(profile.lampHalos)   (at boot and on every preset change)
- *   load():   nightLights.populate()                 (after library.loadAll + life.load)
- *   update(): nightLights.update(daySample)          (every frame, after environment.applyDaylight)
- *             and at once from setTimeOfDay / setState while paused for screenshots
- *   diagnostics: daytime.lamps / daytime.drawCalls ← getDiagnostics()
- *   dispose()
+ * Night light sources, faked with additive instanced quads (no real PointLights): lamp pools on the
+ * ground, lamp halos, headlight beams and fireflies, one draw call each; window / lamp / lens glow
+ * masks are driven through `library.glow`. All are hidden while night < VISIBLE_FROM, so daytime
+ * draw calls and pixels are unchanged.
+ * The first render after populate() draws each layer once with a zero-scale instance, so the
+ * programs compile at load, not at the first dusk.
  */
 import * as THREE from 'three';
 import type { DebugTools } from '../debug/DebugTools';
@@ -44,7 +21,6 @@ import { GLOW_CELLS, smoothstep } from './nightGlow';
 import { MODEL_STYLES } from './modelStyles';
 
 export interface NightLightsDiagnostics {
-  /** Lampposts currently tracked. */
   lamps: number;
   /** Main-pass draw calls this layer adds (0 by day). */
   drawCalls: number;
@@ -52,13 +28,13 @@ export interface NightLightsDiagnostics {
 
 /** Below this `night` the ground layers are hidden (daytime draw calls +0). */
 export const VISIBLE_FROM = 0.05;
-/** Lamp face centre in lamppost model space if the geometry can't be measured (facts table). */
+/** Lamp face centre in lamppost model space if the geometry can't be measured. */
 const FALLBACK_HEAD: Vec3Like = { x: 0, y: 0.653, z: 0.154 };
 /** Pools sit just above the tallest flat ground (road / pavement tops at 0.02). */
 const POOL_Y = 0.028;
 const BEAM_Y = 0.026;
 const INITIAL_LAMP_CAPACITY = 32;
-/** Pool / halo brightness at night = 0 relative to full night (see update()). */
+/** Pool / halo brightness at night = 0 relative to full night. */
 const DUSK_POOL_LEVEL = 0.55;
 
 export interface NightLightsTuning {
@@ -77,8 +53,7 @@ export interface NightLightsTuning {
 }
 
 export const DEFAULT_NIGHT_LIGHTS_TUNING: Readonly<NightLightsTuning> = {
-  // Owner (2026-09-30): the light a little nearer the arm's end. The lamp face runs 0.11–0.23 along
-  // the arm (after MODEL_STYLES); its centre is 0.17, so the light now sits about three quarters out.
+  // The lamp face runs 0.11–0.23 along the arm (centre 0.17), so the light sits about three quarters out.
   lampOutset: 0.03,
   poolRadius: 1.05,
   poolStrength: 0.8,
@@ -111,7 +86,7 @@ export class NightLights {
   private readonly layers = new Map<LayerKind, Layer>();
   private readonly geometries: THREE.BufferGeometry[] = [];
   private readonly head: Vec3Like = { ...FALLBACK_HEAD };
-  /** `head` moved `lampOutset` along the arm: where the pool and halo are centred (scratch, no allocations). */
+  /** `head` moved `lampOutset` along the arm: where the pool and halo are centred. */
   private readonly light: Vec3Like = { ...FALLBACK_HEAD };
   private readonly previousBeforeRender: THREE.Object3D['onBeforeRender'];
   private fireflies: Fireflies | null = null;
@@ -148,7 +123,7 @@ export class NightLights {
       }),
     );
     this.registry.rebuild(town);
-    // Chained: instance writes + warm-up right before every render (frame loop or test hook).
+    // Chained, so any render (the frame loop, or a test hook while paused) draws the current lamps and cars.
     this.previousBeforeRender = scene.onBeforeRender;
     scene.onBeforeRender = (...args: Parameters<THREE.Object3D['onBeforeRender']>) => {
       this.previousBeforeRender.apply(scene, args);
@@ -197,7 +172,6 @@ export class NightLights {
     this.publish();
   }
 
-  /** Show the lamp halos at night (WP-25 graphics presets; live). */
   setLampHalos(on: boolean): void {
     if (on === this.lampHalos) return;
     this.lampHalos = on;
@@ -228,8 +202,6 @@ export class NightLights {
     this.geometries.length = 0;
     this.populated = false;
   }
-
-  // ---------------------------------------------------------------------------------------------
 
   private setLevel(kind: LayerKind, level: number): void {
     const layer = this.layers.get(kind);
@@ -467,8 +439,6 @@ export class NightLights {
   }
 }
 
-// ---- Geometry ----------------------------------------------------------------------------------
-
 /** 1 × 1 quad lying in XZ, facing up, centred on the origin. */
 function groundQuad(): THREE.BufferGeometry {
   return new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
@@ -494,7 +464,7 @@ function attributeArray(attribute: THREE.BufferAttribute | THREE.InterleavedBuff
   return out;
 }
 
-// ---- Shaders (output is added straight onto the display-space framebuffer) ---------------------
+// Shader output is added straight onto the display-space framebuffer.
 
 const FLAT_VERTEX = /* glsl */ `
 varying vec2 vUv;
@@ -536,8 +506,8 @@ void main() {
 }
 `;
 
-// Owner (2026-09-30): a street lamp shines down, so the glow fades out above the lamp face (vUv.y 0.5
-// is the face; up on screen is +y) and only the small bright core reaches just over the arm.
+// A street lamp shines down, so the glow fades out above the lamp face (vUv.y 0.5 is the face; up on
+// screen is +y) and only the small bright core reaches just over the arm.
 const HALO_FRAGMENT = /* glsl */ `
 void main() {
   float d = length(vUv * 2.0 - 1.0);

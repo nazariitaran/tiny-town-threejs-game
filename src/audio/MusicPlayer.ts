@@ -1,61 +1,45 @@
 /**
- * Background music (WP-13): one looping track, STREAMED through an HTMLAudioElement →
- * MediaElementAudioSourceNode, so the 585 s file is never decoded into an AudioBuffer and is not
- * part of the initial download (the element gets its `src` only on the first `start()`, which
- * AudioManager calls from the Start/Continue gesture).
+ * Background music: one looping track streamed through an <audio> element, so the long file is never
+ * decoded into an AudioBuffer and isn't requested before the music first plays.
  *
- * Graph:  <audio> → source → fade (fade-in / on-off / loop fade) → bus (musicVolume × trim × duck) → master
+ * Graph:  <audio> → source → fade → bus (musicVolume × trim × duck) → master
  *
- * - Fade-in FADE_IN_S on start and on every loop wrap; a short fade-out just before the loop point.
- * - `setDucked(true)` lowers the bus by DUCK_DB (a menu is open).
- * - `setActive(false)` (music off, master mute, hidden page) fades out and pauses the element, so a
- *   muted or hidden game doesn't keep decoding; `setActive(true)` resumes where it left off.
- * - Resume across visits (WP-18): the first start reads the saved `{ track, time }` from the
- *   MusicPositionPort and seeks there on `loadedmetadata` (before any sound, so no audible jump), unless
- *   it is within RESUME_END_GUARD_S of the real duration. `savePosition()` (AudioManager calls it when
- *   the page is hidden or unloaded) and a periodic save every MUSIC_SAVE_INTERVAL_S of playback store it.
+ * Going inactive fades out and pauses the element, so a muted or hidden game doesn't keep decoding.
  */
 import { assetUrl } from '../game/config';
 import { canResumeAt, resumeTimeFor, shouldPeriodicSave, type MusicPosition } from './musicPosition';
 
 export const MUSIC_URL = '/assets/music/foundation-of-gold.mp3';
-/** Fade-in time on start/resume/loop wrap (s). */
+/** Seconds; on start, resume and loop wrap. */
 export const MUSIC_FADE_IN_S = 2.5;
-/** Fade-out before the loop point and when switching off (s). */
+/** Seconds; before the loop point and when switching off. */
 export const MUSIC_FADE_OUT_S = 0.6;
-/** Menu duck, in dB. */
+/** Applied while a menu is open, in dB. */
 export const MUSIC_DUCK_DB = -3;
-/**
- * Fixed trim under musicVolume. The master is −13 LUFS integrated (loud), SFX one-shots are ~−25 LUFS;
- * trim 0.25 (−12 dB) keeps music at the default musicVolume 0.5 roughly 14–16 dB under placement sounds.
- */
+/** The track is mastered at −13 LUFS, SFX at ~−25; −12 dB keeps default-volume music ~15 dB under placement sounds. */
 export const MUSIC_TRIM = 0.25;
-/** Start the loop-point fade-out this many seconds before the end of the track. */
+/** Seconds before the track's end at which the loop fade-out starts. */
 const LOOP_FADE_LEAD_S = 1.2;
-/** Time constant for bus (volume/duck) changes (s). */
+/** setTargetAtTime time constant for volume/duck changes (s). */
 const BUS_RAMP_S = 0.12;
 
 export interface MusicState {
-  /** Player setting: music on. */
   enabled: boolean;
-  /** Player setting 0..1. */
+  /** 0..1. */
   volume: number;
-  /** The element is playing (not paused) — false while off, muted, hidden or not started yet. */
   playing: boolean;
-  /** Enough data is buffered to play (readyState ≥ HAVE_FUTURE_DATA was reached). */
+  /** canplay has fired. */
   loaded: boolean;
-  /** `src` was assigned, i.e. the stream was requested. */
   requested: boolean;
   ducked: boolean;
-  /** Media time in s (tests assert it advances). */
+  /** Media time in s. */
   time: number;
-  /** Number of times the loop wrapped. */
   loops: number;
-  /** Media time this visit resumed from (WP-18), or null when it started from 0. */
+  /** Null when playback started from 0. */
   resumedFrom: number | null;
 }
 
-/** Where the music position is persisted (SaveStore matches it). Missing methods = no persistence. */
+/** SaveStore implements it; a missing method means no persistence. */
 export interface MusicPositionPort {
   getMusicPosition(): MusicPosition | null;
   setMusicPosition(position: MusicPosition): unknown;
@@ -74,10 +58,9 @@ export class MusicPlayer {
   private loopFading = false;
   private pauseTimer = 0;
   private warned = false;
-  /** Saved time to seek to once the metadata is known (read on the first start). */
+  /** Seek target applied on loadedmetadata. */
   private resumeAt: number | null = null;
   private resumedFrom: number | null = null;
-  /** Media time of the last save, for the periodic save. */
   private lastSavedTime = 0;
 
   constructor(
@@ -87,7 +70,6 @@ export class MusicPlayer {
     private readonly positions: Partial<MusicPositionPort> = {},
   ) {}
 
-  /** Build the graph under `destination`. Call once, after the AudioContext exists. */
   attach(ctx: AudioContext, destination: AudioNode): void {
     if (this.bus) return;
     this.fade = ctx.createGain();
@@ -97,7 +79,7 @@ export class MusicPlayer {
     this.fade.connect(this.bus).connect(destination);
   }
 
-  /** Whether the music should be sounding (enabled && not muted && visible). Call from a gesture the first time. */
+  /** Active means not muted and visible. Call from a user gesture the first time. */
   setActive(active: boolean): void {
     this.active = active;
     this.update();
@@ -134,10 +116,7 @@ export class MusicPlayer {
     };
   }
 
-  /**
-   * Store the current position for the next visit. Skipped until the stream has played (a tab closed
-   * while the resumed stream is still buffering must not overwrite a good position with 0) and while seeking.
-   */
+  /** Skipped while seeking and until the stream has loaded, so a tab closed mid-buffering can't overwrite a good position with 0. */
   savePosition(): void {
     const el = this.element;
     if (!el || !this.loaded || el.seeking || !this.positions.setMusicPosition) return;
@@ -190,13 +169,13 @@ export class MusicPlayer {
     if (shouldPlay) {
       const el = this.ensureElement(ctx as AudioContext);
       if (el.paused) {
-        this.rampFade(0, 0); // start silent, then fade in
+        this.rampFade(0, 0);
         el.play().then(
           () => {
             if (this.enabled && this.active) this.rampFade(1, MUSIC_FADE_IN_S);
           },
           (error: unknown) => {
-            // AbortError = a pause() (off/mute/hide) overtook this play(); not a failure.
+            // AbortError: a pause() overtook this play().
             if (!(error instanceof DOMException && error.name === 'AbortError')) this.warn('could not start music', error);
           },
         );
@@ -210,7 +189,6 @@ export class MusicPlayer {
     }
   }
 
-  /** Linear ramp of the fade gain to `target` over `seconds` (0 = immediate). */
   private rampFade(target: number, seconds: number): void {
     const ctx = this.context;
     if (!ctx || !this.fade) return;
@@ -242,7 +220,7 @@ export class MusicPlayer {
     return el;
   }
 
-  /** Resume seek (WP-18). Runs before the first sample plays, so there is no audible jump. */
+  /** Runs before the first sample plays, so the resume seek is inaudible. */
   private readonly onLoadedMetadata = (): void => {
     const el = this.element;
     const at = this.resumeAt;
@@ -282,7 +260,7 @@ export class MusicPlayer {
   };
 
   private warn(message: string, error?: unknown): void {
-    if (this.warned) return; // one warning, never a throw; the game plays on silently
+    if (this.warned) return; // warn once; the game plays on silently
     this.warned = true;
     console.warn(`[audio] ${message}`, ...(error === undefined ? [] : [error]));
   }

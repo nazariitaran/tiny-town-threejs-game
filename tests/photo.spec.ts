@@ -1,15 +1,11 @@
-/**
- * WP-19 town photo. Real input only: the top-bar camera button, the P key, the preview's Download
- * button and Esc; `applyState` is setup. State comes from __THREE_GAME_DIAGNOSTICS__.photo and the
- * downloaded file itself (a JPEG whose size must match diagnostics).
- */
+/** Town photo, through real input; `applyState` is setup. The downloaded JPEG must match diagnostics `photo`. */
 import { mkdirSync, readFileSync } from 'node:fs';
 import { expect, test, type Download, type Page } from '@playwright/test';
 import { PHOTO_LONG_EDGE } from '../src/photo/photoLayout';
 import { applyState, byId, canvasPoint, diagnostics, gotoTitle, selectTool, trackErrors, UI_TEST_IDS, waitFrames } from './helpers';
 
 const OUT = 'artifacts/wp-19';
-// Test states reset the name to "Tiny Town" (WP-20: the file name starts with the town's slug).
+// Test states reset the name to "Tiny Town"; the file name starts with the town's slug.
 const FILE_NAME = /^tiny-town-\d{4}-\d{2}-\d{2}-\d{4}\.jpg$/;
 
 const photo = async (page: Page) => (await diagnostics(page)).photo;

@@ -116,7 +116,7 @@ describe('grid helpers', () => {
     // Clamped inside the plot and still aligned, even on an odd-sized plot.
     expect(anchorForPointer(-3, 47.9, [6, 6], 0, 48, 48, undefined, 2)).toEqual({ x: 0, z: 42 });
     expect(anchorForPointer(46.9, 46.9, [6, 6], 0, 47, 47, undefined, 2)).toEqual({ x: 40, z: 40 });
-    // snap defaults to 1 (unchanged behaviour).
+    // snap defaults to 1.
     expect(anchorForPointer(10.5, 10.5, [6, 6], 0, 48, 48)).toEqual({ x: 8, z: 8 });
     expect(anchorForPointer(11.5, 11.5, [6, 6], 0, 48, 48)).toEqual({ x: 9, z: 9 });
   });
