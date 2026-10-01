@@ -1,6 +1,6 @@
 # Bulldoze highlight that matches the object (plan, 2026-10-01)
 
-> **Plan, implemented on the branch `bulldoze-highlight`** (from `2d58ff0`); it goes to `main` only after owner approval. **Changed while building:** Decision 4 became a shader recolour (the colour atlas, not the opacity, caused the brown), and the ghost-part helper lives in `GhostPreview.ts` instead of a new `ghostParts.ts`. As-built facts are in `03-architecture.md` (§Rendering, Tall trees) and `02-interaction-and-ui.md` (Bulldoze row).
+> **Plan, implemented and merged into `main`** (owner-approved 2026-10-01; merge `c68c6d0`, built on the branch `bulldoze-highlight` from `2d58ff0`). This is the plan, not the as-built record. **Changed while building:** Decision 4 became a shader recolour (the colour atlas, not the opacity, caused the brown), and the ghost-part helper lives in `GhostPreview.ts` instead of a new `ghostParts.ts`. As-built facts are in `03-architecture.md` (§Rendering, Tall trees) and `02-interaction-and-ui.md` (Bulldoze row).
 
 ## Owner request (2026-10-01)
 > Highlighting objects in red when we want to bulldoze them: for some models it is a little bit off, for some it's fine, and for some it is very much off.
