@@ -54,6 +54,21 @@ function link(href: string, text: string): string {
   return `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
 }
 
+/** The author's pages (owner, 2026-10-01): the title screen's corner and the bottom of Credits. */
+const AUTHOR_LINKS = [
+  { href: 'https://github.com/nazariitaran/tiny-town-threejs-game', label: 'Tiny Town on GitHub', glyph: GLYPHS.github },
+  { href: 'https://www.linkedin.com/in/nazariitaran', label: 'LinkedIn', glyph: GLYPHS.linkedin },
+  { href: 'https://x.com/tn255', label: 'X (Twitter)', glyph: GLYPHS.x },
+] as const;
+
+/** "Author's links" with one icon link per platform (new tab, so the game keeps running). */
+function authorLinks(extraClass: string): string {
+  const links = AUTHOR_LINKS.map(
+    ({ href, label, glyph }) => `<a class="ui-author-link" href="${href}" target="_blank" rel="noopener noreferrer" aria-label="${label}" title="${label}">${glyph}</a>`,
+  ).join('');
+  return `<nav class="ui-author ${extraClass}" aria-label="Author's links"><span class="ui-author-label">Author's links</span>${links}</nav>`;
+}
+
 const CC0 = link('https://creativecommons.org/publicdomain/zero/1.0/', 'CC0');
 const CC_BY = link('https://creativecommons.org/licenses/by/3.0/', 'CC BY 3.0');
 
@@ -296,6 +311,7 @@ export class UiRoot {
             <button id="${id.titleCredits}" type="button" class="ui-link ui-title-credits">Credits</button>
           </div>
         </div>
+        ${authorLinks('ui-author-title')}
       </section>
 
       <header class="ui-topbar ui-hud" data-phase="building menu">
@@ -536,6 +552,7 @@ export class UiRoot {
             <h3 id="ui-credits-software">Software</h3>
             <p>Built with ${link('https://threejs.org', 'three.js')} and other open-source software: ${link(assetUrl('licenses.txt'), 'open-source licences')}.</p>
           </section>
+          ${authorLinks('ui-author-credits')}
           <button type="button" class="ui-btn" id="${id.creditsClose}" data-back>Back</button>
         </section>
       </div>
