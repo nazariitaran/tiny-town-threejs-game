@@ -100,6 +100,9 @@ export const UI_TEST_IDS = {
   retry: 'btn-retry',
   dock: 'ui-dock',
   tray: 'ui-tray',
+  /** Variant picker strip over the selected card, and its chips (a model index or 'mix'). */
+  variants: 'ui-variants',
+  variant: (choice: number | 'mix') => `variant-${choice}`,
   hint: 'ui-hint',
   tooltip: 'ui-tooltip',
 } as const;

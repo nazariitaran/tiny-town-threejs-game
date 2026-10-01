@@ -107,7 +107,11 @@ export type TownChange =
 /** What the player asked for at one cell/edge. Produced by ToolController, consumed by TownEditor. */
 export type BuildAction =
   | { type: 'paint-ground'; kind: Exclude<GroundKind, 'field'>; cell: Cell }
-  | { type: 'place-object'; kind: ObjectKind; cell: Cell; rotation: Rotation }
+  /**
+   * `variant`: which of the kind's models to build (the variant picker; the ghost shows it). Absent or
+   * out of range → the rules roll one with the seeded RNG (demo towns, tests).
+   */
+  | { type: 'place-object'; kind: ObjectKind; cell: Cell; rotation: Rotation; variant?: number }
   | { type: 'place-edge'; kind: EdgeKind; edge: Edge }
   | { type: 'bulldoze'; cell: Cell; edge: Edge | null }
   /** Move tool: put placed object `id` down anchored at `cell`, turned `rotation` (same id and variant). */

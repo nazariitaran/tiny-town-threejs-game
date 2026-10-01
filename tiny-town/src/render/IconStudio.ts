@@ -9,7 +9,7 @@
  */
 import * as THREE from 'three';
 import { OBJECTS, objectDef } from '../catalog/objects';
-import { TOOLS } from '../catalog/tools';
+import { TOOLS, variantIcon } from '../catalog/tools';
 import { CELL_SIZE, cellToWorld, footprintCentreWorld, PLOT_DEPTH, PLOT_WIDTH, ROAD_TILE_SIZE, roadBlockCentreWorld } from '../game/config';
 import type { GameBus } from '../game/events';
 import { cellKey, footprintCells, ROAD_BLOCK } from '../town/grid';
@@ -22,6 +22,8 @@ import { meadowScatterModel, TownRenderer } from './TownRenderer';
 interface IconScene {
   ground?: Array<[number, number, GroundKind]>;
   object?: ObjectKind;
+  /** Which of the object's models (the variant picker's chip icons, tool-<id>-v<n>.png); default 0. */
+  variant?: number;
   edge?: EdgeKind;
   /** Clip everything to the framed cell / road block (roads/walkways continue out of frame instead of capping). */
   clipToCentre?: boolean;
@@ -103,7 +105,8 @@ class FakeTown implements TownStateReader {
 
   constructor(scene: IconScene) {
     for (const [x, z, kind] of scene.ground ?? []) this.ground.set(cellKey({ x, z }), kind);
-    if (scene.object) this.objectList.push({ id: 7, kind: scene.object, anchor: { x: C, z: C }, rotation: 0, variant: 0 });
+    // One id for every model, so a tree's hashed yaw and size match between its tool and variant icons.
+    if (scene.object) this.objectList.push({ id: 7, kind: scene.object, anchor: { x: C, z: C }, rotation: 0, variant: scene.variant ?? 0 });
     if (scene.edge) this.edgeList.push({ kind: scene.edge, edge: { x: C, z: C, side: 'n' } });
   }
   inBounds(cell: Cell): boolean {
@@ -137,7 +140,10 @@ class FakeTown implements TownStateReader {
 const ABOVE_GROUND = new THREE.Box3(new THREE.Vector3(-100, 0, -100), new THREE.Vector3(100, 100, 100));
 const NO_BUS = { on: () => () => {} } as unknown as GameBus;
 
-/** Render every tool icon; returns { '/assets/icons/tool-<id>.png': 'data:image/png;base64,…' }. */
+/**
+ * Render every tool icon, plus one per extra model of a multi-model object tool (the variant picker's
+ * chips); returns { '/assets/icons/tool-<id>.png' | '/assets/icons/tool-<id>-v<n>.png': 'data:image/png;base64,…' }.
+ */
 export async function renderToolIcons(size = 128, supersample = 2): Promise<Record<string, string>> {
   const library = new ModelLibrary();
   await library.loadAll();
@@ -160,9 +166,15 @@ export async function renderToolIcons(size = 128, supersample = 2): Promise<Reco
   context.imageSmoothingQuality = 'high';
 
   const result: Record<string, string> = {};
+  const jobs: Array<{ path: string; spec: IconScene }> = [];
   for (const tool of TOOLS) {
     const spec = sceneForTool(tool.id);
     if (!spec) continue;
+    jobs.push({ path: tool.icon, spec });
+    const models = spec.object ? objectDef(spec.object).variants : 1;
+    for (let n = 1; n < models; n++) jobs.push({ path: variantIcon(tool.id, n), spec: { ...spec, variant: n } });
+  }
+  for (const { path, spec } of jobs) {
     const scene = new THREE.Scene();
     scene.add(new THREE.HemisphereLight(LIGHTING.hemiSky, LIGHTING.hemiGround, LIGHTING.hemiIntensity + 0.35));
     const sun = new THREE.DirectionalLight(LIGHTING.sunColor, LIGHTING.sunIntensity * 0.9);
@@ -203,7 +215,7 @@ export async function renderToolIcons(size = 128, supersample = 2): Promise<Reco
     renderer.render(scene, camera);
     context.clearRect(0, 0, size, size);
     context.drawImage(canvas, 0, 0, size, size);
-    result[tool.icon] = out.toDataURL('image/png');
+    result[path] = out.toDataURL('image/png');
     townRenderer.dispose();
   }
   renderer.dispose();

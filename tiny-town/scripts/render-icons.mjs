@@ -6,7 +6,8 @@
  * barbecue icons, which show CC-BY 3.0 Poly Pizza models (docs/assets/CREDITS.md).
  *
  * Needs a running dev server:  PORT=5203 npm run dev   then   PORT=5203 node scripts/render-icons.mjs [--size 128]
- * Only the icons referenced by catalog/tools.ts are written; other icons are left untouched.
+ * Only the icons referenced by catalog/tools.ts are written (each tool's icon, plus tool-<id>-v<n>.png for
+ * every extra model of a multi-model object tool: the variant picker's chips); other icons are left untouched.
  */
 import fs from 'node:fs';
 import path from 'node:path';

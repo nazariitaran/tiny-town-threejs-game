@@ -569,6 +569,113 @@
   color: #fff;
 }
 
+/* Variant picker: a dot per model in the card's top-left corner ("there are several of these"). */
+.ui-card-variants {
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  display: flex;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.ui-card-variants i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+  opacity: 0.7;
+}
+
+.ui-card[aria-pressed='true'] .ui-card-variants i {
+  background: var(--green-dark);
+  opacity: 1;
+}
+
+/* Variant picker strip: floats above the dock over the selected card (UiRoot.placeVariants sets
+   left and --caret-x), outside the scrolling tray so it is never clipped. */
+.ui-variants {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0;
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  /* The gaps between chips must not reach the canvas (a click there would build). */
+  pointer-events: auto;
+}
+
+.ui-variants::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: var(--caret-x, 50%);
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  transform: rotate(45deg);
+}
+
+.ui-variants.is-entering {
+  animation: ui-variants-in 160ms var(--ease);
+}
+
+.ui-chip {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: 0 2px 0 var(--line-strong);
+  transition:
+    transform var(--fast) var(--ease),
+    box-shadow var(--fast) var(--ease),
+    border-color var(--fast) var(--ease),
+    background-color var(--fast) var(--ease);
+}
+
+.ui-chip img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.ui-chip-mix {
+  color: var(--ink-soft);
+}
+
+.ui-chip:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 0 var(--line-strong), var(--shadow-soft);
+}
+
+.ui-chip:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 var(--line-strong);
+}
+
+.ui-chip[aria-pressed='true'] {
+  transform: translateY(-2px);
+  background: var(--green-tint);
+  border-color: var(--green);
+  color: var(--green-dark);
+  box-shadow:
+    0 0 0 2px var(--green),
+    0 3px 0 var(--green-dark);
+}
+
 .ui-tabbar {
   display: flex;
   align-items: center;
@@ -1309,6 +1416,13 @@
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-3px); }
   75% { transform: translateX(3px); }
+}
+
+@keyframes ui-variants-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 }
 
 @keyframes ui-tray-in {

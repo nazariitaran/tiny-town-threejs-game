@@ -32,7 +32,7 @@ import type { BuildAction, Cell, GroundKind, InvalidReason, PlanResult, Rotation
 export interface PlanContext {
   /** Reserve an object id for an add (TownState.allocateObjectId). Called only on success. */
   nextId(): number;
-  /** Seeded RNG for variant selection. Called only on success (and only for multi-variant kinds). */
+  /** Seeded RNG for variant selection. Called only on success, only for multi-variant kinds, and only when the action names no variant. */
   rng(): number;
 }
 
@@ -245,7 +245,14 @@ function planPlaceObject(state: TownStateReader, action: Extract<BuildAction, { 
       if (before !== 'road') changes.push({ layer: 'ground', cell: { x: cell.x, z: cell.z }, before, after: 'road' });
     }
   }
-  const variant = def.variants > 1 ? Math.min(def.variants - 1, Math.floor(ctx.rng() * def.variants)) : 0;
+  // The variant picker sends the model the ghost showed; without one (demo towns, tests) roll as before.
+  const chosen = action.variant;
+  const variant =
+    chosen !== undefined && Number.isInteger(chosen) && chosen >= 0 && chosen < def.variants
+      ? chosen
+      : def.variants > 1
+        ? Math.min(def.variants - 1, Math.floor(ctx.rng() * def.variants))
+        : 0;
   changes.push({
     layer: 'object',
     op: 'add',

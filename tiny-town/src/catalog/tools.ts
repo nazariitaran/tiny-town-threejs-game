@@ -121,6 +121,21 @@ export const TOOL_CATEGORIES: ReadonlyArray<{ id: ToolCategory; label: string }>
   { id: 'garden', label: 'Garden' },
 ];
 
+/**
+ * Variant picker (2026-10-01): which of an object tool's models the next placement builds. A model
+ * index, or 'mix' = a random one per placement (the ghost still shows the one that comes next).
+ */
+export type VariantChoice = number | 'mix';
+
+/** Multi-model kinds that start on Mix (a dragged flower bed or birch stand looks better mixed). */
+export const VARIANT_DEFAULT_MIX: ReadonlySet<ObjectKind> = new Set<ObjectKind>(['tulips', 'birch']);
+
+/**
+ * Icon of model `variant` of an object tool: model 0 is the tool's own icon, the others are
+ * tool-<id>-v<n>.png (rendered by scripts/render-icons.mjs, like the tool icons).
+ */
+export const variantIcon = (id: ToolId, variant: number): string => (variant === 0 ? icon(id) : `/assets/icons/tool-${id}-v${variant}.png`);
+
 const byId = new Map<ToolId, ToolDef>(TOOLS.map((tool) => [tool.id, tool]));
 
 export function toolDef(id: ToolId): ToolDef {
@@ -132,14 +147,19 @@ export function toolDef(id: ToolId): ToolDef {
 export const toolsInCategory = (category: ToolCategory): ToolDef[] =>
   TOOLS.filter((tool) => tool.category === category);
 
-/** Translate "tool used at this cell/edge" into a BuildAction for TownEditor. */
-export function actionForTool(toolId: ToolId, cell: Cell, edge: Edge, rotation: Rotation): BuildAction {
+/**
+ * Translate "tool used at this cell/edge" into a BuildAction for TownEditor. `variant`: the model an
+ * object tool builds (the variant picker); ignored by other layers, and left out the rules roll one.
+ */
+export function actionForTool(toolId: ToolId, cell: Cell, edge: Edge, rotation: Rotation, variant?: number): BuildAction {
   const def = toolDef(toolId);
   switch (def.layer) {
     case 'ground':
       return { type: 'paint-ground', kind: toolId as Exclude<GroundKind, 'field'>, cell };
     case 'object':
-      return { type: 'place-object', kind: toolId as ObjectKind, cell, rotation };
+      return variant === undefined
+        ? { type: 'place-object', kind: toolId as ObjectKind, cell, rotation }
+        : { type: 'place-object', kind: toolId as ObjectKind, cell, rotation, variant };
     case 'edge':
       return { type: 'place-edge', kind: toolId as EdgeKind, edge };
     case 'bulldoze':
