@@ -274,6 +274,23 @@
   animation: ui-rise 600ms 120ms var(--ease) both;
 }
 
+.ui-version {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink-faint);
+  text-align: center;
+}
+
+.ui-title-version {
+  position: absolute;
+  right: max(14px, var(--safe-right));
+  bottom: max(12px, var(--safe-bottom));
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 2px rgba(30, 50, 20, 0.45);
+  animation: ui-fade-in 600ms 240ms var(--ease) backwards;
+}
+
 .ui-title-card {
   display: grid;
   justify-items: center;

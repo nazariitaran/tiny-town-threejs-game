@@ -52,6 +52,8 @@ const AUTHOR_LINKS = [
 ] as const;
 
 const MADE_BY = 'Made by Nazarii Taran, with Claude';
+/** "v0.6" for 0.6.0; the patch number shows only when it isn't 0. */
+const VERSION_LABEL = `v${__APP_VERSION__.replace(/\.0$/, '')}`;
 
 function authorLinks(): string {
   const links = AUTHOR_LINKS.map(
@@ -281,6 +283,7 @@ export class UiRoot {
             <button id="${id.titleCredits}" type="button" class="ui-link ui-title-credits">Credits</button>
           </div>
         </div>
+        <p class="ui-version ui-title-version">${VERSION_LABEL}</p>
       </section>
 
       <header class="ui-topbar ui-hud" data-phase="building menu">
@@ -387,6 +390,7 @@ export class UiRoot {
             <div class="ui-menu-page" role="tabpanel" id="${id.menuTabPanel('help')}" aria-labelledby="${id.menuTab('help')}" hidden>
               <button type="button" class="ui-btn" id="${id.help}">${GLYPHS.keys}<span>Controls</span></button>
               <button type="button" class="ui-btn" id="${id.credits}">${GLYPHS.info}<span>Credits</span></button>
+              <p class="ui-version">Tiny Town ${VERSION_LABEL}</p>
             </div>
           </div>
         </section>

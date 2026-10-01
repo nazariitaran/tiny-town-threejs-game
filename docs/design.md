@@ -128,7 +128,7 @@ Letter and digit keys use `event.code`, so layouts and Shift don't change the ma
 | State | Content | Enter / exit |
 | --- | --- | --- |
 | Loading | Title mark + progress bar | App start → assets ready |
-| Title | "Tiny Town" logo over the slowly orbiting scene. **Start building** (reads **Continue** when a save exists), **New town** (only with a save), links **Open a town file** and **Credits**. | Continue goes straight in; Start building and New town (after its confirm) open Name your town. The click that enters the game unlocks audio and starts the music |
+| Title | "Tiny Town" logo over the slowly orbiting scene. **Start building** (reads **Continue** when a save exists), **New town** (only with a save), links **Open a town file** and **Credits**. The version (`v0.6`) sits in the bottom-right corner | Continue goes straight in; Start building and New town (after its confirm) open Name your town. The click that enters the game unlocks audio and starts the music |
 | Name your town | A text field (≤ 30 characters, "n / 30" counter) pre-filled with a random name from `public/data/default_town_names.json`, or the current name when renaming; a die for another name; Cancel and **Start building** / **Save**. Enter submits, Esc cancels, a blank name can't be submitted. Desktop focuses the field with the text selected; touch focuses the button | New town: nothing is cleared until the name is confirmed. Rename: the name pill (Cancel → building) or Menu → Rename town (Cancel → menu). Renaming is autosaved, not undoable |
 | Building | Top bar, dock, hint line | Main state |
 | Menu | Headed by the town's name; **Resume**; tabs Town · Graphics · Sound · Help. The scene keeps rendering, the music ducks −3 dB, the day clock pauses | ☰, or Esc with no tool |
@@ -144,7 +144,7 @@ Letter and digit keys use `event.code`, so layouts and Shift don't change the ma
 - **Town:** Time of day (Auto / Day / Night); Town file (phones ≤ 440 px); Rename town · New town.
 - **Graphics:** Quality (Low / Medium / High) with the preset's one-line description; "Some changes apply after a reload" with **Reload now** when the choice changes MSAA or the material from what the page booted with; Show grid.
 - **Sound:** Volume, Music on/off, Music volume.
-- **Help:** Controls, Credits.
+- **Help:** Controls, Credits, and the version (`Tiny Town v0.6`).
 - The graphics controls render only from the last `graphics:changed` fact. Picking a preset emits `intent:set-graphics` and applies the live parts at once; Reload now emits `intent:reload-graphics`, which flushes the save and reloads to the title.
 - **Keyboard** (WAI-ARIA tabs, automatic activation): the tab bar is one Tab stop; ←/→ move and wrap, Home / End jump; Tab enters the panel. Arrow keys never reach the camera while the menu is open.
 - The menu reopens on the last tab of this page session (Town after a load). Back or Esc from a sub-view (Controls, Credits, Confirm, Rename, Town file) returns to the same tab with focus on the control that opened it.
