@@ -66,8 +66,8 @@ The 3D models and sound effects are mostly from [Kenney](https://kenney.nl)'s CC
 
 ## Author
 
-Made by Nazarii Taran: [GitHub](https://github.com/nazariitaran/tiny-town-threejs-game) · [LinkedIn](https://www.linkedin.com/in/nazariitaran) · [X](https://x.com/tn255)
+Made by Nazarii Taran, with Claude: [GitHub](https://github.com/nazariitaran/tiny-town-threejs-game) · [LinkedIn](https://www.linkedin.com/in/nazariitaran) · [X](https://x.com/tn255)
 
 ## Licence
 
-<!-- TODO: licence -->
+The code is under the [MIT licence](LICENSE). Models, sounds, music and the font keep their own licences; see [CREDITS.md](CREDITS.md).

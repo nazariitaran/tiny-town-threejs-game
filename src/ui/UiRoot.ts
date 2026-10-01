@@ -51,11 +51,13 @@ const AUTHOR_LINKS = [
   { href: 'https://x.com/tn255', label: 'X (Twitter)', glyph: GLYPHS.x },
 ] as const;
 
-function authorLinks(extraClass: string): string {
+const MADE_BY = 'Made by Nazarii Taran, with Claude';
+
+function authorLinks(): string {
   const links = AUTHOR_LINKS.map(
     ({ href, label, glyph }) => `<a class="ui-author-link" href="${href}" target="_blank" rel="noopener noreferrer" aria-label="${label}" title="${label}">${glyph}</a>`,
   ).join('');
-  return `<nav class="ui-author ${extraClass}" aria-label="Author's links"><span class="ui-author-label">Author's links</span>${links}</nav>`;
+  return `<nav class="ui-author" aria-label="${MADE_BY}"><span class="ui-author-label">${MADE_BY}</span><span class="ui-author-links">${links}</span></nav>`;
 }
 
 const CC0 = link('https://creativecommons.org/publicdomain/zero/1.0/', 'CC0');
@@ -279,7 +281,6 @@ export class UiRoot {
             <button id="${id.titleCredits}" type="button" class="ui-link ui-title-credits">Credits</button>
           </div>
         </div>
-        ${authorLinks('ui-author-title')}
       </section>
 
       <header class="ui-topbar ui-hud" data-phase="building menu">
@@ -520,7 +521,7 @@ export class UiRoot {
             <h3 id="ui-credits-software">Software</h3>
             <p>Built with ${link('https://threejs.org', 'three.js')} and other open-source software: ${link(assetUrl('licenses.txt'), 'open-source licences')}.</p>
           </section>
-          ${authorLinks('ui-author-credits')}
+          ${authorLinks()}
           <button type="button" class="ui-btn" id="${id.creditsClose}" data-back>Back</button>
         </section>
       </div>

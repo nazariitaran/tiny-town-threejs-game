@@ -128,7 +128,7 @@ Letter and digit keys use `event.code`, so layouts and Shift don't change the ma
 | State | Content | Enter / exit |
 | --- | --- | --- |
 | Loading | Title mark + progress bar | App start → assets ready |
-| Title | "Tiny Town" logo over the slowly orbiting scene. **Start building** (reads **Continue** when a save exists), **New town** (only with a save), links **Open a town file** and **Credits**. **Author's links** pill bottom-right (centred at the bottom at ≤ 600 px) | Continue goes straight in; Start building and New town (after its confirm) open Name your town. The click that enters the game unlocks audio and starts the music |
+| Title | "Tiny Town" logo over the slowly orbiting scene. **Start building** (reads **Continue** when a save exists), **New town** (only with a save), links **Open a town file** and **Credits**. | Continue goes straight in; Start building and New town (after its confirm) open Name your town. The click that enters the game unlocks audio and starts the music |
 | Name your town | A text field (≤ 30 characters, "n / 30" counter) pre-filled with a random name from `public/data/default_town_names.json`, or the current name when renaming; a die for another name; Cancel and **Start building** / **Save**. Enter submits, Esc cancels, a blank name can't be submitted. Desktop focuses the field with the text selected; touch focuses the button | New town: nothing is cleared until the name is confirmed. Rename: the name pill (Cancel → building) or Menu → Rename town (Cancel → menu). Renaming is autosaved, not undoable |
 | Building | Top bar, dock, hint line | Main state |
 | Menu | Headed by the town's name; **Resume**; tabs Town · Graphics · Sound · Help. The scene keeps rendering, the music ducks −3 dB, the day clock pauses | ☰, or Esc with no tool |
@@ -137,7 +137,7 @@ Letter and digit keys use `event.code`, so layouts and Shift don't change the ma
 | Town file confirm | "Open Bumbleford?", the date it was saved, then "Puddleton will be replaced. Download it first if you want to keep it." (in game) or "Your saved town will be replaced." (title). **Cancel** (focused) and **Replace town**, or **Open town** when nothing is replaced; in game a **Download Puddleton first** link. The file's town, name and camera replace the current ones and are saved at once (not undoable) | After a valid file is picked; Cancel / Esc return to the panel |
 | Confirm | "Start a new town? Your current town will be cleared." Cancel / Clear (Clear opens Name your town) | Menu → New town, or the title's New town |
 | Controls help | Two columns: mouse + keys, touch | Menu → Help → Controls, or `?` |
-| Credits | Model, sound, music, font and software credits, then the Author's links | Title link, or Menu → Help → Credits |
+| Credits | Model, sound, music, font and software credits, then "Made by Nazarii Taran, with Claude" with the author's GitHub, LinkedIn and X links | Title link, or Menu → Help → Credits |
 | Error | A friendly message with Try again | WebGL or asset load failure |
 
 ### Menu tabs
