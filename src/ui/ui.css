@@ -942,6 +942,7 @@
 /* Credits */
 .ui-credits {
   gap: 14px;
+  width: min(480px, 100%);
 }
 
 .ui-credits > section {

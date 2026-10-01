@@ -511,7 +511,7 @@ export class UiRoot {
           </section>
           <section aria-labelledby="ui-credits-music">
             <h3 id="ui-credits-music">Music</h3>
-            <p><strong>Foundation of Gold</strong>, created for Tiny Town by its author.</p>
+            <p><strong>Foundation of Gold</strong>, created for Tiny Town by its author with ${link('https://elevenlabs.io', 'ElevenLabs')}.</p>
           </section>
           <section aria-labelledby="ui-credits-font">
             <h3 id="ui-credits-font">Font</h3>
