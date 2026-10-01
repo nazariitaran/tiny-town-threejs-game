@@ -17,9 +17,9 @@
  *    also drawn without animation.
  *    Object ids are reused after reset/load (TownState.clear): removes free the old visual before
  *    the add with the same id, and addObject() defensively frees any visual under that id.
- *  - Variants: PlacedObject.variant picks from ObjectDef.models; trees get a stable scale/yaw
- *    jitter from hash(id) (never the RNG, so it survives reloads). ObjectDef.height stretches a
- *    tree's Y on top of that (pine ×2); the crown width is unchanged.
+ *  - Variants: PlacedObject.variant picks from ObjectDef.models. Where an object or edge stands
+ *    (footprint centre, turn, the trees' stable scale/yaw jitter from hash(id), ObjectDef.height,
+ *    MODEL_STYLES scale) comes from objectPose.ts, which the ghost preview shares.
  *  - Ground: road auto-tiles per 2 × 2 road BLOCK (WP-12: one tile per block, owned by the block's
  *    anchor cell and drawn at the block centre; the other 3 cells draw nothing; roadTiles.ts; a lone
  *    tile = two squashed round caps); pavement = kit
@@ -32,17 +32,18 @@
  */
 import * as THREE from 'three';
 import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS, ZEBRA_PIECE_MODELS, type ModelId } from '../catalog/models';
-import { heightScale, objectDef } from '../catalog/objects';
-import { CELL_SIZE, cellToWorld, edgeToWorld, ROAD_TILE_SIZE, roadBlockCentreWorld } from '../game/config';
+import { objectDef } from '../catalog/objects';
+import { CELL_SIZE, cellToWorld, ROAD_TILE_SIZE, roadBlockCentreWorld } from '../game/config';
 import type { DebugTools } from '../debug/DebugTools';
 import type { GameBus } from '../game/events';
-import { cellKey, edgeKey, footprintCells, NEIGHBOURS, ROAD_BLOCK, roadBlockAnchor, rotatedFootprint } from '../town/grid';
+import { cellKey, edgeKey, footprintCells, NEIGHBOURS, ROAD_BLOCK, roadBlockAnchor } from '../town/grid';
 import type { Cell, GroundKind, PlacedEdge, PlacedObject, TownChange, TownStateReader } from '../town/types';
 import { InstancePool, type PoolSlot } from './InstancePool';
 import { createLitMaterial, type LitMaterial } from './materials';
 import type { ModelLibrary } from './ModelLibrary';
 import { roadMask, roadTileFor, underRoadFeature } from '../town/roadTiles';
 import { MODEL_STYLES } from './modelStyles';
+import { edgeOrigin, objectOrigin, styleMatrix } from './objectPose';
 import { easeOutBack, easeOutBackPeak, easeShrink, hash01 } from './tween';
 
 const QUARTER = Math.PI / 2;
@@ -433,8 +434,7 @@ export class TownRenderer {
     if (kind === 'walkway') return this.describeWalkway(cell);
     const visual = GROUND_MODELS[kind];
     if (visual.type === 'model') {
-      const style = MODEL_STYLES[visual.model]?.scale;
-      const local = style ? new THREE.Matrix4().makeScale(style[0], style[1], style[2]) : new THREE.Matrix4();
+      const local = styleMatrix(visual.model, new THREE.Matrix4());
       return { sig: kind, rotation: 0, pieces: [{ source: this.modelSource(visual.model, false), local }] };
     }
     const pieces: PieceSpec[] = [{ source: this.lawnSource(kind, visual.color), local: new THREE.Matrix4() }];
@@ -493,21 +493,9 @@ export class TownRenderer {
       return;
     }
     const model = def.models[placed.variant % def.models.length];
-    // Centre of the rotated footprint.
-    const cells = footprintCells(placed.anchor, def.footprint, placed.rotation);
-    const [w, d] = rotatedFootprint(def.footprint, placed.rotation);
-    const first = cellToWorld(cells[0]);
-    const origin = new THREE.Matrix4().makeRotationY(placed.rotation * QUARTER);
-    if (def.group === 'tree' || def.group === 'plant') {
-      // Stable per-tree jitter (survives reloads): any yaw, ±12% size. ObjectDef.height stretches Y
-      // only, so a tall tree keeps its crown inside its one cell.
-      const yaw = hash01(placed.id, 11) * Math.PI * 2;
-      const scale = 0.88 + hash01(placed.id, 12) * 0.24;
-      origin.makeRotationY(yaw).scale(new THREE.Vector3(scale, scale * heightScale(def), scale));
-    }
-    origin.setPosition(first.x + ((w - 1) * CELL_SIZE) / 2, 0, first.z + ((d - 1) * CELL_SIZE) / 2);
-    const style = MODEL_STYLES[model]?.scale;
-    const local = style ? new THREE.Matrix4().makeScale(style[0], style[1], style[2]) : new THREE.Matrix4();
+    // Footprint centre, turned; trees get their stable per-id jitter (objectPose, shared with the ghost).
+    const origin = objectOrigin(placed, def, new THREE.Matrix4());
+    const local = styleMatrix(model, new THREE.Matrix4());
     const visual = this.createVisual(`object:${model}`, origin, [{ source: this.modelSource(model, true), local }], animate);
     this.objectsById.set(placed.id, visual);
   }
@@ -527,11 +515,9 @@ export class TownRenderer {
   private addEdge(placed: PlacedEdge, animate: boolean): void {
     const key = edgeKey(placed.edge);
     this.removeEdgeByKey(key, false);
-    const world = edgeToWorld(placed.edge);
-    const origin = new THREE.Matrix4().makeRotationY(world.alongX ? 0 : QUARTER).setPosition(world.x, 0, world.z);
+    const origin = edgeOrigin(placed.edge, new THREE.Matrix4());
     const model = EDGE_MODELS[placed.kind];
-    const scale = MODEL_STYLES[model]?.scale;
-    const local = scale ? new THREE.Matrix4().makeScale(scale[0], scale[1], scale[2]) : new THREE.Matrix4();
+    const local = styleMatrix(model, new THREE.Matrix4());
     const visual = this.createVisual(`edge:${model}`, origin, [{ source: this.modelSource(model, true), local }], animate);
     this.edgesByKey.set(key, visual);
   }
