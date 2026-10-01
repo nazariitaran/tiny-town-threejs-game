@@ -161,7 +161,8 @@ READ BEFORE CODING
    the specific references it lists.
 
 RULES
-- Edit ONLY files listed under your WP's "Owns". Contract files (header says CONTRACT FILE),
+- Edit ONLY files listed under your WP's "Owns". Contract files (the [C] files in
+  docs/design/03-architecture.md §Module map),
   src/game/Game.ts, src/main.ts, index.html, src/vite-env.d.ts belong to the integrator.
   If you need one changed, put it under "Contract change requests" in your hand-off and,
   if necessary, add a clearly marked local shim inside YOUR files meanwhile.

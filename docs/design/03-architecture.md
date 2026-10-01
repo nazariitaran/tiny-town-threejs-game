@@ -80,7 +80,7 @@ tests/                        Playwright specs + helpers.ts               WP-09,
 scripts/                      inspect-threejs-canvas, inspect-models,     integrator / WP-03 (render-icons,
                               gen-sfx-table, render-icons, compose-models inspect-models)
 ```
-`[C]` = contract file (the header says `CONTRACT FILE`). Workers may not change contract files; they request changes in their hand-off, and the integrator applies them. Adding a new optional field or event is fine to request; renames and removals need the integrator's agreement. The integrator can delegate named contract files to one WP for one change; `config.ts`, `types.ts`, `grid.ts`, `objects.ts` and `models.ts` were delegated to WP-12 (see `docs/PLAN.md`).
+`[C]` = contract file. Workers may not change contract files; they request changes in their hand-off, and the integrator applies them. Adding a new optional field or event is fine to request; renames and removals need the integrator's agreement. The integrator can delegate named contract files to one WP for one change; `config.ts`, `types.ts`, `grid.ts`, `objects.ts` and `models.ts` were delegated to WP-12 (see `docs/PLAN.md`).
 There is no `StatsHud`: the stats pill was removed in v0.2 (WP-14).
 
 ## Data flow

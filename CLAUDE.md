@@ -75,7 +75,7 @@ node scripts/compose-models.mjs              # rebuild public/assets/models/comp
   - Evidence under `artifacts/` is local only. **Copy `artifacts/<wp>/` into the main checkout before `git worktree remove --force`, which deletes it.** WP-07's audio recording was lost this way.
 
 ## Hard rules
-- **Stay inside your WP's owned files.** Contract files (marked `CONTRACT FILE` at the top: `game/events.ts`, `game/config.ts`, `catalog/*.ts`, `town/types.ts`, `town/grid.ts`, `audio/sfx.ts`, `vite-env.d.ts`), plus `src/game/Game.ts`, `src/main.ts`, `index.html` and the generated `audio/sfxTable.ts`, belong to the integrator. If you need a contract change, write it under "Contract change requests" in your hand-off; don't edit these files. The integrator may delegate named contract files to one WP for one change, as it did for WP-12; the WP section must say so.
+- **Stay inside your WP's owned files.** Contract files (`game/events.ts`, `game/config.ts`, `game/graphics.ts`, `catalog/*.ts`, `town/types.ts`, `town/grid.ts`, `audio/sfx.ts`, `vite-env.d.ts`), plus `src/game/Game.ts`, `src/main.ts`, `index.html` and the generated `audio/sfxTable.ts`, belong to the integrator. If you need a contract change, write it under "Contract change requests" in your hand-off; don't edit these files. The integrator may delegate named contract files to one WP for one change, as it did for WP-12; the WP section must say so.
 - Only `TownEditor` mutates town state. UI emits `intent:*` events and renders facts.
 - No three.js or DOM in runtime code under `src/town/**` (including the road autotile, `town/roadTiles.ts`) or `src/catalog/**`. Tests may use three; for example, `src/catalog/catalog.test.ts` loads GLBs in Node.
 - No `Math.random()`. Use the seeded `rng` you're given.
