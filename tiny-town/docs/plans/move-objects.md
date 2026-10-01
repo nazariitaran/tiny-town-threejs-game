@@ -1,6 +1,6 @@
 # Move tool: pick up a placed thing and put it somewhere else (plan, 2026-10-01)
 
-> **Plan, implemented on the branch `move-objects`** (from `4338cbb`); it goes to `main` only after owner approval. **Added while building** (see "As built" at the end): a two-row dock on phones narrower than 390 px (owner decision), and the carry ghost shows only its frame when it is back over the object's own spot. As-built facts go to `03-architecture.md`, `02-interaction-and-ui.md`, `01-design-brief.md` and `progress.md`.
+> **Plan, implemented and merged into `main`** (owner-approved 2026-10-01; merge `2776525`, built on the branch `move-objects` from `4338cbb`). **Added while building** (see "As built" at the end): a two-row dock on phones narrower than 390 px (owner decision), and the carry ghost shows only its frame when it is back over the object's own spot. As-built facts go to `03-architecture.md`, `02-interaction-and-ui.md`, `01-design-brief.md` and `progress.md`.
 
 ## Owner request (2026-10-01)
 > I would like to be able to actually select an existing structure (not roads or grass or that kind of things) and move them or rotate maybe.
