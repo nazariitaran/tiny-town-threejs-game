@@ -116,18 +116,19 @@ describe('row 1 — paint-ground: in bounds and kind differs', () => {
 
 // ---------------------------------------------------------------------------------------------
 describe('row 2 — paint-ground under an object: new kind ∈ allowedGround', () => {
-  it('valid: grass/meadow/pavement under a house, pavement under a tree/bush/prop, walkway under a prop', () => {
+  it('valid: grass/meadow/pavement under a house, grass/meadow under a tree/bush, pavement/walkway under a prop', () => {
     const state = makeState();
     object(state, 'cottage', 1, 1);
-    object(state, 'oak', 2, 1);
-    object(state, 'bush', 3, 1);
-    object(state, 'lamppost', 4, 1);
+    object(state, 'oak', 1, 5);
+    object(state, 'bush', 3, 5);
+    object(state, 'lamppost', 4, 5);
     expectOk(plan(state, paint('grass', 1, 1)));
     expectOk(plan(state, paint('meadow', 1, 1)));
     expectOk(plan(state, paint('pavement', 1, 1)));
-    expectOk(plan(state, paint('pavement', 2, 1)));
-    expectOk(plan(state, paint('pavement', 3, 1)));
-    expectOk(plan(state, paint('walkway', 4, 1)));
+    expectOk(plan(state, paint('grass', 1, 5)));
+    expectOk(plan(state, paint('meadow', 3, 5)));
+    expectOk(plan(state, paint('pavement', 4, 5)));
+    expectOk(plan(state, paint('walkway', 4, 5)));
   });
 
   it('invalid: road under any object → occupied "Move the {label} first"', () => {
@@ -145,10 +146,13 @@ describe('row 2 — paint-ground under an object: new kind ∈ allowedGround', (
     expectFail(plan(state, paint('walkway', 1, 1)), 'occupied', 'Move the Cottage first');
   });
 
-  it('invalid: walkway under a tree → "Move the Pine first"', () => {
+  it('invalid: pavement/walkway under a tree or bush → "Move the {label} first"', () => {
     const state = makeState();
     object(state, 'pine', 1, 1);
+    object(state, 'bush', 2, 1);
+    expectFail(plan(state, paint('pavement', 1, 1)), 'occupied', 'Move the Pine first');
     expectFail(plan(state, paint('walkway', 1, 1)), 'occupied', 'Move the Pine first');
+    expectFail(plan(state, paint('pavement', 2, 1)), 'occupied', 'Move the Bush first');
   });
 });
 
@@ -342,8 +346,9 @@ describe('row 4 — place-object: footprint in bounds, unoccupied, ground ∈ al
     ground(state, 'walkway', [2, 1]);
     expectFail(plan(state, placeObj('cottage', 1, 1)), 'needs-ground', 'Cottage needs grass, meadow, pavement or open field');
     expectFail(plan(state, placeObj('family-home', 2, 1)), 'needs-ground', 'Family home needs grass, meadow, pavement or open field');
-    expectFail(plan(state, placeObj('oak', 2, 1)), 'needs-ground', 'Oak needs grass, meadow, pavement or open field');
-    expectFail(plan(state, placeObj('bush', 2, 1)), 'needs-ground', 'Bush needs grass, meadow, pavement or open field');
+    expectFail(plan(state, placeObj('oak', 1, 1)), 'needs-ground', 'Oak needs grass, meadow or open field');
+    expectFail(plan(state, placeObj('bush', 1, 1)), 'needs-ground', 'Bush needs grass, meadow or open field');
+    expectFail(plan(state, placeObj('birch', 1, 1)), 'needs-ground', 'Birch needs grass, meadow or open field');
   });
 
   it('checks severity in order: out-of-bounds before occupied before ground', () => {
