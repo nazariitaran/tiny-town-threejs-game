@@ -8,11 +8,11 @@ Almost all 3D models in `public/assets/models/` are licensed **CC0 1.0 Universal
 
 | Pack | Author | URL | Models used |
 |---|---|---|---|
-| City Kit (Roads) 2.1 | Kenney (www.kenney.nl) | https://kenney.nl/assets/city-kit-roads | road-straight, road-bend, road-bend-sidewalk, road-bend-square, road-intersection, road-intersection-line, road-intersection-path, road-crossroad, road-crossroad-line, road-crossroad-path, road-end, road-end-round, road-square, road-crossing, road-driveway-single, road-roundabout, tile-low, light-curved, traffic-light, traffic-light-hanging; road-sign-street (inside bus-stop) |
+| City Kit (Roads) 2.1 | Kenney (www.kenney.nl) | https://kenney.nl/assets/city-kit-roads | road-straight, road-bend-square, road-intersection-line, road-intersection-path, road-crossroad-line, road-crossroad-path, road-end-round, road-square, road-crossing, road-roundabout, tile-low, light-curved, traffic-light, traffic-light-hanging; road-sign-street (inside bus-stop) |
 | City Kit (Suburban) 2.0 | Kenney | https://kenney.nl/assets/city-kit-suburban | building-type-a/-c/-d/-e/-i/-k/-m/-n/-o/-r/-s/-u, planter, path-long, path-short, path-stones-long, path-stones-short, tree-large, tree-small; fence (inside fence-tall); colour variation textures |
 | City Kit (Commercial) 2.1 | Kenney | https://kenney.nl/assets/city-kit-commercial | building-e (supermarket); detail-overhang-wide (inside bus-stop); detail-parasol-a, detail-parasol-b (inside swimming-pool) |
-| Platformer Kit 4.1 | Kenney | https://kenney.nl/assets/platformer-kit | tree (also the bush), tree-pine, hedge, flowers, flowers-tall, grass, plant, rocks |
-| Fantasy Town Kit 2.0 | Kenney | https://kenney.nl/assets/fantasy-town-kit | lantern, stall (Table), stall-bench (Long bench); fence (as composed/fence-small); fountain-round-detail (as composed/fountain); fountain-square (inside swimming-pool) |
+| Platformer Kit 4.1 | Kenney | https://kenney.nl/assets/platformer-kit | tree (also the bush), tree-pine, hedge, flowers, flowers-tall, grass, rocks |
+| Fantasy Town Kit 2.0 | Kenney | https://kenney.nl/assets/fantasy-town-kit | stall (Table), stall-bench (Long bench); fence (as composed/fence-small); fountain-round-detail (as composed/fountain); fountain-square (inside swimming-pool) |
 | Nature Kit 2.1 | Kenney | https://kenney.nl/assets/nature-kit | flower_red/yellow/purple A–C (inside composed/tulips-a/-b/-c, recoloured) |
 | Holiday Kit 2.0 | Kenney | https://kenney.nl/assets/holiday-kit | bench (garden bench, also inside bus-stop) |
 | Car Kit 3.1 | Kenney | https://kenney.nl/assets/car-kit | sedan, hatchback-sports, van, taxi |
@@ -51,7 +51,7 @@ The 38 tool icons in `public/assets/icons/tool-<id>.png` (128 px) were rendered 
 
 The 38 tool icons have 10 variant icons beside them (`tool-<id>-v<n>.png`, the variant picker), rendered the same way from CC0 models.
 
-The **Author's links** icons (`src/ui/glyphs.ts` `github`, `linkedin`, `x`; inline SVG) are the platforms' own marks, used only to link to the author's pages on those platforms. The GitHub and X paths are the ones published by [Simple Icons](https://simpleicons.org) (CC0); the LinkedIn "in" was drawn in this project. The marks are trademarks of GitHub, LinkedIn and X Corp.
+The author's link icons in Credits (`src/ui/glyphs.ts` `github`, `linkedin`, `x`; inline SVG) are the platforms' own marks, used only to link to the author's pages on those platforms. The GitHub and X paths are the ones published by [Simple Icons](https://simpleicons.org) (CC0); the LinkedIn "in" was drawn in this project. The marks are trademarks of GitHub, LinkedIn and X Corp.
 
 The favicon (`public/favicon.svg`, `favicon.ico`, `apple-touch-icon.png`) is the title mark: the project's own `homes` UI glyph in white on the brand brick colour, CC0. `favicon.svg` is the source; the PNG/ICO sizes were rendered from it in Chromium.
 

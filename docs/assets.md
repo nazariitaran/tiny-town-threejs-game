@@ -21,7 +21,6 @@ One flat, colourful look: a 512 px gradient `colormap.png` per kit, the same gre
 - Every pack folder keeps its `License.txt`; `composed/License.txt` names what each composed GLB is built from.
 - `assets-src/` (gitignored) holds the full source packs, the Nature Kit 2.1, the City Kit (Industrial) and `polypizza/` (the Poly Pizza source GLBs with their own `CREDITS.md`).
 - A CC-BY model needs a `CREDITS.md` row, a line in the in-game Credits panel (`src/ui/UiRoot.ts`) and a line in `composed/License.txt`.
-- Shipped but unused: `roads/road-bend`, `road-bend-sidewalk`, `road-crossroad`, `road-intersection`, `road-end`, `road-driveway-single`; `fantasy-town/lantern`; `platformer/plant`.
 - The suburban houses can change roof colour: `suburban/Textures/variation-{a,b,c}.png` share the `colormap.png` layout (roof orange, pink or dark). Load one with `TextureLoader`, set `flipY = false` and `colorSpace = SRGBColorSpace`, and assign it as `map` on a **cloned** material.
 - Check every GLB: `npm run inspect:models` (bounds, triangles, materials, bytes; exits 1 on a missing texture or a parse error); `--three` also loads each one through `GLTFLoader`.
 
