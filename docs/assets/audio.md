@@ -78,7 +78,7 @@ for u in \
 done
 cd ..
 
-# 2. build public/assets/audio/*.mp3 and docs/assets/audio.json (from the tiny-town root)
+# 2. build public/assets/audio/*.mp3 and docs/assets/audio.json (from the repo root)
 ASSETS_SRC="$PWD/assets-src" python3 docs/assets/audio.build.py
 npm run gen:sfx      # integrator: refresh src/audio/sfxTable.ts
 ```

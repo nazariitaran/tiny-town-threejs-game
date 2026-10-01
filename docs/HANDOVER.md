@@ -16,7 +16,7 @@ Source of truth for *what* to build: `docs/PLAN.md`. Source of truth for *how* t
 
 1. **Start from a clean, committed `main`** (`git status` clean in `ThreeJsGames/`). Worktrees branch from the latest commit, so anything uncommitted is invisible to workers. New WP sections must be committed to `docs/PLAN.md` before you fan out.
 2. **Run the orchestrator where Chromium can launch.** Start that Claude Code session outside the nono sandbox, or with a profile that allows Chromium's profile directories. Subagents inherit the parent's sandbox, and almost every WP needs a browser for its acceptance checks.
-3. **Start the session from the repo root:** `cd` into your clone (the folder that holds `tiny-town/` and `.claude/`), then run `claude`.
+3. **Start the session from the repo root:** `cd` into your clone (the game's folder: it holds `package.json`, `docs/` and `.claude/`), then run `claude`.
 4. **Paste §1.** For a new iteration, first edit the wave list in the prompt and §3 to the new WPs. Expect a wave to take a few hours of agent time. The orchestrator reports back at each checkpoint.
 
 ---
@@ -27,23 +27,23 @@ Source of truth for *what* to build: `docs/PLAN.md`. Source of truth for *how* t
 
 ````text
 You are the INTEGRATOR (WP-01) and orchestrator for "Tiny Town", a three.js sandbox city
-builder in ./tiny-town. You coordinate a swarm of worker agents that implement the work
-packages (WPs) in tiny-town/docs/PLAN.md in parallel, each in its own git worktree, then
+builder (the repo root is the game). You coordinate a swarm of worker agents that implement the work
+packages (WPs) in docs/PLAN.md in parallel, each in its own git worktree, then
 merge, verify and run checkpoints until v1 is done. The human wants the finished game;
 they will be consulted only at the moments listed in HANDOVER.md §5.
 
-READ FIRST (in this order, fully): tiny-town/CLAUDE.md, tiny-town/docs/PLAN.md,
-tiny-town/docs/HANDOVER.md, tiny-town/docs/progress.md, tiny-town/docs/design/03-architecture.md.
-Skim tiny-town/docs/design/01-design-brief.md and 02-interaction-and-ui.md.
+READ FIRST (in this order, fully): CLAUDE.md, docs/PLAN.md,
+docs/HANDOVER.md, docs/progress.md, docs/design/03-architecture.md.
+Skim docs/design/01-design-brief.md and 02-interaction-and-ui.md.
 Load the skill `threejs-game-director` (it routes to the other threejs-* skills).
 
 REPO FACTS
 - Repo root: <REPO ROOT> (branch main). <REPO ROOT> is the absolute path printed by
   `git rev-parse --show-toplevel` in this session; substitute it wherever this runbook or the
   §2 template says <REPO ROOT>.
-- Game: tiny-town/. Skills: .claude/skills/. npm cache: <REPO ROOT>/.npm-cache
+- Game: the repo root (Tiny Town only, since 2026-10-01). Skills: .claude/skills/. npm cache: <REPO ROOT>/.npm-cache
   (use `npm install --cache <that path>` if ~/.npm is not writable).
-- node_modules/ and tiny-town/assets-src/ (raw asset packs, 179 MB) are gitignored and
+- node_modules/ and assets-src/ (raw asset packs, 179 MB) are gitignored and
   exist only in the main checkout. Worktrees must `npm install` and must read assets-src
   by absolute path from the main checkout.
 - Dev server, Playwright, the canvas inspector and scripts/render-icons.mjs honour the PORT env var
@@ -52,7 +52,7 @@ REPO FACTS
   checkout BEFORE `git worktree remove --force` (WP-07's audio recording was lost that way).
 
 PHASE 0 — PREFLIGHT (you, on main, before spawning anyone)
-1. cd tiny-town && npm run verify   (must pass: tsc, unit tests (294 at v0.2), build).
+1. npm run verify   (must pass: tsc, unit tests (294 at v0.2), build).
 2. Browser smoke: `npm run test:e2e` and
    `npm run dev` + `npm run inspect:canvas -- --state asset-gallery --run-id m0 --out artifacts/m0`.
    Look at artifacts/m0/*.png yourself. If Chromium cannot launch, STOP and tell the human
@@ -68,7 +68,7 @@ For each WP in HANDOVER §3 table "Wave 1" (WP-02, 03, 04, 05, 06, 07, 09a):
      Its prompt = HANDOVER §2 template with the placeholders filled from §3, plus the
      WP's "extra brief" line from §3 verbatim. Do not paraphrase PLAN.md into the prompt;
      point the worker at its section — the plan is the contract.
-  c. Record in tiny-town/docs/progress.md: WP → branch → worktree → status "running".
+  c. Record in docs/progress.md: WP → branch → worktree → status "running".
 While they run: do NOT edit contract files or Game.ts on main (workers build against the
 committed versions). Answer worker questions only via SendMessage. Don't poll — you'll be
 notified when each finishes.
@@ -91,7 +91,7 @@ Run PLAN.md §5 "M1" in full, plus:
 - Capture evidence: inspect:canvas for title, sample-town, stress-town on desktop and
   --mobile, run id m1, into artifacts/m1. Write artifacts/evidence.json per
   .claude/skills/threejs-game-director/references/evidence-manifest.md and run
-  python3 ../.claude/skills/threejs-game-director/scripts/check_evidence.py . --manifest artifacts/evidence.json
+  python3 .claude/skills/threejs-game-director/scripts/check_evidence.py . --manifest artifacts/evidence.json
 - Actually play it through real input for ~5 minutes using a Playwright script you write
   in artifacts/ (not committed): build a street with houses, pavement, lamps, trees,
   fences, bus stop; undo/redo; reload; Continue. List every friction point.
@@ -125,8 +125,8 @@ STANDING RULES
 - Budget: at most 7 concurrent workers. Don't spawn reviewers for every WP; spawn one
   independent reviewer at M1 and at M3 (give it raw screenshots + diagnostics + the
   scorecard file, ask for concrete defects, not approval).
-- Clean up after each checkpoint: first copy <worktree>/tiny-town/artifacts/<wp>/ into the main
-  checkout's tiny-town/artifacts/<wp>/, then `git worktree remove` + delete merged branches.
+- Clean up after each checkpoint: first copy <worktree>/artifacts/<wp>/ into the main
+  checkout's artifacts/<wp>/, then `git worktree remove` + delete merged branches.
 ````
 
 ---
@@ -142,19 +142,19 @@ parallel in their own worktrees; you must stay inside your own files so everythi
 
 WORKSPACE
 - Your worktree: <ABSOLUTE WORKTREE PATH>   (branch <BRANCH>). Work ONLY here.
-  The game lives in <ABSOLUTE WORKTREE PATH>/tiny-town. Never edit the main checkout.
-- First: cd into it, then `cd tiny-town && npm install --cache <REPO ROOT>/.npm-cache`
+  The worktree root is the game. Never edit the main checkout.
+- First: cd into it, then `npm install --cache <REPO ROOT>/.npm-cache`
   (node_modules is not in git). Then `npm run verify` to confirm a green baseline.
 - Your port: <PORT>. Always prefix: `PORT=<PORT> npm run dev` / `PORT=<PORT> npm run test:e2e`
   / `PORT=<PORT> npm run inspect:canvas -- --run-id <wp-id-lower> --out artifacts/<wp-id-lower> ...`.
   Never kill a server you didn't start; stop yours when done.
-- Raw asset packs (if you need them): <REPO ROOT>/tiny-town/assets-src/ (read by absolute path; don't copy the whole folder).
+- Raw asset packs (if you need them): <REPO ROOT>/assets-src/ (read by absolute path; don't copy the whole folder).
 
 READ BEFORE CODING
-1. tiny-town/CLAUDE.md (commands, hard rules, hand-off checklist)
-2. tiny-town/docs/PLAN.md — your section "<WP-ID>" is your CONTRACT: Owns / Reads /
+1. CLAUDE.md (commands, hard rules, hand-off checklist)
+2. docs/PLAN.md — your section "<WP-ID>" is your CONTRACT: Owns / Reads /
    Depends on / Skills / Tasks / Acceptance checks. Also read §1 "Asset facts".
-3. tiny-town/docs/design/03-architecture.md (data flow, rules, budgets) and whichever of
+3. docs/design/03-architecture.md (data flow, rules, budgets) and whichever of
    01-design-brief.md / 02-interaction-and-ui.md your WP references.
 4. The header comment of every file you own — baseline files list their TODOs.
 5. Load the skills your WP section names (from .claude/skills/ in your worktree) and read
@@ -174,7 +174,7 @@ RULES
 
 DONE MEANS
 - Every acceptance check in your PLAN section was RUN, with its actual output captured
-  (command output, screenshot paths under tiny-town/artifacts/<wp-id-lower>/, diagnostics
+  (command output, screenshot paths under artifacts/<wp-id-lower>/, diagnostics
   numbers). artifacts/ is gitignored: leave the files in your worktree; the integrator copies
   them to the main checkout before removing it. If a check could not run (e.g. Chromium can't launch), say exactly why —
   never silently skip or fake it.
@@ -256,20 +256,20 @@ Paths are relative to the repo root; give workers the absolute path:
 **Merging a worker** (from the repo root, on `main`):
 1. Read the hand-off. Check the reported files against the WP's *Owns* list: `git diff --stat main...<branch>`. Out-of-ownership edits mean it goes back to the worker, unless the edit is a trivial, clearly correct contract request you choose to accept.
 2. Run `git merge --no-ff <branch> -m "Merge <WP-ID>: <title>"`.
-3. `cd tiny-town`. If `package-lock.json` changed, run `npm install --cache …/.npm-cache`. On a lockfile conflict, take either side, then run `npm install` to regenerate it.
+3. If `package-lock.json` changed, run `npm install --cache …/.npm-cache`. On a lockfile conflict, take either side, then run `npm install` to regenerate it.
 4. Run `npm run verify && npm run test:e2e`. If it's red: fix it if it's trivial and in your files, otherwise `git revert -m 1 HEAD` and send the failure output to the worker.
 5. Apply the contract change requests (after all of this wave's merges, not in between). Re-run verify and commit.
 6. Update `docs/progress.md`: status, decisions, open defects, next actions.
-7. Once no fix-ups are pending: **copy `../ThreeJsGames-wt/<wp>/tiny-town/artifacts/<wp>/` into the main checkout's `tiny-town/artifacts/`** (it's gitignored, so `git worktree remove --force` deletes it; WP-07's audio evidence was lost this way), then `git worktree remove ../ThreeJsGames-wt/<wp>` and `git branch -d <branch>`.
+7. Once no fix-ups are pending: **copy `../ThreeJsGames-wt/<wp>/artifacts/<wp>/` into the main checkout's `artifacts/`** (it's gitignored, so `git worktree remove --force` deletes it; WP-07's audio evidence was lost this way), then `git worktree remove ../ThreeJsGames-wt/<wp>` and `git branch -d <branch>`.
 
 **Checkpoint evidence** (fresh run id per checkpoint; never reuse old reports):
 ```bash
-cd tiny-town && PORT=5188 npm run dev &   # stop it afterwards
+PORT=5188 npm run dev &   # stop it afterwards
 for s in title sample-town stress-town; do
   npm run inspect:canvas -- --state $s --seed 42 --run-id m1 --out artifacts/m1
   npm run inspect:canvas -- --state $s --seed 42 --run-id m1 --out artifacts/m1 --mobile
 done
-python3 ../.claude/skills/threejs-game-director/scripts/check_evidence.py . --manifest artifacts/evidence.json
+python3 .claude/skills/threejs-game-director/scripts/check_evidence.py . --manifest artifacts/evidence.json
 ```
 In each report, check `gpu.softwareRendered` is false before quoting any FPS, and compare `renderBudget` against the budgets in `03-architecture.md`.
 
