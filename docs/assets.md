@@ -1,0 +1,152 @@
+# Assets
+
+How to add or change a model, an icon or a sound. Licences and attribution lines: [`CREDITS.md`](../CREDITS.md).
+
+## Models
+
+### Sources
+One flat, colourful look: a 512 px gradient `colormap.png` per kit, the same greens, lavender-greys and terracotta.
+
+| Folder in `public/assets/models/` | Source | Licence |
+| --- | --- | --- |
+| `roads/` | Kenney City Kit (Roads) 2.1 | CC0 |
+| `suburban/` | Kenney City Kit (Suburban) 2.0 | CC0 |
+| `commercial/` | Kenney City Kit (Commercial) 2.1 | CC0 |
+| `platformer/` | Kenney Platformer Kit 4.1 | CC0 |
+| `fantasy-town/` | Kenney Fantasy Town Kit 2.0 | CC0 |
+| `holiday/` | Kenney Holiday Kit 2.0 | CC0 |
+| `cars/` | Kenney Car Kit 3.1 | CC0 |
+| `composed/` | built by `scripts/compose-models.mjs` (below) | CC0, except church, swing, barbecue, donut shop, tiered fountain and slide: CC-BY 3.0 |
+
+- Every pack folder keeps its `License.txt`; `composed/License.txt` names what each composed GLB is built from.
+- `assets-src/` (gitignored) holds the full source packs, the Nature Kit 2.1, the City Kit (Industrial) and `polypizza/` (the Poly Pizza source GLBs with their own `CREDITS.md`).
+- A CC-BY model needs a `CREDITS.md` row, a line in the in-game Credits panel (`src/ui/UiRoot.ts`) and a line in `composed/License.txt`.
+- Shipped but unused: `roads/road-bend`, `road-bend-sidewalk`, `road-crossroad`, `road-intersection`, `road-end`, `road-driveway-single`; `fantasy-town/lantern`; `platformer/plant`.
+- The suburban houses can change roof colour: `suburban/Textures/variation-{a,b,c}.png` share the `colormap.png` layout (roof orange, pink or dark). Load one with `TextureLoader`, set `flipY = false` and `colorSpace = SRGBColorSpace`, and assign it as `map` on a **cloned** material.
+- Check every GLB: `npm run inspect:models` (bounds, triangles, materials, bytes; exits 1 on a missing texture or a parse error); `--three` also loads each one through `GLTFLoader`.
+
+### Adding a model
+1. Put the GLB under `public/assets/models/<pack>/` (Kenney GLBs reference `Textures/colormap.png` relative to themselves, so keep the folder layout) or build it into `composed/`.
+2. Add a `ModelSpec` to `MODELS` in `src/catalog/models.ts`: `url`, `scale`, `rotationOffset`, optional `offset`, `sway` (foliage) and `glow` (`windows` for homes, `lamp`, `traffic`).
+3. For a new item, add an `ObjectDef` in `src/catalog/objects.ts` and a tool row in `src/catalog/tools.ts`, then render its icon.
+4. Per-model look overrides (atlas colour, non-uniform scale, the warm road atlas) go in `MODEL_STYLES`, `src/render/modelStyles.ts`.
+5. `npm run test:unit`: `catalog.test.ts` checks that every model loads, fits its footprint at every rotation and keeps the proportions below.
+
+### Scale and grid fit
+- A cell is `CELL_SIZE` = 0.5 world units; toy scale is about 1 unit ≈ 8 m, a cell ≈ 4 m.
+- A Kenney road tile is exactly 1 × 1 at scale 1 (top at y = 0.02) and covers one aligned 2 × 2 road block. Two lanes of ≈ 0.37 run between the kerbs.
+- Homes, the supermarket and the church use `HOME_SCALE` = 4/3 so the building fills its lot; homes are nudged back (offset z −0.2) so a front yard shows.
+- Composed Poly Pizza models are scaled into game units by the compose script, so their catalog scale is usually 1.
+- Reference sizes as drawn: car 0.43–0.49 long, 0.19–0.26 tall (`LifeSystem.CAR_SCALE` 0.17); cottage 1.11 tall; pine 1.80 (`ObjectDef.height` 2); oak 1.74; lamppost 0.675; traffic light 0.52; church 2.33, the tallest building. Trees and plants get ±12 % size jitter from their id.
+- The full drawn-size table is logged by `npx vitest run src/catalog/catalog.test.ts -t "bounding-box"`.
+- The decor ring outside the plot draws oak and pine at 0.36 regardless of the catalog scale (`DecorRing.TEMPLATE_RESCALE`).
+
+### Pivot and orientation
+- **Axes:** Y-up. In top-down terms +X is east, +Z is south (towards the default camera); N = −Z, W = −X.
+- **Pivot:** `ModelLibrary` re-centres every model on its bounding-box footprint centre and puts its base on y = 0. A catalog `offset` only matters when the visible part should sit off the bounds centre: the lamppost (pole at the native origin, arm overhanging −Z; offset z 0.087) and the hanging traffic light (offset x −0.103 after its turn).
+- **Front:** the game's contract is "rotation 0 ⇒ front faces +Z". Kenney city, suburban and commercial models, and the composed bus stop, postbox, pool and donut shop, face −Z, so they use `rotationOffset: 2`. Exceptions:
+  - traffic lights face −X: `rotationOffset: 1`;
+  - corner shop, church, mailbox and the holiday bench face +Z: `0`;
+  - long bench and table run along Z: `1` lays them along X;
+  - the swing and slide run along X: `0`;
+  - cars (`LifeSystem`, not in the catalog) face +Z natively, so `FRONT_ROTATION` is 0.
+
+  Trees, plants, rocks, fountains, the barbecue and the roundabout are symmetric.
+- **Edge pieces** (`hedge`, `fence-low`, `fence-tall`) are 1 native unit long along X, base y = 0; at scale 0.5 they span one cell edge. The origin sits on the edge midpoint (`edgeToWorld`): an `n` edge runs along X, a `w` edge along Z (turned 90°). Runs meet at their posts, so there are no corner pieces. The hedge sits on the +Z half of its native tile; bounds-centring moves it onto the edge.
+- **Walkways** are procedural slabs in `TownRenderer` (0.25 wide hub + arms); the Garden path ghost uses `walkway-hub` (`suburban/path-short` × 1.25).
+
+### Road auto-tiling
+Native connections at rotation 0:
+
+| Piece (file) | Connects |
+| --- | --- |
+| straight (`road-straight`), zebra straight (`road-crossing`) | W + E |
+| corner (`road-bend-square`) | W + S |
+| tee (`road-intersection-line`), zebra tee (`road-intersection-path`) | W + E + S |
+| cross (`road-crossroad-line`), zebra cross (`road-crossroad-path`) | all four |
+| end (`road-end-round`) | E |
+| single (`road-square`) | none |
+
+`src/town/roadTiles.ts` maps each of the 16 neighbour masks to a canonical piece (straight N+S, corner E+S, tee E+S+W, end S) plus quarter turns, counter-clockwise from above (E→N→W→S). Each piece's `rotationOffset` turns the native model onto the canonical one: straight 1, corner 1, tee 0, cross 0, end 3. Both are unit-tested, and the `asset-gallery` test state shows every mask.
+- The `-line` junctions are used so the centre lines meet.
+- A road block under a Zebra crossing draws `ZEBRA_PIECE_MODELS` (straight, tee, cross) with the plain piece's rotation; corners, ends and singles have no zebra.
+- The roundabout (`road-roundabout`, 3 × 3 tiles) is a road-feature object, not a road piece. A neighbouring road joins it only at the middle block of each side (`isFeatureArm`). Its lane ring radius is `RING_RADIUS` in `src/life/lanePaths.ts`.
+- Road pieces, pavement and the roundabout are drawn with `warmAtlas`: the atlas's periwinkle kerb and paving texels become warm stone.
+
+### Composed models
+`node scripts/compose-models.mjs` rebuilds `public/assets/models/composed/*.glb` from `assets-src/`. The composed GLBs embed their textures. Recipe kinds:
+- **merge:** parts of kit GLBs in one file: bus stop (Commercial `detail-overhang-wide`, Holiday `bench`, Roads `road-sign-street`), tall fence (two suburban fence panels), low fence (Fantasy Town `fence`, re-centred), pool (Fantasy Town `fountain-square` stretched into a basin plus two Commercial parasols), fountain (Fantasy Town `fountain-round-detail`).
+- **primitive:** the postbox, a red pillar box from flat-shaded shapes.
+- **Poly Pizza:** one source GLB scaled to game units, turned if needed, flat materials (metalness 0, roughness 1, no metal/roughness map): church, swing, barbecue, corner shop, donut shop (ground slab removed, flat window glass), tiered fountain (recoloured), slide, mailbox. Many Poly Pizza exports set metalness 0.4, which renders almost black without an environment map.
+- **Nature Kit:** its materials set metalness 1 and store sRGB colours as linear factors, and its leaves are teal. `natureMaterials()` sets metalness 0, converts the factors and remaps the greens. The tulips (three flowers per model, one model per flower shape) are built this way; any further Nature Kit piece needs the same recipe.
+
+### Ground colours
+Grass and wildflower ground share one lawn colour, walkways their own; both are flat procedural tiles in `GROUND_MODELS` (`src/catalog/models.ts`), with an instanced tuft or flower scatter on top. Pavement is the kit's `tile-low` with the warm atlas.
+
+### Icons
+- `public/assets/icons/tool-<id>.png`: one 128 × 128 icon per placing tool, plus `tool-<id>-v<n>.png` for every extra model n ≥ 1 of a multi-model tool (`variantIcon` in `catalog/tools.ts`).
+- Rendered from the in-game models and materials by `node scripts/render-icons.mjs [--size 128]`, which drives `src/render/IconStudio.ts` in Chromium and needs a dev server on `PORT`. It writes only the icons the catalog references; a run nudges unchanged icons by a few pixels.
+- `catalog.test.ts` checks that the folder holds exactly the tool and variant icons.
+- Move and Bulldoze use UI svgs (`/assets/ui/move.svg`, `/assets/ui/bulldoze.svg`).
+- An icon carries its model's licence; the six CC-BY models' icons carry their attribution.
+
+## Sound effects
+
+All SFX come from Kenney CC0 audio packs. MP3 (VBR `-q:a 4`), mono, 44.1 kHz: Safari's Web Audio support for Ogg Vorbis is unreliable, so everything is transcoded. Two groups, `ui` and `sfx`, share one master gain (mute, volume).
+
+### Event → file
+
+| Event | File(s) in `public/assets/audio/` | Source (pack / file, layers) |
+| --- | --- | --- |
+| `ui-hover` | `ui-hover-1/2` | UI Audio / `rollover2`, `rollover5` |
+| `ui-click` | `ui-click` | Interface Sounds / `click_001` |
+| `ui-open` / `ui-close` | `ui-open`, `ui-close` | Interface Sounds / `maximize_008`, `minimize_008` |
+| `place-path` | `place-path-1..3` | Impact Sounds / `impactGeneric_light_000/001/002` |
+| `place-nature` | `place-nature-1..3` | `footstep_grass_000/001/003` + Interface Sounds `drop_003` @ −6 dB |
+| `place-building` | `place-building-1..3` | `impactWood_heavy_000/002/004` + `impactWood_light_001/003/004` + `impactPlank_medium_000/002/003` @ −6 dB, high-passed at 80 Hz |
+| `place-prop` | `place-prop-1/2` | `impactWood_light_000/002` |
+| `place-prop-metal` | `place-prop-metal-1/2` | `impactMetal_light_001/004` + `impactWood_light_000/002` @ −6 dB |
+| `rotate` | `rotate` | RPG Audio / `cloth2`, trimmed to 0.2 s |
+| `remove` | `remove-1/2` | `footstep_snow_001/002` + `impactPlank_medium_001/002` @ −5 dB |
+| `invalid` | `invalid` | Interface Sounds / `bong_001` |
+| `undo` / `redo` | `undo-redo` (shared) | Interface Sounds / `back_004`, played at 0.89× / 1.12× |
+
+Which tool plays which placement event: `sfx` in `src/catalog/tools.ts`. Bulldozing pitches `remove` by layer: object 0.92×, edge 1×, ground 1.06×.
+
+### Levels
+Loudness is **one-shot LUFS**: the highest EBU R128 momentary (400 ms) loudness, measured with 0.6 s of silence padded on. Targets: UI −29 to −32 (`invalid` −26), placements −21 to −25, `remove` −24, `rotate` −28. Kenney impacts are a single transient and the build allows at most 4 dB of limiting, so several placements land a few LU under target. Per-event runtime gain (`suggestedVolume`): UI 0.35–0.6, SFX 0.6–1.0; a building (1.0) is the loudest thing the player does, the bulldozer (0.75) sits under it. Measured numbers per file: `scripts/data/audio.json`.
+
+### Rebuilding the SFX
+`scripts/build-audio.py` builds every MP3 and writes `scripts/data/audio.json`; `npm run gen:sfx` turns that JSON into `src/audio/sfxTable.ts` (generated, never edited by hand). Edit the `PLAN` list at the top of the script to change sources, layers, targets or runtime gains. It needs Python 3 with numpy and scipy, plus ffmpeg.
+
+```bash
+# 1. fetch + unpack the packs into the gitignored assets-src/
+cd assets-src
+for u in \
+  https://kenney.nl/media/pages/assets/interface-sounds/fa43c1dd4d-1677589452/kenney_interface-sounds.zip \
+  https://kenney.nl/media/pages/assets/ui-audio/490d233f68-1677590494/kenney_ui-audio.zip \
+  https://kenney.nl/media/pages/assets/impact-sounds/87b4ddecda-1677589768/kenney_impact-sounds.zip \
+  https://kenney.nl/media/pages/assets/rpg-audio/8e99002d76-1677590336/kenney_rpg-audio.zip; do
+  n=$(basename "$u" .zip); n=${n#kenney_}; mkdir -p "$n"
+  curl -sL -o "$n/$(basename "$u")" "$u" && (cd "$n" && unzip -oq "$(basename "$u")")
+done
+cd ..
+
+# 2. build public/assets/audio/*.mp3 + scripts/data/audio.json, then the runtime table
+ASSETS_SRC="$PWD/assets-src" python3 scripts/build-audio.py
+npm run gen:sfx
+```
+
+Per file the script decodes and sums the layers (each with its own end fade), high-passes the mix (40 Hz, 80 Hz for buildings), trims leading silence with a 2 ms fade-in, ends on an 8 ms fade so no file stops on a non-zero sample, gains to the target (UI capped at −1.5 dBTP; SFX with at most 4 dB of 3 ms lookahead limiting) and re-measures the encoded MP3.
+
+## Music
+
+| Track | File | Format | Loudness |
+| --- | --- | --- | --- |
+| Foundation of Gold | `public/assets/music/foundation-of-gold.mp3` (4.68 MB) | MP3, stereo, 44.1 kHz, 64 kbps CBR, 9:45 (585.05 s) | −13.0 LUFS integrated, −0.7 dBTP; a built-in fade-out from ~578 s |
+
+Supplied by the project owner and copied unchanged; credit in `CREDITS.md`. The runtime (`src/audio/MusicPlayer.ts`, `musicPosition.ts`) depends on these facts:
+- **Streamed** through an `HTMLAudioElement`, never decoded into an `AudioBuffer` (585 s of PCM is ~200 MB). It is requested on the first Start / Continue, not with the initial download.
+- **Trim:** `MUSIC_TRIM` 0.25 (−12 dB) offsets the −13 LUFS master against SFX at about −25, so music at the default volume (0.5) sits about 15 dB under placement sounds. A replacement track mastered at a different loudness needs a new trim.
+- **Loop:** the loop fade-out starts 1.2 s before the end, on top of the track's own ending fade. A saved position within 5 s of the end (`RESUME_END_GUARD_S`) restarts from 0.
+- **Track id:** the saved position is keyed by `MUSIC_URL`; a new file name resets every player's position.

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Rebuild Tiny Town's SFX (public/assets/audio/*.mp3) and docs/assets/audio.json from the Kenney CC0 packs.
+"""Build Tiny Town's SFX (public/assets/audio/*.mp3) and scripts/data/audio.json from the Kenney CC0 packs.
 
-WP-07 version of assets-src/audio-tools/build_audio.py (that script lives in the git-ignored assets-src/,
-so this copy is the versioned source of truth). Run from the repo root:
+Run from the repo root, with the packs unpacked in assets-src/<pack>/ (fetch commands: docs/assets.md):
 
-    ASSETS_SRC=/abs/path/to/repo/assets-src python3 docs/assets/audio.build.py
+    ASSETS_SRC="$PWD/assets-src" python3 scripts/build-audio.py
+    npm run gen:sfx    # src/audio/sfxTable.ts from scripts/data/audio.json
 
-Needs python3 + numpy + scipy and ffmpeg. The packs are fetched as described in docs/assets/audio.md.
+Needs python3 + numpy + scipy and ffmpeg.
 
 Pipeline per output file (all in float, mono, 44.1 kHz):
  1. decode every layer, apply its gain (dB) / start offset (ms) / optional own fade-out, and sum;
@@ -17,7 +17,6 @@ Pipeline per output file (all in float, mono, 44.1 kHz):
  4. gain to the event's one-shot LUFS target (max momentary loudness), capped at -1.5 dBTP for UI sounds;
     SFX may use at most MAX_LIMIT_DB of gentle lookahead limiting;
  5. encode libmp3lame VBR q4 and re-measure the MP3 (numbers in audio.json).
-After a change here run `npm run gen:sfx` (integrator) so src/audio/sfxTable.ts picks up audio.json.
 """
 import json, os, re, shutil, subprocess, sys
 import numpy as np
@@ -56,7 +55,7 @@ def limit(x, sr, ceil_db, look_ms=3.0, release_ms=40.0):
 def L(pack, fn, db=0.0, at=0, maxlen=None):
     return (pack, fn, db, at, maxlen)
 IS, IF, UA, RPG = 'impact-sounds', 'interface-sounds', 'ui-audio', 'rpg-audio'
-POP = lambda: L(IF, 'drop_003.ogg', -6, 0, 0.17)   # the drop's own tail is cut at 188 ms: fade it (was a click)
+POP = lambda: L(IF, 'drop_003.ogg', -6, 0, 0.17)   # the source stops abruptly at 188 ms: cap and fade it
 PLAN = [
  ('ui-hover', 'ui', -32, None, 0, -50, 0.35, 0.04, 60, [[L(UA, 'rollover2.ogg')], [L(UA, 'rollover5.ogg')]], {}),
  ('ui-click', 'ui', -30, None, 0, -50, 0.6, 0.03, 50, [[L(IF, 'click_001.ogg')]], {}),
@@ -73,15 +72,15 @@ PLAN = [
   [[L(IS, 'impactWood_heavy_000.ogg'), L(IS, 'impactWood_light_001.ogg', 0), L(IS, 'impactPlank_medium_000.ogg', -6, 10, 0.3)],
    [L(IS, 'impactWood_heavy_002.ogg'), L(IS, 'impactWood_light_003.ogg', 0), L(IS, 'impactPlank_medium_002.ogg', -6, 10, 0.3)],
    [L(IS, 'impactWood_heavy_004.ogg'), L(IS, 'impactWood_light_004.ogg', 0), L(IS, 'impactPlank_medium_003.ogg', -6, 10, 0.3)]], {'hpfHz': 80}),
- # Fences (wood): the light wood knocks were a good fit and are kept.
+ # Fences and wooden props: light wood knocks.
  ('place-prop', 'sfx', -21, None, 0, -50, 0.75, 0.06, 50,
   [[L(IS, 'impactWood_light_000.ogg')], [L(IS, 'impactWood_light_002.ogg')]], {}),
- # NEW event (contract request): lamppost / postbox. A short metal clink with a soft wooden body under it,
+ # Metal props (lamppost, postbox, ...): a short metal clink with a soft wooden body under it,
  # trimmed so the ring doesn't hang. Target is lower than wood: bright metal reads louder at equal LUFS.
  ('place-prop-metal', 'sfx', -25, 0.22, 0.12, -50, 0.7, 0.06, 50,
   [[L(IS, 'impactMetal_light_001.ogg'), L(IS, 'impactWood_light_000.ogg', -6)],
    [L(IS, 'impactMetal_light_004.ogg'), L(IS, 'impactWood_light_002.ogg', -6)]], {}),
- # Soft cloth swish (RPG Audio) instead of the 55 ms tick, whose source file is cut off mid-transient.
+ # Soft cloth swish (RPG Audio), quieter than placements.
  ('rotate', 'sfx', -28, 0.2, 0.1, -20, 0.6, 0.05, 60, [[L(RPG, 'cloth2.ogg')]], {}),
  # Snow crunch + a wooden plank clatter underneath: still cosy, with more "demolition" weight.
  ('remove', 'sfx', -24, 0.42, 0.16, -50, 0.75, 0.06, 70,
@@ -190,9 +189,9 @@ def main():
             manifest.append(entry)
         for s in stats:
             print(f"{s['file']:36s} {s['durationMs']:4d}ms  LUFS {s['lufs']:6.1f} (tgt {target})  TP {s['peakDb']:5.1f}  gain {s['gainDb']:6.2f}{' L' if s['limited'] else '  '}  {s['bytes']}B")
-    with open(os.path.join(ROOT, 'docs', 'assets', 'audio.json'), 'w') as fh:
+    with open(os.path.join(ROOT, 'scripts', 'data', 'audio.json'), 'w') as fh:
         json.dump(manifest, fh, indent=2); fh.write('\n')
-    print(f'wrote docs/assets/audio.json ({len(manifest)} events)')
+    print(f'wrote scripts/data/audio.json ({len(manifest)} events)')
 
 if __name__ == '__main__':
     main()

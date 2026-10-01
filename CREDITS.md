@@ -2,7 +2,7 @@
 
 ## 3D Models
 
-Almost all 3D models in `public/assets/models/` are licensed **CC0 1.0 Universal** (public domain, http://creativecommons.org/publicdomain/zero/1.0/). Attribution is not required, but these credits are given with thanks. **Six models are CC-BY 3.0 and must be credited** (see "Poly Pizza models" below): the church, swing and barbecue (v0.3, the first CC-BY assets in the project) and the donut shop, tiered fountain and slide (WP-23). Per-model details are in `docs/assets/models.md` and `docs/assets/models.json`. Each pack's original `License.txt` is kept next to the models in `public/assets/models/<pack>/License.txt` and in `assets-src/<pack>/`.
+Almost all 3D models in `public/assets/models/` are licensed **CC0 1.0 Universal** (public domain, http://creativecommons.org/publicdomain/zero/1.0/). Attribution is not required, but these credits are given with thanks. **Six models are CC-BY 3.0 and must be credited** (see "Poly Pizza models" below): the church, swing, barbecue, donut shop, tiered fountain and slide. Per-model details: `docs/assets.md`. Each pack's original `License.txt` is kept next to the models in `public/assets/models/<pack>/License.txt` and in `assets-src/<pack>/`.
 
 ### Kenney kits (CC0)
 
@@ -18,7 +18,7 @@ Almost all 3D models in `public/assets/models/` are licensed **CC0 1.0 Universal
 | Car Kit 3.1 | Kenney | https://kenney.nl/assets/car-kit | sedan, hatchback-sports, van, taxi |
 | Tiny Town (original) | this project | — | composed/postbox.glb (procedural primitives, CC0) |
 
-### Poly Pizza models (v0.3)
+### Poly Pizza models
 
 Downloaded from Poly Pizza (https://poly.pizza) and normalised by `scripts/compose-models.mjs` ("normalised recipes": rescaled to game units, turned, materials set to metalness 0 / roughness 1). The sources are in `assets-src/polypizza/` (gitignored). The in-game **Credits** panel (`src/ui/UiRoot.ts`) repeats these attributions.
 
@@ -30,10 +30,10 @@ CC-BY 3.0 (https://creativecommons.org/licenses/by/3.0/) requires attribution. U
 | `composed/swing.glb` | Swing set | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/e-IJdcqZH4p | "Swing set" by Poly by Google, via Poly Pizza, CC-BY 3.0 |
 | `composed/barbecue.glb` | Grill | Zsky | CC-BY 3.0 | https://poly.pizza/m/SIlnlrbQR7 | "Grill" by Zsky, via Poly Pizza, CC-BY 3.0 |
 | `composed/corner-shop.glb` | Building | Kay Lousberg (KayKit) | CC0 1.0 | https://poly.pizza/m/EL3ePInr1N | "Building" by Kay Lousberg, via Poly Pizza, CC0 |
-| `composed/donut-shop.glb` (WP-23) | Donut Store | J-Toastie | CC-BY 3.0 | https://poly.pizza/m/BvRLKgGwc6 | "Donut Store" by J-Toastie, via Poly Pizza, CC-BY 3.0 |
-| `composed/tiered-fountain.glb` (WP-23) | Fountain | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/7AydBrjR2Ss | "Fountain" by Poly by Google, via Poly Pizza, CC-BY 3.0 |
-| `composed/slide.glb` (WP-23) | Slide | sirkitree | CC-BY 3.0 | https://poly.pizza/m/8D47EdapzBW | "Slide" by sirkitree, via Poly Pizza, CC-BY 3.0 |
-| `composed/mailbox.glb` (WP-23) | Mailbox | CreativeTrio | CC0 1.0 | https://poly.pizza/m/2olZ0G8iur | "Mailbox" by CreativeTrio, via Poly Pizza, CC0 |
+| `composed/donut-shop.glb` | Donut Store | J-Toastie | CC-BY 3.0 | https://poly.pizza/m/BvRLKgGwc6 | "Donut Store" by J-Toastie, via Poly Pizza, CC-BY 3.0 |
+| `composed/tiered-fountain.glb` | Fountain | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/7AydBrjR2Ss | "Fountain" by Poly by Google, via Poly Pizza, CC-BY 3.0 |
+| `composed/slide.glb` | Slide | sirkitree | CC-BY 3.0 | https://poly.pizza/m/8D47EdapzBW | "Slide" by sirkitree, via Poly Pizza, CC-BY 3.0 |
+| `composed/mailbox.glb` | Mailbox | CreativeTrio | CC0 1.0 | https://poly.pizza/m/2olZ0G8iur | "Mailbox" by CreativeTrio, via Poly Pizza, CC0 |
 
 All six CC-BY models were modified (rescaled, turned, flat materials; the donut shop also lost its ground slab and window texture, the fountain was recoloured). `composed/License.txt` carries the same lines next to the files.
 
@@ -41,13 +41,13 @@ All six CC-BY models were modified (rescaled, turned, flat materials; the donut 
 
 The composed models (`public/assets/models/composed/`) are built by `scripts/compose-models.mjs`:
 - bus-stop, fences, fountain and swimming-pool are rearranged or re-centred copies of the Kenney models above, and remain CC0;
-- tulips-a/-b/-c (WP-23) combine three Kenney Nature Kit flowers each, recoloured, and remain CC0;
+- tulips-a/-b/-c combine three Kenney Nature Kit flowers each, recoloured, and remain CC0;
 - postbox is an original primitive model, CC0;
 - church, swing, barbecue, donut-shop, tiered-fountain and slide keep their CC-BY 3.0 licence; corner-shop and mailbox stay CC0.
 
 ### Icons
 
-The 38 tool icons in `public/assets/icons/tool-<id>.png` (128 px) were rendered in this project from the in-game models, using `scripts/render-icons.mjs` + `src/render/IconStudio.ts` (in-game models and materials). Icons of CC0 models are CC0. The Church, Swing, Barbecue, Donut shop, Tiered fountain and Slide icons are renders of the CC-BY models above and carry the same attribution. v0.3 deleted the old icons, including Kenney's 64 px preview renders of unused models.
+The 38 tool icons in `public/assets/icons/tool-<id>.png` (128 px) were rendered in this project from the in-game models, using `scripts/render-icons.mjs` + `src/render/IconStudio.ts` (in-game models and materials). Icons of CC0 models are CC0. The Church, Swing, Barbecue, Donut shop, Tiered fountain and Slide icons are renders of the CC-BY models above and carry the same attribution.
 
 The 38 tool icons have 10 variant icons beside them (`tool-<id>-v<n>.png`, the variant picker), rendered the same way from CC0 models.
 
@@ -65,7 +65,7 @@ The favicon (`public/favicon.svg`, `favicon.ico`, `apple-touch-icon.png`) is the
 
 | Data | File | Credit |
 |---|---|---|
-| Town name suggestions (500 names, WP-20) | `public/data/default_town_names.json` | Supplied by the project owner (2026-09-29); all rights held by the project owner. Fetched at load, not bundled. |
+| Town name suggestions (500 names) | `public/data/default_town_names.json` | Supplied by the project owner; all rights held by the project owner. Fetched at load, not bundled. |
 
 ## Font
 
@@ -75,7 +75,7 @@ The favicon (`public/favicon.svg`, `favicon.ico`, `apple-touch-icon.png`) is the
 
 ## Sound Effects
 
-All sound effects in `public/assets/audio/` are derived from **Kenney** audio packs (www.kenney.nl), licensed **CC0 1.0 Universal** (public domain, http://creativecommons.org/publicdomain/zero/1.0/). Attribution is not required; credited with thanks. Files were trimmed, mixed to mono, loudness-matched and transcoded to MP3 (see `docs/assets/audio.md`).
+All sound effects in `public/assets/audio/` are derived from **Kenney** audio packs (www.kenney.nl), licensed **CC0 1.0 Universal** (public domain, http://creativecommons.org/publicdomain/zero/1.0/). Attribution is not required; credited with thanks. Files were trimmed, mixed to mono, loudness-matched and transcoded to MP3 (see `docs/assets.md`).
 
 | Pack | URL | Files used |
 |---|---|---|
