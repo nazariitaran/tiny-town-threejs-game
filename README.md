@@ -2,6 +2,8 @@
 
 **Build your own cosy dream town.**
 
+**[Play it in your browser →](https://tiny-town-threejs-game.pages.dev/)**
+
 ![A small Tiny Town on a golden afternoon: a roundabout, green-roofed homes, a donut shop, a church, a flower garden with a pool, cars on the roads and a V of geese overhead](docs/images/town.jpg)
 
 Tiny Town is a cosy city-builder sandbox that runs in your browser. There are no goals, money or timers. You lay roads, put down houses, shops and gardens, and watch the town come to life as cars drive by, birds fly over and the windows light up at dusk.
