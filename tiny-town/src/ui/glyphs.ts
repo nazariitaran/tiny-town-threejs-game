@@ -18,7 +18,6 @@ export const GLYPHS = {
   ),
   close: svg('<path d="M6 6l12 12"/><path d="M18 6 6 18"/>'),
   help: svg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.7"/><path d="M12 17.2v.1"/>'),
-  camera: svg('<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/><circle cx="12" cy="12" r="2.5"/>'),
   grid: svg('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9.3 4v16"/><path d="M14.7 4v16"/><path d="M4 9.3h16"/><path d="M4 14.7h16"/>'),
   info: svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7.5v.1"/>'),
   play: svg('<path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/>'),

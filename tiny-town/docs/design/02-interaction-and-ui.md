@@ -12,7 +12,7 @@ Isometric-feeling **perspective** camera (FOV ~35°) orbiting a target on the gr
 | Orbit (yaw) | Middle-drag · Alt/Option + left-drag · Q / E (animated 45° steps) | Two-finger twist |
 | Tilt | Alt + left-drag vertical | — (fixed) |
 | Zoom | Wheel (zoom-to-cursor) · + / − | Pinch |
-| Reset view | Home / `F` | Menu → Help → Reset view |
+| Reset view | Home / `F` | — |
 
 Constraints (tunable in `?debug`):
 - Polar angle clamped **30°–70°** from vertical (never flat-on-ground, never top-down-only).
@@ -145,7 +145,7 @@ Full rules: `03-architecture.md` §Placement rules. Footprints are cells at rota
   - **Town**: Time of day (Auto / Day / Night segmented control); **Town file** (phones ≤ 440 px only, WP-21); **Rename town** · **New town** (confirm, then Name your town).
   - **Graphics**: **Quality**, a Low / Medium / High segmented radio group like Time of day; under it the selected preset's one-line description (`GRAPHICS_UI`); while a reload is needed, the notice "Some changes apply after a reload" with **Reload now**; **Show grid**.
   - **Sound**: Volume, Music on/off, Music volume.
-  - **Help**: Controls, Reset view, Credits.
+  - **Help**: Controls, Credits. (The Reset view button was removed 2026-10-01; F / Home still reset the camera.)
 - **Graphics wiring:** the radios, the description and the notice render only from the last `graphics:changed` fact (Game emits it at boot and after every change); picking a preset emits `intent:set-graphics` and applies the live parts at once. The notice appears when the choice changes MSAA or the material from what the page booted with (anything ↔ Low); Medium ↔ High never needs it. **Reload now** emits `intent:reload-graphics`: the town save is flushed and the page reloads to the title, where Continue brings the same town back on the new preset. The choice is saved in the settings; the default is Medium on every device. Rules and numbers: `03-architecture.md` §Graphics presets.
 - **Keyboard** (WAI-ARIA tabs, automatic activation): the tab bar is one Tab stop (roving `tabindex`, the selected tab); ←/→ move and wrap, Home / End jump to the first / last tab; Tab moves into the open panel and Shift+Tab comes back to the selected tab. Arrows inside a radio group move its choice, as usual. The arrows never reach the camera while the menu is open.
 - **Remembered tab:** the menu opens on the tab used last in this page session (Town after a load or reload). Back from a sub-view (Controls, Credits, the New town confirm, Rename, Town file) and Esc from one return to the menu **on the same tab**, with focus on the control that opened it; `?` opens Controls from building, and Esc from there lands on the remembered tab.
