@@ -41,7 +41,7 @@ REPO FACTS
 - Repo root: <REPO ROOT> (branch main). <REPO ROOT> is the absolute path printed by
   `git rev-parse --show-toplevel` in this session; substitute it wherever this runbook or the
   §2 template says <REPO ROOT>.
-- Game: the repo root (Tiny Town only, since 2026-10-01). Skills: .claude/skills/. npm cache: <REPO ROOT>/.npm-cache
+- Game: the repo root (Tiny Town only, since 2026-10-01). Skills: ~/.claude/skills/ (user-level, not in the repo). npm cache: <REPO ROOT>/.npm-cache
   (use `npm install --cache <that path>` if ~/.npm is not writable).
 - node_modules/ and assets-src/ (raw asset packs, 179 MB) are gitignored and
   exist only in the main checkout. Worktrees must `npm install` and must read assets-src
@@ -90,8 +90,8 @@ Run PLAN.md §5 "M1" in full, plus:
 - Wire SaveStore (from WP-02) into Game.ts: autosave, Continue on title, camera pose.
 - Capture evidence: inspect:canvas for title, sample-town, stress-town on desktop and
   --mobile, run id m1, into artifacts/m1. Write artifacts/evidence.json per
-  .claude/skills/threejs-game-director/references/evidence-manifest.md and run
-  python3 .claude/skills/threejs-game-director/scripts/check_evidence.py . --manifest artifacts/evidence.json
+  ~/.claude/skills/threejs-game-director/references/evidence-manifest.md and run
+  python3 ~/.claude/skills/threejs-game-director/scripts/check_evidence.py . --manifest artifacts/evidence.json
 - Actually play it through real input for ~5 minutes using a Playwright script you write
   in artifacts/ (not committed): build a street with houses, pavement, lamps, trees,
   fences, bus stop; undo/redo; reload; Continue. List every friction point.
@@ -157,7 +157,7 @@ READ BEFORE CODING
 3. docs/design/03-architecture.md (data flow, rules, budgets) and whichever of
    01-design-brief.md / 02-interaction-and-ui.md your WP references.
 4. The header comment of every file you own — baseline files list their TODOs.
-5. Load the skills your WP section names (from .claude/skills/ in your worktree) and read
+5. Load the skills your WP section names (from ~/.claude/skills/) and read
    the specific references it lists.
 
 RULES
@@ -270,7 +270,7 @@ for s in title sample-town stress-town; do
   npm run inspect:canvas -- --state $s --seed 42 --run-id m1 --out artifacts/m1
   npm run inspect:canvas -- --state $s --seed 42 --run-id m1 --out artifacts/m1 --mobile
 done
-python3 .claude/skills/threejs-game-director/scripts/check_evidence.py . --manifest artifacts/evidence.json
+python3 ~/.claude/skills/threejs-game-director/scripts/check_evidence.py . --manifest artifacts/evidence.json
 ```
 In each report, check `gpu.softwareRendered` is false before quoting any FPS, and compare `renderBudget` against the budgets in `03-architecture.md`.
 

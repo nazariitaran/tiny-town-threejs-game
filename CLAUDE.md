@@ -1,6 +1,6 @@
 # Tiny Town — agent guide
 
-A cosy browser city-builder sandbox: three.js + TypeScript + Vite. The game lives at the repo root; shared skills are in `.claude/skills/`.
+A cosy browser city-builder sandbox: three.js + TypeScript + Vite. The game lives at the repo root.
 
 ## Where facts live
 - `docs/progress.md`: status, decisions, open issues, backlog. Read it before planning anything.
@@ -12,7 +12,7 @@ A cosy browser city-builder sandbox: three.js + TypeScript + Vite. The game live
 - `docs/plans/<topic>.md`: the plan for a change. `docs/HANDOVER.md`: running a parallel agent swarm.
 - `docs/PLAN.md` (the original work-package plan), `docs/checkpoints/*` and some older plans are historical; each says so in a banner at the top.
 
-Skills live in `.claude/skills/`. `threejs-game-director` routes to the others: `threejs-gameplay-systems`, `threejs-aaa-graphics-builder`, `threejs-game-ui-designer`, `threejs-qa-release`, `threejs-debug-profiler`. `webgpu-threejs-tsl` covers WebGPU and TSL.
+Skills are user-level, in `~/.claude/skills/` (not in this repo). `threejs-game-director` routes to the others: `threejs-gameplay-systems`, `threejs-aaa-graphics-builder`, `threejs-game-ui-designer`, `threejs-qa-release`, `threejs-debug-profiler`. `webgpu-threejs-tsl` covers WebGPU and TSL.
 
 ## Commands
 ```bash
