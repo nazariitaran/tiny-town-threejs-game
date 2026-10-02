@@ -35,7 +35,7 @@ A perspective camera (FOV 35°) orbits a target on the ground through three.js `
 ## Pointer → grid
 - The pointer is raycast against the ground plane on pointer move and camera change only, never per idle frame. Outside the plot there is no hover and no ghost.
 - The hit becomes a **cell** (64 × 64 half-unit cells); for edge tools the **nearest cell edge**; for multi-cell objects a footprint **anchor** centred on the pointer (odd sizes on the hovered cell, even sizes on the nearest corner, clamped into the plot).
-- Roads, and bulldozing a road, work on the aligned 2 × 2 **road block** under the pointer. The roundabout and the zebra crossing snap to the road-block grid.
+- Roads, and bulldozing a road, work on the aligned 2 × 2 **road block** under the pointer. The roundabout, car parks and the zebra crossing snap to the road-block grid.
 
 ## Tools
 
@@ -43,7 +43,7 @@ A perspective camera (FOV 35°) orbits a target on the ground through three.js `
 
 | Category (Shift+n) | Holds | Tools, in tray order |
 | --- | --- | --- |
-| Streets (1) | the road network | Road, Pavement, Roundabout, Zebra, Traffic light |
+| Streets (1) | the road network | Road, Pavement, Roundabout, Parking, Zebra, Traffic light |
 | Homes (2) | where people live | Cottage, Townhouse, Bungalow, Family home, Suburban, Big house, Mailbox |
 | Town (3) | shops, civic places, shared street furniture | Tiered fountain, Corner shop, Donut shop, Church, Supermarket, Bus stop, Postbox, Lamppost |
 | Nature (4) | things that grow on their own | Grass, Wildflowers, Tulips, Bush, Oak, Pine, Birch |
@@ -65,10 +65,11 @@ A perspective camera (FOV 35°) orbits a target on the ground through three.js `
 | None | Subtle cell highlight | Left-drag pans | — | — |
 
 - **Rotate:** `R` clockwise, `Shift+R` counter-clockwise, or the dock's Rotate button on touch screens (hidden with a mouse and keyboard). A turn swaps the footprint's width and depth, re-centres the ghost on the pointer and animates in 100 ms. The rotation persists until changed.
-- **Styles:** the object tools with several models (Townhouse, Bungalow, Suburban, Big house, Traffic light, Birch, Tulips) open a strip of icon-only chips above the dock, one per model. The ghost and every placement use the chosen model; there is no random option. Each tool starts on its first model and remembers the choice for the session. `V` / `Shift+V` step through the styles. The strip hides with the tool, while another category's tray is open and outside the build phase. A moved object keeps its model.
-- **Move** carries any placed object except the roundabout and zebra crossings (clicking one says "{label} can't be moved"); ground, hedges and fences never move. The drop follows the placing rules, except that the object's own old footprint doesn't count as occupied. `R` turns what is carried from its own rotation; trees and plants can't be turned. Esc, a right-click, another tool, undo/redo, the menu or leaving the build phase put it back.
+- **Styles:** the object tools with several models (Parking, Townhouse, Bungalow, Suburban, Big house, Traffic light, Birch, Tulips) open a strip of icon-only chips above the dock, one per model. The ghost and every placement use the chosen model; there is no random option. Each tool starts on its first model and remembers the choice for the session. `V` / `Shift+V` step through the styles. The strip hides with the tool, while another category's tray is open and outside the build phase. A moved object keeps its model. Parking's styles are its sizes, so switching style re-centres the ghost's footprint.
+- **Move** carries any placed object except the roundabout, car parks and zebra crossings (clicking one says "{label} can't be moved"); ground, hedges and fences never move. The drop follows the placing rules, except that the object's own old footprint doesn't count as occupied. `R` turns what is carried from its own rotation; trees and plants can't be turned. Esc, a right-click, another tool, undo/redo, the menu or leaving the build phase put it back.
 - **Zebra crossing:** a click on a straight road, tee or crossroad; the road tile under it draws the zebras. `R` does nothing. Bulldozing it leaves the road. Cars ignore it.
 - **Roundabout:** 6 × 6 cells (3 × 3 road blocks) on any ground. Placing it paints its footprint to road; bulldozing turns it back to field. Roads join only at the middle of each side. Cars go round counter-clockwise.
+- **Parking:** a car park in three sizes (styles): small, 4 × 2 cells, a row of 4 nose-in bays straight off the street; medium, 4 × 4 cells, 8 stalls along an aisle; large, 4 × 6 cells, 12 stalls with two planter islands. Like the roundabout it snaps to the road-block grid, stands on any ground, paints its footprint to road and turns back to field when bulldozed. `R` turns it; the entrance is its front. A road block straight in front of the entrance joins it (the road tile tees into the lot); roads along its other sides pass by. Cars don't drive into car parks yet.
 - **Trees:** the pine stands twice its kit height, the birch at its natural height; both stay in one cell. The oak is the big tree on a 2 × 2 lot.
 - **Deselect:** Esc, clicking the active card again, pressing its digit again, or a right-click without a drag (a right drag still pans). Esc with no tool opens the menu. A right-click never places.
 - **Feedback:** placing pops in (easeOutBack, ~220 ms) with a dust puff and the item's sound; removing shrinks out (~150 ms) with a poof and a crunch. An invalid click shakes the ghost (150 ms), plays a soft "nope" and shows the reason by the pointer for ~1.5 s.
