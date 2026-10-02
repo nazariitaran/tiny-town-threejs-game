@@ -1,5 +1,8 @@
 /// <reference types="vite/client" />
 
+/** package.json `version`, injected by `define` in vite.config.ts and vitest.config.ts. */
+declare const __APP_VERSION__: string;
+
 /** Published every frame by Game.publishDiagnostics(); read by tests and the canvas inspector. */
 interface ThreeGameDiagnostics {
   frame: number;

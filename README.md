@@ -2,7 +2,7 @@
 
 **Build your own cosy dream town.**
 
-**[Play it in your browser →](https://tiny-town-threejs-game.pages.dev/)**
+**[Play it in your browser →](https://tiny-town-threejs-game.nazariy-taran.workers.dev/)**
 
 ![A small Tiny Town on a golden afternoon: a roundabout, green-roofed homes, a donut shop, a church, a flower garden with a pool, cars on the roads and a V of geese overhead](docs/images/town.jpg)
 

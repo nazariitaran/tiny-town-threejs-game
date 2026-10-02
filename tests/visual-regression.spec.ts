@@ -74,6 +74,9 @@ for (const state of STATES) {
     expect(b.town, 'town frozen while paused').toEqual(a.town);
     expect(b.life.carCells, 'cars frozen while paused').toEqual(a.life.carCells);
 
+    // Hidden so a version bump doesn't change the baselines.
+    await page.addStyleTag({ content: '.ui-version { visibility: hidden; }' });
+
     // Pixel stability independent of the baseline: two captures 400 ms apart are identical.
     const first = await page.screenshot(SHOT);
     await page.waitForTimeout(400);
