@@ -28,6 +28,9 @@ export const MODEL_STYLES: Readonly<Partial<Record<ModelId, ModelStyle>>> = {
   bush: { scale: [1, 0.58, 1] },
   // Same warm stone kerbs as the road pieces.
   roundabout: { warmAtlas: true },
+  'parking-small': { warmAtlas: true },
+  'parking-medium': { warmAtlas: true },
+  'parking-large': { warmAtlas: true },
   // Darker and stouter so the lamp reads against the field.
   lamppost: { color: '#46505e', scale: [1.5, 1, 1.15] },
 };

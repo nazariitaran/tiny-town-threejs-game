@@ -1,0 +1,9 @@
+Tiny Town - parking lots
+========================
+
+parking-small.glb, parking-medium.glb, parking-large.glb
+  Original models made for this project by scripts/build-parking.py (Blender); dedicated to the
+  public domain (CC0 1.0): http://creativecommons.org/publicdomain/zero/1.0/
+
+  They embed no texture: every face samples the colour atlas of Kenney's City Kit (Roads),
+  ../roads/Textures/colormap.png (www.kenney.nl, CC0 1.0, https://kenney.nl/assets/city-kit-roads).

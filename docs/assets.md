@@ -17,6 +17,7 @@ One flat, colourful look: a 512 px gradient `colormap.png` per kit, the same gre
 | `holiday/` | Kenney Holiday Kit 2.0 | CC0 |
 | `cars/` | Kenney Car Kit 3.1 | CC0 |
 | `composed/` | built by `scripts/compose-models.mjs` (below) | CC0, except church, swing, barbecue, donut shop, tiered fountain and slide: CC-BY 3.0 |
+| `parking/` | built in Blender by `scripts/build-parking.py` (below) | CC0 (original; samples the roads atlas) |
 
 - Every pack folder keeps its `License.txt`; `composed/License.txt` names what each composed GLB is built from.
 - `assets-src/` (gitignored) holds the full source packs, the Nature Kit 2.1, the City Kit (Industrial) and `polypizza/` (the Poly Pizza source GLBs with their own `CREDITS.md`).
@@ -78,6 +79,20 @@ Native connections at rotation 0:
 - **primitive:** the postbox, a red pillar box from flat-shaded shapes.
 - **Poly Pizza:** one source GLB scaled to game units, turned if needed, flat materials (metalness 0, roughness 1, no metal/roughness map): church, swing, barbecue, corner shop, donut shop (ground slab removed, flat window glass), tiered fountain (recoloured), slide, mailbox. Many Poly Pizza exports set metalness 0.4, which renders almost black without an environment map.
 - **Nature Kit:** its materials set metalness 1 and store sRGB colours as linear factors, and its leaves are teal. `natureMaterials()` sets metalness 0, converts the factors and remaps the greens. The tulips (three flowers per model, one model per flower shape) are built this way; any further Nature Kit piece needs the same recipe.
+
+### Parking lots
+`scripts/build-parking.py` builds `public/assets/models/parking/parking-{small,medium,large}.glb` in Blender, procedurally, from the road kit's measurements. Run it headless (`/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-parking.py`), or `exec` it in an open session and call `build_all()` to review the lots in a "Parking" collection (`build_all(export_glb=True)` also writes the GLBs).
+- **Look:** every face samples one texel of the City Kit (Roads) `colormap.png`, as the road pieces do: asphalt at y = 0.01, a 0.1-wide sidewalk kerb at y = 0.02, 0.02-wide paint lines, bays in the road's darker kerb-side grey. The GLBs embed no texture and reference `../roads/Textures/colormap.png`, so `ModelLibrary` shares the road material, and `warmAtlas` warms kerbs and paint the same way. A blue "P" sign (its blue is below the warm tint's luminance cut) and planters with low-poly bushes.
+- **Sizes:** whole road blocks, scale 1, `rotationOffset` 0 (the entrance faces +Z natively). Stalls are 0.35 × 0.6 (cars are 0.22–0.255 × 0.43–0.48).
+
+  | Model | Footprint | Stalls | Layout | Triangles |
+  | --- | --- | --- | --- | --- |
+  | `parking-small` | 2 × 1 blocks (4 × 2 cells) | 4 | nose-in bays open to the street at the front, a planted kerb behind and planters at the ends | 252 |
+  | `parking-medium` | 2 × 2 blocks (4 × 4 cells) | 8 | a 0.5-deep entrance apron across the front, a 0.6 aisle down the middle, 4 stalls each side | 158 |
+  | `parking-large` | 2 × 3 blocks (4 × 6 cells) | 12 | as medium, with 3 + planter island + 3 stalls each side | 322 |
+
+- **Entrance:** the front edge is open asphalt; medium and large keep a 0.2 × 0.1 kerb nub where their two front blocks meet (where two road tiles' kerbs would join) and carry the sign on it. Height: 0.37 to the top of the sign.
+- The exporter output is rewritten like a Kenney GLB (`kenney_style`): external image, `minFilter` 9987, metalness 0, double-sided, one node named after the model.
 
 ### Ground colours
 Grass and wildflower ground share one lawn colour, walkways their own; both are flat procedural tiles in `GROUND_MODELS` (`src/catalog/models.ts`), with an instanced tuft or flower scatter on top. Pavement is the kit's `tile-low` with the warm atlas.

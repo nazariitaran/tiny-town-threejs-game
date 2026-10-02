@@ -52,6 +52,10 @@ export const MODELS = {
   'pavement-tile': M('/assets/models/roads/tile-low.glb', 0.5, 0),
   // 3 × 3 road tiles (6 × 6 cells); arms at the middle of each side. Symmetric.
   roundabout: M('/assets/models/roads/road-roundabout.glb', 1, 0),
+  // Parking lots (scripts/build-parking.py): whole road blocks, the entrance facing +Z natively.
+  'parking-small': M('/assets/models/parking/parking-small.glb', 1, 0),
+  'parking-medium': M('/assets/models/parking/parking-medium.glb', 1, 0),
+  'parking-large': M('/assets/models/parking/parking-large.glb', 1, 0),
   // The lamps face −X natively (not −Z like the rest of the kit), so one quarter turn puts them on +z.
   'traffic-light': M('/assets/models/roads/traffic-light.glb', 1, 1, { glow: 'traffic' }),
   // Its arm overhangs −X after the turn; like the lamppost, the offset puts the pole back mid-cell.
