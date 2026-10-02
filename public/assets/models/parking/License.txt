@@ -7,3 +7,9 @@ parking-small.glb, parking-medium.glb, parking-large.glb
 
   They embed no texture: every face samples the colour atlas of Kenney's City Kit (Roads),
   ../roads/Textures/colormap.png (www.kenney.nl, CC0 1.0, https://kenney.nl/assets/city-kit-roads).
+
+road-joint-*.glb
+  Kenney City Kit (Roads) road pieces (road-straight, road-bend-square, road-intersection-line,
+  road-crossroad-line, road-end-round, road-crossing) with the centre line removed on the sides that
+  join a car park, by scripts/build-parking.py. Original models by Kenney (www.kenney.nl), licensed
+  CC0 1.0: https://kenney.nl/assets/city-kit-roads

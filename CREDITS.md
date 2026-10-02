@@ -8,7 +8,7 @@ Almost all 3D models in `public/assets/models/` are licensed **CC0 1.0 Universal
 
 | Pack | Author | URL | Models used |
 |---|---|---|---|
-| City Kit (Roads) 2.1 | Kenney (www.kenney.nl) | https://kenney.nl/assets/city-kit-roads | road-straight, road-bend-square, road-intersection-line, road-intersection-path, road-crossroad-line, road-crossroad-path, road-end-round, road-square, road-crossing, road-roundabout, tile-low, light-curved, traffic-light, traffic-light-hanging; road-sign-street (inside bus-stop) |
+| City Kit (Roads) 2.1 | Kenney (www.kenney.nl) | https://kenney.nl/assets/city-kit-roads | road-straight, road-bend-square, road-intersection-line, road-intersection-path, road-crossroad-line, road-crossroad-path, road-end-round, road-square, road-crossing, road-roundabout, tile-low, light-curved, traffic-light, traffic-light-hanging; road-sign-street (inside bus-stop); road-straight, road-bend-square, road-intersection-line, road-crossroad-line, road-end-round, road-crossing (as parking/road-joint-*.glb, centre lines removed) |
 | City Kit (Suburban) 2.0 | Kenney | https://kenney.nl/assets/city-kit-suburban | building-type-a/-c/-d/-e/-i/-k/-m/-n/-o/-r/-s/-u, planter, path-long, path-short, path-stones-long, path-stones-short, tree-large, tree-small; fence (inside fence-tall); colour variation textures |
 | City Kit (Commercial) 2.1 | Kenney | https://kenney.nl/assets/city-kit-commercial | building-e (supermarket); detail-overhang-wide (inside bus-stop); detail-parasol-a, detail-parasol-b (inside swimming-pool) |
 | Platformer Kit 4.1 | Kenney | https://kenney.nl/assets/platformer-kit | tree (also the bush), tree-pine, hedge, flowers, flowers-tall, grass, rocks |

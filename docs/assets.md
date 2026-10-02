@@ -70,6 +70,7 @@ Native connections at rotation 0:
 `src/town/roadTiles.ts` maps each of the 16 neighbour masks to a canonical piece (straight N+S, corner E+S, tee E+S+W, end S) plus quarter turns, counter-clockwise from above (E→N→W→S). Each piece's `rotationOffset` turns the native model onto the canonical one: straight 1, corner 1, tee 0, cross 0, end 3. Both are unit-tested, and the `asset-gallery` test state shows every mask.
 - The `-line` junctions are used so the centre lines meet.
 - A road block under a Zebra crossing draws `ZEBRA_PIECE_MODELS` (straight, tee, cross) with the plain piece's rotation; corners, ends and singles have no zebra.
+- A road block that joins a car park draws a **car-park joint** (`ROAD_JOINT_MODELS`, below): its piece without the centre line on the lot sides.
 - The roundabout (`road-roundabout`, 3 × 3 tiles) is a road-feature object, not a road piece. A neighbouring road joins it only at the middle block of each side (`isFeatureArm`). Its lane ring radius is `RING_RADIUS` in `src/life/lanePaths.ts`.
 - Road pieces, pavement and the roundabout are drawn with `warmAtlas`: the atlas's periwinkle kerb and paving texels become warm stone.
 
@@ -93,6 +94,14 @@ Native connections at rotation 0:
 
 - **Entrance:** the front edge is open asphalt; medium and large keep a 0.2 × 0.1 kerb nub where their two front blocks meet (where two road tiles' kerbs would join) and carry the sign on it. Height: 0.37 to the top of the sign.
 - The exporter output is rewritten like a Kenney GLB (`kenney_style`): external image, `minFilter` 9987, metalness 0, double-sided, one node named after the model.
+
+### Car-park joints
+A road block in front of a car park's entrance draws its usual Kenney piece without the centre line on the sides that face a lot, so the street's own line stays unbroken and no lane line runs into the lot. The same script builds them (`build_joints()`; the headless run builds lots and joints) as `public/assets/models/parking/road-joint-<piece>-<sides>.glb`:
+- **Source:** the City Kit (Roads) piece itself (`road-straight`, `road-bend-square`, `road-intersection-line`, `road-crossroad-line`, `road-end-round`, and `road-crossing` for the zebra straight). The centre-line faces (lane-paint texel, within 0.0105 of the axis) on each lot side are cut at 0.01 past the junction and recoloured to the asphalt texel; nothing else changes. When every arm faces a lot, the paint left in the middle goes too. Same Kenney-style GLB rewrite as the lots, so they share the road material and its warm tint.
+- **Frame:** each joint keeps its base piece's native orientation and `rotationOffset` (straight 1, corner 1, tee 0, cross 0, end 3). `<sides>` are the lot sides in the game's canonical frame (after `rotationOffset`, rotation 0: straight N+S, corner E+S, tee E+S+W, cross all, end S), lower-case `nesw`.
+- **Set:** one joint per piece and set of lot sides, where sets a symmetric piece turns into each other (the straight's half turn, the cross's quarter turns) share the one with the smallest mask: straight `n`, `ns`; corner `e`, `s`, `es`; tee `e`, `s`, `w`, `es`, `ew`, `sw`, `esw`; cross `n`, `ne`, `ns`, `nes`, `nesw`; end `s`; zebra straight `n`, `ns`. 20 GLBs, 4–13 kB each.
+- **Triangles:** the Kenney piece's count plus the cuts: straight 48–52 (44), corner 61–62 (60), tee 76–84 (76), cross 114–118 (108), end 222 (218), zebra straight 104 (104).
+- The zebra tee and cross (`-path`) have no centre lines, so a zebra on a junction in front of a lot keeps its usual piece; corners and ends never carry a zebra.
 
 ### Ground colours
 Grass and wildflower ground share one lawn colour, walkways their own; both are flat procedural tiles in `GROUND_MODELS` (`src/catalog/models.ts`), with an instanced tuft or flower scatter on top. Pavement is the kit's `tile-low` with the warm atlas.
