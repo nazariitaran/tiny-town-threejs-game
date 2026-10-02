@@ -9,11 +9,13 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { CELL_SIZE, ROAD_TILE_SIZE } from '../game/config';
 import { CAR_FILES, CAR_SCALE } from '../life/LifeSystem';
 import { MODEL_STYLES } from '../render/modelStyles';
-import { EDGE_MODELS, GROUND_MODELS, MODELS, ROAD_PIECE_MODELS, type ModelId } from './models';
+import { EDGE_MODELS, GROUND_MODELS, MODELS, ROAD_JOINT_MODELS, ROAD_PIECE_MODELS, ZEBRA_JOINT_MODELS, type ModelId } from './models';
 import { footprintOf, heightScale, OBJECT_KINDS, OBJECTS } from './objects';
 import { RETIRED_TOOLS, TOOL_CATEGORIES, TOOLS, toolsInCategory, variantIcon, type ToolLayer } from './tools';
 import { createGlbLoader, PUBLIC_DIR, publicPath } from '../testing/gltfNode';
 
+
+const JOINT_MODELS: readonly ModelId[] = [ROAD_JOINT_MODELS, ZEBRA_JOINT_MODELS].flatMap((table) => Object.values(table).flatMap((byLots) => Object.values(byLots)));
 
 /** Normalised (scaled + rotationOffset) size of each model. */
 const sizes = new Map<ModelId, THREE.Vector3>();
@@ -132,15 +134,22 @@ describe('catalog', () => {
     const ids = new Set(Object.keys(MODELS));
     for (const def of Object.values(OBJECTS)) for (const m of def.models) expect(ids.has(m), `${def.kind} → ${m}`).toBe(true);
     for (const m of Object.values(ROAD_PIECE_MODELS)) expect(ids.has(m)).toBe(true);
+    for (const m of JOINT_MODELS) expect(ids.has(m), m).toBe(true);
     for (const m of Object.values(EDGE_MODELS)) expect(ids.has(m)).toBe(true);
     for (const v of Object.values(GROUND_MODELS)) if (v.type === 'model') expect(ids.has(v.model)).toBe(true);
   });
 
-  it('road tiles fill one 2 × 2 road block; pavement tiles fill one cell with the kerb-height top', () => {
-    for (const id of Object.values(ROAD_PIECE_MODELS)) {
+  it('road tiles (car-park joints too) fill one 2 × 2 road block at road height; pavement tiles fill one cell with the kerb-height top', () => {
+    const roadHeight = sizes.get('road-straight')!.y;
+    for (const id of [...Object.values(ROAD_PIECE_MODELS), ...JOINT_MODELS]) {
       const size = sizes.get(id)!;
       expect(size.x, `${id} x`).toBeCloseTo(ROAD_TILE_SIZE, 1);
       expect(size.z, `${id} z`).toBeCloseTo(ROAD_TILE_SIZE, 1);
+      expect(size.y, `${id} y`).toBeCloseTo(roadHeight, 3);
+    }
+    // Joints keep their Kenney piece's native turn.
+    for (const [piece, byLots] of Object.entries(ROAD_JOINT_MODELS)) {
+      for (const id of Object.values(byLots)) expect(MODELS[id].rotationOffset, id).toBe(MODELS[ROAD_PIECE_MODELS[piece as keyof typeof ROAD_PIECE_MODELS]].rotationOffset);
     }
     const pavement = drawn('pavement-tile');
     expect(pavement.x).toBeCloseTo(CELL_SIZE, 2);

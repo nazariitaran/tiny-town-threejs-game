@@ -33,6 +33,8 @@ export interface ObjectDef {
   roadArms?: 'sides' | 'front';
   /** Cars never drive onto this road feature; it still joins roads and counts as road. */
   noTraffic?: boolean;
+  /** Roads join this road feature like a driveway: the joining tile draws no centre line on that side. */
+  plainJoin?: boolean;
   /**
    * Road marking (zebra crossing): one block-aligned road block that must already be road (a straight
    * or a junction). It has no model of its own: the road tile under it draws its marked variant
@@ -71,6 +73,7 @@ export const OBJECTS: Readonly<Record<ObjectKind, ObjectDef>> = {
     roadFeature: true,
     roadArms: 'front',
     noTraffic: true,
+    plainJoin: true,
     residents: 0,
     models: ['parking-small', 'parking-medium', 'parking-large'],
   }),

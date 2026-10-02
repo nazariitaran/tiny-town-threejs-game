@@ -9,7 +9,7 @@
  *  - Object ids are reused after reset / load, so a remove always frees its visual before the next add.
  */
 import * as THREE from 'three';
-import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS, ZEBRA_PIECE_MODELS, type ModelId } from '../catalog/models';
+import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS, type ModelId } from '../catalog/models';
 import { objectDef, placedFootprint } from '../catalog/objects';
 import { CELL_SIZE, cellToWorld, ROAD_TILE_SIZE, roadBlockCentreWorld } from '../game/config';
 import type { DebugTools } from '../debug/DebugTools';
@@ -19,7 +19,7 @@ import type { Cell, GroundKind, PlacedEdge, PlacedObject, TownChange, TownStateR
 import { InstancePool, type PoolSlot } from './InstancePool';
 import { createLitMaterial, type LitMaterial } from './materials';
 import type { ModelLibrary } from './ModelLibrary';
-import { roadMask, roadTileFor, underRoadFeature } from '../town/roadTiles';
+import { roadLook, underRoadFeature } from '../town/roadTiles';
 import { MODEL_STYLES } from './modelStyles';
 import { edgeOrigin, objectOrigin, styleMatrix } from './objectPose';
 import { easeOutBack, easeOutBackPeak, easeShrink, hash01, hopArc, hopHeight, moveEase } from './tween';
@@ -95,7 +95,7 @@ interface MoveTween {
 }
 
 interface Visual {
-  /** Identity of what is drawn (e.g. "road:corner:1"); equal signature ⇒ nothing to redraw. */
+  /** Identity of what is drawn (e.g. "road:road-corner:1"); equal signature ⇒ nothing to redraw. */
   sig: string;
   origin: THREE.Matrix4;
   pieces: Piece[];
@@ -209,6 +209,8 @@ export class TownRenderer {
     animating: number;
     dying: number;
     materials: number;
+    /** Road tiles drawn as a car-park joint. */
+    roadJoints: number;
   } {
     let instances = 0;
     let pools = 0;
@@ -225,6 +227,8 @@ export class TownRenderer {
     }
     let dying = 0;
     for (const visual of this.animating) if (visual.mode === 'out') dying += 1;
+    let roadJoints = 0;
+    for (const visual of this.groundByCell.values()) if (visual.sig.startsWith('road:road-joint-')) roadJoints += 1;
     return {
       objects: this.objectsById.size + this.markingIds.size,
       groundTiles: this.groundByCell.size,
@@ -237,6 +241,7 @@ export class TownRenderer {
       animating: this.animating.size,
       dying,
       materials: this.library.materialCount + this.ownedMaterials.length,
+      roadJoints,
     };
   }
 
@@ -414,18 +419,9 @@ export class TownRenderer {
 
   private describeGround(kind: Exclude<GroundKind, 'field'>, cell: Cell): { sig: string; rotation: number; pieces: PieceSpec[] } {
     if (kind === 'road') {
-      const tile = roadTileFor(roadMask(this.town, cell));
-      // A zebra crossing on this block (straight / tee / cross) swaps in the marked piece.
-      const marking = this.town.getObjectAt(cell);
-      const zebra = marking && objectDef(marking.kind).roadMarking ? ZEBRA_PIECE_MODELS[tile.piece] : undefined;
-      if (zebra) {
-        return {
-          sig: `road:${tile.piece}:${tile.rotation}:zebra`,
-          rotation: tile.rotation,
-          pieces: [{ source: this.modelSource(zebra, false), local: new THREE.Matrix4() }],
-        };
-      }
-      if (tile.piece === 'single') {
+      // The auto-tiled piece, or its zebra / car-park joint variant (roadLook).
+      const look = roadLook(this.town, cell);
+      if (look.piece === 'single') {
         // Isolated road: two round dead-end caps squashed to half a cell each, back to back, so a
         // lone tile matches the rounded ends of every other dead end.
         const end = this.modelSource(ROAD_PIECE_MODELS.end, false);
@@ -434,9 +430,9 @@ export class TownRenderer {
         return { sig: 'road:single:0', rotation: 0, pieces: [{ source: end, local: north }, { source: end, local: south }] };
       }
       return {
-        sig: `road:${tile.piece}:${tile.rotation}`,
-        rotation: tile.rotation,
-        pieces: [{ source: this.modelSource(ROAD_PIECE_MODELS[tile.piece], false), local: new THREE.Matrix4() }],
+        sig: `road:${look.model}:${look.rotation}`,
+        rotation: look.rotation,
+        pieces: [{ source: this.modelSource(look.model, false), local: new THREE.Matrix4() }],
       };
     }
     if (kind === 'walkway') return this.describeWalkway(cell);

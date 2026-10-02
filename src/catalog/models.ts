@@ -56,6 +56,28 @@ export const MODELS = {
   'parking-small': M('/assets/models/parking/parking-small.glb', 1, 0),
   'parking-medium': M('/assets/models/parking/parking-medium.glb', 1, 0),
   'parking-large': M('/assets/models/parking/parking-large.glb', 1, 0),
+  // Car-park joints (ROAD_JOINT_MODELS): a road piece without its centre line on the sides that join a
+  // lot (letters = those sides at rotation 0); each keeps its Kenney base's native turn.
+  'road-joint-straight-n': M('/assets/models/parking/road-joint-straight-n.glb', 1, 1),
+  'road-joint-straight-ns': M('/assets/models/parking/road-joint-straight-ns.glb', 1, 1),
+  'road-joint-corner-e': M('/assets/models/parking/road-joint-corner-e.glb', 1, 1),
+  'road-joint-corner-s': M('/assets/models/parking/road-joint-corner-s.glb', 1, 1),
+  'road-joint-corner-es': M('/assets/models/parking/road-joint-corner-es.glb', 1, 1),
+  'road-joint-tee-e': M('/assets/models/parking/road-joint-tee-e.glb', 1, 0),
+  'road-joint-tee-s': M('/assets/models/parking/road-joint-tee-s.glb', 1, 0),
+  'road-joint-tee-es': M('/assets/models/parking/road-joint-tee-es.glb', 1, 0),
+  'road-joint-tee-w': M('/assets/models/parking/road-joint-tee-w.glb', 1, 0),
+  'road-joint-tee-ew': M('/assets/models/parking/road-joint-tee-ew.glb', 1, 0),
+  'road-joint-tee-sw': M('/assets/models/parking/road-joint-tee-sw.glb', 1, 0),
+  'road-joint-tee-esw': M('/assets/models/parking/road-joint-tee-esw.glb', 1, 0),
+  'road-joint-cross-n': M('/assets/models/parking/road-joint-cross-n.glb', 1, 0),
+  'road-joint-cross-ne': M('/assets/models/parking/road-joint-cross-ne.glb', 1, 0),
+  'road-joint-cross-ns': M('/assets/models/parking/road-joint-cross-ns.glb', 1, 0),
+  'road-joint-cross-nes': M('/assets/models/parking/road-joint-cross-nes.glb', 1, 0),
+  'road-joint-cross-nesw': M('/assets/models/parking/road-joint-cross-nesw.glb', 1, 0),
+  'road-joint-end-s': M('/assets/models/parking/road-joint-end-s.glb', 1, 3),
+  'road-joint-zebra-straight-n': M('/assets/models/parking/road-joint-zebra-straight-n.glb', 1, 1),
+  'road-joint-zebra-straight-ns': M('/assets/models/parking/road-joint-zebra-straight-ns.glb', 1, 1),
   // The lamps face −X natively (not −Z like the rest of the kit), so one quarter turn puts them on +z.
   'traffic-light': M('/assets/models/roads/traffic-light.glb', 1, 1, { glow: 'traffic' }),
   // Its arm overhangs −X after the turn; like the lamppost, the offset puts the pole back mid-cell.
@@ -152,6 +174,23 @@ export const ZEBRA_PIECE_MODELS: Readonly<Partial<Record<RoadPiece, ModelId>>> =
   straight: 'road-crossing',
   tee: 'road-tee-zebra',
   cross: 'road-cross-zebra',
+};
+
+/**
+ * A road block joining a car park (ObjectDef.plainJoin) draws these instead of ROAD_PIECE_MODELS,
+ * keyed by the piece's lot sides at rotation 0 (N=1, E=2, S=4, W=8) as roadJointFor returns them.
+ */
+export const ROAD_JOINT_MODELS: Readonly<Partial<Record<RoadPiece, Readonly<Record<number, ModelId>>>>> = {
+  straight: { 1: 'road-joint-straight-n', 5: 'road-joint-straight-ns' },
+  corner: { 2: 'road-joint-corner-e', 4: 'road-joint-corner-s', 6: 'road-joint-corner-es' },
+  tee: { 2: 'road-joint-tee-e', 4: 'road-joint-tee-s', 6: 'road-joint-tee-es', 8: 'road-joint-tee-w', 10: 'road-joint-tee-ew', 12: 'road-joint-tee-sw', 14: 'road-joint-tee-esw' },
+  cross: { 1: 'road-joint-cross-n', 3: 'road-joint-cross-ne', 5: 'road-joint-cross-ns', 7: 'road-joint-cross-nes', 15: 'road-joint-cross-nesw' },
+  end: { 4: 'road-joint-end-s' },
+};
+
+/** The zebra straight beside a car park; the zebra tee and cross have no centre lines to remove. */
+export const ZEBRA_JOINT_MODELS: Readonly<Partial<Record<RoadPiece, Readonly<Record<number, ModelId>>>>> = {
+  straight: { 1: 'road-joint-zebra-straight-n', 5: 'road-joint-zebra-straight-ns' },
 };
 
 /** How non-road ground kinds are drawn: a model tile, or a procedural flat tile. */

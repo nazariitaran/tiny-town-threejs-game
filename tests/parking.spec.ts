@@ -1,12 +1,13 @@
 /**
  * Parking: one Streets tool with three sizes in the style strip. A car park snaps to the road grid,
- * the road in front of it joins its entrance, and it is a road feature (Move can't carry it).
+ * the road in front of it joins its entrance with a joint piece (no centre line into the lot), and it
+ * is a road feature (Move can't carry it).
  */
 import { mkdirSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { SAVE_STORAGE_KEY } from '../src/game/config';
 import { createGameBus } from '../src/game/events';
-import { roadMask } from '../src/town/roadTiles';
+import { roadLook, roadMask } from '../src/town/roadTiles';
 import { TownEditor } from '../src/town/TownEditor';
 import { TownState } from '../src/town/TownState';
 import type { Cell, SavedTown } from '../src/town/types';
@@ -90,6 +91,10 @@ test('build a small and a medium car park on a street; the street joins their en
   for (const x of [28, 30, 34, 36]) expect(roadMask(editor.state, { x, z: ROAD_ROW }) & 1, `street block at x ${x}`).toBe(1);
   for (const x of [26, 32, 38]) expect(roadMask(editor.state, { x, z: ROAD_ROW }) & 1, `street block at x ${x}`).toBe(0);
 
+  // The four street blocks in front of the two lots draw car-park joints.
+  for (const x of [28, 30, 34, 36]) expect(roadLook(editor.state, { x, z: ROAD_ROW }).model, `street block at x ${x}`).toBe('road-joint-tee-s');
+  await expect.poll(async () => (await diagnostics(page)).render.roadJoints).toBe(4);
+
   const lot = await canvasPoint(page, 31, 31);
   await page.screenshot({ path: `${ARTIFACTS}/${testInfo.project.name}-built.png` });
 
@@ -102,5 +107,10 @@ test('build a small and a medium car park on a street; the street joins their en
   await selectTool(page, 'bulldoze');
   await put(page, lot, touch);
   await expectDiagnostics(page, { objects: 2, town: { roadTiles: street.town.roadTiles + 2 } }, 'medium car park bulldozed');
+  // Its two street blocks are plain tees again, and undo brings the joints back.
+  await expect.poll(async () => (await diagnostics(page)).render.roadJoints).toBe(2);
+  await byId(page, UI_TEST_IDS.undo).click();
+  await expectDiagnostics(page, { objects: 3, town: { roadTiles: street.town.roadTiles + 6 } }, 'bulldoze undone');
+  await expect.poll(async () => (await diagnostics(page)).render.roadJoints).toBe(4);
   errors.expectNone();
 });

@@ -10,7 +10,7 @@
  * can still turn it into a camera gesture.
  */
 import * as THREE from 'three';
-import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS, ZEBRA_PIECE_MODELS } from '../catalog/models';
+import { EDGE_MODELS, GROUND_MODELS, ZEBRA_PIECE_MODELS } from '../catalog/models';
 import { footprintOf, objectDef, placedFootprint, type ObjectDef } from '../catalog/objects';
 import { actionForTool, RETIRED_TOOLS, toolDef, type DragMode, type ToolId } from '../catalog/tools';
 import type { DebugTools } from '../debug/DebugTools';
@@ -26,7 +26,7 @@ import {
 } from '../game/config';
 import type { GameBus } from '../game/events';
 import type { ModelLibrary } from '../render/ModelLibrary';
-import { roadMask, roadTileFor } from '../town/roadTiles';
+import { roadLook } from '../town/roadTiles';
 import {
   anchorForPointer,
   cellKey,
@@ -762,8 +762,8 @@ export class ToolController {
   private markingPart(anchor: Cell): GhostPart {
     const state = this.editor.state;
     if (!state.inBounds(anchor) || state.getGround(anchor) !== 'road') return { model: 'road-crossing' };
-    const tile = roadTileFor(roadMask(state, anchor));
-    return { model: ZEBRA_PIECE_MODELS[tile.piece] ?? 'road-crossing', quarterTurns: tile.rotation };
+    const look = roadLook(state, anchor, true);
+    return { model: ZEBRA_PIECE_MODELS[look.piece] ? look.model : 'road-crossing', quarterTurns: look.rotation };
   }
 
   /** Where the active tool acts for this pick: objects centre their footprint on the pointer. */
@@ -960,8 +960,8 @@ export class ToolController {
   private groundLook(kind: Exclude<GroundKind, 'field'>, cell: Cell): { parts: GhostPart[]; fill?: string } {
     const state = this.editor.state;
     if (kind === 'road') {
-      const tile = roadTileFor(roadMask(state, cell));
-      return { parts: [{ model: ROAD_PIECE_MODELS[tile.piece], quarterTurns: tile.rotation }] };
+      const look = roadLook(state, cell);
+      return { parts: [{ model: look.model, quarterTurns: look.rotation }] };
     }
     if (kind === 'walkway') {
       let mask = 0;

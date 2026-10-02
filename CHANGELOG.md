@@ -5,7 +5,7 @@ Player-facing release notes for Tiny Town. Budgets and measurements are in `docs
 ## Unreleased
 
 ### New
-- **Car parks.** Streets has a new Parking card with three sizes, picked from its style row (`V` / `Shift+V`): a small row of 4 bays straight off the street, a medium car park for 8 cars and a large one for 12 with two little planter islands. It snaps to the road grid like the roundabout, `R` turns it, and a road in front of its entrance joins it. Cars don't park in it yet. Saves stay on version 4.
+- **Car parks.** Streets has a new Parking card with three sizes, picked from its style row (`V` / `Shift+V`): a small row of 4 bays straight off the street, a medium car park for 8 cars and a large one for 12 with two little planter islands. It snaps to the road grid like the roundabout, `R` turns it, and a road in front of its entrance joins it like a driveway: the street keeps its centre line, and no lane line runs into the car park. Cars don't park in it yet. Saves stay on version 4.
 
 ## v0.6 — 2026-10-02
 Package 0.6.0. Everything merged after `v0.5`, and the first public release, at https://tiny-town-threejs-game.nazariy-taran.workers.dev/. Saves stay on version 4, so v0.5 towns open unchanged.

@@ -3,7 +3,8 @@ import { OBJECTS } from '../catalog/objects';
 import { rotatedFootprint } from './grid';
 import { TownState } from './TownState';
 import type { Rotation, TownChange } from './types';
-import { E, isFeatureArm, isFeatureCentre, N, roadFeatureAt, roadMask, roadTileFor, rotateMask, S, underRoadFeature, W } from './roadTiles';
+import { ROAD_JOINT_MODELS, ROAD_PIECE_MODELS, ZEBRA_JOINT_MODELS, ZEBRA_PIECE_MODELS } from '../catalog/models';
+import { E, isFeatureArm, isFeatureCentre, N, plainJoinMask, roadFeatureAt, roadJointFor, roadLook, roadMask, roadTileFor, rotateMask, S, underRoadFeature, W } from './roadTiles';
 
 describe('road auto-tiling', () => {
   it('rotates masks counter-clockwise (E→N, S→E)', () => {
@@ -146,5 +147,111 @@ describe('road auto-tiling next to a car park (front arms)', () => {
     expect(isFeatureArm(lot, { x: 6, z: 8 }, 1)).toBe(false); // the same block from the west
     expect(isFeatureArm(lot, { x: 6, z: 6 }, 0)).toBe(false); // the back row
     expect(isFeatureCentre(lot, { x: 7, z: 7 })).toBe(false);
+  });
+});
+
+describe('car-park joints (plainJoin)', () => {
+  const road = (x: number, z: number): TownChange[] =>
+    [0, 1].flatMap((dz) => [0, 1].map((dx): TownChange => ({ layer: 'ground', cell: { x: x + dx, z: z + dz }, before: 'field', after: 'road' })));
+
+  function lotTown(variant: number, rotation: Rotation, anchor = { x: 6, z: 6 }, town = new TownState(24, 24), id = 1): TownState {
+    const [w, d] = rotatedFootprint(OBJECTS.parking.footprints![variant], rotation);
+    const changes: TownChange[] = [];
+    for (let z = anchor.z; z < anchor.z + d; z += 1) for (let x = anchor.x; x < anchor.x + w; x += 1) changes.push({ layer: 'ground', cell: { x, z }, before: town.getGround({ x, z }), after: 'road' });
+    changes.push({ layer: 'object', op: 'add', object: { id, kind: 'parking', anchor, rotation, variant } });
+    town.applyChanges(changes);
+    return town;
+  }
+
+  it('picks a joint model for every piece and set of lot sides (symmetric pieces share one)', () => {
+    const used = new Set<string>();
+    for (let mask = 1; mask < 16; mask += 1) {
+      for (let plain = mask; plain > 0; plain = (plain - 1) & mask) {
+        const joint = roadJointFor(mask, plain);
+        expect(joint.piece).toBe(roadTileFor(mask).piece);
+        expect(rotateMask(joint.plain, joint.rotation), `mask ${mask} lots ${plain}`).toBe(plain);
+        const id = ROAD_JOINT_MODELS[joint.piece]?.[joint.plain];
+        expect(id, `mask ${mask} lots ${plain}`).toBeDefined();
+        used.add(id!);
+      }
+    }
+    // Every joint model is reachable.
+    expect(used).toEqual(new Set(Object.values(ROAD_JOINT_MODELS).flatMap((byLots) => Object.values(byLots))));
+    expect(roadJointFor(E | W, 0)).toEqual({ ...roadTileFor(E | W), plain: 0 });
+  });
+
+  it('the road in front of each front block draws a joint facing the lot, for every size and rotation', () => {
+    for (let variant = 0; variant < OBJECTS.parking.variants; variant += 1) {
+      for (const rotation of [0, 1, 2, 3] as const) {
+        const [w, d] = rotatedFootprint(OBJECTS.parking.footprints![variant], rotation);
+        // In front: S of the lot at rotation 0, then E, N, W; the bit points from the road block back at the lot.
+        const front = [
+          { cells: Array.from({ length: w / 2 }, (_, i) => ({ x: 6 + i * 2, z: 6 + d })), bit: N },
+          { cells: Array.from({ length: d / 2 }, (_, i) => ({ x: 6 + w, z: 6 + i * 2 })), bit: W },
+          { cells: Array.from({ length: w / 2 }, (_, i) => ({ x: 6 + i * 2, z: 4 })), bit: S },
+          { cells: Array.from({ length: d / 2 }, (_, i) => ({ x: 4, z: 6 + i * 2 })), bit: E },
+        ][rotation];
+        const town = lotTown(variant, rotation);
+        town.applyChanges(front.cells.flatMap((c) => road(c.x, c.z)));
+        for (const cell of front.cells) {
+          const label = `style ${variant} r${rotation} block ${cell.x},${cell.z}`;
+          expect(plainJoinMask(town, cell), label).toBe(front.bit);
+          const look = roadLook(town, cell);
+          const joint = roadJointFor(roadMask(town, cell), front.bit);
+          expect(look, label).toEqual({ piece: joint.piece, model: ROAD_JOINT_MODELS[joint.piece]![joint.plain], rotation: joint.rotation });
+        }
+      }
+    }
+  });
+
+  it('a street running past tees into the lot without a centre line; the blocks beside it stay plain straights', () => {
+    const town = lotTown(1, 0); // medium on 6..9 × 6..9, front to the south
+    for (let x = 2; x < 16; x += 2) town.applyChanges(road(x, 10));
+    for (const x of [6, 8]) expect(roadLook(town, { x, z: 10 })).toEqual({ piece: 'tee', model: 'road-joint-tee-s', rotation: 2 });
+    for (const x of [4, 10]) expect(roadLook(town, { x, z: 10 })).toEqual({ piece: 'straight', model: 'road-straight', rotation: 1 });
+    // A road arriving head-on ends in the entrance, and a dead end facing it loses its line too.
+    const headOn = lotTown(1, 0);
+    headOn.applyChanges([...road(6, 10), ...road(6, 12)]);
+    expect(roadLook(headOn, { x: 6, z: 10 })).toMatchObject({ piece: 'straight', model: 'road-joint-straight-n' });
+    const stub = lotTown(1, 0);
+    stub.applyChanges(road(8, 10));
+    expect(roadLook(stub, { x: 8, z: 10 })).toMatchObject({ piece: 'end', model: 'road-joint-end-s' });
+  });
+
+  it('two lots facing each other across a street: the street loses both lines there', () => {
+    const town = lotTown(0, 0, { x: 6, z: 6 }); // small, 4 × 2 on rows 6..7, front south
+    lotTown(0, 2, { x: 6, z: 10 }, town, 2); // small turned to face north, rows 10..11
+    town.applyChanges([2, 4, 6, 8, 10, 12].flatMap((x) => road(x, 8)));
+    for (const x of [6, 8]) {
+      expect(plainJoinMask(town, { x, z: 8 })).toBe(N | S);
+      expect(roadLook(town, { x, z: 8 })).toMatchObject({ piece: 'cross', model: 'road-joint-cross-ns' });
+    }
+  });
+
+  it('a zebra next to a lot: the straight drops its line, the tee keeps its zebra; the roundabout never makes joints', () => {
+    const town = lotTown(1, 0);
+    town.applyChanges([...road(6, 10), ...road(6, 12)]);
+    town.applyChanges([{ layer: 'object', op: 'add', object: { id: 9, kind: 'zebra-crossing', anchor: { x: 6, z: 10 }, rotation: 0, variant: 0 } }]);
+    expect(roadLook(town, { x: 6, z: 10 })).toMatchObject({ piece: 'straight', model: ZEBRA_JOINT_MODELS.straight![1] });
+    const tee = lotTown(1, 0);
+    for (let x = 2; x < 16; x += 2) tee.applyChanges(road(x, 10));
+    expect(roadLook(tee, { x: 6, z: 10 }, true)).toEqual({ piece: 'tee', model: ZEBRA_PIECE_MODELS.tee, rotation: 2 });
+
+    const roundabout = new TownState(16, 16);
+    const changes: TownChange[] = [];
+    for (let z = 4; z < 10; z += 1) for (let x = 4; x < 10; x += 1) changes.push({ layer: 'ground', cell: { x, z }, before: 'field', after: 'road' });
+    changes.push({ layer: 'object', op: 'add', object: { id: 1, kind: 'roundabout', anchor: { x: 4, z: 4 }, rotation: 0, variant: 0 } });
+    roundabout.applyChanges([...changes, ...road(6, 10)]);
+    expect(roadMask(roundabout, { x: 6, z: 10 })).toBe(N);
+    expect(plainJoinMask(roundabout, { x: 6, z: 10 })).toBe(0);
+    expect(roadLook(roundabout, { x: 6, z: 10 }).model).toBe(ROAD_PIECE_MODELS.end);
+  });
+
+  it('removing the lot gives the street its usual piece back', () => {
+    const town = lotTown(1, 0);
+    for (let x = 2; x < 16; x += 2) town.applyChanges(road(x, 10));
+    const lot = roadFeatureAt(town, { x: 6, z: 6 })!;
+    town.applyChanges([{ layer: 'object', op: 'remove', object: lot }]);
+    expect(roadLook(town, { x: 6, z: 10 }).model).not.toMatch(/joint/);
   });
 });

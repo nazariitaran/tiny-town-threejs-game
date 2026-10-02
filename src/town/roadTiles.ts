@@ -13,7 +13,10 @@
  * draw them instead of the tiles. A neighbouring road block joins a feature only at one of its "arms":
  * the middle block of the feature's facing side (the roundabout), or any block of its front side when
  * arriving from straight in front (a parking lot), so a road running past doesn't tee into its kerb.
+ * A road block that joins a car park (ObjectDef.plainJoin) draws a joint: its usual piece with no
+ * centre line on the sides facing a lot (roadLook, catalog ROAD_JOINT_MODELS).
  */
+import { ROAD_JOINT_MODELS, ROAD_PIECE_MODELS, ZEBRA_JOINT_MODELS, ZEBRA_PIECE_MODELS, type ModelId } from '../catalog/models';
 import { objectDef, placedFootprint } from '../catalog/objects';
 import { NEIGHBOURS, ROAD_BLOCK, roadBlockAnchor } from './grid';
 import type { Cell, PlacedObject, Rotation, TownStateReader } from './types';
@@ -124,6 +127,73 @@ export function roadMask(state: TownStateReader, cell: Cell): number {
 
 export function roadTileFor(mask: number): { piece: RoadPiece; rotation: Rotation } {
   return TABLE[mask & 15];
+}
+
+/** The bits of roadMask(state, cell) that join a car park's entrance (a plainJoin road feature). */
+export function plainJoinMask(state: TownStateReader, cell: Cell): number {
+  const anchor = roadBlockAnchor(cell, scratchAnchor);
+  let mask = 0;
+  for (let i = 0; i < 4; i += 1) {
+    scratchNeighbour.x = anchor.x + NEIGHBOURS[i].x * ROAD_BLOCK;
+    scratchNeighbour.z = anchor.z + NEIGHBOURS[i].z * ROAD_BLOCK;
+    if (state.getGround(scratchNeighbour) !== 'road') continue;
+    const feature = roadFeatureAt(state, scratchNeighbour);
+    if (feature && objectDef(feature.kind).plainJoin && isFeatureArm(feature, scratchNeighbour, i)) mask |= 1 << i;
+  }
+  return mask;
+}
+
+/** Quarter turns that leave a piece's shape unchanged. */
+const PIECE_SYMMETRY: Readonly<Record<RoadPiece, readonly number[]>> = {
+  single: [0],
+  end: [0],
+  straight: [0, 2],
+  corner: [0],
+  tee: [0],
+  cross: [0, 1, 2, 3],
+};
+
+/**
+ * roadTileFor(mask) plus `plain`: the piece's sides at rotation 0 that face a lot (`plainMask`, a subset of
+ * `mask`, in world sides). A symmetric piece takes the turn whose `plain` is smallest, so equivalent lot
+ * sides share one joint model.
+ */
+export function roadJointFor(mask: number, plainMask: number): { piece: RoadPiece; rotation: Rotation; plain: number } {
+  const tile = roadTileFor(mask);
+  const plain = rotateMask(plainMask & mask & 15, (4 - tile.rotation) % 4);
+  let best = { piece: tile.piece, rotation: tile.rotation, plain };
+  for (const turn of PIECE_SYMMETRY[tile.piece]) {
+    const turned = rotateMask(plain, turn);
+    if (turned < best.plain) best = { piece: tile.piece, rotation: ((tile.rotation - turn + 4) % 4) as Rotation, plain: turned };
+  }
+  return best;
+}
+
+/** What a road block draws: its piece, the model (zebra and car-park joint variants included) and its turn. */
+export interface RoadLook {
+  piece: RoadPiece;
+  model: ModelId;
+  rotation: Rotation;
+}
+
+/** The road look of the block containing `cell`; `zebra` defaults to whether a zebra crossing stands on it. */
+export function roadLook(state: TownStateReader, cell: Cell, zebra?: boolean): RoadLook {
+  const mask = roadMask(state, cell);
+  const tile = roadTileFor(mask);
+  // Corners, ends and singles have no zebra variant and draw plain.
+  const marked = (zebra ?? isMarked(state, cell)) && ZEBRA_PIECE_MODELS[tile.piece] !== undefined;
+  const plain = plainJoinMask(state, cell);
+  if (plain) {
+    const joint = roadJointFor(mask, plain);
+    const model = (marked ? ZEBRA_JOINT_MODELS : ROAD_JOINT_MODELS)[joint.piece]?.[joint.plain];
+    if (model) return { piece: joint.piece, model, rotation: joint.rotation };
+  }
+  return { piece: tile.piece, model: (marked ? ZEBRA_PIECE_MODELS[tile.piece] : undefined) ?? ROAD_PIECE_MODELS[tile.piece], rotation: tile.rotation };
+}
+
+function isMarked(state: TownStateReader, cell: Cell): boolean {
+  const object = state.getObjectAt(cell);
+  return object !== undefined && objectDef(object.kind).roadMarking === true;
 }
 
 export { N, E, S, W };

@@ -1,4 +1,4 @@
-import type { ModelId } from '../catalog/models';
+import { ROAD_JOINT_MODELS, ZEBRA_JOINT_MODELS, type ModelId } from '../catalog/models';
 
 /** Per-model look overrides. `color` replaces the atlas colour (the map is dropped); `scale` is a non-uniform local scale. */
 export interface ModelStyle {
@@ -31,6 +31,10 @@ export const MODEL_STYLES: Readonly<Partial<Record<ModelId, ModelStyle>>> = {
   'parking-small': { warmAtlas: true },
   'parking-medium': { warmAtlas: true },
   'parking-large': { warmAtlas: true },
+  // The car-park joints are road pieces too.
+  ...Object.fromEntries(
+    [ROAD_JOINT_MODELS, ZEBRA_JOINT_MODELS].flatMap((table) => Object.values(table).flatMap((byLots) => Object.values(byLots))).map((id) => [id, { warmAtlas: true }]),
+  ),
   // Darker and stouter so the lamp reads against the field.
   lamppost: { color: '#46505e', scale: [1.5, 1, 1.15] },
 };
