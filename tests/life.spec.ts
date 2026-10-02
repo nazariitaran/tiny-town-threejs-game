@@ -37,8 +37,8 @@ function sampleTownRoad(x: number, z: number): boolean {
   const [lx, lz] = [x - O, z - O];
   return ((lz === 24 || lz === 25) && lx >= 4 && lx <= 43) || ((lx === 22 || lx === 23) && lz >= 8 && lz <= 41) || onSampleRoundabout(x, z);
 }
-/** Road blocks in the sample town (TownStats.roadTiles): 20 + 8 + 8 street blocks + 9 roundabout − 5 shared. */
-const SAMPLE_ROAD_TILES = 40;
+/** Road blocks in the sample town (TownStats.roadTiles): 20 + 8 + 8 street blocks + 9 roundabout − 5 shared + 6 car park. */
+const SAMPLE_ROAD_TILES = 46;
 
 const sameBlock = (a: { x: number; z: number }, b: { x: number; z: number }) =>
   Math.floor(a.x / 2) === Math.floor(b.x / 2) && Math.floor(a.z / 2) === Math.floor(b.z / 2);
