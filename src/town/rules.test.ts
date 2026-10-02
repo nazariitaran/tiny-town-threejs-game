@@ -503,6 +503,73 @@ describe('road markings — the zebra crossing (one 2 × 2 road block, block ali
   });
 });
 
+describe('road features — parking lots (one kind, a footprint per style, block aligned)', () => {
+  const SIZE = 16;
+  const lot = (x: number, z: number, rotation: Rotation = 0, variant?: number): BuildAction =>
+    variant === undefined ? placeObj('parking', x, z, rotation) : { type: 'place-object', kind: 'parking', cell: { x, z }, rotation, variant };
+  const cellsOf = (x0: number, z0: number, w: number, d: number): string[] => {
+    const keys: string[] = [];
+    for (let z = z0; z < z0 + d; z += 1) for (let x = x0; x < x0 + w; x += 1) keys.push(`${x},${z}`);
+    return keys.sort();
+  };
+  const groundCells = (changes: TownChange[]) => changes.flatMap((c) => (c.layer === 'ground' ? [`${c.cell.x},${c.cell.z}`] : [])).sort();
+
+  it('each style paints exactly its own (rotated) footprint to road, keeps the style and draws no RNG', () => {
+    for (let variant = 0; variant < OBJECTS.parking.variants; variant += 1) {
+      for (const rotation of [0, 1, 2, 3] as const) {
+        const state = new TownState(SIZE, SIZE);
+        const context = ctx(0.99);
+        const changes = expectOk(plan(state, lot(4, 4, rotation, variant), context));
+        const [w, d] = rotatedFootprint(OBJECTS.parking.footprints![variant], rotation);
+        expect(groundCells(changes), `style ${variant} r${rotation}`).toEqual(cellsOf(4, 4, w, d));
+        expect(changes[changes.length - 1]).toEqual({ layer: 'object', op: 'add', object: { id: 1001, kind: 'parking', anchor: { x: 4, z: 4 }, rotation, variant } });
+        expect([context.ids, context.draws]).toEqual([1, 0]);
+      }
+    }
+  });
+
+  it('without a style it builds the small lot and still draws no RNG (the footprint depends on the style)', () => {
+    const context = ctx(0.99);
+    const changes = expectOk(plan(new TownState(SIZE, SIZE), lot(4, 4), context));
+    expect(changes[changes.length - 1]).toMatchObject({ layer: 'object', object: { kind: 'parking', variant: 0 } });
+    expect(groundCells(changes)).toEqual(cellsOf(4, 4, 4, 2));
+    expect(context.draws).toBe(0);
+  });
+
+  it('invalid: off the block grid → "Parking must line up with the road grid"', () => {
+    for (const [x, z] of [[5, 4], [4, 5]]) {
+      expectFail(plan(new TownState(SIZE, SIZE), lot(x, z, 0, 1)), 'out-of-bounds', 'Parking must line up with the road grid');
+    }
+  });
+
+  it('bounds and occupancy follow the chosen style: the large lot needs room the small one does not', () => {
+    const state = new TownState(SIZE, SIZE);
+    expectOk(plan(state, lot(4, 12, 0, 0))); // rows 12–13
+    expectFail(plan(state, lot(4, 12, 0, 2)), 'out-of-bounds', 'Outside your plot'); // rows 12–17
+    object(state, 'postbox', 5, 9);
+    expectOk(plan(state, lot(4, 6, 0, 0))); // rows 6–7
+    expectFail(plan(state, lot(4, 6, 0, 1)), 'occupied', 'Something is already here'); // rows 6–9
+  });
+
+  it('bulldozing any of its cells returns its own footprint to field; it cannot be moved', () => {
+    const state = new TownState(SIZE, SIZE);
+    const placed = expectOk(plan(state, lot(4, 2, 1, 2)));
+    state.applyChanges(placed);
+    const id = (placed[placed.length - 1] as Extract<TownChange, { layer: 'object' }>).object.id;
+    expectFail(plan(state, { type: 'move-object', id, cell: { x: 8, z: 2 }, rotation: 1 }), 'cannot-move', "Parking can't be moved");
+    const changes = expectOk(plan(state, bulldoze(9, 5)));
+    expect(groundCells(changes)).toEqual(cellsOf(4, 2, 6, 4)); // the large lot turned: 6 × 4
+    expect(changes.every((c) => c.layer !== 'ground' || (c.before === 'road' && c.after === 'field'))).toBe(true);
+    expect(changes[changes.length - 1]).toMatchObject({ layer: 'object', op: 'remove', object: { kind: 'parking', variant: 2 } });
+  });
+
+  it('invalid: repainting its road → "Move the Parking first"', () => {
+    const state = new TownState(SIZE, SIZE);
+    state.applyChanges(expectOk(plan(state, lot(4, 4, 0, 1))));
+    expectFail(plan(state, paint('grass', 7, 7)), 'occupied', 'Move the Parking first');
+  });
+});
+
 describe('road features — the roundabout (6×6 cells = 3×3 road blocks, block aligned)', () => {
   const footprint = (x0: number, z0: number): string[] => {
     const keys: string[] = [];

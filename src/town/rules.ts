@@ -7,20 +7,24 @@
  *  - Object ids and RNG draws are consumed only on success, after every check has passed.
  *  - `no-change` is silent: its message is '' and callers must never show it.
  *  - A 2 × 2 road block is all road or none: painting or bulldozing one cell converts the whole block.
- *  - Road features (roundabout) and road markings (zebra) are block-aligned and lock their road
- *    against repainting while they stand.
+ *  - Road features (roundabout, parking) and road markings (zebra) are block-aligned and lock their
+ *    road against repainting while they stand.
+ *  - An object covers the footprint of its own style (catalog footprintOf).
  *  - A move is [remove, add] with the SAME id and variant, so undo, saves and the per-id look follow it.
  */
 import { cellKey, edgeCells, edgeInBounds, edgeKey, edgeOfCellSide, footprintCells, NEIGHBOURS, ROAD_BLOCK, roadBlockCells } from './grid';
 import { ZEBRA_PIECE_MODELS } from '../catalog/models';
-import { objectDef, type ObjectDef } from '../catalog/objects';
+import { footprintOf, objectDef, placedFootprint, type ObjectDef } from '../catalog/objects';
 import { roadMask, roadTileFor } from './roadTiles';
 import type { BuildAction, Cell, GroundKind, InvalidReason, PlanResult, Rotation, TownChange, TownStateReader } from './types';
 
 export interface PlanContext {
   /** Reserves an object id; called only on success. */
   nextId(): number;
-  /** Seeded RNG for variants; called only on success, for multi-variant kinds, when the action names no variant. */
+  /**
+   * Seeded RNG for variants; called only on success, for multi-variant kinds, when the action names no
+   * variant. Kinds whose styles differ in size never roll (no variant ⇒ style 0).
+   */
   rng(): number;
 }
 
@@ -164,11 +168,12 @@ function blockGroundChanges(state: TownStateReader, cell: Cell, after: GroundKin
 function checkObjectSpot(
   state: TownStateReader,
   def: ObjectDef,
+  variant: number,
   cell: Cell,
   rotation: Rotation,
   ignoreId: number | null,
 ): Rejection | null {
-  const cells = footprintCells(cell, def.footprint, rotation);
+  const cells = footprintCells(cell, footprintOf(def, variant), rotation);
   if (cells.some((c) => !state.inBounds(c))) return fail('out-of-bounds', RULE_MESSAGES.outOfBounds);
   if ((def.roadFeature || def.roadMarking) && (cell.x % ROAD_BLOCK !== 0 || cell.z % ROAD_BLOCK !== 0)) {
     // ToolController snaps the anchor to the block grid; this only guards scripted actions.
@@ -220,8 +225,13 @@ export function isTurnable(def: ObjectDef): boolean {
 
 function planPlaceObject(state: TownStateReader, action: Extract<BuildAction, { type: 'place-object' }>, ctx: PlanContext): PlanResult {
   const def = objectDef(action.kind);
-  const cells = footprintCells(action.cell, def.footprint, action.rotation);
-  const blocked = checkObjectSpot(state, def, action.cell, action.rotation, null);
+  // The variant picker sends the model the ghost showed; without one (demo towns, tests) roll one
+  // after the checks, unless the styles differ in size (the footprint must be known first).
+  const chosen = action.variant;
+  const named = chosen !== undefined && Number.isInteger(chosen) && chosen >= 0 && chosen < def.variants;
+  const footprintVariant = named ? chosen : 0;
+  const cells = footprintCells(action.cell, footprintOf(def, footprintVariant), action.rotation);
+  const blocked = checkObjectSpot(state, def, footprintVariant, action.cell, action.rotation, null);
   if (blocked) return blocked;
   // A road feature paints its footprint to road first (fences across it go), so the add is last.
   const changes: TownChange[] = [];
@@ -232,14 +242,8 @@ function planPlaceObject(state: TownStateReader, action: Extract<BuildAction, { 
       if (before !== 'road') changes.push({ layer: 'ground', cell: { x: cell.x, z: cell.z }, before, after: 'road' });
     }
   }
-  // The variant picker sends the model the ghost showed; without one (demo towns, tests) roll one.
-  const chosen = action.variant;
   const variant =
-    chosen !== undefined && Number.isInteger(chosen) && chosen >= 0 && chosen < def.variants
-      ? chosen
-      : def.variants > 1
-        ? Math.min(def.variants - 1, Math.floor(ctx.rng() * def.variants))
-        : 0;
+    named || def.footprints || def.variants <= 1 ? footprintVariant : Math.min(def.variants - 1, Math.floor(ctx.rng() * def.variants));
   changes.push({
     layer: 'object',
     op: 'add',
@@ -271,7 +275,7 @@ function planMoveObject(state: TownStateReader, action: Extract<BuildAction, { t
   if (object.anchor.x === action.cell.x && object.anchor.z === action.cell.z && object.rotation === rotation) {
     return fail('no-change', RULE_MESSAGES.noChange);
   }
-  const blocked = checkObjectSpot(state, def, action.cell, rotation, object.id);
+  const blocked = checkObjectSpot(state, def, object.variant, action.cell, rotation, object.id);
   if (blocked) return blocked;
   // Same id and variant: the move is the same object, so undo / saves / its per-id look follow it.
   return {
@@ -291,7 +295,7 @@ function planBulldoze(state: TownStateReader, action: Extract<BuildAction, { typ
     const def = objectDef(object.kind);
     if (def.roadFeature) {
       // The feature takes its road with it (the object removal stays last = primary).
-      for (const cell of footprintCells(object.anchor, def.footprint, object.rotation)) {
+      for (const cell of footprintCells(object.anchor, placedFootprint(object), object.rotation)) {
         if (state.getGround(cell) === 'road') changes.push({ layer: 'ground', cell, before: 'road', after: 'field' });
       }
     }

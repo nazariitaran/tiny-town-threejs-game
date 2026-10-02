@@ -10,7 +10,7 @@ export type ToolId = Exclude<GroundKind, 'field'> | ObjectKind | EdgeKind | Mode
 export type ModeToolId = 'move' | 'bulldoze';
 /**
  * Dock categories — each answers "what am I building?":
- *   streets: the road network (roads, pavement, roundabout, zebra, traffic lights)
+ *   streets: the road network (roads, pavement, roundabout, parking, zebra, traffic lights)
  *   homes:   where people live (and their mailbox)
  *   town:    shops, civic places and the street furniture everyone shares
  *   nature:  things that grow on their own (ground cover, trees, bushes)
@@ -49,6 +49,7 @@ const ROWS: readonly ToolRow[] = [
   { id: 'road', label: 'Road', category: 'streets', layer: 'ground', drag: 'paint', sfx: 'place-path', hint: 'Drag to lay road — it joins up automatically' },
   { id: 'pavement', label: 'Pavement', category: 'streets', layer: 'ground', drag: 'paint', sfx: 'place-path', hint: 'Drag to lay pavement alongside roads' },
   { id: 'roundabout', label: 'Roundabout', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-path', hint: 'Click to build a roundabout — roads join its four arms' },
+  { id: 'parking', label: 'Parking', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-path', hint: 'Click to build a car park — roads join its entrance · R to rotate' },
   { id: 'zebra-crossing', label: 'Zebra', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-path', hint: 'Click a straight road or a junction to paint a zebra crossing' },
   { id: 'traffic-light', label: 'Traffic light', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-prop-metal', hint: 'Place next to a road · R to rotate' },
   { id: 'cottage', label: 'Cottage', category: 'homes', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
@@ -84,7 +85,7 @@ const ROWS: readonly ToolRow[] = [
   { id: 'swing', label: 'Swing', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-prop', hint: PLACE },
   { id: 'slide', label: 'Slide', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-prop', hint: PLACE },
   { id: 'swimming-pool', label: 'Pool', category: 'garden', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
-  // Move carries placed objects only (not the roundabout or a zebra; never ground, hedges or fences);
+  // Move carries placed objects only (not the roundabout, parking or a zebra; never ground, hedges or fences);
   // its drop plays the moved item's own place sound.
   { id: 'move', label: 'Move', category: 'mode', layer: 'move', drag: 'single', sfx: 'place-prop', hint: 'Click something to pick it up' },
   { id: 'bulldoze', label: 'Bulldoze', category: 'mode', layer: 'bulldoze', drag: 'paint', sfx: 'remove', hint: 'Click or drag to remove things' },

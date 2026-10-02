@@ -10,7 +10,7 @@
  */
 import * as THREE from 'three';
 import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS, ZEBRA_PIECE_MODELS, type ModelId } from '../catalog/models';
-import { objectDef } from '../catalog/objects';
+import { objectDef, placedFootprint } from '../catalog/objects';
 import { CELL_SIZE, cellToWorld, ROAD_TILE_SIZE, roadBlockCentreWorld } from '../game/config';
 import type { DebugTools } from '../debug/DebugTools';
 import type { GameBus } from '../game/events';
@@ -361,7 +361,7 @@ export class TownRenderer {
         // Meadow scatter hides under objects: refresh the covered cells. A road feature also hides
         // the road tiles under it and changes how the neighbouring road blocks join up.
         const def = objectDef(change.object.kind);
-        for (const cell of footprintCells(change.object.anchor, def.footprint, change.object.rotation)) {
+        for (const cell of footprintCells(change.object.anchor, placedFootprint(change.object), change.object.rotation)) {
           if (!this.town.inBounds(cell)) continue;
           touchedCells.set(cellKey(cell), cell);
           if (def.roadFeature) touch(cell);
@@ -382,7 +382,7 @@ export class TownRenderer {
     const current = this.groundByCell.get(key);
     const kind = this.town.getGround(cell);
     // A road block draws one tile, owned by its anchor (min corner) cell; the other cells draw nothing,
-    // and nor does a block under a road feature (the roundabout model draws the road there).
+    // and nor does a block under a road feature (the roundabout or car park model draws the road there).
     const roadFiller = kind === 'road' && (cell.x % ROAD_BLOCK !== 0 || cell.z % ROAD_BLOCK !== 0 || underRoadFeature(this.town, cell));
     const spec = kind === 'field' || roadFiller ? null : this.describeGround(kind, cell);
     if (current && spec && current.sig === spec.sig) return;

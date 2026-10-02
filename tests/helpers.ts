@@ -8,7 +8,7 @@
 import { expect, type Page, type TestInfo } from '@playwright/test';
 import type { ToolCategory, ToolId } from '../src/catalog/tools';
 import { toolDef } from '../src/catalog/tools';
-import { objectDef } from '../src/catalog/objects';
+import { footprintOf, objectDef } from '../src/catalog/objects';
 import { rotatedFootprint } from '../src/town/grid';
 import type { Cell, ObjectKind, Rotation } from '../src/town/types';
 import { UI_TEST_IDS } from '../src/ui/testIds';
@@ -135,8 +135,8 @@ export async function gridPoint(page: Page, gx: number, gz: number): Promise<Poi
  * boundary. So even axes aim a quarter cell short of that corner, which rounds to `anchor` with ±¼
  * cell of slack. `cell` is the hovered cell (diagnostics.hover), `grid` the fractional pointer.
  */
-export function footprintPointer(kind: ObjectKind, anchor: Cell, rotation: Rotation = 0): { cell: Cell; grid: { x: number; z: number } } {
-  const [w, d] = rotatedFootprint(objectDef(kind).footprint, rotation);
+export function footprintPointer(kind: ObjectKind, anchor: Cell, rotation: Rotation = 0, variant = 0): { cell: Cell; grid: { x: number; z: number } } {
+  const [w, d] = rotatedFootprint(footprintOf(objectDef(kind), variant), rotation);
   const axis = (start: number, size: number) =>
     size % 2 === 1 ? { cell: start + (size - 1) / 2, g: start + size / 2 } : { cell: start + size / 2 - 1, g: start + size / 2 - 0.25 };
   const x = axis(anchor.x, w);
@@ -144,15 +144,15 @@ export function footprintPointer(kind: ObjectKind, anchor: Cell, rotation: Rotat
   return { cell: { x: x.cell, z: z.cell }, grid: { x: x.g, z: z.g } };
 }
 
-/** Client point that places `kind` (at `rotation`) with its min corner on `anchor`. */
-export async function footprintPoint(page: Page, kind: ObjectKind, anchor: Cell, rotation: Rotation = 0): Promise<Point> {
-  const { grid } = footprintPointer(kind, anchor, rotation);
+/** Client point that places `kind` (at `rotation`, style `variant`) with its min corner on `anchor`. */
+export async function footprintPoint(page: Page, kind: ObjectKind, anchor: Cell, rotation: Rotation = 0, variant = 0): Promise<Point> {
+  const { grid } = footprintPointer(kind, anchor, rotation, variant);
   return gridPoint(page, grid.x, grid.z);
 }
 
 /** Real click that places `kind` on `anchor` (the tool must already be selected and rotated to `rotation`). */
-export async function clickFootprint(page: Page, kind: ObjectKind, anchor: Cell, rotation: Rotation = 0): Promise<void> {
-  const p = await footprintPoint(page, kind, anchor, rotation);
+export async function clickFootprint(page: Page, kind: ObjectKind, anchor: Cell, rotation: Rotation = 0, variant = 0): Promise<void> {
+  const p = await footprintPoint(page, kind, anchor, rotation, variant);
   await page.mouse.move(p.x, p.y);
   await page.mouse.down();
   await page.mouse.up();

@@ -1,5 +1,5 @@
 import { CELL_SIZE, cellToWorld } from '../game/config';
-import { objectDef } from '../catalog/objects';
+import { footprintOf, objectDef } from '../catalog/objects';
 import { rotatedFootprint } from '../town/grid';
 import type { ObjectKind, PlacedObject, TownChange, TownStateReader } from '../town/types';
 
@@ -57,9 +57,12 @@ export class LampRegistry {
  * base at y = 0, after any MODEL_STYLES scale): the object's footprint centre plus the point turned
  * by the object's rotation (r quarter turns CCW from above = three's +Y rotation).
  */
-export function objectPointToWorld(placed: Pick<PlacedObject, 'kind' | 'anchor' | 'rotation'>, point: Vec3Like, out: Vec3Like): Vec3Like {
-  const def = objectDef(placed.kind);
-  const [w, d] = rotatedFootprint(def.footprint, placed.rotation);
+export function objectPointToWorld(
+  placed: Pick<PlacedObject, 'kind' | 'anchor' | 'rotation'> & { variant?: number },
+  point: Vec3Like,
+  out: Vec3Like,
+): Vec3Like {
+  const [w, d] = rotatedFootprint(footprintOf(objectDef(placed.kind), placed.variant), placed.rotation);
   const first = cellToWorld(placed.anchor);
   const cx = first.x + ((w - 1) * CELL_SIZE) / 2;
   const cz = first.z + ((d - 1) * CELL_SIZE) / 2;

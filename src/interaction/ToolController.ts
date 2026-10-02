@@ -11,7 +11,7 @@
  */
 import * as THREE from 'three';
 import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS, ZEBRA_PIECE_MODELS } from '../catalog/models';
-import { objectDef, type ObjectDef } from '../catalog/objects';
+import { footprintOf, objectDef, placedFootprint, type ObjectDef } from '../catalog/objects';
 import { actionForTool, RETIRED_TOOLS, toolDef, type DragMode, type ToolId } from '../catalog/tools';
 import type { DebugTools } from '../debug/DebugTools';
 import {
@@ -626,7 +626,7 @@ export class ToolController {
     if (!carry) {
       const object = state.getObjectAt(pick.cell);
       if (!object) return;
-      // Asking the rules about "move it where it is" answers "can it move at all?" (roundabout, zebra).
+      // Asking the rules about "move it where it is" answers "can it move at all?" (roundabout, parking, zebra).
       const check = this.editor.preview({ type: 'move-object', id: object.id, cell: object.anchor, rotation: object.rotation });
       if (!check.ok && check.reason === 'cannot-move') {
         this.reportInvalid(check, pick.cell);
@@ -661,7 +661,7 @@ export class ToolController {
   /** The anchor a carried object would be put down at: its footprint centred on the pointer. */
   private carryAnchor(pick: PickResult, carry: Carry): Cell {
     const state = this.editor.state;
-    return anchorForPointer(pick.grid.x, pick.grid.z, objectDef(carry.kind).footprint, carry.rotation, state.width, state.depth, { x: 0, z: 0 }, 1);
+    return anchorForPointer(pick.grid.x, pick.grid.z, placedFootprint(carry), carry.rotation, state.width, state.depth, { x: 0, z: 0 }, 1);
   }
 
   /** Drop the carried object back where it stands (Esc, right-click, another tool, undo…). */
@@ -702,7 +702,8 @@ export class ToolController {
   /** Paint `object` exactly where the town draws it (bulldoze target, Move selection). */
   private showOnObject(ghost: GhostPreview, object: PlacedObject, state: GhostState): void {
     const def = objectDef(object.kind);
-    const centre = footprintCentreWorld(object.anchor, def.footprint, object.rotation);
+    const footprint = placedFootprint(object);
+    const centre = footprintCentreWorld(object.anchor, footprint, object.rotation);
     const marking = def.roadMarking ? this.markingPart(object.anchor) : null;
     // Posed exactly as the town draws it (root unturned; the part carries the turn or tree yaw).
     ghost.show({
@@ -712,7 +713,7 @@ export class ToolController {
       state,
       parts: [marking ?? objectGhostPart(def, def.models[object.variant % def.models.length], object.rotation, object.id)],
       solid: marking !== null, // lies on the road tile: no z-fighting (the tint stays)
-      tileScale: rotatedFootprint(def.footprint, object.rotation),
+      tileScale: rotatedFootprint(footprint, object.rotation),
       snap: true,
     });
   }
@@ -727,7 +728,8 @@ export class ToolController {
       const preview = this.editor.preview({ type: 'move-object', id: carry.id, cell: target, rotation: carry.rotation });
       const home = !preview.ok && preview.reason === 'no-change';
       const valid = preview.ok || home;
-      const centre = footprintCentreWorld(target, def.footprint, carry.rotation);
+      const footprint = placedFootprint(carry);
+      const centre = footprintCentreWorld(target, footprint, carry.rotation);
       this.ghost.show({
         x: centre.x,
         z: centre.z,
@@ -737,7 +739,7 @@ export class ToolController {
         // Back on its own spot the blue highlight already shows it: just the frame (a model here
         // would sit exactly on the real one and z-fight).
         parts: home ? [] : [objectGhostPart(def, def.models[carry.variant % def.models.length], 0, carry.id)],
-        tileScale: rotatedFootprint(def.footprint, carry.rotation),
+        tileScale: rotatedFootprint(footprint, carry.rotation),
       });
       this.publishHover({ cell, edge: null, valid, reason: valid || preview.ok ? null : preview.message });
       return;
@@ -770,7 +772,7 @@ export class ToolController {
     const def = objectDef(this.toolId as PlacedObject['kind']);
     const state = this.editor.state;
     const snap = def.roadFeature || def.roadMarking ? ROAD_BLOCK : 1;
-    return anchorForPointer(pick.grid.x, pick.grid.z, def.footprint, this.rotation, state.width, state.depth, { x: 0, z: 0 }, snap);
+    return anchorForPointer(pick.grid.x, pick.grid.z, footprintOf(def, this.chosenVariant), this.rotation, state.width, state.depth, { x: 0, z: 0 }, snap);
   }
 
   /** Stroke de-duplication key: road strokes visit blocks, everything else cells. */
@@ -805,8 +807,7 @@ export class ToolController {
       if (change.layer === 'ground') this.justPlaced.add(`c:${cellKey(change.cell)}`);
       else if (change.layer === 'edge' && change.op === 'add') this.justPlaced.add(`e:${edgeKey(change.placed.edge)}`);
       else if (change.layer === 'object' && change.op === 'add') {
-        const def = objectDef(change.object.kind);
-        for (const cell of footprintCells(change.object.anchor, def.footprint, change.object.rotation)) {
+        for (const cell of footprintCells(change.object.anchor, placedFootprint(change.object), change.object.rotation)) {
           this.justPlaced.add(`c:${cellKey(cell)}`);
         }
       }
@@ -883,7 +884,8 @@ export class ToolController {
       });
     } else if (def.layer === 'object') {
       const objectDefinition = objectDef(toolId as PlacedObject['kind']);
-      const centre = footprintCentreWorld(target, objectDefinition.footprint, this.rotation);
+      const footprint = footprintOf(objectDefinition, this.chosenVariant);
+      const centre = footprintCentreWorld(target, footprint, this.rotation);
       const marking = objectDefinition.roadMarking ? this.markingPart(target) : null;
       this.ghost.show({
         x: centre.x,
@@ -895,7 +897,7 @@ export class ToolController {
         // road tool), without the mint fill washing out the stripes; invalid keeps the red fill.
         solid: marking !== null,
         fillOpacity: marking && ghostState !== 'invalid' ? 0 : undefined,
-        tileScale: rotatedFootprint(objectDefinition.footprint, this.rotation),
+        tileScale: rotatedFootprint(footprint, this.rotation),
       });
     } else if (edge) {
       const world = edgeToWorld(edge);

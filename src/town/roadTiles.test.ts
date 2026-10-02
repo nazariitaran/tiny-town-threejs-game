@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { OBJECTS } from '../catalog/objects';
+import { rotatedFootprint } from './grid';
 import { TownState } from './TownState';
-import type { TownChange } from './types';
+import type { Rotation, TownChange } from './types';
 import { E, isFeatureArm, isFeatureCentre, N, roadFeatureAt, roadMask, roadTileFor, rotateMask, S, underRoadFeature, W } from './roadTiles';
 
 describe('road auto-tiling', () => {
@@ -97,5 +99,52 @@ describe('road auto-tiling next to a roundabout (road feature)', () => {
     expect(isFeatureArm(feature, { x: 6, z: 4 }, 2)).toBe(true); // north arm, entered southwards
     expect(isFeatureArm(feature, { x: 4, z: 4 }, 2)).toBe(false); // north-west corner
     expect(isFeatureArm(feature, { x: 4, z: 6 }, 1)).toBe(true); // west arm, entered eastwards
+  });
+});
+
+describe('road auto-tiling next to a car park (front arms)', () => {
+  /** 20 × 20 plot with a car park of `variant` anchored at (6, 6), turned `rotation`, standing on road. */
+  function parkingTown(variant: number, rotation: Rotation): TownState {
+    const town = new TownState(20, 20);
+    const [w, d] = rotatedFootprint(OBJECTS.parking.footprints![variant], rotation);
+    const changes: TownChange[] = [];
+    for (let z = 6; z < 6 + d; z += 1) for (let x = 6; x < 6 + w; x += 1) changes.push({ layer: 'ground', cell: { x, z }, before: 'field', after: 'road' });
+    changes.push({ layer: 'object', op: 'add', object: { id: 1, kind: 'parking', anchor: { x: 6, z: 6 }, rotation, variant } });
+    town.applyChanges(changes);
+    return town;
+  }
+
+  it('every road block in front of it joins it, from every side only the front, for every style and rotation', () => {
+    for (let variant = 0; variant < OBJECTS.parking.variants; variant += 1) {
+      for (const rotation of [0, 1, 2, 3] as const) {
+        const [w, d] = rotatedFootprint(OBJECTS.parking.footprints![variant], rotation);
+        // Front side: S at rotation 0, then E, N, W (quarter turns CCW from above).
+        const front = (['S', 'E', 'N', 'W'] as const)[rotation];
+        const around: Array<{ x: number; z: number; side: 'N' | 'E' | 'S' | 'W'; bit: number }> = [];
+        for (let x = 6; x < 6 + w; x += 2) around.push({ x, z: 4, side: 'N', bit: S }, { x, z: 6 + d, side: 'S', bit: N });
+        for (let z = 6; z < 6 + d; z += 2) around.push({ x: 4, z, side: 'W', bit: E }, { x: 6 + w, z, side: 'E', bit: W });
+        for (const block of around) {
+          const town = parkingTown(variant, rotation);
+          town.applyChanges([0, 1].flatMap((dz) => [0, 1].map((dx): TownChange => ({ layer: 'ground', cell: { x: block.x + dx, z: block.z + dz }, before: 'field', after: 'road' }))));
+          const expected = block.side === front ? block.bit : 0;
+          expect(roadMask(town, block), `style ${variant} r${rotation} ${block.side} of the lot at ${block.x},${block.z}`).toBe(expected);
+        }
+      }
+    }
+  });
+
+  it('a street along its front tees into each front block; arms are entered only from straight in front', () => {
+    const town = parkingTown(1, 0); // medium, 4 × 4 cells on 6..9 × 6..9, front to the south
+    for (let x = 2; x < 16; x += 2) town.applyChanges([0, 1].flatMap((dz) => [0, 1].map((dx): TownChange => ({ layer: 'ground', cell: { x: x + dx, z: 10 + dz }, before: 'field', after: 'road' }))));
+    expect(roadMask(town, { x: 4, z: 10 })).toBe(E | W);
+    expect(roadMask(town, { x: 6, z: 10 })).toBe(N | E | W);
+    expect(roadMask(town, { x: 8, z: 10 })).toBe(N | E | W);
+    expect(roadMask(town, { x: 10, z: 10 })).toBe(E | W);
+    const lot = roadFeatureAt(town, { x: 7, z: 9 })!;
+    expect(lot.kind).toBe('parking');
+    expect(isFeatureArm(lot, { x: 6, z: 8 }, 0)).toBe(true); // front-left block, entered northwards
+    expect(isFeatureArm(lot, { x: 6, z: 8 }, 1)).toBe(false); // the same block from the west
+    expect(isFeatureArm(lot, { x: 6, z: 6 }, 0)).toBe(false); // the back row
+    expect(isFeatureCentre(lot, { x: 7, z: 7 })).toBe(false);
   });
 });

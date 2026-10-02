@@ -4,7 +4,7 @@ import { PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
 import { createGameBus } from '../game/events';
 import { roadMask } from './roadTiles';
 import { createSeededRandom } from '../utils/random';
-import { OBJECT_KINDS } from '../catalog/objects';
+import { OBJECT_KINDS, OBJECTS } from '../catalog/objects';
 import { buildAssetGallery, buildSampleTown, buildStressTown, demoOffset, GALLERY_OBJECTS, galleryMaskBlock } from './sampleTown';
 import { TownEditor } from './TownEditor';
 import { TownState } from './TownState';
@@ -32,7 +32,7 @@ describe('demo towns', () => {
     buildSampleTown(editor);
     const used = new Set(spy.mock.calls.flatMap(([items]) => items.map((item) => item.toolId)));
     const placing = TOOLS.filter((t) => t.category !== 'mode').map((t) => t.id);
-    expect(placing).toHaveLength(38);
+    expect(placing).toHaveLength(39);
     expect(placing.filter((id) => !used.has(id))).toEqual([]);
   });
 
@@ -55,8 +55,15 @@ describe('demo towns', () => {
     expect(buildAssetGallery(editor).rejected).toEqual([]);
     const kinds = new Set([...editor.state.objects()].map((o) => o.kind));
     expect(kinds).toEqual(new Set(OBJECT_KINDS));
-    expect(kinds.size).toBe(32);
-    expect(GALLERY_OBJECTS).toHaveLength(OBJECT_KINDS.length);
+    expect(kinds.size).toBe(33);
+    expect(new Set(GALLERY_OBJECTS.map(([kind]) => kind)).size).toBe(OBJECT_KINDS.length);
+    // Every style of the car park, each joined to the road in front of it.
+    const lots = [...editor.state.objects()].filter((o) => o.kind === 'parking');
+    expect(lots.map((o) => o.variant)).toEqual([0, 1, 2]);
+    for (const lot of lots) {
+      const [, d] = OBJECTS.parking.footprints![lot.variant];
+      expect(roadMask(editor.state, { x: lot.anchor.x, z: lot.anchor.z + d }) & 1, `style ${lot.variant}`).toBe(1);
+    }
     for (let mask = 0; mask < 16; mask += 1) {
       const block = galleryMaskBlock(mask);
       const centre = { x: block.x + O, z: block.z + O };

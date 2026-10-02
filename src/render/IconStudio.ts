@@ -3,7 +3,7 @@
  * Icons are drawn by the real ModelLibrary + TownRenderer on a tiny fake town, so they match what the player places.
  */
 import * as THREE from 'three';
-import { OBJECTS, objectDef } from '../catalog/objects';
+import { footprintOf, OBJECTS, objectDef, placedFootprint } from '../catalog/objects';
 import { TOOLS, variantIcon } from '../catalog/tools';
 import { CELL_SIZE, cellToWorld, footprintCentreWorld, PLOT_DEPTH, PLOT_WIDTH, ROAD_TILE_SIZE, roadBlockCentreWorld } from '../game/config';
 import type { GameBus } from '../game/events';
@@ -52,7 +52,7 @@ const HEDGE_FRAME = new THREE.Box3(
   new THREE.Vector3(0.5 * CELL_SIZE, 0.52 * CELL_SIZE, 0.18 * CELL_SIZE),
 );
 
-function sceneForTool(toolId: string): IconScene | null {
+function sceneForTool(toolId: string, variant = 0): IconScene | null {
   switch (toolId) {
     case 'road':
       return { ground: roadLine(), clipToCentre: true, roadBlock: true };
@@ -81,9 +81,9 @@ function sceneForTool(toolId: string): IconScene | null {
       const def = objectDef(kind);
       // A road feature stands on road: pave its footprint so the fake town is a valid one.
       const ground = def.roadFeature
-        ? footprintCells({ x: C, z: C }, def.footprint, 0).map((c): [number, number, GroundKind] => [c.x, c.z, 'road'])
+        ? footprintCells({ x: C, z: C }, footprintOf(def, variant), 0).map((c): [number, number, GroundKind] => [c.x, c.z, 'road'])
         : undefined;
-      return { object: kind, ground };
+      return { object: kind, ground, variant };
     }
   }
 }
@@ -109,7 +109,7 @@ class FakeTown implements TownStateReader {
   }
   getObjectAt(cell: Cell): PlacedObject | undefined {
     return this.objectList.find((o) =>
-      footprintCells(o.anchor, objectDef(o.kind).footprint, o.rotation).some((c) => c.x === cell.x && c.z === cell.z),
+      footprintCells(o.anchor, placedFootprint(o), o.rotation).some((c) => c.x === cell.x && c.z === cell.z),
     );
   }
   getObject(id: number): PlacedObject | undefined {
@@ -161,7 +161,7 @@ export async function renderToolIcons(size = 128, supersample = 2): Promise<Reco
     if (!spec) continue;
     jobs.push({ path: tool.icon, spec });
     const models = spec.object ? objectDef(spec.object).variants : 1;
-    for (let n = 1; n < models; n++) jobs.push({ path: variantIcon(tool.id, n), spec: { ...spec, variant: n } });
+    for (let n = 1; n < models; n++) jobs.push({ path: variantIcon(tool.id, n), spec: sceneForTool(tool.id, n)! });
   }
   for (const { path, spec } of jobs) {
     const scene = new THREE.Scene();
@@ -176,7 +176,7 @@ export async function renderToolIcons(size = 128, supersample = 2): Promise<Reco
     const world = spec.roadBlock
       ? roadBlockCentreWorld(anchor)
       : spec.object
-      ? footprintCentreWorld(anchor, objectDef(spec.object).footprint, 0)
+      ? footprintCentreWorld(anchor, footprintOf(objectDef(spec.object), spec.variant), 0)
       : cellToWorld(anchor);
     townRenderer.root.position.set(-world.x, 0, -world.z);
     if (spec.edge) townRenderer.root.position.z += CELL_SIZE / 2; // the fence sits on the cell's north edge

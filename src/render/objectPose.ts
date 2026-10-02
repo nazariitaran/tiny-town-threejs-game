@@ -7,7 +7,7 @@
  */
 import * as THREE from 'three';
 import type { ModelId } from '../catalog/models';
-import { heightScale, type ObjectDef } from '../catalog/objects';
+import { footprintOf, heightScale, type ObjectDef } from '../catalog/objects';
 import { edgeToWorld, footprintCentreWorld } from '../game/config';
 import type { Edge, PlacedObject, Rotation } from '../town/types';
 import { MODEL_STYLES } from './modelStyles';
@@ -46,9 +46,13 @@ const scratchCentre = { x: 0, z: 0 };
 const scratchScale = new THREE.Vector3();
 
 /** World transform of a placed object's model before its style scale. */
-export function objectOrigin(placed: Pick<PlacedObject, 'id' | 'anchor' | 'rotation'>, def: ObjectDef, out: THREE.Matrix4): THREE.Matrix4 {
+export function objectOrigin(
+  placed: Pick<PlacedObject, 'id' | 'anchor' | 'rotation'> & { variant?: number },
+  def: ObjectDef,
+  out: THREE.Matrix4,
+): THREE.Matrix4 {
   const pose = objectPose(def, placed.rotation, placed.id, scratchPose);
-  const centre = footprintCentreWorld(placed.anchor, def.footprint, placed.rotation, scratchCentre);
+  const centre = footprintCentreWorld(placed.anchor, footprintOf(def, placed.variant), placed.rotation, scratchCentre);
   out.makeRotationY(pose.yaw).scale(scratchScale.set(pose.scale, pose.scale * pose.scaleY, pose.scale));
   return out.setPosition(centre.x, 0, centre.z);
 }

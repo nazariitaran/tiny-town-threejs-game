@@ -6,7 +6,7 @@
  * FROM), and repairs or drops anything that breaks a placement rule, so the result always loads.
  */
 import { PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
-import { OBJECTS } from '../catalog/objects';
+import { OBJECTS, placedFootprint } from '../catalog/objects';
 import { cellKey, edgeCells, edgeInBounds, edgeKey, footprintCells, ROAD_BLOCK } from './grid';
 import { sanitizeTownName } from './townName';
 import type { EdgeKind, GroundKind, ObjectKind, PlacedEdge, PlacedObject, Rotation, SavedTown, TownStateReader } from './types';
@@ -184,7 +184,7 @@ function parseSaveUnsafe(input: unknown, options: ParseOptions): SavedTown | Err
     if (!object || ids.has(object.id)) continue;
     const def = OBJECTS[object.kind];
     if ((def.roadFeature || def.roadMarking) && (object.anchor.x % ROAD_BLOCK !== 0 || object.anchor.z % ROAD_BLOCK !== 0)) continue;
-    const cells = footprintCells(object.anchor, def.footprint, object.rotation);
+    const cells = footprintCells(object.anchor, placedFootprint(object), object.rotation);
     // A road feature stands on road only; everything else on its allowed ground.
     const fits = cells.every((c) => {
       const ground = groundAt(c.x, c.z);

@@ -10,7 +10,7 @@ import { CELL_SIZE, ROAD_TILE_SIZE } from '../game/config';
 import { CAR_FILES, CAR_SCALE } from '../life/LifeSystem';
 import { MODEL_STYLES } from '../render/modelStyles';
 import { EDGE_MODELS, GROUND_MODELS, MODELS, ROAD_PIECE_MODELS, type ModelId } from './models';
-import { heightScale, OBJECT_KINDS, OBJECTS } from './objects';
+import { footprintOf, heightScale, OBJECT_KINDS, OBJECTS } from './objects';
 import { RETIRED_TOOLS, TOOL_CATEGORIES, TOOLS, toolsInCategory, variantIcon, type ToolLayer } from './tools';
 import { createGlbLoader, PUBLIC_DIR, publicPath } from '../testing/gltfNode';
 
@@ -165,21 +165,22 @@ describe('catalog', () => {
   it('objects fit inside their footprint (× CELL_SIZE), including their authored offset', () => {
     for (const def of Object.values(OBJECTS)) {
       if (def.roadFeature || def.roadMarking) continue; // flat road pieces: checked below
-      for (const id of def.models) {
+      def.models.forEach((id, variant) => {
         const size = drawn(id);
         const [ox, , oz] = MODELS[id].offset ?? [0, 0, 0];
+        const [fw, fd] = footprintOf(def, variant);
         // Centred on the footprint then offset: the far side reaches size/2 + |offset| from the centre.
-        expect(size.x / 2 + Math.abs(ox), `${id} width`).toBeLessThanOrEqual((def.footprint[0] * CELL_SIZE) / 2 + 0.03);
-        expect(size.z / 2 + Math.abs(oz), `${id} depth`).toBeLessThanOrEqual((def.footprint[1] * CELL_SIZE) / 2 + 0.03);
+        expect(size.x / 2 + Math.abs(ox), `${id} width`).toBeLessThanOrEqual((fw * CELL_SIZE) / 2 + 0.03);
+        expect(size.z / 2 + Math.abs(oz), `${id} depth`).toBeLessThanOrEqual((fd * CELL_SIZE) / 2 + 0.03);
         expect(size.y, `${id} height`).toBeGreaterThan(0.1);
-      }
+      });
     }
   });
 
   it('footprints of every object kind', () => {
     const footprints = Object.fromEntries(Object.values(OBJECTS).map((def) => [def.kind, def.footprint]));
     expect(footprints).toEqual({
-      roundabout: [6, 6], 'zebra-crossing': [2, 2], 'traffic-light': [1, 1], lamppost: [1, 1], 'bus-stop': [2, 1], postbox: [1, 1],
+      roundabout: [6, 6], parking: [4, 2], 'zebra-crossing': [2, 2], 'traffic-light': [1, 1], lamppost: [1, 1], 'bus-stop': [2, 1], postbox: [1, 1],
       mailbox: [1, 1],
       cottage: [4, 4], townhouse: [3, 4], bungalow: [4, 4], 'family-home': [4, 4], 'garage-house': [4, 4], 'big-house': [5, 4],
       'corner-shop': [3, 3], 'donut-shop': [3, 3], supermarket: [5, 4], church: [3, 4], 'swimming-pool': [4, 3], fountain: [2, 2],
@@ -187,25 +188,33 @@ describe('catalog', () => {
       oak: [2, 2], pine: [1, 1], birch: [1, 1], bush: [1, 1], tulips: [1, 1],
       planter: [1, 1], bench: [1, 1], 'long-bench': [1, 1], 'garden-table': [1, 1], swing: [2, 1], slide: [2, 1], barbecue: [1, 1],
     });
+    // Only parking lots differ in size per style: small, medium, large (style 0 is `footprint`).
+    expect(Object.values(OBJECTS).filter((def) => def.footprints).map((def) => def.kind)).toEqual(['parking']);
+    expect(OBJECTS.parking.footprints).toEqual([[4, 2], [4, 4], [4, 6]]);
+    for (const def of Object.values(OBJECTS)) {
+      if (def.footprints) expect(def.footprints, def.kind).toHaveLength(def.variants);
+      expect(footprintOf(def, def.variants), `${def.kind} unknown style`).toEqual(def.footprint);
+    }
   });
 
   it('objects stay inside their footprint at every rotation (drawn bounds turned with the object)', () => {
     for (const def of Object.values(OBJECTS)) {
       if (def.roadFeature) continue;
-      for (const id of def.models) {
+      def.models.forEach((id, variant) => {
         const size = drawn(id);
         const [ox, , oz] = MODELS[id].offset ?? [0, 0, 0];
         // Model-space box (footprint-centred, then offset), turned like TownRenderer turns the object.
         const box = new THREE.Box3(new THREE.Vector3(ox - size.x / 2, 0, oz - size.z / 2), new THREE.Vector3(ox + size.x / 2, size.y, oz + size.z / 2));
         for (const rotation of [0, 1, 2, 3] as const) {
           const turned = box.clone().applyMatrix4(new THREE.Matrix4().makeRotationY((rotation * Math.PI) / 2));
-          const [w, d] = rotation % 2 === 0 ? def.footprint : [def.footprint[1], def.footprint[0]];
+          const [fw, fd] = footprintOf(def, variant);
+          const [w, d] = rotation % 2 === 0 ? [fw, fd] : [fd, fw];
           const halfW = (w * CELL_SIZE) / 2 + 0.03;
           const halfD = (d * CELL_SIZE) / 2 + 0.03;
           expect(Math.max(-turned.min.x, turned.max.x), `${id} r${rotation} x`).toBeLessThanOrEqual(halfW);
           expect(Math.max(-turned.min.z, turned.max.z), `${id} r${rotation} z`).toBeLessThanOrEqual(halfD);
         }
-      }
+      });
     }
   });
 
@@ -228,19 +237,47 @@ describe('catalog', () => {
     expect(drawn('swing').x).toBeLessThan(0.5);
   });
 
-  it('road features fill their whole footprint (whole road blocks) at road-tile height', () => {
+  it('road features fill their style\'s whole footprint (whole road blocks); the roundabout is road-tile height', () => {
     const roadHeight = sizes.get('road-straight')!.y;
     const features = Object.values(OBJECTS).filter((def) => def.roadFeature);
-    expect(features.map((def) => def.kind)).toEqual(['roundabout']);
+    expect(features.map((def) => def.kind)).toEqual(['roundabout', 'parking']);
     for (const def of features) {
-      expect(def.footprint[0] % 2, `${def.kind} blocks`).toBe(0);
-      expect(def.footprint[1] % 2, `${def.kind} blocks`).toBe(0);
-      for (const id of def.models) {
+      def.models.forEach((id, variant) => {
+        const [w, d] = footprintOf(def, variant);
+        expect(w % 2, `${id} blocks`).toBe(0);
+        expect(d % 2, `${id} blocks`).toBe(0);
         const size = drawn(id);
-        expect(size.x, `${id} width`).toBeCloseTo(def.footprint[0] * CELL_SIZE, 1);
-        expect(size.z, `${id} depth`).toBeCloseTo(def.footprint[1] * CELL_SIZE, 1);
-        expect(size.y, `${id} height`).toBeCloseTo(roadHeight, 2);
-      }
+        expect(size.x, `${id} width`).toBeCloseTo(w * CELL_SIZE, 1);
+        expect(size.z, `${id} depth`).toBeCloseTo(d * CELL_SIZE, 1);
+      });
+    }
+    expect(drawn('roundabout').y).toBeCloseTo(roadHeight, 2);
+  });
+
+  it('parking lots lie at road height round their whole rim (only the sign and bushes stand up, inside it)', async () => {
+    const roadHeight = sizes.get('road-straight')!.y;
+    const load = await createGlbLoader();
+    for (const id of OBJECTS.parking.models) {
+      const gltf = await load(MODELS[id].url);
+      gltf.scene.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(gltf.scene);
+      const v = new THREE.Vector3();
+      let rim = 0;
+      gltf.scene.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        const position = mesh.geometry.getAttribute('position');
+        for (let i = 0; i < position.count; i += 1) {
+          v.fromBufferAttribute(position, i).applyMatrix4(mesh.matrixWorld);
+          const onRim = v.x - box.min.x < 0.01 || box.max.x - v.x < 0.01 || v.z - box.min.z < 0.01 || box.max.z - v.z < 0.01;
+          if (!onRim) continue;
+          rim += 1;
+          expect(v.y, `${id} rim vertex at ${v.x.toFixed(2)}, ${v.z.toFixed(2)}`).toBeLessThanOrEqual(roadHeight + 0.001);
+        }
+      });
+      expect(rim, id).toBeGreaterThan(0);
+      // Taller than a road (the sign), but no taller than a lamppost.
+      expect(drawn(id).y, id).toBeLessThan(drawn('lamppost').y);
     }
   });
 });

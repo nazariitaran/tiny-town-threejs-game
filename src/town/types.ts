@@ -10,9 +10,10 @@
  *  - Multi-cell objects are anchored at their MIN corner cell; footprint w×d swaps for odd rotations.
  *  - Roads come in aligned 2 × 2 blocks (grid.ROAD_BLOCK, min corner at even x, z): every cell of a
  *    block is road, or none is (rules.ts keeps it; parseSave demotes partial blocks to field).
- *  - Road features (ObjectDef.roadFeature, e.g. the roundabout) are the only objects that stand on
- *    road: they are block-aligned, paint their footprint to road when placed and back to field when
- *    bulldozed, and the renderer draws them instead of the road tiles underneath.
+ *  - Road features (ObjectDef.roadFeature: the roundabout, parking lots) are the only objects that
+ *    stand on road: they are block-aligned, paint their footprint to road when placed and back to field
+ *    when bulldozed, and the renderer draws them instead of the road tiles underneath.
+ *  - A kind whose styles differ in size (ObjectDef.footprints) covers the footprint of its variant.
  */
 
 export type GroundKind = 'field' | 'grass' | 'meadow' | 'road' | 'pavement' | 'walkway';
@@ -21,6 +22,7 @@ export type GroundKind = 'field' | 'grass' | 'meadow' | 'road' | 'pavement' | 'w
 export type ObjectKind =
   // Streets
   | 'roundabout'
+  | 'parking'
   | 'zebra-crossing'
   | 'traffic-light'
   | 'lamppost'
@@ -127,7 +129,7 @@ export interface TownStats {
   /** Shops and civic buildings (Town category). */
   amenities: number;
   trees: number;
-  /** Road blocks (a roundabout counts its 3 × 3 blocks). */
+  /** Road blocks (a roundabout or car park counts the blocks it covers). */
   roadTiles: number;
   props: number;
   /** Everything on the edge layer: fences and hedges. */

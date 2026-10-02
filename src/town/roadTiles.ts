@@ -9,12 +9,13 @@
  *   straight: N+S · corner: E+S · tee: E+S+W · cross: all · end: S · single: none
  * Rotation r = r quarter turns counter-clockwise from above, which maps E→N, N→W, W→S, S→E.
  *
- * Road features (the roundabout, catalog ObjectDef.roadFeature) stand on road blocks and draw them
- * instead of the tiles. A neighbouring road block joins a feature only at the middle block of the
- * feature's facing side (its "arm"), so a road running past a roundabout doesn't tee into its kerb.
+ * Road features (the roundabout, parking lots; catalog ObjectDef.roadFeature) stand on road blocks and
+ * draw them instead of the tiles. A neighbouring road block joins a feature only at one of its "arms":
+ * the middle block of the feature's facing side (the roundabout), or any block of its front side when
+ * arriving from straight in front (a parking lot), so a road running past doesn't tee into its kerb.
  */
-import { objectDef } from '../catalog/objects';
-import { NEIGHBOURS, ROAD_BLOCK, roadBlockAnchor, rotatedFootprint } from './grid';
+import { objectDef, placedFootprint } from '../catalog/objects';
+import { NEIGHBOURS, ROAD_BLOCK, roadBlockAnchor } from './grid';
 import type { Cell, PlacedObject, Rotation, TownStateReader } from './types';
 
 export type RoadPiece = 'straight' | 'corner' | 'tee' | 'cross' | 'end' | 'single';
@@ -64,25 +65,46 @@ export function roadFeatureAt(state: TownStateReader, cell: Cell): PlacedObject 
 
 export const underRoadFeature = (state: TownStateReader, cell: Cell): boolean => roadFeatureAt(state, cell) !== undefined;
 
+/** NEIGHBOURS index of a feature's front side per rotation (front = +z = S at rotation 0, turning CCW). */
+const FRONT_SIDE: readonly number[] = [2, 1, 0, 3];
+
+const scratchBlock = { bx: 0, bz: 0, bw: 0, bd: 0 };
+
+/** Feature block coordinates of `cell` and the feature's rotated size in blocks (a shared scratch). */
+function featureBlock(feature: PlacedObject, cell: Cell): typeof scratchBlock {
+  const [w, d] = placedFootprint(feature);
+  const turned = feature.rotation % 2 === 1;
+  scratchBlock.bx = Math.floor((cell.x - feature.anchor.x) / ROAD_BLOCK);
+  scratchBlock.bz = Math.floor((cell.z - feature.anchor.z) / ROAD_BLOCK);
+  scratchBlock.bw = (turned ? d : w) / ROAD_BLOCK;
+  scratchBlock.bd = (turned ? w : d) / ROAD_BLOCK;
+  return scratchBlock;
+}
+
 /**
  * Is the feature block containing `cell` the arm a road reaches when it arrives travelling in
- * direction `side` (NEIGHBOURS index of the step from the road block into the feature)? Arms are
- * the middle blocks of each side (odd block counts; a 3 × 3-block roundabout has its arms at 1).
+ * direction `side` (NEIGHBOURS index of the step from the road block into the feature)? Side arms are
+ * the middle blocks of each side (odd block counts; a 3 × 3-block roundabout has its arms at 1); front
+ * arms are the blocks along the front side, entered from straight in front.
  */
 export function isFeatureArm(feature: PlacedObject, cell: Cell, side: number): boolean {
-  const [w, d] = rotatedFootprint(objectDef(feature.kind).footprint, feature.rotation);
-  const bx = Math.floor((cell.x - feature.anchor.x) / ROAD_BLOCK);
-  const bz = Math.floor((cell.z - feature.anchor.z) / ROAD_BLOCK);
+  const { bx, bz, bw, bd } = featureBlock(feature, cell);
+  if (objectDef(feature.kind).roadArms === 'front') {
+    const front = FRONT_SIDE[feature.rotation];
+    if (side !== (front + 2) % 4) return false;
+    if (front === 0) return bz === 0;
+    if (front === 1) return bx === bw - 1;
+    if (front === 2) return bz === bd - 1;
+    return bx === 0;
+  }
   const northSouth = side === 0 || side === 2;
-  return northSouth ? bx * 2 + 1 === w / ROAD_BLOCK : bz * 2 + 1 === d / ROAD_BLOCK;
+  return northSouth ? bx * 2 + 1 === bw : bz * 2 + 1 === bd;
 }
 
 /** Is `cell` in the centre block of the feature (the roundabout's island: no traffic)? */
 export function isFeatureCentre(feature: PlacedObject, cell: Cell): boolean {
-  const [w, d] = rotatedFootprint(objectDef(feature.kind).footprint, feature.rotation);
-  const bx = Math.floor((cell.x - feature.anchor.x) / ROAD_BLOCK);
-  const bz = Math.floor((cell.z - feature.anchor.z) / ROAD_BLOCK);
-  return bx * 2 + 1 === w / ROAD_BLOCK && bz * 2 + 1 === d / ROAD_BLOCK;
+  const { bx, bz, bw, bd } = featureBlock(feature, cell);
+  return bx * 2 + 1 === bw && bz * 2 + 1 === bd;
 }
 
 /** Connection mask of the road block containing `cell` (N=1, E=2, S=4, W=8 neighbouring blocks). */

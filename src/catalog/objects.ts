@@ -1,6 +1,6 @@
 // Gameplay definition of every placeable object; rows follow the dock order (catalog/tools.ts).
 import type { ModelId } from './models';
-import type { GroundKind, ObjectKind } from '../town/types';
+import type { GroundKind, ObjectKind, PlacedObject } from '../town/types';
 
 /**
  * What an object is, for stats and effects (not the dock): road = road feature · street = street furniture ·
@@ -12,8 +12,10 @@ export interface ObjectDef {
   kind: ObjectKind;
   label: string;
   group: ObjectGroup;
-  /** Cells covered at rotation 0: [width along x, depth along z]. */
+  /** Cells covered at rotation 0: [width along x, depth along z]. Style 0's when `footprints` is set. */
   footprint: readonly [number, number];
+  /** Per-style footprints, indexed like `models`, for kinds whose styles differ in size (read through footprintOf). */
+  footprints?: ReadonlyArray<readonly [number, number]>;
   /** Ground kinds every footprint cell must have. Only road features and road markings may list 'road'. */
   allowedGround: readonly GroundKind[];
   /** At least one footprint cell must be 4-adjacent to this ground kind. */
@@ -21,9 +23,16 @@ export interface ObjectDef {
   /**
    * Road feature (roundabout): the anchor must be block-aligned (even x, z) and the footprint a whole
    * number of road blocks. Placing paints every footprint cell to road; bulldozing turns them to field.
-   * Drawn instead of the road tiles below it; roads join it only at the middle of each side.
+   * Drawn instead of the road tiles below it; roads join it only at its arms (`roadArms`).
    */
   roadFeature?: boolean;
+  /**
+   * Where neighbouring roads join a road feature: 'sides' (default) the middle block of each side;
+   * 'front' every block along its front (+z at rotation 0), reached only from straight in front.
+   */
+  roadArms?: 'sides' | 'front';
+  /** Cars never drive onto this road feature; it still joins roads and counts as road. */
+  noTraffic?: boolean;
   /**
    * Road marking (zebra crossing): one block-aligned road block that must already be road (a straight
    * or a junction). It has no model of its own: the road tile under it draws its marked variant
@@ -51,6 +60,20 @@ const def = (d: Omit<ObjectDef, 'variants'>): ObjectDef => ({ ...d, variants: d.
 
 export const OBJECTS: Readonly<Record<ObjectKind, ObjectDef>> = {
   roundabout: def({ kind: 'roundabout', label: 'Roundabout', group: 'road', footprint: [6, 6], allowedGround: ANY_GROUND, roadFeature: true, residents: 0, models: ['roundabout'] }),
+  // Small (one row of bays off the street), medium and large; cars don't park in them yet.
+  parking: def({
+    kind: 'parking',
+    label: 'Parking',
+    group: 'road',
+    footprint: [4, 2],
+    footprints: [[4, 2], [4, 4], [4, 6]],
+    allowedGround: ANY_GROUND,
+    roadFeature: true,
+    roadArms: 'front',
+    noTraffic: true,
+    residents: 0,
+    models: ['parking-small', 'parking-medium', 'parking-large'],
+  }),
   // models[0] is only the ghost / icon look; the tile under it draws the real zebra per road piece.
   'zebra-crossing': def({ kind: 'zebra-crossing', label: 'Zebra crossing', group: 'road', footprint: [2, 2], allowedGround: ['road'], roadMarking: true, residents: 0, models: ['road-crossing'] }),
   'traffic-light': def({ kind: 'traffic-light', label: 'Traffic light', group: 'street', footprint: [1, 1], allowedGround: PROP_GROUND, requiresAdjacent: 'road', residents: 0, models: ['traffic-light', 'traffic-light-hanging'] }),
@@ -87,6 +110,13 @@ export const OBJECTS: Readonly<Record<ObjectKind, ObjectDef>> = {
 };
 
 export const objectDef = (kind: ObjectKind): ObjectDef => OBJECTS[kind];
+
+/** Cells covered at rotation 0 by style `variant`; an unknown style covers style 0's. */
+export const footprintOf = (def: ObjectDef, variant = 0): readonly [number, number] => def.footprints?.[variant] ?? def.footprint;
+
+/** The rotation-0 footprint of a placed object's own style. */
+export const placedFootprint = (object: Pick<PlacedObject, 'kind' | 'variant'>): readonly [number, number] =>
+  footprintOf(OBJECTS[object.kind], object.variant);
 
 export const OBJECT_KINDS = Object.keys(OBJECTS) as ObjectKind[];
 

@@ -3,7 +3,7 @@
  * Only TownEditor calls the mutating methods.
  */
 import { cellKey, edgeKey, footprintCells, ROAD_BLOCK } from './grid';
-import { objectDef } from '../catalog/objects';
+import { objectDef, placedFootprint } from '../catalog/objects';
 import type {
   Cell,
   Edge,
@@ -139,7 +139,7 @@ export class TownState implements TownStateReader {
     if (this.objectsById.has(object.id)) throw new Error(`Duplicate object id ${object.id}`);
     const copy: PlacedObject = { ...object, anchor: { ...object.anchor } };
     this.objectsById.set(copy.id, copy);
-    for (const cell of footprintCells(copy.anchor, objectDef(copy.kind).footprint, copy.rotation)) {
+    for (const cell of footprintCells(copy.anchor, placedFootprint(copy), copy.rotation)) {
       this.occupancy.set(cellKey(cell), copy.id);
     }
     this.nextId = Math.max(this.nextId, copy.id + 1);
@@ -148,7 +148,7 @@ export class TownState implements TownStateReader {
   private removeObject(id: number): void {
     const object = this.objectsById.get(id);
     if (!object) throw new Error(`Unknown object id ${id}`);
-    for (const cell of footprintCells(object.anchor, objectDef(object.kind).footprint, object.rotation)) {
+    for (const cell of footprintCells(object.anchor, placedFootprint(object), object.rotation)) {
       this.occupancy.delete(cellKey(cell));
     }
     this.objectsById.delete(id);

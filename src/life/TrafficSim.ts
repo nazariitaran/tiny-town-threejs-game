@@ -193,9 +193,12 @@ export class TrafficSim {
     this.probe.x = x * ROAD_BLOCK;
     this.probe.z = z * ROAD_BLOCK;
     if (!this.town.inBounds(this.probe) || this.town.getGround(this.probe) !== 'road') return false;
-    // Inside a road feature only the centre and the arms carry traffic (the corners are kerb/verge).
+    // Inside a road feature only the centre and the arms carry traffic (the corners are kerb/verge);
+    // a no-traffic feature (a parking lot) carries none.
     const feature = roadFeatureAt(this.town, this.probe);
-    return !feature || isFeatureCentre(feature, this.probe) || isFeatureArm(feature, this.probe, 0) !== isFeatureArm(feature, this.probe, 1);
+    if (!feature) return true;
+    if (objectDef(feature.kind).noTraffic) return false;
+    return isFeatureCentre(feature, this.probe) || isFeatureArm(feature, this.probe, 0) !== isFeatureArm(feature, this.probe, 1);
   }
 
   /** Is block (x, z) a roundabout's island tile? */

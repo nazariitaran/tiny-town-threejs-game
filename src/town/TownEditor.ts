@@ -5,7 +5,7 @@
  * Every change list keeps its primary change last; build events derive from it.
  */
 import { cellToWorld, edgeToWorld, footprintCentreWorld, roadBlockCentreWorld } from '../game/config';
-import { objectDef } from '../catalog/objects';
+import { placedFootprint } from '../catalog/objects';
 import type { GameBus } from '../game/events';
 import type { ToolId } from '../catalog/tools';
 import { History } from './History';
@@ -206,7 +206,7 @@ export class TownEditor {
       primary.layer === 'edge'
         ? edgeToWorld(primary.placed.edge)
         : primary.layer === 'object'
-        ? footprintCentreWorld(primary.object.anchor, objectDef(primary.object.kind).footprint, primary.object.rotation)
+        ? footprintCentreWorld(primary.object.anchor, placedFootprint(primary.object), primary.object.rotation)
         : primary.before === 'road' || primary.after === 'road'
         ? roadBlockCentreWorld(primary.cell)
         : cellToWorld(primary.cell);

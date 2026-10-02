@@ -436,6 +436,24 @@ describe('parseSave and road features', () => {
     expect(partly.objects).toEqual([]);
   });
 
+  it('car parks round-trip with their style, and are checked against that style\'s footprint', () => {
+    const editor = makeEditor();
+    for (const [variant, x] of [[0, 10], [1, 16], [2, 22]] as const) {
+      expect(editor.apply({ type: 'place-object', kind: 'parking', cell: { x, z: 10 }, rotation: 1, variant }, 'parking').ok).toBe(true);
+    }
+    const saved = serializeTown(editor.state);
+    expect(saved.objects.map((o) => [o.kind, o.variant])).toEqual([['parking', 0], ['parking', 1], ['parking', 2]]);
+    const parsed = ok(parseSave(JSON.stringify(saved)));
+    expect(parsed).toEqual(saved);
+    // Large (4 × 6 cells) on a 4 × 4 patch of road: dropped. Medium fits; small fits.
+    const lotOn = (variant: number) => ({ id: 1, kind: 'parking', anchor: { x: 4, z: 4 }, rotation: 0, variant });
+    expect(ok(parseSave({ ...blank(), ground: groundWithRoad(4, 4, 4, 4), objects: [lotOn(2)], nextObjectId: 2 })).objects).toEqual([]);
+    expect(ok(parseSave({ ...blank(), ground: groundWithRoad(4, 4, 4, 4), objects: [lotOn(1)], nextObjectId: 2 })).objects).toHaveLength(1);
+    // An unknown style falls back to the small lot, which still fits its road.
+    const unknown = ok(parseSave({ ...blank(), ground: groundWithRoad(4, 4, 4, 6), objects: [lotOn(9)], nextObjectId: 2 }));
+    expect(unknown.objects).toEqual([{ ...lotOn(0) }]);
+  });
+
   it('non-feature objects still may not stand on road', () => {
     const save = ok(parseSave({ ...blank(), ground: groundWithRoad(4, 4, 2, 2), objects: [{ id: 1, kind: 'fountain', anchor: { x: 4, z: 4 }, rotation: 0, variant: 0 }] }));
     expect(save.objects).toEqual([]);

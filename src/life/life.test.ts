@@ -335,3 +335,26 @@ describe('traffic: night density', () => {
     expect(sim.cars.length).toBe(1);
   });
 });
+
+describe('traffic: car parks', () => {
+  it('cars never drive into a car park, even through the blocks a road joins', () => {
+    const town = newTown();
+    const sim = new TrafficSim(town, createSeededRandom(5));
+    // A long street on block row 12 and a large car park (4 × 6 cells) north of it, entrance facing it.
+    const street: Array<[number, number]> = [];
+    for (let bx = 2; bx <= 20; bx += 1) street.push([bx, 12]);
+    sim.onTownChanged(paint(town, street), 'edit');
+    const drivable = sim.stats.drivableCells;
+    const lot = paint(town, [[10, 9], [11, 9], [10, 10], [11, 10], [10, 11], [11, 11]]);
+    const add: TownChange = { layer: 'object', op: 'add', object: { id: 1, kind: 'parking', anchor: { x: 20, z: 18 }, rotation: 0, variant: 2 } };
+    town.applyChanges([add]);
+    sim.onTownChanged([...lot, add], 'edit');
+    expect(sim.stats.drivableCells).toBe(drivable);
+    expect(sim.cars.length).toBeGreaterThan(0);
+    for (let i = 0; i < 4000; i += 1) {
+      sim.step(1 / 30);
+      for (const car of sim.cars) expect(car.cz, `car ${car.id} in the car park`).toBe(12);
+    }
+  });
+});
+

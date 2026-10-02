@@ -86,7 +86,7 @@ export function classify(id: string): FxClass {
   return def ? GROUP_FX[def.group] : 'prop';
 }
 
-/** Removal-poof radius: about half the object's longer footprint side. */
+/** Removal-poof radius: about half the object's longer footprint side (style 0's for a kind with sizes). */
 export function footprintPoofRadius(kind: string, min: number): number {
   const def = Object.prototype.hasOwnProperty.call(OBJECTS, kind) ? OBJECTS[kind as ObjectKind] : undefined;
   if (!def) return min;
