@@ -43,13 +43,15 @@ src/
   interaction/**              CameraController, framing.ts (aspect-aware poses), GridPicker, ToolController,
                               GhostPreview, keyboard.ts, strokeMath.ts
   ui/UiRoot.ts                all DOM UI; testIds.ts (UI_TEST_IDS), uiKeys.ts (digits, P), glyphs.ts
-  audio/AudioManager.ts       Web Audio SFX, master mute / volume; owns MusicPlayer (streamed music)
+  audio/AudioManager.ts       Web Audio SFX, master mute / volume; owns MusicPlayer (streamed music) and CrowdLoop
+  audio/CrowdLoop.ts          the stadium crowd: one looping buffer, gain set per frame, loaded on first use
   audio/musicPosition.ts      music resume rules (pure)
   audio/sfx.ts          [C]   SFX event ids
   audio/sfxTable.ts           generated from scripts/data/audio.json (npm run gen:sfx)
   life/TrafficSim.ts, lanePaths.ts, LifeSystem.ts
                               ambient cars: simulation, lane paths (incl. the roundabout ring), one BatchedMesh
   life/parkingLayout.ts       car-park stalls and the routes in and out of them, in lot space (pure)
+  life/matchSchedule.ts       match nights at the stadium: schedule, level, crowd distance curve, stadium sites (pure)
   life/FlockSim.ts, BirdSystem.ts
                               birds: schedule and flight (pure), one InstancedMesh
   fx/**                       placement VFX, wind sway
@@ -73,9 +75,10 @@ scripts/                      canvas inspector, model inspector, generators, ico
                          │
       TownRenderer ◄─────┤ town:changed   (incremental redraw, neighbouring road blocks re-tiled)
       LifeSystem   ◄─────┤ town:changed   (road graph; cars despawn when their road or car park goes)
-      NightLights  ◄─────┤ town:changed   (lamp registry, firefly spots)
+      NightLights  ◄─────┤ town:changed   (lamp and stadium registries, firefly spots)
       AudioManager ◄─────┤ build:* / ui:sfx / intent:undo|redo / intent:set-* / phase:changed
-        └ MusicPlayer    │ → music:changed / audio:changed → UI
+        ├ MusicPlayer    │ → music:changed / audio:changed → UI
+        └ CrowdLoop      │ (no events; Game.updateCrowd sets its level every frame)
       PlacementFx  ◄─────┘ build:placed / build:removed
       BirdSystem           (no events; reads town.stats().trees when a flock launches)
 ```
@@ -90,7 +93,7 @@ Rules:
 6. **Keyboard:** the UI owns digits 1–9 (the first nine tools of the active category; a category holds up to 12), Shift+1–5 (category), `?` (controls help) and `P` (photo) (`ui/uiKeys.ts`, `UiRoot`). `ToolController` owns R / Shift+R (rotate), B, M, V / Shift+V (variant), T (time mode), Esc, F / Home and undo/redo (Ctrl/Cmd+Z, Shift+Z, Y); `CameraController` owns WASD / arrows, Q / E and + / −.
 
 ## Frame update order (`Game.update`)
-`resizeRenderer` → `ToolController.update` → `CameraController.update` → `TownRenderer.update` → `LifeSystem.update` → `BirdSystem.update` → `DayClock.advance` (building phase only) → `applyDaylight` (Environment, NightLights, `LifeSystem.setNight`, `BirdSystem.setDaylight`, `daytime:changed` on a mode/phase change) → `Environment.update` → `PlacementFx.update` → activity tracking (frame budget) → render (the shadow scheduler decides whether the sun's map is redrawn). Everything after the camera gets `animDelta`, which is 0 under `setReducedMotion(true)`. With `setPausedForScreenshot(true)` nothing updates but rendering continues.
+`resizeRenderer` → `ToolController.update` → `CameraController.update` → `TownRenderer.update` → `LifeSystem.update` → `BirdSystem.update` → `DayClock.advance` and `MatchSchedule.advance` / `tick` (building phase only) → `applyDaylight` (Environment, the match level, NightLights, `LifeSystem.setNight`, `BirdSystem.setDaylight`, the crowd's level, `daytime:changed` on a mode/phase change) → `Environment.update` → `PlacementFx.update` → activity tracking (frame budget) → render (the shadow scheduler decides whether the sun's map is redrawn). Everything after the camera gets `animDelta`, which is 0 under `setReducedMotion(true)`. With `setPausedForScreenshot(true)` nothing updates but rendering continues.
 
 ## Grid
 - Plot `64 × 64` cells (`PLOT_WIDTH/DEPTH`), `CELL_SIZE = 0.5`, centred on the origin: 32 × 32 world units. Toy scale: 1 unit ≈ 8 m, a cell ≈ 4 m. `cellToWorld`, `footprintCentreWorld`, `worldToGridPoint` (fractional), `worldToCell`, `edgeToWorld` in `config.ts`.
@@ -181,9 +184,18 @@ Menu → Graphics: **Low / Medium / High**, saved in the settings; every device 
 - **Clock** (`world/dayCycle.ts`, pure): `t ∈ [0, 1)`: dawn 0–0.10, day 0.10–0.65, dusk 0.65–0.75, night 0.75–1. An Auto day is `DAY_LENGTH_S` = 540 s with per-phase speeds (`PHASE_SPANS`): dawn 60 s, day 300 s, dusk 60 s, night 120 s. Modes: Auto (starts at 0.12 on Start), Day (0.55), Night (0.82). A mode switch sweeps `t` forward over 2.5 s; it snaps under reduced motion (hook or OS setting). The clock runs only while building; the title shows 0.55 unless pinned. The afternoon keyframe equals `LIGHTING` / `SKY_PALETTE` / `SUN_DIRECTION` (`Environment.ts`).
 - **Settings:** `timeMode` is saved; the time of day is not. Intents: `intent:set-time-mode`, `intent:cycle-time-mode` (T, the top-bar button).
 - **World** (`Environment.applyDaylight`): one DirectionalLight is sun and moon, swapping direction at zero intensity. Hemisphere, fog, `environmentIntensity` and sky uniforms follow the sample. The shadow camera refits only after the key moves > 0.2°. The grid turns a dim moon blue at night (`GRID_NIGHT`) and takes the fog.
-- **Glow** (`render/nightGlow.ts`): emissive masks (16 × 4 `DataTexture`s, one texel per Kenney atlas cell) on private material clones (`ModelSpec.glow`). Only homes, lampposts, traffic lights, cars and the stadium glow; shops and the church stay dark. The stadium's `floodlight` kind lights its lamps and scoreboard digits and, at 0.4 of their own colours, the pitch, track and pitch paint; those faces sample atlas cells nothing else on the model uses, and it follows the street lamps' switch-on (`lampLevel`). Houses switch on one by one via a per-instance hash patch (`uLightsOn` / `uLightsOff`). Emissive is exactly 0 by day, so day captures are unaffected.
-- **Ground light** (`render/NightLights.ts`): no real PointLights; instanced additive layers, hidden while night < 0.05, one draw call each: lamp pools, lamp halos (Medium / High; offset `lampOutset` along the arm, fading out above the lamp), headlight beams (≤ 6 cars), fireflies over free meadow cells.
+- **Glow** (`render/nightGlow.ts`): emissive masks (16 × 4 `DataTexture`s, one texel per Kenney atlas cell) on private material clones (`ModelSpec.glow`). Only homes, lampposts, traffic lights, cars and the stadium glow; shops and the church stay dark. The stadium's `floodlight` kind lights its lamp banks and scoreboard digits, which sample atlas cells nothing else on the model uses, at the match level (§Match nights), not with the street lamps. Houses switch on one by one via a per-instance hash patch (`uLightsOn` / `uLightsOff`). Emissive is exactly 0 by day, so day captures are unaffected.
+- **Ground light** (`render/NightLights.ts`): no real PointLights; instanced additive layers, hidden while night < 0.05, one draw call each: lamp pools, lamp halos (Medium / High; offset `lampOutset` along the arm, fading out above the lamp), headlight beams (≤ 6 cars), fireflies over free meadow cells, and on a match night the stadium's spill pool and mast halos (§Match nights).
 - **Life:** `LifeSystem.setNight(n)` → traffic density `1 − 0.5·n`. Parked cars keep the batch's lamp glow (one material) but get no headlight beam (`CarPose.beam`).
+
+## Match nights
+Ambient, like the cars: nothing is saved, `TownEditor` never sees a match, and there are no events.
+- **Schedule** (`life/matchSchedule.ts` `MatchSchedule`, pure, owned by `Game`): counts nights; odd ones (`isMatchNight`) are match nights. A night begins when the displayed clock passes `KICKOFF_T` (0.70, `T_SUNSET`) and is still in the evening once any mode sweep has ended, so a sweep that only passes sunset on its way to Day mode is not a night; a reduced-motion snap counts the same way. A held clock in the evening (Night mode) begins a new night every `HELD_NIGHT_S` (= `DAY_LENGTH_S`). On a match night the window stays open until `MATCH_NIGHT_S` (30) seconds of the night phase have passed, or the clock leaves the evening. `tick(night, delta)` moves one number towards on (window open and dark) or off at the fade rates (`MATCH_FADE_IN_S` 4 s, `MATCH_FADE_OUT_S` 5 s), so no clock jump, mode sweep or new night can snap it. `level(night)`, for the lights, is that fade × the street lamps' switch-on gate (`night` 0.3–0.42), so it is exactly 0 by day; `sound(night)`, for the crowd, is the fade alone, so a sweep to Day mode fades the crowd out over the full 5 s while the lights go with the sky.
+- **Driving it** (`Game`): `stepMatch` runs after `DayClock.advance`, in the building phase only, with `animDelta` scaled by `DAY_LENGTH_S / dayLengthS` (so `?debug&day=N` shortens the match with the day); the title, the menu, the photo view, reduced motion and a screenshot pause therefore freeze it. `MatchSchedule.start(t)` on Start, Continue and a town opened from the title resets the count (and begins a night at once when the session starts after sunset, i.e. in Night mode); every test state calls `reset`. **A pinned clock runs no schedule** (`sync` only, also on the first frame after a release; `tick` still runs), so test states and `setTimeOfDay` never start a match; the `setMatchNight` hook does. `applyDaylight` reads the level (0 outside building / menu), hands it to `NightLights.update(sample, match)` and calls `updateCrowd`, so test hooks apply both while paused.
+- **Light on the stadium** (`render/nightGlow.ts` `applyFloodlight`): a shader patch on the stadium's private `floodlight` glow clone, Standard or Lambert. Four spots at the mast lamp banks, aimed at the middle of the pitch, add `albedo × colour × Σ cone × wrapped N·L / (1 + d² / range²)` to the emissive term (back faces use the flipped normal), in model space (the instance matrix only places the stadium). `uFloodLevel` = `floodLitLevel(match, night)` (softer at dusk); at 0 the branch is skipped, so day pixels are unchanged. `GlowRegistry.flood` is the one uniforms object; `NightLights.measureMasts` fills the lamp positions from the model (the lamp-cell triangles of each quadrant) and the lot size from its bounds. No three.js light, no shadow pass, no texture.
+- **Light around it** (`NightLights`): layer `floodPool`, one ground quad per stadium turned with it, 0 inside the lot and fading over `floodReach` (2.4 units) outside its walls; layer `floodHalo`, a billboard per mast head, drawn only with `lampHalos` (Medium / High). +2 draw calls on a match night (+1 on Low), 0 otherwise; both are warmed with the other layers at load.
+- **Sites** (`StadiumSites`, owned by `NightLights`): the stadiums and their footprint centres, rebuilt on `town:changed`; `distanceTo(x, z)` is the nearest centre.
+- **Crowd** (`Game.updateCrowd` → `AudioManager.setCrowdLevel` → `audio/CrowdLoop.ts`): level = `MatchSchedule.sound` × `crowdGainAt(distance from the camera's ground target to the nearest stadium)`: 1 within `CROWD_FULL_DISTANCE` (3.5), (1 − x)² down to 0 at `CROWD_CUTOFF_DISTANCE` (20), the same for every stadium. `CrowdLoop` fetches and decodes the file the first time the level is above 0 with audio unlocked, loops a buffer source between `CROWD_LOOP_START_S` and + `CROWD_PERIOD_S` into a gain node on the master (so Mute and Volume apply), ramps the gain (`setTargetAtTime`, only on a change ≥ 0.01), and stops the source 1 s after silence. Gain = level × `CROWD_TRIM` (0.5) × the menu duck (−3 dB); 0 while muted or hidden.
 
 ## Cars in car parks
 Ambient, like the rest of `life/`: nothing is saved and `TownEditor` never sees a car.
@@ -218,12 +230,13 @@ Targets and the latest measurements: `docs/release.md` §Budgets. The `stress-to
 ## Test hooks
 `window.__THREE_GAME_TEST_HOOKS__` (installed in production too; policy in `docs/release.md`), typed in `vite-env.d.ts`:
 - `seed(n)` reseeds every stream;
-- `setState(name)` for `title | empty-build | sample-town | active-play | asset-gallery | stress-town | night-town`: reseeds, rebuilds deterministically, pins the clock (0.55; `night-town` = sample town at 0.82), turns autosave and spontaneous flocks off until reload. Unknown names throw;
+- `setState(name)` for `title | empty-build | sample-town | active-play | asset-gallery | stress-town | night-town`: reseeds, rebuilds deterministically, pins the clock (0.55; `night-town` = sample town at 0.82, no match), turns autosave and spontaneous flocks off until reload. Unknown names throw;
 - `setPausedForScreenshot`, `setReducedMotion`, `hideDebugUi`;
 - `cellToClient(x, z)`: client coordinates of a cell centre, so bots click with real input;
 - `setCameraPose({ targetX, targetZ, azimuth, polar, distance })`: moves the camera at once and renders;
 - `setTimeOfDay(t | null)`: pins the time of day and applies it at once, even while paused; `null` releases;
-- `spawnFlock(species?)`: launches a flock now; returns its bird count (0 when the sky is full).
+- `spawnFlock(species?)`: launches a flock now; returns its bird count (0 when the sky is full);
+- `setMatchNight(on | null)`: `true` holds a stadium match at full level (lights and crowd, once it is dark), `false` holds none, `null` returns to the schedule. Applies at once, even while paused.
 
 Demo towns (`sampleTown.ts`, zero rejections, tested):
 - `sample-town` uses every placing tool (40; Move and Bulldoze are modes): homes 8, residents 25, amenities 8 (incl. the stadium south of the shops, its gate on the side street), trees 5, roadTiles 46 (incl. the large car park facing the side street), props 23, fences 28.
@@ -237,7 +250,7 @@ Demo towns (`sampleTown.ts`, zero rejections, tested):
 - `town` (`TownState.stats()`: homes, residents, amenities (amenity group), trees, roadTiles (road blocks), props (street, garden and plant objects), fences (all edges)), `townName`, `objects`, `history`;
 - `render`: what TownRenderer draws (objects, ground tiles, edges, instances, pools, call and triangle estimates, animating, dying, materials, `roadJoints`: road tiles drawn as a car-park joint);
 - `quality` (the preset) and `graphics` `{preset, booted, reloadRequired, antialias, material, maxDpr, renderScale, shadowMapSize, decorFraction, decorInstances, skyOctaves, activeFps, idleFps, lampHalos}`; `antialias` is read from the context, `material` measured over the scene after load and every test state (`standard | lambert | mixed | none`);
-- `audio` (incl. `music`), `save` `{available, pending, lastError}`, `fx`, `life` (cars, target, `parked`, `manoeuvring`, per car `carCells` with its cell, position, `phase`, `lot`, `stall`), `birds`, `daytime` `{mode, t, phase, pinned, night, lightsOn, lamps, drawCalls}`, `photo` `{taken, developing, last}`, `perf` `{targetFps, idle, shadowRenders}`;
+- `audio` (incl. `music` and `crowd` `{level, gain, requested, loaded, playing, ducked, starts}`), `match` `{night, matchNight, playing, forced, level, stadiums, distance}`, `save` `{available, pending, lastError}`, `fx`, `life` (cars, target, `parked`, `manoeuvring`, per car `carCells` with its cell, position, `phase`, `lot`, `stall`), `birds`, `daytime` `{mode, t, phase, pinned, night, lightsOn, lamps, drawCalls, stadiums, floodlights}`, `photo` `{taken, developing, last}`, `perf` `{targetFps, idle, shadowRenders}`;
 - `renderer` (three.js calls, triangles, geometries, textures) and `canvas` (sizes, effective DPR); the canvas inspector reads these.
 
 There are no other diagnostics globals.

@@ -109,7 +109,7 @@ A road block in front of a car park's entrance draws its usual Kenney piece with
 - **Design:** a football ground on a 14 × 11 cell lot (7 × 5.5 units, 0.05 margin), 1,724 triangles, 2.85 tall. An octagonal bowl in two tiers split by a concourse (`PROFILE`), the seats in red blocks with aisles on the straights (`BLOCKS`, `AISLE`) and white in the corners, over a concrete wall with a dark base, a dark window band and a red band at the rim (`WALL_BANDS`); a striped pitch with cut-in markings (penalty and six-yard boxes, centre circle), two goals and two dugouts inside a terracotta running track; a main stand at the back under a deep ribbed roof with a red fascia; a three-pylon gate with two doors, a red sign and a step at the front (+Z natively, `rotationOffset` 0, scale 1); a scoreboard on the +x end; five flags on the front rim; a floodlight mast on a footing in each corner, two rows of lamps tilted at the pitch.
 - **Fit:** the bowl sits 0.06 back on the lot (`BOWL_SHIFT`) and the step is 0.10 deep, so the gate stays inside the lot; the bounds are z −2.70…2.74, which `ModelLibrary`'s centring evens out.
 - **No `warmAtlas`:** it is a building, so its concrete stays the kit's lavender-grey, like the supermarket.
-- **Night:** the lamps (atlas cell 0, 1), scoreboard digits (5, 1), pitch stripes (14, 3 and 15, 3), track (10, 2) and pitch paint and goals (9, 2) sample cells nothing else on the model uses; `GLOW_CELLS.floodlight` (`src/render/nightGlow.ts`) lights exactly those. Keep that separation when changing colours: the roof, corner seats, lintel, dugouts and white flag use plain white (8, 2), which is the lamppost's lamp cell, and the yellow flags use (4, 1); both stay dark.
+- **Night:** the lamps (atlas cell 0, 1) and scoreboard digits (5, 1) sample cells nothing else on the model uses; `GLOW_CELLS.floodlight` (`src/render/nightGlow.ts`) lights exactly those on a match night. The game measures the four lamp banks from those lamp-cell triangles (one bank per quadrant of the model) and lights the rest of the stadium from them, so keep one bank per corner and the lamps on their own cell. The pitch stripes (14, 3 and 15, 3), track (10, 2) and pitch paint and goals (9, 2) also keep their own cells, though nothing depends on it now. When changing colours: the roof, corner seats, lintel, dugouts and white flag use plain white (8, 2), which is the lamppost's lamp cell, and the yellow flags use (4, 1); both stay dark.
 - The floor markings are cut into the floor mesh (`pitch_cuts` / `pitch_texel`), not laid on top, so they cannot z-fight at any zoom.
 
 ### Ground colours
@@ -170,6 +170,21 @@ npm run gen:sfx
 ```
 
 Per file the script decodes and sums the layers (each with its own end fade), high-passes the mix (40 Hz, 80 Hz for buildings), trims leading silence with a 2 ms fade-in, ends on an 8 ms fade so no file stops on a non-zero sample, gains to the target (UI capped at −1.5 dBTP; SFX with at most 4 dB of 3 ms lookahead limiting) and re-measures the encoded MP3.
+
+## Stadium crowd
+
+| Sound | File | Format | Loudness |
+| --- | --- | --- | --- |
+| Stadium crowd loop | `public/assets/audio/stadium-crowd.mp3` (277 kB) | MP3 VBR `-q:a 4`, mono, 44.1 kHz, 29.0 s | −23.0 LUFS integrated, −10.1 dBTP |
+
+Supplied by the project owner (`A_noisy_stadium_with_#1-….mp3`: 30.0 s, stereo, 48 kHz, 192 kbps); credit in `CREDITS.md`. Transcoded to the SFX format and made loopable by `scripts/build-crowd.py`:
+```bash
+mkdir -p assets-src/owner && cp <the owner's file> assets-src/owner/stadium-crowd-source.mp3
+ASSETS_SRC="$PWD/assets-src" python3 scripts/build-crowd.py    # python3 + numpy + scipy, ffmpeg
+```
+- **Loop:** the last 1.5 s are cross-faded (equal power) into the first, which makes a 28.5 s loop; its first 0.5 s are appended again, so the file repeats after 28.5 s anywhere in its first half second. The runtime (`src/audio/CrowdLoop.ts`) loops the decoded buffer from 0.1 s to 28.6 s, clear of the silence an MP3 encoder pads on, so there is no gap or click whatever delay a decoder adds. The script checks the encoded file (correlation 0.993 across the seam). `CROWD_LOOP_START_S` and `CROWD_PERIOD_S` must match the script's numbers.
+- **Loaded on first use:** fetched and decoded (about 5.5 MB of PCM) the first time a match is audible, never before Start and never in a town without a stadium, so it is not part of the download before the title.
+- **Level:** `CROWD_TRIM` 0.5 (−6 dB) puts the crowd at the stadium at about −29 LUFS: under placement sounds (−21 to −25, momentary), a little over the music at its default volume (about −31). The two scales differ (integrated against momentary), so judge it by ear; a replacement file at another loudness needs a new trim.
 
 ## Music
 

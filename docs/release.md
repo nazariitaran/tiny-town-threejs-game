@@ -17,6 +17,7 @@ npm run preview         # serves dist/ on PORT − 1000 (default 4188): test thi
 - **Chunks.** three.js is its own vendor chunk; `PhotoFrame` is a lazy chunk. `chunkSizeWarningLimit` is 900 kB.
 - **Sourcemaps.** `sourcemap: 'hidden'`: `.map` files are written, but the JS has no `sourceMappingURL`. Don't deploy them.
 - **CSS.** Minified by lightningcss, which drops `translate:` when the same rule also sets `transform:`. Never combine the two in one rule; run the visual baselines against the preview after CSS changes.
+- **Stadium crowd.** `assets/audio/stadium-crowd.mp3` (277 kB) is not part of the initial download either: it is fetched the first time a match is audible.
 - **Music.** `assets/music/foundation-of-gold.mp3` (4.68 MB) is not part of the initial download: an `<audio>` element streams it once Start or Continue sets its `src`. Hosts must serve `.mp3` as `audio/mpeg` (the common default).
 - **Static extras.** `favicon.svg`, `favicon.ico`, `apple-touch-icon.png`, `og-image.jpg`, `manifest.webmanifest`, `robots.txt`, `sitemap.xml`, `.assetsignore`, `data/default_town_names.json` and `licenses.txt` (the shipped libraries' licence texts, linked from Credits) come from `public/`. After a dependency change run `npm run gen:licenses`; `verify` fails while it is stale.
 - **Browsers.** WebGL2 (three r184). Automated coverage is Chromium desktop and Pixel 7 emulation; real iOS Safari and Android need a device check.
@@ -68,9 +69,9 @@ Full 64 × 64 town (`stress-town`), production preview, Medium preset, headless 
 
 | Metric | Target desktop / mobile | Latest |
 | --- | --- | --- |
-| Draw calls | ≤ 150 / ≤ 120 | stress 33 / 33, at night 36 / 36; sample town 85 / 85, at night 89; cars in car parks add none |
+| Draw calls | ≤ 150 / ≤ 120 | stress 33 / 33, at night 36 / 36; sample town 85 / 85, at night 89; cars in car parks add none; a match night adds 2 (the floodlights' spill pool and mast halos; 1 on Low) |
 | Triangles | ≤ 400k / ≤ 320k | stress 328.3k–332.4k / 328.3k (above the mobile target), at night 324.3k / 324.3k–326.4k; sample town 193.7k (the stadium is 1,724) |
-| Textures | ≤ 30 | stress 14, sample town 29 (incl. the glow masks; the stadium's floodlight mask is one) |
+| Textures | ≤ 30 | stress 14, sample town 29 (incl. the glow masks; the stadium's floodlight mask is one); a match night adds none |
 | Shadow map | 1 × 2048 (Low 1024) | per preset |
 | DPR cap | Low 1, Medium 1.5, High 2 | per preset |
 | CPU per rendered frame | ≤ 8 ms | stress 1.39 ms building / 1.94 ms idle; sample town 1.68 / 2.88 ms |

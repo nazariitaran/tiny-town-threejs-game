@@ -75,7 +75,7 @@ The favicon (`public/favicon.svg`, `favicon.ico`, `apple-touch-icon.png`) is the
 
 ## Sound Effects
 
-All sound effects in `public/assets/audio/` are derived from **Kenney** audio packs (www.kenney.nl), licensed **CC0 1.0 Universal** (public domain, http://creativecommons.org/publicdomain/zero/1.0/). Attribution is not required; credited with thanks. Files were trimmed, mixed to mono, loudness-matched and transcoded to MP3 (see `docs/assets.md`).
+All sound effects in `public/assets/audio/` except the stadium crowd are derived from **Kenney** audio packs (www.kenney.nl), licensed **CC0 1.0 Universal** (public domain, http://creativecommons.org/publicdomain/zero/1.0/). Attribution is not required; credited with thanks. Files were trimmed, mixed to mono, loudness-matched and transcoded to MP3 (see `docs/assets.md`).
 
 | Pack | URL | Files used |
 |---|---|---|
@@ -85,6 +85,10 @@ All sound effects in `public/assets/audio/` are derived from **Kenney** audio pa
 | RPG Audio | https://kenney.nl/assets/rpg-audio | cloth2 |
 
 Original License.txt files are kept in `assets-src/<pack>/License.txt`.
+
+| Sound | File | Credit |
+|---|---|---|
+| Stadium crowd | `public/assets/audio/stadium-crowd.mp3` | Supplied by the project owner; all rights held by the project owner. Mixed to mono, made loopable and transcoded to MP3 (see `docs/assets.md`). |
 
 ## Software
 
