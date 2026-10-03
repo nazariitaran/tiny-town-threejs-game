@@ -31,7 +31,7 @@ export interface ObjectDef {
    * 'front' every block along its front (+z at rotation 0), reached only from straight in front.
    */
   roadArms?: 'sides' | 'front';
-  /** Cars never drive onto this road feature; it still joins roads and counts as road. */
+  /** No part of the traffic graph: cars never drive through it. It still joins roads and counts as road; cars enter a car park only to park (life/TrafficSim). */
   noTraffic?: boolean;
   /** Roads join this road feature like a driveway: the joining tile draws no centre line on that side. */
   plainJoin?: boolean;
@@ -62,7 +62,7 @@ const def = (d: Omit<ObjectDef, 'variants'>): ObjectDef => ({ ...d, variants: d.
 
 export const OBJECTS: Readonly<Record<ObjectKind, ObjectDef>> = {
   roundabout: def({ kind: 'roundabout', label: 'Roundabout', group: 'road', footprint: [6, 6], allowedGround: ANY_GROUND, roadFeature: true, residents: 0, models: ['roundabout'] }),
-  // Small (one row of bays off the street), medium and large; cars don't park in them yet.
+  // Small (one row of bays off the street), medium and large; stalls and routes: life/parkingLayout.ts.
   parking: def({
     kind: 'parking',
     label: 'Parking',
