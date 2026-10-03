@@ -37,6 +37,12 @@ function sampleTownRoad(x: number, z: number): boolean {
   const [lx, lz] = [x - O, z - O];
   return ((lz === 24 || lz === 25) && lx >= 4 && lx <= 43) || ((lx === 22 || lx === 23) && lz >= 8 && lz <= 41) || onSampleRoundabout(x, z);
 }
+/** The sample town's large car park: anchor (24, 14), rotation 3, so 6 × 4 cells with its entrance on the side street. */
+const onSampleCarPark = (x: number, z: number) => x - O >= 24 && x - O <= 29 && z - O >= 14 && z - O <= 17;
+type CarCell = LifeDiagnostics['carCells'][number];
+const onTheRoad = (c: CarCell) => c.phase === 'drive' || c.phase === 'approach';
+/** A driving car is on a road cell; a car on a lot route or in a stall may be on a car-park cell. */
+const whereItBelongs = (c: CarCell) => sampleTownRoad(c.x, c.z) || (!onTheRoad(c) && onSampleCarPark(c.x, c.z));
 /** Road blocks in the sample town (TownStats.roadTiles): 20 + 8 + 8 street blocks + 9 roundabout − 5 shared + 6 car park. */
 const SAMPLE_ROAD_TILES = 46;
 
@@ -80,7 +86,7 @@ test('cars drive the sample-town roads (10 s video)', async ({ browser }, testIn
     const d = await diagnostics(page);
     trail.push({ t: Date.now() - t0, cells: l.carCells, calls: d.renderer.calls });
     for (const c of l.carCells) {
-      expect(sampleTownRoad(c.x, c.z), `car ${c.id} on a road cell (${c.x},${c.z})`).toBe(true);
+      expect(whereItBelongs(c), `car ${c.id} (${c.phase}) on a road cell, or in the car park when parking (${c.x},${c.z})`).toBe(true);
       visited.add(`${c.id}:${c.x},${c.z}`);
     }
     await page.waitForTimeout(250);
@@ -88,7 +94,8 @@ test('cars drive the sample-town roads (10 s video)', async ({ browser }, testIn
   const end = (await life(page))!;
   expect(end.cars).toBe(6);
   expect(end.despawned, 'nobody vanishes on an unchanged network').toBe(0);
-  // 6 cars × ~1 cell/s × 10 s: they must have crossed plenty of distinct cells.
+  // 6 cars × ~1 cell/s × 10 s: they must have crossed plenty of distinct cells, even with half of them
+  // parked for the second half of the run (nobody parks in its first four blocks).
   expect(visited.size, 'distinct (car, cell) pairs visited in 10 s').toBeGreaterThan(30);
   await page.screenshot({ path: resolve(ARTIFACTS, 'cars-sample-town.png') });
   errors.expectNone();
@@ -112,19 +119,21 @@ test('bulldozing the road under a car removes that car cleanly', async ({ page }
   await page.evaluate(() => window.__THREE_GAME_TEST_HOOKS__!.setReducedMotion(true));
   const frozen = (await life(page))!;
   // Pick the car nearest the middle of the view, well clear of the top bar and the dock, on a plain
-  // road block (bulldozing a roundabout cell would remove the whole 3 × 3-block roundabout).
+  // road block (bulldozing a roundabout cell would remove the whole 3 × 3-block roundabout, and a
+  // parked car's cell the whole car park).
   expect((await diagnostics(page)).town.roadTiles).toBe(SAMPLE_ROAD_TILES);
-  const victim = [...frozen.carCells].filter((c) => !onSampleRoundabout(c.x, c.z)).sort((a, b) => Math.abs(a.x - 22 - O) + Math.abs(a.z - 22 - O) - (Math.abs(b.x - 22 - O) + Math.abs(b.z - 22 - O)))[0];
+  const victim = [...frozen.carCells].filter((c) => c.phase === 'drive' && sampleTownRoad(c.x, c.z) && !onSampleRoundabout(c.x, c.z)).sort((a, b) => Math.abs(a.x - 22 - O) + Math.abs(a.z - 22 - O) - (Math.abs(b.x - 22 - O) + Math.abs(b.z - 22 - O)))[0];
   await selectTool(page, 'bulldoze');
   await clickCell(page, victim.x, victim.z);
   await expect.poll(async () => (await diagnostics(page)).town.roadTiles, { message: 'road tile bulldozed' }).toBe(SAMPLE_ROAD_TILES - 1);
-  const after = (await life(page))!;
+  // `life` is published by the next frame's update.
   await waitFrames(page, 3);
+  const after = (await life(page))!;
   expect(after.carCells.find((c) => c.id === victim.id), `car ${victim.id} removed`).toBeUndefined();
   // The victim, plus any car that was about to drive into the removed cell.
   expect(after.despawned).toBeGreaterThanOrEqual(frozen.despawned + 1);
   for (const c of after.carCells) {
-    expect(sampleTownRoad(c.x, c.z) && !sameBlock(c, victim), `car ${c.id} still on a road cell`).toBe(true);
+    expect(whereItBelongs(c) && !sameBlock(c, victim), `car ${c.id} still on a road cell`).toBe(true);
   }
   // Remaining network: count follows the target (topped up or trimmed), never above 6.
   expect(after.cars).toBe(after.target);
