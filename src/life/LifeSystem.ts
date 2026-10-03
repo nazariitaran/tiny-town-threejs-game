@@ -2,6 +2,8 @@
  * Draws TrafficSim's cars: the four Car Kit models share one atlas material in one BatchedMesh with
  * MAX_CARS pre-allocated instances, so the cost is 1 draw call + 1 shadow draw call whatever the count.
  * At night the traffic thins and the head/tail lights glow through the `headlights` emissive mask.
+ * Cars in a car park are the same instances: a parked car keeps its lamps (one material for the batch)
+ * but casts no beam.
  */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -13,7 +15,7 @@ import { ROAD_BLOCK } from '../town/grid';
 import type { GameBus } from '../game/events';
 import type { TownStateReader } from '../town/types';
 import { createGlowMask, DEFAULT_GLOW_TUNING, glowIntensity } from '../render/nightGlow';
-import { CAR_MODELS, MAX_CARS, TrafficSim, type Car } from './TrafficSim';
+import { CAR_MODELS, MAX_CARS, TrafficSim, type Car, type CarPhase } from './TrafficSim';
 
 /** Car Kit files in model-index order (TrafficSim picks 0..CAR_MODELS-1). */
 export const CAR_FILES = ['sedan', 'hatchback-sports', 'van', 'taxi'] as const;
@@ -26,6 +28,10 @@ export const ROAD_TOP_Y = 0.02;
 const POP_IN_S = 0.32;
 /** Visual heading smoothing (1/s); polyline headings step a few degrees per sample. */
 const YAW_FOLLOW = 18;
+/** On a lot route the car passes centimetres from kerbs and parked cars: almost no lag. */
+const YAW_FOLLOW_LOT = 60;
+/** The shadow map keeps redrawing this long after the last car moved, came or went (its yaw and pop-in settle). */
+const SHADOW_SETTLE_S = 0.5;
 
 export interface LifeDiagnostics {
   loaded: boolean;
@@ -35,12 +41,16 @@ export interface LifeDiagnostics {
   spawned: number;
   despawned: number;
   waiting: number;
+  /** Cars standing in a car-park stall. */
+  parked: number;
+  /** Cars driving into or out of a car park. */
+  manoeuvring: number;
   /** Main-pass draw calls, what renderer.calls counts: three resets renderer.info after the shadow pass. */
   drawCalls: number;
-  /** Not included in renderer.calls. */
+  /** Not included in renderer.calls; 0 while every car stands parked (their shadows stay in the map). */
   shadowDrawCalls: number;
-  /** Each car's fine road cell and world position (px, pz). */
-  carCells: Array<{ id: number; x: number; z: number; px: number; pz: number }>;
+  /** Each car's fine cell (a road cell, or a car-park cell for a car in a lot), world position (px, pz) and phase. */
+  carCells: Array<{ id: number; x: number; z: number; px: number; pz: number; phase: CarPhase; lot: number; stall: number }>;
 }
 
 /** A drawn car's pose for the headlight beams; written in place by carPose(). */
@@ -54,6 +64,8 @@ export interface CarPose {
   scale: number;
   /** Distance from the car's centre to its bonnet tip, world units (already × scale). */
   front: number;
+  /** Headlight beam on the ground (off while parked). */
+  beam: boolean;
 }
 
 /** Traffic density is 1 − NIGHT_TRAFFIC_DROP · night. */
@@ -70,6 +82,8 @@ export class LifeSystem {
   private material: THREE.Material | null = null;
   private glowMask: THREE.Texture | null = null;
   private night = 0;
+  /** Seconds of shadow redraws still owed since a car last moved, appeared or left. */
+  private shadowSettle = 0;
   /** Bonnet distance (+Z half-length) per car model, from the normalised geometry. */
   private readonly frontZ: number[] = [];
   private readonly geometryIds: number[] = [];
@@ -93,6 +107,8 @@ export class LifeSystem {
     spawned: 0,
     despawned: 0,
     waiting: 0,
+    parked: 0,
+    manoeuvring: 0,
     drawCalls: 0,
     shadowDrawCalls: 0,
     carCells: [],
@@ -111,7 +127,14 @@ export class LifeSystem {
     this.unsubscribe.push(bus.on('town:changed', ({ changes, cause }) => this.sim.onTownChanged(changes, cause)));
     const folder = debug?.folder('Life');
     if (folder) {
-      folder.add(this.tuning, 'visible').name('cars visible').onChange(() => this.sync(0));
+      folder.add(this.tuning, 'visible').name('cars visible').onChange(() => {
+        this.shadowSettle = SHADOW_SETTLE_S;
+        this.sync(0);
+      });
+      folder.add(this.sim.parking, 'parkChance', 0, 1, 0.05).name('park chance');
+      folder.add(this.sim.parking, 'dwellMin', 0, 60, 1).name('parked min s');
+      folder.add(this.sim.parking, 'dwellMax', 0, 120, 1).name('parked max s');
+      folder.add(this.sim.parking, 'parkedShare', 0, 1, 0.05).name('parked share');
     }
     this.publish();
   }
@@ -178,6 +201,7 @@ export class LifeSystem {
   update(animDelta: number): void {
     if (animDelta <= 0) this.settle();
     else this.sim.step(Math.min(animDelta, 0.1));
+    this.shadowSettle = Math.max(0, this.shadowSettle - animDelta);
     this.sync(animDelta);
   }
 
@@ -212,6 +236,7 @@ export class LifeSystem {
     out.yaw = visual ? visual.yaw : Math.atan2(car.hx, car.hz);
     out.scale = Math.max(scale, 0);
     out.front = (this.frontZ[car.model % CAR_MODELS] ?? 0.24) * out.scale;
+    out.beam = car.phase !== 'parked';
     return true;
   }
 
@@ -225,8 +250,9 @@ export class LifeSystem {
     this.sync(0);
   }
 
+  /** Cars' shadows may be changing: false once every car has stood parked for a moment, so a still town draws no shadow pass. */
   get castsShadows(): boolean {
-    return this.mesh !== null && this.mesh.castShadow && this.tuning.visible && this.sim.cars.length > 0;
+    return this.mesh !== null && this.mesh.castShadow && this.tuning.visible && this.shadowSettle > 0;
   }
 
   getDiagnostics(): LifeDiagnostics {
@@ -264,13 +290,16 @@ export class LifeSystem {
           if (slot === undefined) continue; // cannot happen: sim never exceeds MAX_CARS
           visual = { slot, yaw: Math.atan2(car.hx, car.hz) };
           this.visuals.set(car.id, visual);
+          this.shadowSettle = SHADOW_SETTLE_S;
           mesh.setGeometryIdAt(slot, this.geometryIds[car.model % CAR_MODELS]);
         }
+        if (car.phase !== 'parked' || car.age < POP_IN_S) this.shadowSettle = SHADOW_SETTLE_S;
         const targetYaw = Math.atan2(car.hx, car.hz);
         if (dt > 0) {
           let delta = targetYaw - visual.yaw;
           delta = Math.atan2(Math.sin(delta), Math.cos(delta));
-          visual.yaw += delta * Math.min(1, dt * YAW_FOLLOW);
+          const onRoad = car.phase === 'drive' || car.phase === 'approach';
+          visual.yaw += delta * Math.min(1, dt * (onRoad ? YAW_FOLLOW : YAW_FOLLOW_LOT));
         } else if (car.age >= POP_IN_S) {
           visual.yaw = targetYaw;
         }
@@ -290,6 +319,7 @@ export class LifeSystem {
     const visual = this.visuals.get(car.id);
     if (!visual) return;
     this.visuals.delete(car.id);
+    this.shadowSettle = SHADOW_SETTLE_S;
     this.mesh?.setVisibleAt(visual.slot, false);
     this.freeSlots.push(visual.slot);
   }
@@ -303,18 +333,25 @@ export class LifeSystem {
     d.spawned = stats.spawned;
     d.despawned = stats.despawned;
     d.waiting = stats.waiting;
+    d.parked = stats.parked;
+    d.manoeuvring = stats.manoeuvring;
     const drawn = this.mesh !== null && this.tuning.visible && stats.cars > 0;
     d.drawCalls = drawn ? 1 : 0;
-    d.shadowDrawCalls = drawn && this.mesh!.castShadow ? 1 : 0;
+    d.shadowDrawCalls = drawn && this.castsShadows ? 1 : 0;
     const cells = d.carCells;
     cells.length = this.sim.cars.length;
     this.sim.cars.forEach((car, i) => {
-      const entry = cells[i] ?? (cells[i] = { id: 0, x: 0, z: 0, px: 0, pz: 0 });
+      const entry = cells[i] ?? (cells[i] = { id: 0, x: 0, z: 0, px: 0, pz: 0, phase: 'drive', lot: 0, stall: 0 });
       entry.id = car.id;
-      // The fine (0.5) cell under the car, inside its 2 × 2 road block (car.cx/cz are block coords).
+      entry.phase = car.phase;
+      entry.lot = car.lot;
+      entry.stall = car.lot === 0 ? 0 : car.stall;
+      // The fine (0.5) cell under the car: inside its 2 × 2 road block (car.cx/cz are block coords) on the
+      // road, the cell itself on a lot route (car.cx/cz are then the lot's front block).
       worldToCell(car.x, car.z, this.carCell);
-      entry.x = Math.min(Math.max(this.carCell.x, car.cx * ROAD_BLOCK), car.cx * ROAD_BLOCK + ROAD_BLOCK - 1);
-      entry.z = Math.min(Math.max(this.carCell.z, car.cz * ROAD_BLOCK), car.cz * ROAD_BLOCK + ROAD_BLOCK - 1);
+      const onRoad = car.phase === 'drive' || car.phase === 'approach';
+      entry.x = onRoad ? Math.min(Math.max(this.carCell.x, car.cx * ROAD_BLOCK), car.cx * ROAD_BLOCK + ROAD_BLOCK - 1) : this.carCell.x;
+      entry.z = onRoad ? Math.min(Math.max(this.carCell.z, car.cz * ROAD_BLOCK), car.cz * ROAD_BLOCK + ROAD_BLOCK - 1) : this.carCell.z;
       entry.px = Math.round(car.x * 1000) / 1000;
       entry.pz = Math.round(car.z * 1000) / 1000;
     });

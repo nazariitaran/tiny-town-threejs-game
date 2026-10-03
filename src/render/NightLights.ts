@@ -105,7 +105,7 @@ export class NightLights {
   private readonly scale = new THREE.Vector3();
   private readonly up = new THREE.Vector3(0, 1, 0);
   private readonly world: Vec3Like = { x: 0, y: 0, z: 0 };
-  private readonly pose: CarPose = { x: 0, y: 0, z: 0, yaw: 0, scale: 1, front: 0 };
+  private readonly pose: CarPose = { x: 0, y: 0, z: 0, yaw: 0, scale: 1, front: 0, beam: true };
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -226,7 +226,7 @@ export class NightLights {
   private drawnCars(): number {
     let cars = 0;
     const n = Math.min(this.life.carCount, MAX_CARS);
-    for (let i = 0; i < n; i += 1) if (this.life.carPose(i, this.pose) && this.pose.scale > 0.01) cars += 1;
+    for (let i = 0; i < n; i += 1) if (this.life.carPose(i, this.pose) && this.pose.beam && this.pose.scale > 0.01) cars += 1;
     return cars;
   }
 
@@ -306,7 +306,7 @@ export class NightLights {
     const n = Math.min(this.life.carCount, beams.capacity);
     let count = 0;
     for (let i = 0; i < n; i += 1) {
-      if (!this.life.carPose(i, this.pose) || this.pose.scale <= 0.01) continue;
+      if (!this.life.carPose(i, this.pose) || !this.pose.beam || this.pose.scale <= 0.01) continue;
       const p = this.pose;
       const fx = Math.sin(p.yaw);
       const fz = Math.cos(p.yaw);
