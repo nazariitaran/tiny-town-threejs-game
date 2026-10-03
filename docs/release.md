@@ -68,7 +68,7 @@ Full 64 × 64 town (`stress-town`), production preview, Medium preset, headless 
 
 | Metric | Target desktop / mobile | Latest |
 | --- | --- | --- |
-| Draw calls | ≤ 150 / ≤ 120 | stress 31–33 / 31, at night 34–36 / 34; sample town 86–88 / 86 |
+| Draw calls | ≤ 150 / ≤ 120 | stress 33 / 33, at night 36 / 36; sample town 86 / 86, at night 90; cars in car parks add none |
 | Triangles | ≤ 400k / ≤ 320k | stress 328.3k–332.4k / 328.3k (above the mobile target), at night 324.3k / 324.3k–326.4k; sample town 191.7k |
 | Textures | ≤ 30 | stress 14, sample town 28 (incl. the glow masks) |
 | Shadow map | 1 × 2048 (Low 1024) | per preset |
@@ -76,7 +76,7 @@ Full 64 × 64 town (`stress-town`), production preview, Medium preset, headless 
 | CPU per rendered frame | ≤ 8 ms | stress 1.39 ms building / 1.94 ms idle; sample town 1.68 / 2.88 ms |
 | Frame cap | 60 active / 30 idle (Low 30 / 30) | held |
 | Download before the title (JS, CSS, font, models, SFX, icons, name list) | ≤ 8 MB | 5.26 MB; `dist/` without maps or music 5.07 MB |
-| Main JS chunk | < 900 kB | 298 kB (94 kB gzip) + three.js 642 kB (162 kB gzip) |
+| Main JS chunk | < 900 kB | 337 kB (107 kB gzip) + three.js 642 kB (162 kB gzip) |
 
 Per preset, stress town: triangles Low 289k–298k, Medium / High 324k–332k (phone / desktop). GPU busy on an M2 Max at 1512 × 982, DPR 2, active / idle: Low 11 / 11 %, Medium 33–35 / 20–21 %, High 44–45 / 26–27 %. On a 1080p DPR-1 screen Low renders about 4× cheaper per frame than Medium (render scale 0.75).
 

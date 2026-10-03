@@ -7,6 +7,7 @@ A cosy browser city-builder sandbox: three.js + TypeScript + Vite. The game live
 - `docs/design.md`: what the game is and isn't, and how the camera, tools and UI behave.
 - `docs/assets.md`: where models and sounds come from, scale and orientation conventions, how to rebuild them. `CREDITS.md`: every asset's source and licence.
 - `docs/release.md`: build, deploy, debug and test-hook policy, budgets.
+- `docs/backlog.md`: known gaps and follow-ups, open until fixed or dropped.
 - `CHANGELOG.md`: player-facing notes; "Unreleased" is what's merged on `main` since the last tag.
 - History lives in git, not in docs.
 
