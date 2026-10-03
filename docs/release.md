@@ -68,9 +68,9 @@ Full 64 × 64 town (`stress-town`), production preview, Medium preset, headless 
 
 | Metric | Target desktop / mobile | Latest |
 | --- | --- | --- |
-| Draw calls | ≤ 150 / ≤ 120 | stress 33 / 33, at night 36 / 36; sample town 86 / 86, at night 90; cars in car parks add none |
-| Triangles | ≤ 400k / ≤ 320k | stress 328.3k–332.4k / 328.3k (above the mobile target), at night 324.3k / 324.3k–326.4k; sample town 191.7k |
-| Textures | ≤ 30 | stress 14, sample town 28 (incl. the glow masks) |
+| Draw calls | ≤ 150 / ≤ 120 | stress 33 / 33, at night 36 / 36; sample town 85 / 85, at night 89; cars in car parks add none |
+| Triangles | ≤ 400k / ≤ 320k | stress 328.3k–332.4k / 328.3k (above the mobile target), at night 324.3k / 324.3k–326.4k; sample town 192.6k (the stadium is 698) |
+| Textures | ≤ 30 | stress 14, sample town 29 (incl. the glow masks; the stadium's floodlight mask is one) |
 | Shadow map | 1 × 2048 (Low 1024) | per preset |
 | DPR cap | Low 1, Medium 1.5, High 2 | per preset |
 | CPU per rendered frame | ≤ 8 ms | stress 1.39 ms building / 1.94 ms idle; sample town 1.68 / 2.88 ms |

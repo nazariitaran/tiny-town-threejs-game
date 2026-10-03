@@ -16,7 +16,7 @@ Almost all 3D models in `public/assets/models/` are licensed **CC0 1.0 Universal
 | Nature Kit 2.1 | Kenney | https://kenney.nl/assets/nature-kit | flower_red/yellow/purple A–C (inside composed/tulips-a/-b/-c, recoloured) |
 | Holiday Kit 2.0 | Kenney | https://kenney.nl/assets/holiday-kit | bench (garden bench, also inside bus-stop) |
 | Car Kit 3.1 | Kenney | https://kenney.nl/assets/car-kit | sedan, hatchback-sports, van, taxi |
-| Tiny Town (original) | this project | — | composed/postbox.glb (procedural primitives, CC0); parking/parking-small/-medium/-large.glb (built by scripts/build-parking.py on the City Kit (Roads) atlas, CC0) |
+| Tiny Town (original) | this project | — | composed/postbox.glb (procedural primitives, CC0); parking/parking-small/-medium/-large.glb (built by scripts/build-parking.py on the City Kit (Roads) atlas, CC0); stadium/stadium.glb (built by scripts/build-stadium.py on the same atlas, CC0) |
 
 ### Poly Pizza models
 
@@ -47,9 +47,9 @@ The composed models (`public/assets/models/composed/`) are built by `scripts/com
 
 ### Icons
 
-The 38 tool icons in `public/assets/icons/tool-<id>.png` (128 px) were rendered in this project from the in-game models, using `scripts/render-icons.mjs` + `src/render/IconStudio.ts` (in-game models and materials). Icons of CC0 models are CC0. The Church, Swing, Barbecue, Donut shop, Tiered fountain and Slide icons are renders of the CC-BY models above and carry the same attribution.
+The 40 tool icons in `public/assets/icons/tool-<id>.png` (128 px) were rendered in this project from the in-game models, using `scripts/render-icons.mjs` + `src/render/IconStudio.ts` (in-game models and materials). Icons of CC0 models are CC0. The Church, Swing, Barbecue, Donut shop, Tiered fountain and Slide icons are renders of the CC-BY models above and carry the same attribution.
 
-The 38 tool icons have 10 variant icons beside them (`tool-<id>-v<n>.png`, the variant picker), rendered the same way from CC0 models.
+The 40 tool icons have 12 variant icons beside them (`tool-<id>-v<n>.png`, the variant picker), rendered the same way from CC0 models.
 
 The author's link icons in Credits (`src/ui/glyphs.ts` `github`, `linkedin`, `x`; inline SVG) are the platforms' own marks, used only to link to the author's pages on those platforms. The GitHub and X paths are the ones published by [Simple Icons](https://simpleicons.org) (CC0); the LinkedIn "in" was drawn in this project. The marks are trademarks of GitHub, LinkedIn and X Corp.
 

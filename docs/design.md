@@ -10,7 +10,7 @@ What Tiny Town is, and how it behaves. Rules, numbers and modules: [`architectur
 
 **Core loop:** pick a tool → place or drag-paint it on the grid → watch it pop in. Placement rules (roads block buildings, fences sit on edges, footprints can't overlap, some items need a road next to them) make light spatial puzzles. A valid placement lands with a springy pop, a dust puff, a sound and auto-joining roads. A blocked one shows a red ghost, a soft "nope" and a tooltip naming the reason. Undo makes every mistake free.
 
-**The town answers back:** cars drive on connected roads and round roundabouts, now and then pull into a car park, sit in a stall for a while and drive off again, trees and meadows sway, flocks of birds cross the sky now and then (more often over a leafy town, never at night), and at night windows, lamps, traffic lights and headlights glow, and fireflies rise over the wildflower meadows. Shops and the church stay dark at night.
+**The town answers back:** cars drive on connected roads and round roundabouts, now and then pull into a car park, sit in a stall for a while and drive off again, trees and meadows sway, flocks of birds cross the sky now and then (more often over a leafy town, never at night), and at night windows, lamps, traffic lights and headlights glow, and fireflies rise over the wildflower meadows. Shops and the church stay dark at night; the stadium switches its floodlights on with the street lamps, and its pitch glows under them.
 
 **Target feeling:** calm, tactile, cute. Nothing ever punishes the player.
 
@@ -45,7 +45,7 @@ A perspective camera (FOV 35°) orbits a target on the ground through three.js `
 | --- | --- | --- |
 | Streets (1) | the road network | Road, Pavement, Roundabout, Parking, Zebra, Traffic light |
 | Homes (2) | where people live | Cottage, Townhouse, Bungalow, Family home, Suburban, Big house, Mailbox |
-| Town (3) | shops, civic places, shared street furniture | Tiered fountain, Corner shop, Donut shop, Church, Supermarket, Bus stop, Postbox, Lamppost |
+| Town (3) | shops, civic places, shared street furniture | Tiered fountain, Corner shop, Donut shop, Church, Supermarket, Stadium, Bus stop, Postbox, Lamppost |
 | Nature (4) | things that grow on their own | Grass, Wildflowers, Tulips, Bush, Oak, Pine, Birch |
 | Garden (5) | things people build in a yard or park | Hedge, Low fence, Tall fence, Planter, Bench, Long bench, Table, Barbecue, Swing, Slide, Pool |
 

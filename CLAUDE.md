@@ -31,6 +31,7 @@ npm run gen:licenses   # regenerate public/licenses.txt (runtime dependencies + 
 node scripts/render-icons.mjs [--size 128]   # re-render the tool icons (tool-<id>.png, + tool-<id>-v<n>.png per extra model) from in-game models (needs a dev server on PORT)
 node scripts/compose-models.mjs              # rebuild public/assets/models/composed/*.glb (needs assets-src/, incl. assets-src/polypizza/)
 /Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-parking.py   # rebuild public/assets/models/parking/*.glb
+/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-stadium.py   # rebuild public/assets/models/stadium/stadium.glb
 ```
 - If `npm install` fails with EACCES on `~/.npm`, add `--cache .npm-cache`.
 - Browser checks (Playwright, `inspect:canvas`, `render-icons`) need a session where Chromium can launch; inside a nono sandbox it segfaults. If that happens, say so in your hand-off; don't skip the check.

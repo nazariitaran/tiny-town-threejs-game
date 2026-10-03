@@ -18,6 +18,7 @@ One flat, colourful look: a 512 px gradient `colormap.png` per kit, the same gre
 | `cars/` | Kenney Car Kit 3.1 | CC0 |
 | `composed/` | built by `scripts/compose-models.mjs` (below) | CC0, except church, swing, barbecue, donut shop, tiered fountain and slide: CC-BY 3.0 |
 | `parking/` | built in Blender by `scripts/build-parking.py` (below) | CC0 (original; samples the roads atlas) |
+| `stadium/` | built in Blender by `scripts/build-stadium.py` (below) | CC0 (original; samples the roads atlas) |
 
 - Every pack folder keeps its `License.txt`; `composed/License.txt` names what each composed GLB is built from.
 - `assets-src/` (gitignored) holds the full source packs, the Nature Kit 2.1, the City Kit (Industrial) and `polypizza/` (the Poly Pizza source GLBs with their own `CREDITS.md`).
@@ -37,7 +38,7 @@ One flat, colourful look: a 512 px gradient `colormap.png` per kit, the same gre
 - A Kenney road tile is exactly 1 × 1 at scale 1 (top at y = 0.02) and covers one aligned 2 × 2 road block. Two lanes of ≈ 0.37 run between the kerbs.
 - Homes, the supermarket and the church use `HOME_SCALE` = 4/3 so the building fills its lot; homes are nudged back (offset z −0.2) so a front yard shows.
 - Composed Poly Pizza models are scaled into game units by the compose script, so their catalog scale is usually 1.
-- Reference sizes as drawn: car 0.43–0.49 long, 0.19–0.26 tall (`LifeSystem.CAR_SCALE` 0.17); cottage 1.11 tall; pine 1.80 (`ObjectDef.height` 2); oak 1.74; lamppost 0.675; traffic light 0.52; church 2.33, the tallest building. Trees and plants get ±12 % size jitter from their id.
+- Reference sizes as drawn: car 0.43–0.49 long, 0.19–0.26 tall (`LifeSystem.CAR_SCALE` 0.17); cottage 1.11 tall; pine 1.80 (`ObjectDef.height` 2); oak 1.74; lamppost 0.675; traffic light 0.52; church 2.33, the tallest building; stadium 0.90 to the rim of its bowl, 1.40 to the roof, 2.10 to the floodlights. Trees and plants get ±12 % size jitter from their id.
 - The full drawn-size table is logged by `npx vitest run src/catalog/catalog.test.ts -t "bounding-box"`.
 - The decor ring outside the plot draws oak and pine at 0.36 regardless of the catalog scale (`DecorRing.TEMPLATE_RESCALE`).
 
@@ -102,6 +103,13 @@ A road block in front of a car park's entrance draws its usual Kenney piece with
 - **Set:** one joint per piece and set of lot sides, where sets a symmetric piece turns into each other (the straight's half turn, the cross's quarter turns) share the one with the smallest mask: straight `n`, `ns`; corner `e`, `s`, `es`; tee `e`, `s`, `w`, `es`, `ew`, `sw`, `esw`; cross `n`, `ne`, `ns`, `nes`, `nesw`; end `s`; zebra straight `n`, `ns`. 20 GLBs, 4–13 kB each.
 - **Triangles:** the Kenney piece's count plus the cuts: straight 48–52 (44), corner 61–62 (60), tee 76–84 (76), cross 114–118 (108), end 222 (218), zebra straight 104 (104).
 - The zebra tee and cross (`-path`) have no centre lines, so a zebra on a junction in front of a lot keeps its usual piece; corners and ends never carry a zebra.
+
+### Stadium
+`scripts/build-stadium.py` builds `public/assets/models/stadium/stadium.glb` in Blender, procedurally (`/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-stadium.py`; in an open session `exec` it and call `build_stadium()` to review it in a "Stadium" collection). It reuses the parking script's exporter, so the GLB is Kenney-style too: no embedded texture, `../roads/Textures/colormap.png`.
+- **Design:** a small football ground on a 10 × 8 cell lot (5 × 4 units, 0.05 margin), 698 triangles. An octagonal bowl of six seat tiers (red on the straights, white in the corners) over a concrete wall with a dark base and a red band; a striped pitch with cut-in white markings and two goals inside a terracotta running track; a roofed main stand at the back; a gate with a white lintel at the front (+Z natively, `rotationOffset` 0, scale 1); a floodlight mast in each corner, its lamp panel tilted at the pitch.
+- **No `warmAtlas`:** it is a building, so its concrete stays the kit's lavender-grey, like the supermarket.
+- **Night:** the lamp panels (atlas cell 0, 1), pitch stripes (14, 3 and 15, 3), track (10, 2) and pitch paint and goals (9, 2) sample cells nothing else on the model uses; `GLOW_CELLS.floodlight` (`src/render/nightGlow.ts`) lights exactly those. Keep that separation when changing colours: the roof, corner seats and lintel use the plain white cell (8, 2), which is the lamppost's lamp cell.
+- The floor markings are cut into the floor mesh (`pitch_cuts` / `pitch_texel`), not laid on top, so they cannot z-fight at any zoom.
 
 ### Ground colours
 Grass and wildflower ground share one lawn colour, walkways their own; both are flat procedural tiles in `GROUND_MODELS` (`src/catalog/models.ts`), with an instanced tuft or flower scatter on top. Pavement is the kit's `tile-low` with the warm atlas.
