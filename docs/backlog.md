@@ -4,7 +4,7 @@ Known gaps and follow-ups. An item stays until it is fixed or dropped; when it i
 
 ## Failing or flaky tests
 - **`tests/audio.spec.ts:180`** ("music is not requested before Start, then streams, plays and advances") and **`tests/audio.spec.ts:354`** ("garbage or another track in the stored position starts from 0 without warnings"), both projects, and **`tests/move.spec.ts:69`** ("pick up a cottage, a refused drop, turn it, put it down, undo / redo, reload"), mobile-chrome: fail on some full-suite runs and pass on others, on `main` as well. Unrelated to cars. Find the timing each depends on and make it deterministic.
-- **Three visual baselines differ and await the owner's approval:** `asset-gallery` (desktop-chrome, mobile-chrome) and `sample-town` (mobile-chrome), from the car-park models. Re-capture once the look is approved.
+- **Four visual baselines differ and await the owner's approval:** `asset-gallery` (desktop-chrome, mobile-chrome) and `sample-town` (desktop-chrome, mobile-chrome), from the car-park models and the stadium. Re-capture once the look is approved.
 - **`night-town` (mobile-chrome) visual baseline fails intermittently by environment:** it passed in two full runs and then failed repeatedly, on this branch and on the sources of the commit before the car work alike. The diff is only in the DOM UI (top bar, hint line and dock text shifted by a pixel); the canvas is identical. Likely font or layout timing at capture. Find what the capture waits for.
 - **`tests/life.spec.ts` and the new car-park spec read `life` diagnostics one frame late.** `town` / `objects` are current at once, `life` is rewritten in the next `LifeSystem.sync`; specs wait a few frames before reading it. A diagnostics read that syncs first would remove the trap.
 
