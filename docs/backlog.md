@@ -8,6 +8,17 @@ Known gaps and follow-ups. An item stays until it is fixed or dropped; when it i
 - **`night-town` (mobile-chrome) visual baseline fails intermittently by environment:** it passed in two full runs and then failed repeatedly, on this branch and on the sources of the commit before the car work alike. The diff is only in the DOM UI (top bar, hint line and dock text shifted by a pixel); the canvas is identical. Likely font or layout timing at capture. Find what the capture waits for.
 - **`tests/life.spec.ts` and the new car-park spec read `life` diagnostics one frame late.** `town` / `objects` are current at once, `life` is rewritten in the next `LifeSystem.sync`; specs wait a few frames before reading it. A diagnostics read that syncs first would remove the trap.
 
+## Match nights at the stadium
+- **Nobody has listened to it.** The crowd's level against the music and the placement sounds (`CROWD_TRIM`), the distance curve and the loop seam are set by measurement and tests, not by ear. Play a match night with sound on and adjust `CROWD_TRIM`, `CROWD_FULL_DISTANCE` and `CROWD_CUTOFF_DISTANCE`.
+- **The crowd file's credit wording** in `CREDITS.md` says "supplied by the project owner"; if it was generated with a service (as the music was), name it there and decide whether the Credits panel should carry a line.
+- **The first match's crowd starts a moment after the lights**: the file is fetched and decoded when it is first audible. A failed fetch is not retried until a reload. Fetching it when a stadium is first on the plot at dusk would close the gap.
+- **A sweep to Day mode takes the lights with the sky** (a few frames, like the street lamps and windows), while the crowd fades over its 5 s. Every other change fades.
+- **Mast halos show from behind the lamp banks too**; fading them by the angle to the pitch would read better up close.
+- **The floodlights light only the stadium and a spill on the ground.** Houses, trees and cars next to it stay unlit, and nothing casts a shadow inside the bowl.
+- **Gain ramps are untested outside Chromium**: during fades the crowd gain is re-targeted (`cancelScheduledValues` + `setTargetAtTime`) on every change of 0.01; check Firefox and Safari for zipper noise.
+- **Held Night mode lights the stadium for about 30 s per match, Auto for about 60 s** (Auto adds the half of dusk before the night). Decide whether Night mode should match.
+- **`tests/move.spec.ts:69` also failed once on desktop-chrome** in a full run ("Couldn't load texture" console errors after the reload) and passed alone.
+
 ## Cars in car parks
 Liveness holds (no deadlock or stuck car in the harness or in four review rounds; `stats.unstuck` stays 0). What is left is fairness, polish and test depth.
 
