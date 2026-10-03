@@ -6,7 +6,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import * as THREE from 'three';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { CELL_SIZE, ROAD_TILE_SIZE } from '../game/config';
+import { CELL_SIZE, PLOT_CONTENT_HEIGHT, ROAD_TILE_SIZE } from '../game/config';
+import { ALTITUDE } from '../life/FlockSim';
 import { CAR_FILES, CAR_SCALE } from '../life/LifeSystem';
 import { MODEL_STYLES } from '../render/modelStyles';
 import { EDGE_MODELS, GROUND_MODELS, MODELS, ROAD_JOINT_MODELS, ROAD_PIECE_MODELS, ZEBRA_JOINT_MODELS, type ModelId } from './models';
@@ -192,7 +193,7 @@ describe('catalog', () => {
       roundabout: [6, 6], parking: [4, 2], 'zebra-crossing': [2, 2], 'traffic-light': [1, 1], lamppost: [1, 1], 'bus-stop': [2, 1], postbox: [1, 1],
       mailbox: [1, 1],
       cottage: [4, 4], townhouse: [3, 4], bungalow: [4, 4], 'family-home': [4, 4], 'garage-house': [4, 4], 'big-house': [5, 4],
-      'corner-shop': [3, 3], 'donut-shop': [3, 3], supermarket: [5, 4], church: [3, 4], stadium: [10, 8], 'swimming-pool': [4, 3], fountain: [2, 2],
+      'corner-shop': [3, 3], 'donut-shop': [3, 3], supermarket: [5, 4], church: [3, 4], stadium: [14, 11], 'swimming-pool': [4, 3], fountain: [2, 2],
       'tiered-fountain': [3, 3],
       oak: [2, 2], pine: [1, 1], birch: [1, 1], bush: [1, 1], tulips: [1, 1],
       planter: [1, 1], bench: [1, 1], 'long-bench': [1, 1], 'garden-table': [1, 1], swing: [2, 1], slide: [2, 1], barbecue: [1, 1],
@@ -388,11 +389,22 @@ describe('proportions', () => {
     expect(h('bungalow-l')).toBeLessThan(h('family-home'));
   });
 
-  it('the church tower is the tallest building', () => {
+  it('the stadium floodlights are the tallest thing, the church tower the tallest of the rest', () => {
     for (const def of Object.values(OBJECTS)) {
-      if (def.kind === 'church' || def.roadFeature) continue;
-      for (const id of def.models) expect(h(id), id).toBeLessThan(h('church'));
+      if (def.kind === 'church' || def.kind === 'stadium' || def.roadFeature) continue;
+      for (const id of def.models) expect(h(id) * heightScale(def), id).toBeLessThan(h('church'));
     }
+    expect(h('stadium')).toBeGreaterThan(h('church'));
+    expect(h('stadium')).toBeCloseTo(2.85, 2);
+  });
+
+  it('everything stays under the birds, and the birds inside the sun-shadow frustum', () => {
+    const TREE_JITTER = 1.12;
+    for (const def of Object.values(OBJECTS)) {
+      const jitter = def.group === 'tree' || def.group === 'plant' ? TREE_JITTER : 1;
+      for (const id of def.models) expect(h(id) * heightScale(def) * jitter, id).toBeLessThan(ALTITUDE[0] - 0.2);
+    }
+    expect(ALTITUDE[1]).toBeLessThan(PLOT_CONTENT_HEIGHT);
   });
 
   it('garden furniture stays below the lamppost and the cottage eaves', () => {

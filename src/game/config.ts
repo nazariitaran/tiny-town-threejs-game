@@ -11,6 +11,8 @@ export const PLOT_DEPTH = 64;
  * One Kenney road tile (1 world unit) covers an aligned 2 × 2 road block.
  */
 export const CELL_SIZE = 0.5;
+/** Height (world units) the plot's content stays under: the stadium floodlights (2.85) and the birds above them. The sun-shadow frustum encloses it. */
+export const PLOT_CONTENT_HEIGHT = 4.5;
 
 /** World-space centre of a cell (y = 0 ground plane). The plot is centred on the origin. */
 export function cellToWorld(cell: Cell, out: { x: number; z: number } = { x: 0, z: 0 }): { x: number; z: number } {

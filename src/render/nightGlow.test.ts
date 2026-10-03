@@ -65,8 +65,8 @@ describe('glow masks', () => {
     expect(cells('windows')).toEqual(['11,1']);
     expect(cells('lamp')).toEqual(['8,2']);
     expect(cells('traffic')).toEqual(['9,1', '11,3', '15,3']);
-    // The stadium: lamp panels, then the pitch stripes, track and pitch paint at 0.4 of their own colours.
-    expect(cells('floodlight')).toEqual(['0,1', '14,3', '15,3', '10,2', '9,2']);
+    // The stadium: lamps, scoreboard digits, then the pitch stripes, track and pitch paint at 0.4 of their own colours.
+    expect(cells('floodlight')).toEqual(['0,1', '5,1', '14,3', '15,3', '10,2', '9,2']);
     expect(GLOW_CELLS.floodlight[0].color).toBe(0xfff4d6);
     expect(texel(glowMaskData('floodlight'), 14, 3).slice(0, 3)).toEqual([39, 81, 56]);
     expect(cells('headlights')).toEqual(['3,3', '5,3']);
@@ -153,15 +153,24 @@ describe('glow masks against the real assets', () => {
     expect(head.z).toBeCloseTo(-0.155, 2);
   });
 
-  it('the stadium floodlights are the four lamp panels on the masts; its roof and seat white stay out of the mask', () => {
-    const panels = centroid(MODELS.stadium.url, 0, 1)!;
-    expect(panels.triangles).toBe(8);
-    expect(panels.x).toBeCloseTo(0, 2);
-    expect(panels.z).toBeCloseTo(0, 1);
-    expect(panels.y).toBeGreaterThan(1.8);
-    // The roof, corner seats and gate sample the lamppost's lamp cell (8, 2), which 'floodlight' leaves dark.
-    expect(centroid(MODELS.stadium.url, 8, 2)!.triangles).toBeGreaterThan(8);
-    expect(cells('floodlight')).not.toContain('8,2');
+  it('the stadium lights its lamps and scoreboard digits; its white and its yellow flags stay out of the mask', () => {
+    // Two rows of proud lamp boxes on each of the four masts, five faces each.
+    const lamps = centroid(MODELS.stadium.url, 0, 1)!;
+    expect(lamps.triangles).toBe(80);
+    expect(lamps.x).toBeCloseTo(0, 2);
+    expect(lamps.z).toBeCloseTo(0, 1);
+    expect(lamps.y).toBeGreaterThan(2.5);
+    // The digits face the pitch from the +x end, above the rim.
+    const digits = centroid(MODELS.stadium.url, 5, 1)!;
+    expect(digits.triangles).toBeGreaterThan(0);
+    expect(digits.x).toBeGreaterThan(3);
+    expect(digits.y).toBeGreaterThan(1.42);
+    // Plain white (8, 2: roof, corner seats, gate, flags; also the lamppost's lamp cell) and the flags'
+    // yellow (4, 1) are on the model and outside the mask.
+    for (const [col, row] of [[8, 2], [4, 1]]) {
+      expect(centroid(MODELS.stadium.url, col, row)!.triangles, `${col},${row}`).toBeGreaterThan(0);
+      expect(cells('floodlight')).not.toContain(`${col},${row}`);
+    }
     // The lit pitch lies on the arena floor, inside the bowl.
     for (const [col, row] of [[14, 3], [15, 3], [10, 2]]) expect(centroid(MODELS.stadium.url, col, row)!.y, `${col},${row}`).toBeCloseTo(0.03, 3);
   });

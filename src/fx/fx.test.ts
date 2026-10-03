@@ -331,8 +331,8 @@ describe('removal poof radius follows the footprint', () => {
     expect(footprintPoofRadius('swing', 0.3)).toBeCloseTo(0.45, 5);
     expect(footprintPoofRadius('postbox', 0.3)).toBe(0.3);
     expect(footprintPoofRadius('toString', 0.28)).toBe(0.28);
-    // Placement burst: house-sized up to a 5-cell lot, then out towards the walls (the stadium is 10 cells long).
+    // Placement burst: house-sized up to a 5-cell lot, then out towards the walls (the stadium is 14 cells long).
     for (const kind of ['cottage', 'church', 'big-house', 'supermarket', 'corner-shop']) expect(buildingBurstRadius(kind), kind).toBe(0.48);
-    expect(buildingBurstRadius('stadium')).toBeCloseTo(1.7, 5);
+    expect(buildingBurstRadius('stadium')).toBeCloseTo(2.7, 5);
   });
 });

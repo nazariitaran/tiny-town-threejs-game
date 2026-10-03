@@ -55,10 +55,11 @@ export const GLOW_CELLS: Readonly<Record<GlowMaskKind, readonly GlowCell[]>> = {
     { col: 11, row: 3, color: scaled(0xffb349, 0.8) },
     { col: 15, row: 3, color: scaled(0x3da679, 0.8) },
   ],
-  // The stadium (roads atlas): its lamp panels, and the pitch, track and pitch paint they light, at a
-  // fraction of their own colours. Nothing else on the model samples these cells.
+  // The stadium (roads atlas): its lamps and scoreboard digits, and the pitch, track and pitch paint the
+  // lamps light, at a fraction of their own colours. Nothing else on the model samples these cells.
   floodlight: [
     { col: 0, row: 1, color: 0xfff4d6 },
+    { col: 5, row: 1, color: scaled(0xffc356, 0.8) },
     { col: 14, row: 3, color: scaled(0x61cb8b, FLOODLIT) },
     { col: 15, row: 3, color: scaled(0x53bd84, FLOODLIT) },
     { col: 10, row: 2, color: scaled(0xf1976c, FLOODLIT) },

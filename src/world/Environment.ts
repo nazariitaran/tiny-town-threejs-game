@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import type { DebugTools } from '../debug/DebugTools';
+import { PLOT_CONTENT_HEIGHT } from '../game/config';
 import type { GraphicsProfile } from '../game/graphics';
 import type { MaterialMode } from '../render/materials';
 import type { ModelLibrary } from '../render/ModelLibrary';
@@ -38,8 +39,6 @@ export const LIGHTING = {
 };
 
 const SHADOW_DISTANCE = 60;
-/** Tallest thing the plot can hold, with margin: the shadow frustum must enclose it. */
-const PLOT_CONTENT_HEIGHT = 4;
 
 const DAYLIGHT_TUNING = {
   /** Re-aim the key light and refit its shadow frustum only after it has moved this far (degrees). */

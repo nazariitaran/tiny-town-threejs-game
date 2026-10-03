@@ -16,7 +16,7 @@ import type { BuildAction, Cell, Edge, EdgeKind, GroundKind, ObjectKind, PlanRes
 const W = 8;
 const D = 8;
 
-/** Room for the largest footprint (the stadium, 10 × 8) anchored at (2, 2) at any rotation. */
+/** Room for the largest footprint (the stadium, 14 × 11) anchored at (2, 2) at any rotation. */
 const ROOMY = 16;
 
 function makeState(width = W, depth = D): TownState {

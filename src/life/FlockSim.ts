@@ -57,11 +57,11 @@ export const CENTRE_JITTER = 6;
 /** Exit angle spread around "straight across" (radians, ±35°): the path passes within ~8 units of the centre. */
 const EXIT_SPREAD = 0.61;
 export const SPEED: readonly [number, number] = [2.4, 3.2];
-/** Flight altitude band (world units): above the church (2.33), below the shadow frustum top (4). */
-export const ALTITUDE: readonly [number, number] = [2.6, 3.7];
+/** Flight altitude band (world units): above the stadium floodlights (2.85), below the shadow frustum top (PLOT_CONTENT_HEIGHT, 4.5). */
+export const ALTITUDE: readonly [number, number] = [3.1, 4.2];
 /** A flock's cruising height: low or high lane (a second flock takes the other one, so crossing flocks never meet). */
-const LOW_LANE: readonly [number, number] = [2.8, 3.0];
-const HIGH_LANE: readonly [number, number] = [3.3, 3.5];
+const LOW_LANE: readonly [number, number] = [3.3, 3.5];
+const HIGH_LANE: readonly [number, number] = [3.8, 4.0];
 /** Vertical spread inside a flock: slot ± and wander ± (keeps birds inside their lane ± 0.12). */
 const SLOT_UP = 0.07;
 const WANDER_UP = 0.04;
@@ -208,7 +208,7 @@ export class FlockSim {
       p1z: Math.sin(ca) * c,
       p2x: Math.cos(exit) * ENTRY_RADIUS,
       p2z: Math.sin(exit) * ENTRY_RADIUS,
-      altitude: this.between(this.flocks.length === 0 ? (this.rand() < 0.5 ? LOW_LANE : HIGH_LANE) : this.flocks[0].altitude < 3.15 ? HIGH_LANE : LOW_LANE),
+      altitude: this.between(this.flocks.length === 0 ? (this.rand() < 0.5 ? LOW_LANE : HIGH_LANE) : this.flocks[0].altitude < 3.65 ? HIGH_LANE : LOW_LANE),
       speed: this.between(SPEED),
       u: 0,
       age: 0,

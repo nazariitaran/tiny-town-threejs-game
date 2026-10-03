@@ -55,7 +55,7 @@ const PAVED_OK: readonly GroundKind[] = [...OPEN_GROUND, 'pavement'];
 const PROP_GROUND: readonly GroundKind[] = [...OPEN_GROUND, 'pavement', 'walkway'];
 const ANY_GROUND: readonly GroundKind[] = [...PROP_GROUND, 'road'];
 
-/** ×2 in Y only, so the pine keeps its one cell and stays under the church (2.33). */
+/** ×2 in Y only, so the pine keeps its one cell and stays under the church tower (2.33). */
 const PINE_HEIGHT = 2;
 
 const def = (d: Omit<ObjectDef, 'variants'>): ObjectDef => ({ ...d, variants: d.models.length });
@@ -94,7 +94,7 @@ export const OBJECTS: Readonly<Record<ObjectKind, ObjectDef>> = {
   'donut-shop': def({ kind: 'donut-shop', label: 'Donut shop', group: 'amenity', footprint: [3, 3], allowedGround: PAVED_OK, residents: 0, models: ['donut-shop'] }),
   supermarket: def({ kind: 'supermarket', label: 'Supermarket', group: 'amenity', footprint: [5, 4], allowedGround: PAVED_OK, residents: 0, models: ['supermarket'] }),
   church: def({ kind: 'church', label: 'Church', group: 'amenity', footprint: [3, 4], allowedGround: PAVED_OK, residents: 0, models: ['church'] }),
-  stadium: def({ kind: 'stadium', label: 'Stadium', group: 'amenity', footprint: [10, 8], allowedGround: PAVED_OK, residents: 0, models: ['stadium'] }),
+  stadium: def({ kind: 'stadium', label: 'Stadium', group: 'amenity', footprint: [14, 11], allowedGround: PAVED_OK, residents: 0, models: ['stadium'] }),
   fountain: def({ kind: 'fountain', label: 'Fountain', group: 'amenity', footprint: [2, 2], allowedGround: PROP_GROUND, residents: 0, models: ['fountain'] }),
   'tiered-fountain': def({ kind: 'tiered-fountain', label: 'Tiered fountain', group: 'amenity', footprint: [3, 3], allowedGround: PROP_GROUND, residents: 0, models: ['tiered-fountain'] }),
   oak: def({ kind: 'oak', label: 'Oak', group: 'tree', footprint: [2, 2], allowedGround: OPEN_GROUND, residents: 0, models: ['oak'] }),

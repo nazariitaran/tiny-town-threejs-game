@@ -9,9 +9,9 @@ import { SAVE_STORAGE_KEY } from '../src/game/config';
 import type { Cell, Rotation, SavedTown } from '../src/town/types';
 import { byId, canvasPoint, diagnostics, expectDiagnostics, footprintPoint, gotoTitle, selectTool, startBuilding, trackErrors, UI_TEST_IDS } from './helpers';
 
-const ARTIFACTS = 'artifacts/stadium';
-const BUILT: Cell = { x: 26, z: 24 }; // 10 × 8 cells: x 26–35, z 24–31
-const MOVED: Cell = { x: 30, z: 26 }; // turned a quarter, 8 × 10: x 30–37, z 26–35
+const ARTIFACTS = 'artifacts/stadium-xl';
+const BUILT: Cell = { x: 25, z: 26 }; // 14 × 11 cells: x 25–38, z 26–36
+const MOVED: Cell = { x: 27, z: 25 }; // turned a quarter, 11 × 14: x 27–37, z 25–38
 
 async function savedStadiums(page: Page): Promise<Array<{ id: number; anchor: Cell; rotation: number }>> {
   await expect.poll(async () => (await diagnostics(page)).save.pending, { timeout: 5_000 }).toBe(false);
@@ -38,7 +38,7 @@ test('build the stadium, move and turn it, undo / redo, bulldoze it', async ({ p
   await gotoTitle(page);
   await startBuilding(page);
 
-  expect(OBJECTS.stadium.footprint).toEqual([10, 8]);
+  expect(OBJECTS.stadium.footprint).toEqual([14, 11]);
   await selectTool(page, 'stadium');
   await expect(byId(page, UI_TEST_IDS.tool('stadium'))).toContainText('Stadium');
   expect((await diagnostics(page)).variant, 'one style, no strip').toBeNull();
