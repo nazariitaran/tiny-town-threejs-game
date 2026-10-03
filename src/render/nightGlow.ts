@@ -40,9 +40,6 @@ export interface GlowCell {
 const scaled = (hex: number, k: number): number =>
   (Math.round(((hex >> 16) & 0xff) * k) << 16) | (Math.round(((hex >> 8) & 0xff) * k) << 8) | Math.round((hex & 0xff) * k);
 
-/** How brightly the floodlit pitch glows, as a share of its daytime colour (before the kind's intensity). */
-const FLOODLIT = 0.4;
-
 /** Atlas cells measured by a UV-triangle census. */
 export const GLOW_CELLS: Readonly<Record<GlowMaskKind, readonly GlowCell[]>> = {
   // Suburban window glass (119,161,223)–(157,192,237): warm lamplight.
@@ -55,15 +52,11 @@ export const GLOW_CELLS: Readonly<Record<GlowMaskKind, readonly GlowCell[]>> = {
     { col: 11, row: 3, color: scaled(0xffb349, 0.8) },
     { col: 15, row: 3, color: scaled(0x3da679, 0.8) },
   ],
-  // The stadium (roads atlas): its lamps and scoreboard digits, and the pitch, track and pitch paint the
-  // lamps light, at a fraction of their own colours. Nothing else on the model samples these cells.
+  // The stadium (roads atlas): its lamps and scoreboard digits, which nothing else on the model samples.
+  // What the lamps light is computed in the shader (applyFloodlight), not painted here.
   floodlight: [
     { col: 0, row: 1, color: 0xfff4d6 },
     { col: 5, row: 1, color: scaled(0xffc356, 0.8) },
-    { col: 14, row: 3, color: scaled(0x61cb8b, FLOODLIT) },
-    { col: 15, row: 3, color: scaled(0x53bd84, FLOODLIT) },
-    { col: 10, row: 2, color: scaled(0xf1976c, FLOODLIT) },
-    { col: 9, row: 2, color: scaled(0xefeff5, FLOODLIT) },
   ],
   // Car Kit atlas: headlights (3, 3) at native +z, tail lights (5, 3) at native −z.
   headlights: [
@@ -113,6 +106,8 @@ export interface GlowTuning {
   traffic: number;
   floodlight: number;
   headlights: number;
+  /** How brightly the floodlights light the stadium (× its own colours) at full match level. */
+  floodLit: number;
   /** Lamps switch on across this `night` range. */
   lampOnFrom: number;
   lampOnTo: number;
@@ -124,6 +119,7 @@ export const DEFAULT_GLOW_TUNING: Readonly<GlowTuning> = {
   traffic: 2.6,
   floodlight: 2.6,
   headlights: 2.8,
+  floodLit: 2.1,
   lampOnFrom: 0.3,
   lampOnTo: 0.42,
 };
@@ -138,8 +134,17 @@ export function lampLevel(night: number, tuning: Readonly<GlowTuning> = DEFAULT_
   return night <= 0 ? 0 : smoothstep(tuning.lampOnFrom, tuning.lampOnTo, night);
 }
 
-/** emissiveIntensity of a glow kind at `night` (0 at night = 0, exactly). */
-export function glowIntensity(kind: GlowMaskKind, night: number, tuning: Readonly<GlowTuning> = DEFAULT_GLOW_TUNING): number {
+/** How strongly the floodlights light the stadium: less at dusk, while the sky still lights it too. 0 without a match. */
+export function floodLitLevel(match: number, night: number, tuning: Readonly<GlowTuning> = DEFAULT_GLOW_TUNING): number {
+  if (!(match > 0) || !(night > 0)) return 0;
+  return tuning.floodLit * Math.min(1, match) * (0.4 + 0.6 * Math.min(1, night));
+}
+
+/**
+ * emissiveIntensity of a glow kind at `night` (0 at night = 0, exactly). `match` is the stadium's
+ * match level (0..1): its floodlights are off on every other night.
+ */
+export function glowIntensity(kind: GlowMaskKind, night: number, tuning: Readonly<GlowTuning> = DEFAULT_GLOW_TUNING, match = 0): number {
   if (!(night > 0)) return 0;
   const n = Math.min(1, night);
   switch (kind) {
@@ -150,7 +155,7 @@ export function glowIntensity(kind: GlowMaskKind, night: number, tuning: Readonl
     case 'traffic':
       return tuning.traffic * n;
     case 'floodlight':
-      return tuning.floodlight * lampLevel(n, tuning);
+      return match > 0 ? tuning.floodlight * Math.min(1, match) : 0;
     case 'headlights':
       return tuning.headlights * n;
   }
@@ -222,19 +227,105 @@ export function applyWindowStagger(material: THREE.Material, uniforms: WindowGlo
   material.needsUpdate = true;
 }
 
+export const FLOODLIGHT_CACHE_KEY = 'tiny-town:floodlight:v1';
+/** Masts per stadium. */
+export const FLOOD_LAMPS = 4;
+
+/**
+ * The stadium's floodlights as light: four spots at the mast heads (model space), aimed at `uFloodAim`,
+ * lighting the model's own surfaces by their colour and normal. `uFloodLevel` 0 adds exactly nothing.
+ */
+export interface FloodlightUniforms {
+  uFloodLevel: { value: number };
+  uFloodLamps: { value: THREE.Vector3[] };
+  uFloodAim: { value: THREE.Vector3 };
+  uFloodColor: { value: THREE.Color };
+  /** x: 1 / (falloff distance)², y / z: cosines of the cone's outer / inner half-angle. */
+  uFloodShape: { value: THREE.Vector3 };
+}
+
+const FLOOD_VERTEX_PARS = /* glsl */ `varying vec3 vFloodPosition;
+varying vec3 vFloodNormal;
+`;
+
+// Model space: the instance transform only moves, turns and (while popping in) scales the whole stadium.
+const FLOOD_VERTEX = /* glsl */ `#include <begin_vertex>
+vFloodPosition = position;
+vFloodNormal = normal;
+`;
+
+const FLOOD_FRAGMENT_PARS = /* glsl */ `varying vec3 vFloodPosition;
+varying vec3 vFloodNormal;
+uniform float uFloodLevel;
+uniform vec3 uFloodLamps[${FLOOD_LAMPS}];
+uniform vec3 uFloodAim;
+uniform vec3 uFloodColor;
+uniform vec3 uFloodShape;
+`;
+
+const FLOOD_FRAGMENT = /* glsl */ `#include <emissivemap_fragment>
+if (uFloodLevel > 0.0) {
+  vec3 floodNormal = normalize(vFloodNormal) * (gl_FrontFacing ? 1.0 : -1.0);
+  float flood = 0.0;
+  for (int i = 0; i < ${FLOOD_LAMPS}; i++) {
+    vec3 toLamp = uFloodLamps[i] - vFloodPosition;
+    float d2 = max(dot(toLamp, toLamp), 1e-4);
+    vec3 l = toLamp * inversesqrt(d2);
+    float cone = smoothstep(uFloodShape.y, uFloodShape.z, dot(-l, normalize(uFloodAim - uFloodLamps[i])));
+    float facing = clamp((dot(floodNormal, l) + 0.15) / 1.15, 0.0, 1.0);
+    flood += cone * facing / (1.0 + d2 * uFloodShape.x);
+  }
+  totalEmissiveRadiance += diffuseColor.rgb * uFloodColor * (flood * uFloodLevel);
+}
+`;
+
+/** Shaders without the hooks are left alone. */
+export function patchFloodlightShader(shader: ShaderLike, uniforms: FloodlightUniforms): void {
+  if (!shader.vertexShader.includes('#include <begin_vertex>') || !shader.fragmentShader.includes('#include <emissivemap_fragment>')) return;
+  Object.assign(shader.uniforms, uniforms);
+  shader.vertexShader = FLOOD_VERTEX_PARS + shader.vertexShader.replace('#include <begin_vertex>', FLOOD_VERTEX);
+  shader.fragmentShader = FLOOD_FRAGMENT_PARS + shader.fragmentShader.replace('#include <emissivemap_fragment>', FLOOD_FRAGMENT);
+}
+
+const floodlit = new WeakSet<THREE.Material>();
+
+/** Patch a (private) floodlight material so the masts light the stadium. Idempotent; a clone needs its own call. */
+export function applyFloodlight(material: THREE.Material, uniforms: FloodlightUniforms): void {
+  if (floodlit.has(material)) return;
+  floodlit.add(material);
+  const previous = material.onBeforeCompile;
+  material.onBeforeCompile = (shader, renderer) => {
+    previous.call(material, shader, renderer);
+    patchFloodlightShader(shader, uniforms);
+  };
+  const previousKey = material.customProgramCacheKey;
+  material.customProgramCacheKey = () => `${previousKey.call(material)}|${FLOODLIGHT_CACHE_KEY}`;
+  material.needsUpdate = true;
+}
+
 type GlowMaterial = LitMaterial;
 
 /** Levels of the light sources this frame (0..1), read by NightLights for pools / halos / beams. */
 export interface GlowLevels {
   night: number;
   lamps: number;
+  /** The stadium's match level: floodlights and scoreboard. */
+  match: number;
 }
 
 export class GlowRegistry {
   /** ONE object shared by every window-patched program: a frame update is two number writes. */
   readonly uniforms: WindowGlowUniforms = { uLightsOn: { value: 0 }, uLightsOff: { value: 0 } };
   readonly tuning: GlowTuning = { ...DEFAULT_GLOW_TUNING };
-  readonly levels: GlowLevels = { night: 0, lamps: 0 };
+  readonly levels: GlowLevels = { night: 0, lamps: 0, match: 0 };
+  /** ONE object shared by every floodlight-patched program. Lamp positions: NightLights measures them from the model. */
+  readonly flood: FloodlightUniforms = {
+    uFloodLevel: { value: 0 },
+    uFloodLamps: { value: Array.from({ length: FLOOD_LAMPS }, () => new THREE.Vector3(0, 2.7, 0)) },
+    uFloodAim: { value: new THREE.Vector3(0, 0, 0) },
+    uFloodColor: { value: new THREE.Color(0xfff4d6) },
+    uFloodShape: { value: new THREE.Vector3(1 / (4.5 * 4.5), 0.55, 0.9) },
+  };
   private readonly masks = new Map<GlowMaskKind, THREE.DataTexture>();
   private readonly entries: Array<{ material: GlowMaterial; kind: GlowMaskKind }> = [];
   private lastNight = 0;
@@ -264,6 +355,7 @@ export class GlowRegistry {
     material.emissiveIntensity = 0;
     material.userData.glowKind = kind;
     if (kind === 'windows') applyWindowStagger(material, this.uniforms);
+    if (kind === 'floodlight') applyFloodlight(material, this.flood);
     material.needsUpdate = true;
     this.register(material);
   }
@@ -273,7 +365,7 @@ export class GlowRegistry {
     const kind = material.userData.glowKind as GlowMaskKind | undefined;
     if (!kind || this.entries.some((e) => e.material === material)) return;
     const glow = material as GlowMaterial;
-    glow.emissiveIntensity = glowIntensity(kind, this.lastNight, this.tuning);
+    glow.emissiveIntensity = glowIntensity(kind, this.lastNight, this.tuning, this.levels.match);
     this.entries.push({ material: glow, kind });
   }
 
@@ -286,24 +378,30 @@ export class GlowRegistry {
     return this.entries.length;
   }
 
-  /** Per frame: intensities from `night`, window stagger from lightsOn / lightsOff. No allocations. */
-  update(sample: Readonly<Pick<DaySample, 'night' | 'lightsOn' | 'lightsOff'>>): void {
+  /**
+   * Per frame: intensities from `night`, window stagger from lightsOn / lightsOff, the stadium's
+   * floodlights from `match` (0..1, the match level). No allocations.
+   */
+  update(sample: Readonly<Pick<DaySample, 'night' | 'lightsOn' | 'lightsOff'>>, match = 0): void {
     const night = sample.night > 0 ? Math.min(1, sample.night) : 0;
     this.lastNight = night;
     this.levels.night = night;
     this.levels.lamps = lampLevel(night, this.tuning);
+    this.levels.match = night > 0 && match > 0 ? Math.min(1, match) : 0;
+    this.flood.uFloodLevel.value = floodLitLevel(this.levels.match, this.lastNight, this.tuning);
     this.uniforms.uLightsOn.value = sample.lightsOn;
     this.uniforms.uLightsOff.value = sample.lightsOff;
     for (let i = 0; i < this.entries.length; i += 1) {
       const entry = this.entries[i];
-      entry.material.emissiveIntensity = glowIntensity(entry.kind, night, this.tuning);
+      entry.material.emissiveIntensity = glowIntensity(entry.kind, night, this.tuning, this.levels.match);
     }
   }
 
   /** Re-apply the last update (after a tuning change). */
   refresh(): void {
-    for (const entry of this.entries) entry.material.emissiveIntensity = glowIntensity(entry.kind, this.lastNight, this.tuning);
+    for (const entry of this.entries) entry.material.emissiveIntensity = glowIntensity(entry.kind, this.lastNight, this.tuning, this.levels.match);
     this.levels.lamps = lampLevel(this.lastNight, this.tuning);
+    this.flood.uFloodLevel.value = floodLitLevel(this.levels.match, this.lastNight, this.tuning);
   }
 
   /** Frees the masks; materials belong to whoever created them. */

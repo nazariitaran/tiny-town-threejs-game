@@ -54,6 +54,8 @@ interface ThreeGameDiagnostics {
     loaded: number;
     starts: number;
     music: { enabled: boolean; volume: number; playing: boolean; loaded: boolean; requested: boolean; ducked: boolean; time: number; loops: number; resumedFrom: number | null };
+    /** The stadium crowd loop. level: match level × distance (0..1); gain: what the gain node is set to (level × trim × duck; 0 when muted or not playing). */
+    crowd: import('./audio/CrowdLoop').CrowdState;
   };
   /** pending: a debounced autosave write is waiting. */
   save: { available: boolean; pending: boolean; lastError: string | null };
@@ -63,7 +65,8 @@ interface ThreeGameDiagnostics {
   birds: import('./life/BirdSystem').BirdDiagnostics;
   /**
    * t: time of day shown (0..1); pinned: a test hook or test state holds it; night: 0 day .. 1 full night;
-   * lightsOn: fraction of lit houses; lamps: lampposts NightLights tracks; drawCalls: main-pass calls it adds.
+   * lightsOn: fraction of lit houses; lamps: lampposts NightLights tracks; drawCalls: main-pass calls it adds;
+   * stadiums: stadiums it tracks; floodlights: 0..1, how far their floodlights are on.
    */
   daytime: {
     mode: import('./world/dayCycle').TimeMode;
@@ -74,7 +77,15 @@ interface ThreeGameDiagnostics {
     lightsOn: number;
     lamps: number;
     drawCalls: number;
+    stadiums: number;
+    floodlights: number;
   };
+  /**
+   * Match nights at the stadium. night: nights begun this session; matchNight: the current one is a match
+   * night; playing: lights and crowd are on or fading; forced: the setMatchNight override; level: 0..1 for
+   * lights and crowd now; distance: world units from the camera's ground target to the nearest stadium.
+   */
+  match: import('./life/matchSchedule').MatchDiagnostics & { level: number; stadiums: number; distance: number | null };
   /**
    * taken: photos requested while building; developing: one is being framed/encoded.
    * last: the latest photo's JPEG size in px and bytes, capture pixel ratio, capture + encode ms.
@@ -129,6 +140,12 @@ interface ThreeGameTestHooks {
    * Test states switch spontaneous flocks off until a reload, so this is how tests get birds.
    */
   spawnFlock(species?: string): number;
+  /**
+   * Stadium match night override: true = a match at full level (lights and crowd, once it is dark),
+   * false = none, null = the schedule (every other night). A pinned clock runs no schedule, so tests
+   * get a match only through this.
+   */
+  setMatchNight(on: boolean | null): void;
 }
 
 interface Window {

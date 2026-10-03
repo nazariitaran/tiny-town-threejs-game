@@ -11,6 +11,7 @@ import { DebugTools, type DebugTuning } from '../debug/DebugTools';
 import { PlacementFx } from '../fx/PlacementFx';
 import { BirdSystem, isBirdSpecies } from '../life/BirdSystem';
 import { LifeSystem } from '../life/LifeSystem';
+import { crowdGainAt, MatchSchedule } from '../life/matchSchedule';
 import { SaveStore } from '../persistence/SaveStore';
 import { encodeTownFile, TOWN_FILE_MIME, townFileName } from '../persistence/townFile';
 import { CameraController } from '../interaction/CameraController';
@@ -29,7 +30,7 @@ import type { SavedTown } from '../town/types';
 import { parseTownNames, pickTownName, TOWN_NAMES_PATH } from '../town/townName';
 import { UiRoot } from '../ui/UiRoot';
 import { createSeededRandom, entropySeed } from '../utils/random';
-import { createDaySample, DayClock, sampleDay, T_AFTERNOON, T_NIGHT, TIME_MODES, type DayPhase, type TimeMode } from '../world/dayCycle';
+import { createDaySample, DAY_LENGTH_S, DayClock, nightAt, sampleDay, T_AFTERNOON, T_NIGHT, TIME_MODES, type DayPhase, type TimeMode } from '../world/dayCycle';
 import { Environment } from '../world/Environment';
 import { assetUrl, PLOT_DEPTH, PLOT_WIDTH } from './config';
 import { createGameBus, type GamePhase } from './events';
@@ -100,6 +101,11 @@ export class Game {
   private readonly fx: PlacementFx;
   private readonly life: LifeSystem;
   private readonly nightLights: NightLights;
+  /** Match nights at the stadium: ambient, per page session, never saved. */
+  private readonly match = new MatchSchedule();
+  private matchLevel = 0;
+  /** The clock was pinned last frame: its next reading is a jump, not time passing. */
+  private matchPinned = false;
   private readonly birds: BirdSystem;
   /** Spontaneous flocks stay off after a test state until a reload. */
   private birdsAuto = true;
@@ -165,6 +171,7 @@ export class Game {
       this.setPhase('building');
       if (save?.camera) this.cameraController.setPose(save.camera);
       this.clock.startDay(); // Auto starts in the morning; the time of day is never saved
+      this.match.start(this.clock.t);
       this.applyDaylight();
     });
     this.bus.on('intent:set-time-mode', ({ mode }) => this.setTimeMode(mode));
@@ -296,7 +303,10 @@ export class Game {
       this.birds.setAuto(this.birdsAuto && this.prefersReducedMotion?.matches !== true);
       this.birds.update(animDelta);
       // The clock runs only while building (frozen on the title, in the menu, under reduced motion).
-      if (this.phase === 'building') this.clock.advance(animDelta);
+      if (this.phase === 'building') {
+        this.clock.advance(animDelta);
+        this.stepMatch(animDelta);
+      }
       this.applyDaylight();
       this.environment.update(animDelta, animElapsed);
       this.fx.update(animDelta);
@@ -462,7 +472,10 @@ export class Game {
     this.setPhase('building');
     if (save.camera) this.cameraController.setPose(save.camera);
     else this.cameraController.reset();
-    if (fromTitle) this.clock.startDay();
+    if (fromTitle) {
+      this.clock.startDay();
+      this.match.start(this.clock.t);
+    }
     this.applyDaylight();
   }
 
@@ -499,10 +512,33 @@ export class Game {
     if (live) this.clock.sample(this.daySample);
     else sampleDay(T_AFTERNOON, this.daySample);
     this.environment.applyDaylight(this.daySample);
-    this.nightLights.update(this.daySample);
+    this.matchLevel = live ? this.match.level(this.daySample.night) : 0;
+    this.nightLights.update(this.daySample, this.matchLevel);
     this.life.setNight(this.daySample.night);
     this.birds.setDaylight(this.daySample.night, this.daySample.phase);
+    this.updateCrowd(live);
     this.announceDaytime();
+  }
+
+  /** A pinned clock (test states, setTimeOfDay) runs no schedule: only setMatchNight starts a match there. */
+  private stepMatch(delta: number): void {
+    const pinned = this.clock.isPinned;
+    const seconds = delta * (DAY_LENGTH_S / this.clock.dayLengthS);
+    if (pinned || this.matchPinned) this.match.sync(this.clock.t);
+    else this.match.advance(this.clock.t, seconds, this.clock.isSweeping);
+    this.matchPinned = pinned;
+    this.match.tick(nightAt(this.clock.t), seconds);
+  }
+
+  /** The crowd is as loud as the match level and the view's distance (the camera's ground target) to the nearest stadium allow. */
+  private updateCrowd(live: boolean): void {
+    let level = 0;
+    const sound = this.match.sound(this.daySample.night);
+    if (live && sound > 0 && (this.phase === 'building' || this.phase === 'menu')) {
+      const target = this.cameraController.target;
+      level = sound * crowdGainAt(this.nightLights.stadiums.distanceTo(target.x, target.z));
+    }
+    this.audio.setCrowdLevel(level);
   }
 
   private announceDaytime(): void {
@@ -530,6 +566,8 @@ export class Game {
     this.cameraController.setMode(name === 'title' ? 'title' : 'build');
     // Pinned until setTimeOfDay(null) or a reload.
     this.clock.pin(name === 'night-town' ? T_NIGHT : T_AFTERNOON);
+    this.match.reset(this.clock.t);
+    this.matchPinned = true;
     this.applyDaylight();
     this.townRenderer.settle();
     this.life.settle();
@@ -586,6 +624,12 @@ export class Game {
       setTimeOfDay: (t: number | null) => {
         if (t !== null && !Number.isFinite(t)) throw new Error(`setTimeOfDay: not a number: ${t}`);
         this.clock.pin(t);
+        this.applyDaylight();
+        this.renderNow();
+      },
+      setMatchNight: (on: boolean | null) => {
+        if (on !== null && typeof on !== 'boolean') throw new Error(`setMatchNight: not a boolean or null: ${String(on)}`);
+        this.match.force(on);
         this.applyDaylight();
         this.renderNow();
       },
@@ -650,6 +694,12 @@ export class Game {
         night: this.daySample.night,
         lightsOn: this.daySample.lightsOn,
         ...this.nightLights.getDiagnostics(),
+      },
+      match: {
+        ...this.match.diagnostics,
+        level: this.matchLevel,
+        stadiums: this.nightLights.stadiums.count,
+        distance: this.nightLights.stadiums.count > 0 ? this.nightLights.stadiums.distanceTo(this.cameraController.target.x, this.cameraController.target.z) : null,
       },
       photo: { ...this.photo },
       perf: { targetFps: this.frameBudget.targetFps, idle: this.frameBudget.idle, shadowRenders: this.shadows.renders },

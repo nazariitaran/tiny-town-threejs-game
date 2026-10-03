@@ -182,8 +182,67 @@ describe('NightLights (headless)', () => {
     expect(pools.count).toBe(3);
     w.editor.reset();
     w.at(1);
-    expect(w.lights.getDiagnostics()).toEqual({ lamps: 0, drawCalls: 0 });
+    expect(w.lights.getDiagnostics()).toEqual({ lamps: 0, drawCalls: 0, stadiums: 0, floodlights: 0 });
     expect(w.mesh('night:pool')!.visible).toBe(false);
+  });
+
+  it('stadium floodlights: a spill pool and four mast halos on a match night only, following edits', () => {
+    const w = world();
+    w.render();
+    const sample = createDaySample();
+    const at = (night: number, match: number) => {
+      sampleDay(T_AFTERNOON, sample);
+      sample.night = night;
+      w.lights.update(sample, match);
+      w.render();
+    };
+    expect(w.lights.getDiagnostics().stadiums).toBe(1);
+    at(1, 0);
+    const without = w.lights.getDiagnostics().drawCalls;
+    for (const name of ['night:floodPool', 'night:floodHalo']) expect(w.mesh(name)!.visible, name).toBe(false);
+    expect(w.lights.getDiagnostics().floodlights).toBe(0);
+    at(1, 1);
+    expect(w.lights.getDiagnostics().drawCalls).toBe(without + 2);
+    expect(w.lights.getDiagnostics().floodlights).toBe(1);
+    expect(w.mesh('night:floodPool')!.count).toBe(1);
+    expect(w.mesh('night:floodHalo')!.count).toBe(4);
+    // The pool is centred on the lot, turned with it, and wider than it by the reach on every side.
+    const stadium = [...w.town.objects()].find((o) => o.kind === 'stadium')!;
+    const m = new THREE.Matrix4();
+    w.mesh('night:floodPool')!.getMatrixAt(0, m);
+    const p = new THREE.Vector3().setFromMatrixPosition(m);
+    expect(w.lights.stadiums.distanceTo(p.x, p.z)).toBeCloseTo(0, 6);
+    const first = cellToWorld(stadium.anchor);
+    expect(p.x).toBeCloseTo(first.x + (10 * CELL_SIZE) / 2, 6); // rotation 3: 11 × 14 cells
+    expect(p.z).toBeCloseTo(first.z + (13 * CELL_SIZE) / 2, 6);
+    const size = new THREE.Vector3();
+    const turn = new THREE.Quaternion();
+    m.decompose(new THREE.Vector3(), turn, size);
+    expect(size.x).toBeCloseTo(7 + 2 * w.lights.tuning.floodReach, 0); // the lot's long side, in its own frame (headless: the fallback lot)
+    expect(size.z).toBeCloseTo(5.5 + 2 * w.lights.tuning.floodReach, 0);
+    const along = new THREE.Vector3(1, 0, 0).applyQuaternion(turn);
+    expect(Math.abs(along.z)).toBeCloseTo(1, 6); // three quarter turns: the long side lies along z
+    // Halos sit at mast height, in the lot's corners.
+    for (let i = 0; i < 4; i += 1) {
+      w.mesh('night:floodHalo')!.getMatrixAt(i, m);
+      const h = new THREE.Vector3().setFromMatrixPosition(m);
+      expect(h.y).toBeGreaterThan(2.5);
+      expect(Math.abs(h.x - p.x)).toBeGreaterThan(2); // the lot's short side lies along x at rotation 3
+      expect(Math.abs(h.z - p.z)).toBeGreaterThan(2.8);
+    }
+    // By day a match shows nothing; halos follow the preset switch; a bulldozed stadium takes its light with it.
+    at(0, 1);
+    expect(w.lights.getDiagnostics().drawCalls).toBe(0);
+    w.lights.setLampHalos(false);
+    at(1, 1);
+    expect(w.mesh('night:floodHalo')!.visible).toBe(false);
+    expect(w.mesh('night:floodPool')!.visible).toBe(true);
+    w.lights.setLampHalos(true);
+    expect(w.editor.apply({ type: 'bulldoze', cell: stadium.anchor, edge: null }, 'bulldoze').ok).toBe(true);
+    at(1, 1);
+    expect(w.lights.getDiagnostics().stadiums).toBe(0);
+    for (const name of ['night:floodPool', 'night:floodHalo']) expect(w.mesh(name)!.visible, name).toBe(false);
+    expect(w.lights.stadiums.distanceTo(p.x, p.z)).toBe(Infinity);
   });
 
   it('grows the pool capacity for large towns', () => {

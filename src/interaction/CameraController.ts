@@ -284,6 +284,11 @@ export class CameraController {
     this.controls.update();
   }
 
+  /** The point on the ground the camera looks at (live; don't keep or change it). */
+  get target(): Readonly<THREE.Vector3> {
+    return this.controls.target;
+  }
+
   getPose(): CameraPose {
     const spherical = this.readSpherical();
     return {

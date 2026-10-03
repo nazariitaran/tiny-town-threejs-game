@@ -89,6 +89,8 @@ export function measureCellCentroid(
   row: number,
   columns = 16,
   rows = 4,
+  /** Only triangles whose centroid passes (e.g. one quadrant of the model). */
+  accept?: (x: number, y: number, z: number) => boolean,
 ): (Vec3Like & { triangles: number }) | null {
   const count = index ? index.length : positions.length / 3;
   let sx = 0;
@@ -112,6 +114,7 @@ export function measureCellCentroid(
     const e2x = positions[c * 3] - ax;
     const e2y = positions[c * 3 + 1] - ay;
     const e2z = positions[c * 3 + 2] - az;
+    if (accept && !accept(ax + (e1x + e2x) / 3, ay + (e1y + e2y) / 3, az + (e1z + e2z) / 3)) continue;
     const cx = e1y * e2z - e1z * e2y;
     const cy = e1z * e2x - e1x * e2z;
     const cz = e1x * e2y - e1y * e2x;
