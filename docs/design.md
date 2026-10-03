@@ -10,7 +10,7 @@ What Tiny Town is, and how it behaves. Rules, numbers and modules: [`architectur
 
 **Core loop:** pick a tool → place or drag-paint it on the grid → watch it pop in. Placement rules (roads block buildings, fences sit on edges, footprints can't overlap, some items need a road next to them) make light spatial puzzles. A valid placement lands with a springy pop, a dust puff, a sound and auto-joining roads. A blocked one shows a red ghost, a soft "nope" and a tooltip naming the reason. Undo makes every mistake free.
 
-**The town answers back:** cars drive on connected roads and round roundabouts, now and then pull into a car park, sit in a stall for a while and drive off again, trees and meadows sway, flocks of birds cross the sky now and then (more often over a leafy town, never at night), and at night windows, lamps, traffic lights and headlights glow, and fireflies rise over the wildflower meadows. Shops and the church stay dark at night; the stadium switches its floodlights on with the street lamps, and its pitch glows under them.
+**The town answers back:** cars drive on connected roads and round roundabouts, now and then pull into a car park, sit in a stall for a while and drive off again, trees and meadows sway, flocks of birds cross the sky now and then (more often over a leafy town, never at night), and at night windows, lamps, traffic lights and headlights glow, and fireflies rise over the wildflower meadows. Shops and the church stay dark at night; the stadium switches its floodlights and scoreboard on with the street lamps, and its pitch glows under them.
 
 **Target feeling:** calm, tactile, cute. Nothing ever punishes the player.
 
