@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TOOLS } from '../catalog/tools';
 import { createGameBus } from '../game/events';
 import { createSeededRandom } from '../utils/random';
-import { classify, emitPlaced, emitRemoved, footprintPoofRadius, strokeCount, type FxPools } from './fxRecipes';
+import { buildingBurstRadius, classify, emitPlaced, emitRemoved, footprintPoofRadius, strokeCount, type FxPools } from './fxRecipes';
 import { Curve, FLOOR_Y, ParticlePool, type ParticleSpec } from './particlePool';
 import { PlacementFx } from './PlacementFx';
 import { WIND_SWAY_CACHE_KEY, applyWindSway, patchShader, setWindStrength, updateWindSway, windStrength } from './windSway';
@@ -114,7 +114,7 @@ describe('fx recipes', () => {
       'traffic-light': 'prop', lamppost: 'prop', postbox: 'prop', mailbox: 'prop', 'bus-stop': 'small-building',
       cottage: 'building', townhouse: 'building', bungalow: 'building', 'family-home': 'building',
       'garage-house': 'building', 'big-house': 'building',
-      'corner-shop': 'building', 'donut-shop': 'building', supermarket: 'building', church: 'building', 'swimming-pool': 'building',
+      'corner-shop': 'building', 'donut-shop': 'building', supermarket: 'building', church: 'building', stadium: 'building', 'swimming-pool': 'building',
       'tiered-fountain': 'building',
       oak: 'tree', pine: 'tree', birch: 'tree', bush: 'tree', tulips: 'tree',
       hedge: 'fence', 'fence-low': 'fence', 'fence-tall': 'fence',
@@ -331,5 +331,8 @@ describe('removal poof radius follows the footprint', () => {
     expect(footprintPoofRadius('swing', 0.3)).toBeCloseTo(0.45, 5);
     expect(footprintPoofRadius('postbox', 0.3)).toBe(0.3);
     expect(footprintPoofRadius('toString', 0.28)).toBe(0.28);
+    // Placement burst: house-sized up to a 5-cell lot, then out towards the walls (the stadium is 10 cells long).
+    for (const kind of ['cottage', 'church', 'big-house', 'supermarket', 'corner-shop']) expect(buildingBurstRadius(kind), kind).toBe(0.48);
+    expect(buildingBurstRadius('stadium')).toBeCloseTo(1.7, 5);
   });
 });

@@ -8,6 +8,8 @@
 # Units are game world units (a cell = 0.5): 5 x 4, a 10 x 8 cell lot. Blender is Z-up and its -Y
 # becomes glTF +Z, so the gate (Blender -Y) faces +Z at rotation 0 and the roofed main stand is at the
 # back. Every face samples one colormap.png texel; the GLB references ../roads/Textures/colormap.png.
+# The lamp panels, pitch, track and pitch paint keep texels nothing else on the model uses: the game's
+# 'floodlight' night mask (src/render/nightGlow.ts) lights exactly those atlas cells.
 import math
 import os
 import runpy
@@ -28,6 +30,7 @@ UV = {
     'dark': (0.2812, 0.375),          # 4f5260
     'darkest': (0.0312, 0.375),       # 38383d
     'white': (0.5312, 0.375),         # ffffff
+    'line': (0.5938, 0.440),          # efeff5: pitch paint and goals only, so the night mask can light them
     'seat': (0.5312, 0.625),          # cf534f
     'lamp': (0.0312, 0.625),          # fde4c7
     'track': (0.6562, 0.375),         # f1976c
@@ -75,12 +78,12 @@ def pitch_texel(x, y):
     if ax > px or ay > py:
         return 'track'
     if ax > px - LINE_W or ay > py - LINE_W or ax < LINE_W / 2:
-        return 'white'
+        return 'line'
     ring = max(x * nx + y * ny for nx, ny in CIRCLE_NORMALS)
     if CIRCLE_R - LINE_W < ring <= CIRCLE_R:
-        return 'white'
+        return 'line'
     if ax >= px - BOX_D and ay <= BOX_HALF and (ax < px - BOX_D + LINE_W or ay > BOX_HALF - LINE_W):
-        return 'white'
+        return 'line'
     return 'pitch_a' if int((x + px) / STRIPE_W) % 2 == 0 else 'pitch_b'
 
 
@@ -192,8 +195,8 @@ class Builder:
             x0 = s * PITCH[0]
             xa, xb = sorted((x0, x0 + s * d))
             for y in (-half, half - t):
-                self.box(xa, y, FLOOR_Z, xb, y + t, FLOOR_Z + h, 'white')
-            self.box(xa, -half, FLOOR_Z + h, xb, half, FLOOR_Z + h + t, 'white', skip=())
+                self.box(xa, y, FLOOR_Z, xb, y + t, FLOOR_Z + h, 'line')
+            self.box(xa, -half, FLOOR_Z + h, xb, half, FLOOR_Z + h + t, 'line', skip=())
 
     def floodlights(self):
         """A mast in each lot corner, its lamp panel tilted down at the pitch."""

@@ -25,7 +25,8 @@ describe('digit shortcuts', () => {
     expect(digitAction(key('Digit4'), 'streets', null)).toEqual({ type: 'tool', toolId: 'parking' });
     expect(digitAction(key('Digit6'), 'streets', null)).toEqual({ type: 'tool', toolId: 'traffic-light' });
     expect(digitAction(key('Digit7'), 'homes', null)).toEqual({ type: 'tool', toolId: 'mailbox' });
-    expect(digitAction(key('Digit8'), 'town', null)).toEqual({ type: 'tool', toolId: 'lamppost' });
+    expect(digitAction(key('Digit6'), 'town', null)).toEqual({ type: 'tool', toolId: 'stadium' });
+    expect(digitAction(key('Digit9'), 'town', null)).toEqual({ type: 'tool', toolId: 'lamppost' });
     // Garden has 11 tools; 9 is the last one with a digit.
     expect(digitAction(key('Digit9'), 'garden', null)).toEqual({ type: 'tool', toolId: 'swing' });
   });
@@ -37,7 +38,7 @@ describe('digit shortcuts', () => {
   it('ignores digits beyond the category size', () => {
     expect(digitAction(key('Digit7'), 'streets', null)).toBeNull();
     expect(digitAction(key('Digit8'), 'homes', null)).toBeNull();
-    expect(digitAction(key('Digit9'), 'town', null)).toBeNull();
+    expect(digitAction(key('Digit9'), 'homes', null)).toBeNull();
     expect(digitAction(key('Digit8'), 'nature', null)).toBeNull();
   });
 

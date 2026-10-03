@@ -19,7 +19,7 @@ describe('demo towns', () => {
     const editor = makeEditor();
     const result = buildSampleTown(editor);
     expect(result.rejected).toEqual([]);
-    expect(editor.state.stats()).toMatchObject({ homes: 8, amenities: 7, trees: 5 });
+    expect(editor.state.stats()).toMatchObject({ homes: 8, amenities: 8, trees: 5 });
     const kinds = [...editor.state.objects()].map((o) => o.kind);
     for (const kind of ['cottage', 'townhouse', 'bungalow', 'family-home', 'garage-house', 'big-house', 'corner-shop', 'supermarket', 'church'] as const) expect(kinds, kind).toContain(kind);
     editor.undo();
@@ -32,7 +32,7 @@ describe('demo towns', () => {
     buildSampleTown(editor);
     const used = new Set(spy.mock.calls.flatMap(([items]) => items.map((item) => item.toolId)));
     const placing = TOOLS.filter((t) => t.category !== 'mode').map((t) => t.id);
-    expect(placing).toHaveLength(39);
+    expect(placing).toHaveLength(40);
     expect(placing.filter((id) => !used.has(id))).toEqual([]);
   });
 
@@ -55,7 +55,7 @@ describe('demo towns', () => {
     expect(buildAssetGallery(editor).rejected).toEqual([]);
     const kinds = new Set([...editor.state.objects()].map((o) => o.kind));
     expect(kinds).toEqual(new Set(OBJECT_KINDS));
-    expect(kinds.size).toBe(33);
+    expect(kinds.size).toBe(34);
     expect(new Set(GALLERY_OBJECTS.map(([kind]) => kind)).size).toBe(OBJECT_KINDS.length);
     // Every style of the car park, each joined to the road in front of it.
     const lots = [...editor.state.objects()].filter((o) => o.kind === 'parking');

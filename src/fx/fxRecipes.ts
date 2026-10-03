@@ -93,6 +93,11 @@ export function footprintPoofRadius(kind: string, min: number): number {
   return Math.max(min, (Math.max(def.footprint[0], def.footprint[1]) * CELL_SIZE) / 2 - 0.05);
 }
 
+/** Placement-burst radius of a building: 0.48 up to a 5-cell lot, growing with the longer side beyond that. */
+export function buildingBurstRadius(kind: string): number {
+  return Math.max(0.48, footprintPoofRadius(kind, 0) - 0.75);
+}
+
 /** Fewer particles per cell once a drag stroke is under way. */
 export function strokeCount(base: number, strokeIndex: number, min = 1): number {
   if (strokeIndex <= 0) return base;
@@ -188,11 +193,15 @@ export function emitPlaced(pools: FxPools, rng: () => number, id: string, x: num
       emitBurst(pools.dust, rng, x, z, dust(n(5, 2), 0.28, [0.085, 0.11], PALETTES.dustNature));
       emitBurst(pools.solid, rng, x, z, flakes(n(8, 3), [0.42, 0.6], PALETTES.leaves, [0.3, 0.8]));
       return;
-    case 'building':
-      emitBurst(pools.dust, rng, x, z, dust(12, 0.48, [0.12, 0.16], PALETTES.dustBuild, [0.5, 0.9]));
+    case 'building': {
+      // A lot wider than a house (the stadium) gets a wider, fuller ring so the dust shows past its walls.
+      const radius = buildingBurstRadius(id);
+      const more = Math.min(2.5, radius / 0.48);
+      emitBurst(pools.dust, rng, x, z, dust(Math.round(12 * more), radius, [0.12, 0.16], PALETTES.dustBuild, [0.5, 0.9]));
       emitBurst(pools.solid, rng, x, z, debris(3, PALETTES.debrisBuild, [0.04, 0.12]));
-      emitBurst(pools.glint, rng, x, z, sparkleRing(10, 0.5, [0.16, 0.3]));
+      emitBurst(pools.glint, rng, x, z, sparkleRing(Math.round(10 * more), radius + 0.02, [0.16, 0.3]));
       return;
+    }
     case 'small-building':
       emitBurst(pools.dust, rng, x, z, dust(9, 0.42, [0.1, 0.13], PALETTES.dustBuild, [0.45, 0.8]));
       emitBurst(pools.glint, rng, x, z, sparkleRing(7, 0.42, [0.16, 0.28]), 0.8);

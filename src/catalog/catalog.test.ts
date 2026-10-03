@@ -192,7 +192,7 @@ describe('catalog', () => {
       roundabout: [6, 6], parking: [4, 2], 'zebra-crossing': [2, 2], 'traffic-light': [1, 1], lamppost: [1, 1], 'bus-stop': [2, 1], postbox: [1, 1],
       mailbox: [1, 1],
       cottage: [4, 4], townhouse: [3, 4], bungalow: [4, 4], 'family-home': [4, 4], 'garage-house': [4, 4], 'big-house': [5, 4],
-      'corner-shop': [3, 3], 'donut-shop': [3, 3], supermarket: [5, 4], church: [3, 4], 'swimming-pool': [4, 3], fountain: [2, 2],
+      'corner-shop': [3, 3], 'donut-shop': [3, 3], supermarket: [5, 4], church: [3, 4], stadium: [10, 8], 'swimming-pool': [4, 3], fountain: [2, 2],
       'tiered-fountain': [3, 3],
       oak: [2, 2], pine: [1, 1], birch: [1, 1], bush: [1, 1], tulips: [1, 1],
       planter: [1, 1], bench: [1, 1], 'long-bench': [1, 1], 'garden-table': [1, 1], swing: [2, 1], slide: [2, 1], barbecue: [1, 1],
@@ -228,8 +228,8 @@ describe('catalog', () => {
   });
 
   it('homes and town buildings fill their lot (≥ 80 % of it along their longer fit)', () => {
-    const grown = Object.values(OBJECTS).filter((def) => def.group === 'home' || ['corner-shop', 'supermarket', 'church'].includes(def.kind));
-    expect(grown).toHaveLength(9);
+    const grown = Object.values(OBJECTS).filter((def) => def.group === 'home' || ['corner-shop', 'supermarket', 'church', 'stadium'].includes(def.kind));
+    expect(grown).toHaveLength(10);
     for (const def of grown) {
       for (const id of def.models) {
         const size = drawn(id);

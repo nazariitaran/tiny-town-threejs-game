@@ -422,6 +422,7 @@ export class NightLights {
     folder.add(glow.tuning, 'windows', 0, 5, 0.05).name('windows').onChange(refreshGlow);
     folder.add(glow.tuning, 'lamp', 0, 6, 0.05).name('lamp face').onChange(refreshGlow);
     folder.add(glow.tuning, 'traffic', 0, 5, 0.05).name('traffic lenses').onChange(refreshGlow);
+    folder.add(glow.tuning, 'floodlight', 0, 6, 0.05).name('floodlights').onChange(refreshGlow);
     folder.add(this.life.headlightTuning, 'headlights', 0, 6, 0.05).name('head/tail lights');
     const relayout = () => {
       this.builtVersion = -1;

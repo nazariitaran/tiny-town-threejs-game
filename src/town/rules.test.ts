@@ -16,8 +16,11 @@ import type { BuildAction, Cell, Edge, EdgeKind, GroundKind, ObjectKind, PlanRes
 const W = 8;
 const D = 8;
 
-function makeState(): TownState {
-  return new TownState(W, D);
+/** Room for the largest footprint (the stadium, 10 × 8) anchored at (2, 2) at any rotation. */
+const ROOMY = 16;
+
+function makeState(width = W, depth = D): TownState {
+  return new TownState(width, depth);
 }
 
 function ground(state: TownState, kind: GroundKind, ...cells: Array<[number, number]>): void {
@@ -284,7 +287,7 @@ describe('row 4 — place-object: footprint in bounds, unoccupied, ground ∈ al
       if (def.roadFeature || def.roadMarking) continue; // road features paint their footprint too: see 'road features'; markings: 'road markings'
       for (const g of def.allowedGround) {
         for (const rotation of [0, 1, 2, 3] as const) {
-          const state = makeState();
+          const state = makeState(ROOMY, ROOMY);
           ground(state, 'road', [2, 1]); // bus stops and traffic lights need a road neighbour
           if (g !== 'field') ground(state, g, [2, 2]);
           const context = ctx(0.99);
@@ -347,7 +350,7 @@ describe('row 4 — place-object: footprint in bounds, unoccupied, ground ∈ al
   it('invalid: road ground → blocked-by-road "{label} can\'t go on a road" for every kind but road features', () => {
     for (const kind of Object.keys(OBJECTS) as ObjectKind[]) {
       if (OBJECTS[kind].roadFeature || OBJECTS[kind].roadMarking) continue;
-      const state = makeState();
+      const state = makeState(ROOMY, ROOMY);
       ground(state, 'road', [2, 2], [2, 1]);
       const context = ctx();
       expectFail(plan(state, placeObj(kind, 2, 2), context), 'blocked-by-road', `${OBJECTS[kind].label} can't go on a road`);

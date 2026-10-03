@@ -24,9 +24,9 @@ const cells = (kind: GlowMaskKind) => GLOW_CELLS[kind].map((c) => `${c.col},${c.
 
 describe('glow masks', () => {
   it('are 16 × 4 (atlas kinds), one RGBA texel per cell, black except the glow cells', () => {
-    expect(Object.keys(MASK_GRID).sort()).toEqual(['headlights', 'lamp', 'traffic', 'windows']);
-    expect(Object.keys(GLOW_CELLS).sort()).toEqual(['headlights', 'lamp', 'traffic', 'windows']);
-    for (const kind of ['windows', 'lamp', 'traffic', 'headlights'] as const) expect(MASK_GRID[kind]).toEqual({ columns: 16, rows: 4 });
+    expect(Object.keys(MASK_GRID).sort()).toEqual(['floodlight', 'headlights', 'lamp', 'traffic', 'windows']);
+    expect(Object.keys(GLOW_CELLS).sort()).toEqual(['floodlight', 'headlights', 'lamp', 'traffic', 'windows']);
+    for (const kind of ['windows', 'lamp', 'traffic', 'floodlight', 'headlights'] as const) expect(MASK_GRID[kind]).toEqual({ columns: 16, rows: 4 });
     for (const kind of Object.keys(GLOW_CELLS) as GlowMaskKind[]) {
       const { columns, rows } = MASK_GRID[kind];
       const data = glowMaskData(kind);
@@ -65,6 +65,10 @@ describe('glow masks', () => {
     expect(cells('windows')).toEqual(['11,1']);
     expect(cells('lamp')).toEqual(['8,2']);
     expect(cells('traffic')).toEqual(['9,1', '11,3', '15,3']);
+    // The stadium: lamp panels, then the pitch stripes, track and pitch paint at 0.4 of their own colours.
+    expect(cells('floodlight')).toEqual(['0,1', '14,3', '15,3', '10,2', '9,2']);
+    expect(GLOW_CELLS.floodlight[0].color).toBe(0xfff4d6);
+    expect(texel(glowMaskData('floodlight'), 14, 3).slice(0, 3)).toEqual([39, 81, 56]);
     expect(cells('headlights')).toEqual(['3,3', '5,3']);
     expect(GLOW_CELLS.windows[0].color).toBe(0xffc873);
     expect(GLOW_CELLS.lamp[0].color).toBe(0xfff0c8);
@@ -74,13 +78,13 @@ describe('glow masks', () => {
   });
 });
 
-describe('which catalog models glow (shops and the church stay dark at night)', () => {
+describe('which catalog models glow (shops and the church stay dark at night; the stadium lights its floodlights)', () => {
   const glowing = () =>
     Object.fromEntries(
       (Object.entries(MODELS) as Array<[ModelId, (typeof MODELS)[ModelId]]>).flatMap(([id, spec]) => ('glow' in spec && spec.glow ? [[id, spec.glow]] : [])),
     );
 
-  it('exactly the 12 suburban houses (windows), the lamppost (lamp) and both traffic lights (traffic)', () => {
+  it('exactly the 12 suburban houses (windows), the lamppost (lamp), both traffic lights (traffic) and the stadium (floodlight)', () => {
     const houses = [
       'cottage', 'townhouse', 'townhouse-alt', 'bungalow', 'bungalow-l', 'family-home',
       'garage-house-c', 'garage-house-o', 'garage-house-s', 'garage-house-u', 'big-house-d', 'big-house-n',
@@ -90,6 +94,7 @@ describe('which catalog models glow (shops and the church stay dark at night)', 
       lamppost: 'lamp',
       'traffic-light': 'traffic',
       'traffic-light-hanging': 'traffic',
+      stadium: 'floodlight',
     });
     for (const id of houses) expect(MODELS[id as ModelId].url, id).toMatch(/^\/assets\/models\/suburban\/building-type-/);
   });
@@ -148,6 +153,19 @@ describe('glow masks against the real assets', () => {
     expect(head.z).toBeCloseTo(-0.155, 2);
   });
 
+  it('the stadium floodlights are the four lamp panels on the masts; its roof and seat white stay out of the mask', () => {
+    const panels = centroid(MODELS.stadium.url, 0, 1)!;
+    expect(panels.triangles).toBe(8);
+    expect(panels.x).toBeCloseTo(0, 2);
+    expect(panels.z).toBeCloseTo(0, 1);
+    expect(panels.y).toBeGreaterThan(1.8);
+    // The roof, corner seats and gate sample the lamppost's lamp cell (8, 2), which 'floodlight' leaves dark.
+    expect(centroid(MODELS.stadium.url, 8, 2)!.triangles).toBeGreaterThan(8);
+    expect(cells('floodlight')).not.toContain('8,2');
+    // The lit pitch lies on the arena floor, inside the bowl.
+    for (const [col, row] of [[14, 3], [15, 3], [10, 2]]) expect(centroid(MODELS.stadium.url, col, row)!.y, `${col},${row}`).toBeCloseTo(0.03, 3);
+  });
+
   it('cars: headlights at native +z, tail lights at native −z (the car front is +Z)', () => {
     for (const car of ['sedan', 'hatchback-sports', 'van', 'taxi']) {
       const url = `/assets/models/cars/${car}.glb`;
@@ -172,6 +190,8 @@ describe('glow intensity', () => {
     expect(lampLevel(0.3)).toBe(0);
     expect(lampLevel(0.36)).toBeGreaterThan(0);
     expect(lampLevel(0.5)).toBe(1);
+    expect(glowIntensity('floodlight', 0.3)).toBe(0);
+    expect(glowIntensity('floodlight', 0.5)).toBe(glowIntensity('floodlight', 1));
     expect(glowIntensity('windows', 0.5)).toBeCloseTo(glowIntensity('windows', 1) / 2, 6);
     expect(glowIntensity('traffic', 0.25)).toBeCloseTo(glowIntensity('traffic', 1) / 4, 6);
   });

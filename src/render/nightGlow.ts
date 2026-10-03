@@ -23,6 +23,7 @@ export const MASK_GRID: Readonly<Record<GlowMaskKind, { columns: number; rows: n
   windows: { columns: ATLAS_COLUMNS, rows: ATLAS_ROWS },
   lamp: { columns: ATLAS_COLUMNS, rows: ATLAS_ROWS },
   traffic: { columns: ATLAS_COLUMNS, rows: ATLAS_ROWS },
+  floodlight: { columns: ATLAS_COLUMNS, rows: ATLAS_ROWS },
   headlights: { columns: ATLAS_COLUMNS, rows: ATLAS_ROWS },
 };
 
@@ -39,6 +40,9 @@ export interface GlowCell {
 const scaled = (hex: number, k: number): number =>
   (Math.round(((hex >> 16) & 0xff) * k) << 16) | (Math.round(((hex >> 8) & 0xff) * k) << 8) | Math.round((hex & 0xff) * k);
 
+/** How brightly the floodlit pitch glows, as a share of its daytime colour (before the kind's intensity). */
+const FLOODLIT = 0.4;
+
 /** Atlas cells measured by a UV-triangle census. */
 export const GLOW_CELLS: Readonly<Record<GlowMaskKind, readonly GlowCell[]>> = {
   // Suburban window glass (119,161,223)–(157,192,237): warm lamplight.
@@ -50,6 +54,15 @@ export const GLOW_CELLS: Readonly<Record<GlowMaskKind, readonly GlowCell[]>> = {
     { col: 9, row: 1, color: scaled(0xe76047, 0.8) },
     { col: 11, row: 3, color: scaled(0xffb349, 0.8) },
     { col: 15, row: 3, color: scaled(0x3da679, 0.8) },
+  ],
+  // The stadium (roads atlas): its lamp panels, and the pitch, track and pitch paint they light, at a
+  // fraction of their own colours. Nothing else on the model samples these cells.
+  floodlight: [
+    { col: 0, row: 1, color: 0xfff4d6 },
+    { col: 14, row: 3, color: scaled(0x61cb8b, FLOODLIT) },
+    { col: 15, row: 3, color: scaled(0x53bd84, FLOODLIT) },
+    { col: 10, row: 2, color: scaled(0xf1976c, FLOODLIT) },
+    { col: 9, row: 2, color: scaled(0xefeff5, FLOODLIT) },
   ],
   // Car Kit atlas: headlights (3, 3) at native +z, tail lights (5, 3) at native −z.
   headlights: [
@@ -97,6 +110,7 @@ export interface GlowTuning {
   windows: number;
   lamp: number;
   traffic: number;
+  floodlight: number;
   headlights: number;
   /** Lamps switch on across this `night` range. */
   lampOnFrom: number;
@@ -107,6 +121,7 @@ export const DEFAULT_GLOW_TUNING: Readonly<GlowTuning> = {
   windows: 1.9,
   lamp: 2.4,
   traffic: 2.6,
+  floodlight: 2.6,
   headlights: 2.8,
   lampOnFrom: 0.3,
   lampOnTo: 0.42,
@@ -133,6 +148,8 @@ export function glowIntensity(kind: GlowMaskKind, night: number, tuning: Readonl
       return tuning.lamp * lampLevel(n, tuning);
     case 'traffic':
       return tuning.traffic * n;
+    case 'floodlight':
+      return tuning.floodlight * lampLevel(n, tuning);
     case 'headlights':
       return tuning.headlights * n;
   }

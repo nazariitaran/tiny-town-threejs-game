@@ -20,7 +20,7 @@ export interface ModelSpec {
 }
 
 /** What lights up at night. */
-export type GlowKind = 'windows' | 'lamp' | 'traffic';
+export type GlowKind = 'windows' | 'lamp' | 'traffic' | 'floodlight';
 
 const M = (url: string, scale = 1, rotationOffset: Rotation = 0, extra: Partial<ModelSpec> = {}): ModelSpec => ({
   url,
@@ -112,6 +112,8 @@ export const MODELS = {
   supermarket: M('/assets/models/commercial/building-e.glb', HOME_SCALE, 2),
   // Tower and door face +Z natively.
   church: M('/assets/models/composed/church.glb', HOME_SCALE, 0),
+  // Built to game units by scripts/build-stadium.py; the gate faces +Z natively.
+  stadium: M('/assets/models/stadium/stadium.glb', 1, 0, { glow: 'floodlight' }),
   // Composed from Fantasy Town fountain modules and parasols.
   'swimming-pool': M('/assets/models/composed/swimming-pool.glb', 0.5, 2),
   fountain: M('/assets/models/composed/fountain.glb', 0.45, 0),
