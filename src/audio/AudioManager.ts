@@ -1,13 +1,14 @@
 /**
  * Web Audio SFX and music: unlocks on the first user gesture, decodes every file in SFX_TABLE, and plays
  * with variant pools, pitch jitter, per-event cooldowns and ui/sfx groups under one master gain.
- * Music is attached in unlock(), so nothing is fetched before Start. The context is suspended while the
- * page is hidden.
+ * Music and the stadium crowd are attached in unlock(), so nothing is fetched before Start. The context is
+ * suspended while the page is hidden.
  */
 import { assetUrl } from '../game/config';
 import type { GameBus } from '../game/events';
 import type { SfxEvent } from './sfx';
 import { SFX_TABLE } from './sfxTable';
+import { CrowdLoop, type CrowdState } from './CrowdLoop';
 import { MusicPlayer, type MusicPositionPort, type MusicState } from './MusicPlayer';
 import type { ToolId } from '../catalog/tools';
 import { toolDef } from '../catalog/tools';
@@ -64,6 +65,7 @@ export class AudioManager {
   private suspendedForHidden = false;
   private loading: Promise<void> | null = null;
   private readonly music: MusicPlayer;
+  private readonly crowd = new CrowdLoop();
 
   constructor(
     private readonly bus: GameBus,
@@ -96,7 +98,10 @@ export class AudioManager {
       bus.on('intent:set-music', ({ enabled }) => this.setMusicEnabled(enabled)),
       bus.on('intent:set-music-volume', ({ volume }) => this.setMusicVolume(volume)),
       // The menu phase includes overlays opened from the menu.
-      on('phase:changed', ({ phase }) => this.music.setDucked(phase === 'menu')),
+      on('phase:changed', ({ phase }) => {
+        this.music.setDucked(phase === 'menu');
+        this.crowd.setDucked(phase === 'menu');
+      }),
     );
     document.addEventListener('visibilitychange', this.onVisibilityChange);
     window.addEventListener('pagehide', this.onPageHide);
@@ -122,6 +127,7 @@ export class AudioManager {
       this.applyVolume(true);
       this.loading = this.loadAll();
       this.music.attach(this.context, this.master);
+      this.crowd.attach(this.context, this.master);
     }
     // Still inside the gesture, so play() is allowed.
     this.syncMusic();
@@ -185,7 +191,12 @@ export class AudioManager {
     this.announce();
   }
 
-  get state(): { muted: boolean; volume: number; unlocked: boolean; loaded: number; starts: number; music: MusicState } {
+  /** Per frame: how loud the stadium crowd is, 0..1 (match level × distance); 0 = silent. */
+  setCrowdLevel(level: number): void {
+    this.crowd.setLevel(level);
+  }
+
+  get state(): { muted: boolean; volume: number; unlocked: boolean; loaded: number; starts: number; music: MusicState; crowd: CrowdState } {
     return {
       muted: this.muted,
       volume: this.volume,
@@ -193,6 +204,7 @@ export class AudioManager {
       loaded: this.buffers.size,
       starts: this.starts,
       music: this.music.state,
+      crowd: this.crowd.state,
     };
   }
 
@@ -207,6 +219,7 @@ export class AudioManager {
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
     window.removeEventListener('pagehide', this.onPageHide);
     this.music.dispose();
+    this.crowd.dispose();
     void this.context?.close().catch(() => undefined);
     this.context = null;
     this.master = null;
@@ -235,6 +248,7 @@ export class AudioManager {
   private syncMusic(): void {
     if (!this.context) return;
     this.music.setActive(!this.muted && !document.hidden);
+    this.crowd.setActive(!this.muted && !document.hidden);
   }
 
   private applyVolume(immediate = false): void {
