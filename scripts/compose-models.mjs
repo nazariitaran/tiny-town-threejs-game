@@ -353,8 +353,9 @@ const recipes = {
   barbecue: () => flatMaterials(merge([{ file: poly('bbq-kettle-red.glb'), name: 'grill', scale: 0.157 }], GEN)),
   // "Swing set" by Poly by Google (CC-BY 3.0): 0.42 tall, frame turned to run along X (0.56 long).
   swing: () => flatMaterials(merge([{ file: poly('swing-set-wood.glb'), name: 'swing', scale: 0.00367, rotY: 90 }], GEN)),
-  // "Donut Store" by J-Toastie (CC-BY 3.0): its pavement slab is dropped and its one texture becomes flat glass.
-  'donut-shop': () => flatMaterials(recolor(dropMaterials(merge([{ file: poly('donut-store.glb'), name: 'donut-shop', scale: 0.4 }], GEN), ['Ground']), { Glass: '#8cc4e0' })),
+  // "Donut Store" by J-Toastie (CC-BY 3.0), remodelled by hand as one flat-coloured mesh with no ground slab
+  // (scripts/data/donut-shop-optimised.glb, already at game scale).
+  'donut-shop': () => flatMaterials(merge([{ file: path.join(root, 'scripts/data/donut-shop-optimised.glb'), name: 'donut-shop' }], GEN)),
   // "Fountain" by Poly by Google (CC-BY 3.0): the near-black stone and olive water are recoloured to match the Kenney fountain.
   'tiered-fountain': () => flatMaterials(recolor(merge([{ file: poly('fountain-tiered.glb'), name: 'fountain', scale: 0.107 }], GEN), {
     lambert3SG: '#d8d2cc', lambert4SG: '#b9b1ab', lambert5SG: '#6fb6dc',

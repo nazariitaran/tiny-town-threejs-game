@@ -34,8 +34,9 @@ church.glb, swing.glb, barbecue.glb  (CC-BY 3.0, attribution required)
   Licence: https://creativecommons.org/licenses/by/3.0/
 
 donut-shop.glb, tiered-fountain.glb, slide.glb  (CC-BY 3.0, attribution required)
-  Rescaled and given flat materials (metalness 0, roughness 1) from Poly Pizza models; the donut shop's
-  ground slab and window texture were removed, the fountain was recoloured:
+  Rescaled and given flat materials (metalness 0, roughness 1) from Poly Pizza models; the fountain was
+  recoloured, and the donut shop was remodelled by hand as one lighter mesh (same look, no ground slab or
+  window texture):
     - donut-shop.glb       "Donut Store" by J-Toastie, via Poly Pizza, CC-BY 3.0     https://poly.pizza/m/BvRLKgGwc6
     - tiered-fountain.glb  "Fountain" by Poly by Google, via Poly Pizza, CC-BY 3.0   https://poly.pizza/m/7AydBrjR2Ss
     - slide.glb            "Slide" by sirkitree, via Poly Pizza, CC-BY 3.0           https://poly.pizza/m/8D47EdapzBW

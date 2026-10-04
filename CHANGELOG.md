@@ -10,6 +10,9 @@ Player-facing release notes for Tiny Town. Budgets and measurements are in `docs
 - **Cars use the car parks.** Now and then a car turns off the street into a car park, noses into a free stall, sits there for a little while, then backs out and drives on. Other cars wait a moment while it turns in or backs out. It is the same few cars that drive round your town, so a car park is sometimes busy and sometimes empty. Parked cars aren't saved with the town, and bulldozing a car park (or the road it opens onto) sends its cars away.
 - **Car parks.** Streets has a new Parking card with three sizes, picked from its style row (`V` / `Shift+V`): a small row of 4 bays straight off the street, a medium car park for 8 cars and a large one for 12 with two little planter islands. It snaps to the road grid like the roundabout, `R` turns it, and a road in front of its entrance joins it like a driveway: the street keeps its centre line, and no lane line runs into the car park. Saves stay on version 4.
 
+### Changed
+- **A lighter donut shop.** The donut shop is remodelled by hand with a third of the triangles and the same look, so towns with several of them draw a little faster.
+
 ## v0.6 — 2026-10-02
 Package 0.6.0. Everything merged after `v0.5`, and the first public release, at https://tiny-town-threejs-game.nazariy-taran.workers.dev/. Saves stay on version 4, so v0.5 towns open unchanged.
 

@@ -35,7 +35,7 @@ CC-BY 3.0 (https://creativecommons.org/licenses/by/3.0/) requires attribution. U
 | `composed/slide.glb` | Slide | sirkitree | CC-BY 3.0 | https://poly.pizza/m/8D47EdapzBW | "Slide" by sirkitree, via Poly Pizza, CC-BY 3.0 |
 | `composed/mailbox.glb` | Mailbox | CreativeTrio | CC0 1.0 | https://poly.pizza/m/2olZ0G8iur | "Mailbox" by CreativeTrio, via Poly Pizza, CC0 |
 
-All six CC-BY models were modified (rescaled, turned, flat materials; the donut shop also lost its ground slab and window texture, the fountain was recoloured). `composed/License.txt` carries the same lines next to the files.
+All six CC-BY models were modified (rescaled, turned, flat materials; the fountain was recoloured; the donut shop was remodelled by hand into a lighter single-mesh version with the same look, without its ground slab or window texture). `composed/License.txt` carries the same lines next to the files.
 
 ### Composed models
 

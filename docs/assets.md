@@ -16,7 +16,7 @@ One flat, colourful look: a 512 px gradient `colormap.png` per kit, the same gre
 | `fantasy-town/` | Kenney Fantasy Town Kit 2.0 | CC0 |
 | `holiday/` | Kenney Holiday Kit 2.0 | CC0 |
 | `cars/` | Kenney Car Kit 3.1 | CC0 |
-| `composed/` | built by `scripts/compose-models.mjs` (below) | CC0, except church, swing, barbecue, donut shop, tiered fountain and slide: CC-BY 3.0 |
+| `composed/` | built by `scripts/compose-models.mjs` (below) | CC0, except church, swing, barbecue, donut shop (remodelled), tiered fountain and slide: CC-BY 3.0 |
 | `parking/` | built in Blender by `scripts/build-parking.py` (below) | CC0 (original; samples the roads atlas) |
 | `stadium/` | built in Blender by `scripts/build-stadium.py` (below) | CC0 (original; samples the roads atlas) |
 
@@ -79,7 +79,8 @@ Native connections at rotation 0:
 `node scripts/compose-models.mjs` rebuilds `public/assets/models/composed/*.glb` from `assets-src/`. The composed GLBs embed their textures. Recipe kinds:
 - **merge:** parts of kit GLBs in one file: bus stop (Commercial `detail-overhang-wide`, Holiday `bench`, Roads `road-sign-street`), tall fence (two suburban fence panels), low fence (Fantasy Town `fence`, re-centred), pool (Fantasy Town `fountain-square` stretched into a basin plus two Commercial parasols), fountain (Fantasy Town `fountain-round-detail`).
 - **primitive:** the postbox, a red pillar box from flat-shaded shapes.
-- **Poly Pizza:** one source GLB scaled to game units, turned if needed, flat materials (metalness 0, roughness 1, no metal/roughness map): church, swing, barbecue, corner shop, donut shop (ground slab removed, flat window glass), tiered fountain (recoloured), slide, mailbox. Many Poly Pizza exports set metalness 0.4, which renders almost black without an environment map.
+- **Poly Pizza:** one source GLB scaled to game units, turned if needed, flat materials (metalness 0, roughness 1, no metal/roughness map): church, swing, barbecue, corner shop, tiered fountain (recoloured), slide, mailbox. Many Poly Pizza exports set metalness 0.4, which renders almost black without an environment map.
+- **Hand-remodelled:** the donut shop is built from `scripts/data/donut-shop-optimised.glb`, a committed GLB (the recipe merges it as it is, flat materials, no slab), because the Poly Pizza "Donut Store" source (3,318 triangles, 11 meshes) was rebuilt in Blender as one mesh of 1,012 triangles and 12 flat-coloured materials, same footprint and look, 0.02 lower. To change it, edit that GLB and re-run the recipe; `assets-src/polypizza/donut-store.glb` is no longer read.
 - **Nature Kit:** its materials set metalness 1 and store sRGB colours as linear factors, and its leaves are teal. `natureMaterials()` sets metalness 0, converts the factors and remaps the greens. The tulips (three flowers per model, one model per flower shape) are built this way; any further Nature Kit piece needs the same recipe.
 
 ### Parking lots
