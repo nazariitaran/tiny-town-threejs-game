@@ -98,8 +98,7 @@ test('the five category tabs render their tools in catalog order, each with a lo
   errors.expectNone();
 });
 
-test('digit shortcuts: 1–9 pick a tool in the active category, Shift+1–5 switch category', async ({ page }, info) => {
-  test.skip(info.project.name === 'mobile-chrome', 'keyboard shortcuts are a desktop affordance');
+test('digit shortcuts: 1–9 pick a tool in the active category, Shift+1–5 switch category', async ({ page }) => {
   await start(page);
   // Streets is open by default: 1 = road, 3 = roundabout.
   await expect(page.locator(id(UI_TEST_IDS.category('streets')))).toHaveAttribute('aria-pressed', 'true');
@@ -291,8 +290,7 @@ test('menu opens and closes; New town asks for confirmation', async ({ page }, i
   errors.expectNone();
 });
 
-test('keyboard only: Tab reaches every dock button with a visible focus ring', async ({ page }, info) => {
-  test.skip(info.project.name === 'mobile-chrome', 'keyboard navigation is checked on desktop');
+test('keyboard only: Tab reaches every dock button with a visible focus ring', async ({ page }) => {
   await start(page);
   await page.locator(id(UI_TEST_IDS.category('homes'))).click();
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
@@ -322,8 +320,7 @@ test('keyboard only: Tab reaches every dock button with a visible focus ring', a
   await page.screenshot({ path: `${OUT}/focus-ring-1280x720.png` });
 });
 
-test('dock is ≤ 150 px tall on desktop and clear of the plot centre', async ({ page }, info) => {
-  test.skip(info.project.name === 'mobile-chrome', 'desktop budget');
+test('dock is ≤ 150 px tall on desktop and clear of the plot centre', async ({ page }) => {
   await start(page);
   await page.locator(id(UI_TEST_IDS.category('homes'))).click();
   const dock = (await page.locator(id(UI_TEST_IDS.dock)).boundingBox())!;
@@ -345,7 +342,6 @@ const SIZES: ReadonlyArray<[number, number]> = [
 ];
 
 test('stress-town screenshots: no overlap or clipping at 4 sizes (Buildings tray, hint and refusal tooltip up)', async ({ browser }, info) => {
-  test.skip(info.project.name === 'mobile-chrome', 'runs its own viewports once');
   test.setTimeout(120_000);
   mkdirSync(OUT, { recursive: true });
   for (const [width, height] of SIZES) {

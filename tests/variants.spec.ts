@@ -172,21 +172,3 @@ test('tulips: every placement builds the picked style; V / Shift+V step through 
   }
   errors.expectNone();
 });
-
-test('phone widths: the four Suburban chips fit on screen as 44 px targets', async ({ page }, testInfo) => {
-  test.skip(!isMobile(testInfo.project.name), 'phone layout');
-  mkdirSync(ARTIFACTS, { recursive: true });
-  await gotoTitle(page);
-  await startBuilding(page);
-  for (const viewport of [
-    { width: 390, height: 844 },
-    { width: 360, height: 780 },
-  ]) {
-    await page.setViewportSize(viewport);
-    await selectTool(page, 'garage-house');
-    await expect(byId(page, UI_TEST_IDS.variants).locator('.ui-chip')).toHaveCount(4);
-    await expectStripFits(page);
-    await page.screenshot({ path: `${ARTIFACTS}/${testInfo.project.name}-${viewport.width}-suburban-strip.png` });
-    await byId(page, UI_TEST_IDS.tool('garage-house')).click(); // put it away for the next width
-  }
-});

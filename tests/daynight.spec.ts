@@ -75,8 +75,7 @@ test.describe('time button (top bar)', () => {
     errors.expectNone();
   });
 
-  test('one row with 44 px targets on narrow phones (390 × 844, 360 × 640)', async ({ browser }, info) => {
-    test.skip(info.project.name === 'mobile-chrome', 'runs its own phone viewports once');
+  test('one row with 44 px targets on narrow phones (390 × 844, 360 × 640)', async ({ browser }) => {
     for (const [width, height] of [
       [390, 844],
       [360, 640],
@@ -156,8 +155,7 @@ test.describe('time button (top bar)', () => {
     errors.expectNone();
   });
 
-  test('T cycles the mode while building (not on the title screen)', async ({ page }, info) => {
-    test.skip(info.project.name === 'mobile-chrome', 'keyboard shortcuts are a desktop affordance');
+  test('T cycles the mode while building (not on the title screen)', async ({ page }) => {
     const errors = trackErrors(page);
     await gotoTitle(page);
     await page.keyboard.press('KeyT');

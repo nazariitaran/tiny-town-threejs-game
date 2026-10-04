@@ -8,10 +8,15 @@ A cosy browser city-builder sandbox: three.js + TypeScript + Vite. The game live
 - `docs/assets.md`: where models and sounds come from, scale and orientation conventions, how to rebuild them. `CREDITS.md`: every asset's source and licence.
 - `docs/release.md`: build, deploy, debug and test-hook policy, budgets.
 - `docs/backlog.md`: known gaps and follow-ups, open until fixed or dropped.
+- `docs/mobile-backlog.md`: what a new feature would need if full phone support comes back.
 - `CHANGELOG.md`: player-facing notes; "Unreleased" is what's merged on `main` since the last tag.
 - History lives in git, not in docs.
 
 Skills are user-level, in `~/.claude/skills/` (not in this repo). `threejs-game-director` routes to the others: `threejs-gameplay-systems`, `threejs-aaa-graphics-builder`, `threejs-game-ui-designer`, `threejs-qa-release`, `threejs-debug-profiler`. `webgpu-threejs-tsl` covers WebGPU and TSL.
+
+## Phone support
+The game was first built with some phone support (touch input, phone layouts, a `mobile-chrome` Playwright project). It is not a priority now: leave that infrastructure as it is, and don't extend or remove it. The `mobile-chrome` project is commented out in `playwright.config.ts`, so no spec runs on a phone.
+When a new feature would need extra work to function on a phone, add a short entry to `docs/mobile-backlog.md`: what would have to be done if full phone support comes back. Concise and specific, one entry per feature.
 
 ## Commands
 ```bash
@@ -19,7 +24,7 @@ npm run dev            # http://127.0.0.1:5188  (add ?debug for the lil-gui tuni
 npm run verify         # local-path check + licences check + typecheck + unit tests + production build  ← must pass before hand-off
 npm run typecheck      # tsc --noEmit
 npm run test:unit      # vitest, src/**/*.test.ts (pure logic, Node)
-npm run test:e2e       # playwright, tests/*.spec.ts, desktop-chrome + mobile-chrome (starts its own dev server)
+npm run test:e2e -- --workers=6   # playwright, tests/*.spec.ts, desktop-chrome only (starts its own dev server)
 npm test               # test:unit then test:e2e
 npm run verify:visual  # ONLY tests/visual.spec.ts (the load → Start → road-drag smoke journey), NOT the screenshot baselines
 npx playwright test tests/visual-regression.spec.ts   # screenshot baselines (darwin only, skipped elsewhere; a missing baseline FAILS)
@@ -33,6 +38,7 @@ node scripts/compose-models.mjs              # rebuild public/assets/models/comp
 /Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-parking.py   # rebuild public/assets/models/parking/*.glb
 /Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-stadium.py   # rebuild public/assets/models/stadium/stadium.glb
 ```
+- **E2E workers.** `playwright.config.ts` sets no worker count, so always pass `--workers=N`. Use 6 on a normal machine: the full suite (110 tests) then takes about 3–4 minutes. In an agent cloud environment with limited hardware use 1–2 workers, and expect it to take much longer.
 - If `npm install` fails with EACCES on `~/.npm`, add `--cache .npm-cache`.
 - Browser checks (Playwright, `inspect:canvas`, `render-icons`) need a session where Chromium can launch; inside a nono sandbox it segfaults. If that happens, say so in your hand-off; don't skip the check.
 - **Ports.** The dev server, Playwright, the canvas inspector and `render-icons` honour the `PORT` env var (default 5188, strict); `vite preview` uses `PORT − 1000`. Parallel agents each use their own port (`PORT=5220 npm run test:e2e`). Never kill a dev server you didn't start.

@@ -158,8 +158,7 @@ test('a match night lights the stadium and plays the crowd by distance; no match
   errors.expectNone();
 });
 
-test('Low preset (Lambert, no halos): the floodlights still light the stadium, with one extra draw call', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name.startsWith('mobile'), 'the preset is the same on both');
+test('Low preset (Lambert, no halos): the floodlights still light the stadium, with one extra draw call', async ({ page }) => {
   const errors = trackErrors(page);
   const warnings: string[] = [];
   page.on('console', (message) => {
@@ -186,8 +185,7 @@ test('Low preset (Lambert, no halos): the floodlights still light the stadium, w
   errors.expectNone();
 });
 
-test('the schedule: the first night is a match night for 30 s of night, the second is not', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name.startsWith('mobile'), 'runs in real time; once is enough');
+test('the schedule: the first night is a match night for 30 s of night, the second is not', async ({ page }) => {
   test.setTimeout(120_000);
   const errors = trackErrors(page);
   await gotoTitle(page);

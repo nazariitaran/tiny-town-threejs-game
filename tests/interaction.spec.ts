@@ -26,13 +26,6 @@ async function assertOnCanvas(page: Page, point: { x: number; y: number }, label
   return point;
 }
 
-/** Id of the element at a cell centre (no assertion), for picking on-canvas cells. */
-const canvasId = (page: Page, x: number, z: number) =>
-  page.evaluate(([cx, cz]) => {
-    const p = window.__THREE_GAME_TEST_HOOKS__!.cellToClient(cx, cz);
-    return document.elementFromPoint(p.x, p.y)?.id ?? null;
-  }, [x, z] as const);
-
 const cellPoint = async (page: Page, x: number, z: number) =>
   assertOnCanvas(
     page,
@@ -76,7 +69,6 @@ async function drag(page: Page, from: { x: number; y: number }, to: { x: number;
 }
 
 test.describe('desktop mouse + keyboard', () => {
-  test.skip(({ isMobile }) => isMobile, 'mouse checks run on desktop-chrome');
 
   test('road drag, invalid house, rotate, fences, bulldoze, undo', async ({ page }, testInfo) => {
     const errors = collectErrors(page);
@@ -330,78 +322,6 @@ test.describe('desktop mouse + keyboard', () => {
     expect(pose3.targetZ).toBeCloseTo(pose0.targetZ, 2);
     expect(pose3.distance).toBeCloseTo(pose0.distance, 1);
     console.log(`[camera] pan Δ=${Math.hypot(pose1.targetX - pose0.targetX, pose1.targetZ - pose0.targetZ).toFixed(2)} orbit Δ=${(pose2.azimuth - pose1.azimuth).toFixed(3)} reset target=(${pose3.targetX.toFixed(3)}, ${pose3.targetZ.toFixed(3)})`);
-    expect(errors).toEqual([]);
-  });
-});
-
-test.describe('mobile touch', () => {
-  test.skip(({ isMobile }) => !isMobile, 'touch checks run on mobile-chrome');
-
-  test('a tap places; a two-finger pan moves the camera without building', async ({ page }, testInfo) => {
-    const errors = collectErrors(page);
-    await startBuilding(page);
-    await selectTool(page, 'streets', 'road');
-
-    const before = await diag(page);
-    const target = await cellPoint(page, 24, 22);
-    await page.touchscreen.tap(target.x, target.y);
-    await expect.poll(async () => (await diag(page)).town.roadTiles).toBe(before.town.roadTiles + 1);
-    const afterTap = await diag(page);
-    expect(afterTap.history.undoDepth).toBe(before.history.undoDepth + 1);
-    console.log(`[tap] roadTiles ${before.town.roadTiles}→${afterTap.town.roadTiles}`);
-
-    // Two-finger pan through CDP (Playwright's touchscreen API is single-touch only).
-    const cdp = await page.context().newCDPSession(page);
-    const centre = await cellPoint(page, 24, 28);
-    const points = (dx: number) => [
-      { x: centre.x - 60 + dx, y: centre.y, id: 1 },
-      { x: centre.x + 60 + dx, y: centre.y, id: 2 },
-    ];
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: points(0) });
-    for (let step = 1; step <= 12; step += 1) {
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: points(step * 10) });
-      await page.waitForTimeout(16);
-    }
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-    await page.waitForTimeout(400);
-
-    const afterPan = await diag(page);
-    const moved = Math.hypot(afterPan.camera.targetX - afterTap.camera.targetX, afterPan.camera.targetZ - afterTap.camera.targetZ);
-    expect(moved).toBeGreaterThan(0.5);
-    expect(afterPan.town.roadTiles).toBe(afterTap.town.roadTiles);
-    expect(afterPan.history.undoDepth).toBe(afterTap.history.undoDepth);
-    expect(afterPan.objects).toBe(afterTap.objects);
-    expect(afterPan.invalidCount).toBe(afterTap.invalidCount);
-    console.log(
-      `[two-finger pan] target (${afterTap.camera.targetX.toFixed(2)}, ${afterTap.camera.targetZ.toFixed(2)}) → (${afterPan.camera.targetX.toFixed(2)}, ${afterPan.camera.targetZ.toFixed(2)}) moved=${moved.toFixed(2)}; roads=${afterPan.town.roadTiles} undoDepth=${afterPan.history.undoDepth}`,
-    );
-    await page.screenshot({ path: testInfo.outputPath('mobile-after-pan.png') });
-
-    // A one-finger drag with the tool paints (and is one undo entry).
-    // The pan moved the view, so find a 5-block run (9 cells) that is still on the canvas (not under the dock / top bar).
-    let run: [number, number] | null = null;
-    for (const [x, z] of [[18, 18], [16, 24], [20, 28], [12, 20], [24, 32], [8, 28]] as const) {
-      if ((await canvasId(page, x, z)) === 'game-canvas' && (await canvasId(page, x + 8, z)) === 'game-canvas') {
-        run = [x, z];
-        break;
-      }
-    }
-    expect(run, 'a 5-block run on the canvas after the pan').not.toBeNull();
-    const d0 = await cellPoint(page, run![0], run![1]);
-    const d1 = await cellPoint(page, run![0] + 8, run![1]);
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: d0.x, y: d0.y, id: 3 }] });
-    for (let step = 1; step <= 10; step += 1) {
-      const t = step / 10;
-      await cdp.send('Input.dispatchTouchEvent', {
-        type: 'touchMove',
-        touchPoints: [{ x: d0.x + (d1.x - d0.x) * t, y: d0.y + (d1.y - d0.y) * t, id: 3 }],
-      });
-      await page.waitForTimeout(16);
-    }
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-    await expect.poll(async () => (await diag(page)).town.roadTiles).toBe(afterPan.town.roadTiles + 5);
-    expect((await diag(page)).history.undoDepth).toBe(afterPan.history.undoDepth + 1);
-
     expect(errors).toEqual([]);
   });
 });

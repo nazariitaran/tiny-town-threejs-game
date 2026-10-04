@@ -126,8 +126,7 @@ test.describe('town photo', () => {
     errors.expectNone();
   });
 
-  test('the photo leaves out the ghost and its footprint frame', async ({ page }, info) => {
-    test.skip(info.project.name === 'mobile-chrome', 'needs a hovering mouse');
+  test('the photo leaves out the ghost and its footprint frame', async ({ page }) => {
     const errors = trackErrors(page);
     await gotoTitle(page);
     await applyState(page, 'sample-town');
@@ -170,8 +169,7 @@ test.describe('town photo', () => {
     errors.expectNone();
   });
 
-  test('P takes a photo; Ctrl/Cmd+P and P outside the build view do not', async ({ page }, info) => {
-    test.skip(info.project.name === 'mobile-chrome', 'keyboard shortcut');
+  test('P takes a photo; Ctrl/Cmd+P and P outside the build view do not', async ({ page }) => {
     const errors = trackErrors(page);
     await gotoTitle(page);
     await page.keyboard.press('KeyP');
@@ -201,8 +199,7 @@ test.describe('town photo', () => {
     errors.expectNone();
   });
 
-  test('night photo keeps the night look (moon in the caption)', async ({ page }, info) => {
-    test.skip(info.project.name === 'mobile-chrome', 'one night capture is enough');
+  test('night photo keeps the night look (moon in the caption)', async ({ page }) => {
     const errors = trackErrors(page);
     await gotoTitle(page);
     await applyState(page, 'night-town');
@@ -215,8 +212,7 @@ test.describe('town photo', () => {
     errors.expectNone();
   });
 
-  test('help lists the photo shortcut', async ({ page }, info) => {
-    test.skip(info.project.name === 'mobile-chrome', 'keyboard shortcut');
+  test('help lists the photo shortcut', async ({ page }) => {
     await gotoTitle(page);
     await applyState(page, 'sample-town');
     await page.keyboard.press('Shift+Slash');

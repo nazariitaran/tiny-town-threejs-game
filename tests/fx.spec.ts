@@ -57,7 +57,6 @@ function diffPixels(a: Buffer, b: Buffer): number {
 }
 
 test('FX journey video: road, house, tree, bulldoze — and FX draw calls ≤ 3', async ({ browser }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-chrome', 'the recorded journey runs once, on desktop');
   test.setTimeout(60_000);
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 },

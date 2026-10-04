@@ -99,8 +99,7 @@ test('tabs: roles, contents, click / tap switching and a steady panel size', asy
   errors.expectNone();
 });
 
-test('tabs: keyboard (arrows wrap, Home / End, roving tabindex, Tab into the panel, Esc closes)', async ({ page }, info) => {
-  test.skip(info.project.name === 'mobile-chrome', 'keyboard navigation is checked on desktop');
+test('tabs: keyboard (arrows wrap, Home / End, roving tabindex, Tab into the panel, Esc closes)', async ({ page }) => {
   const errors = trackErrors(page);
   await openMenu(page);
   // Resume → Tab → the selected tab (the only tab in the Tab order).

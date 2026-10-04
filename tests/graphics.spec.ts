@@ -144,7 +144,6 @@ test('a saved preset boots as that preset; the URL override is not saved', async
 
 test.describe('Retina screen (DPR 2)', () => {
   test.use({ deviceScaleFactor: 2 });
-  test.skip(({ isMobile }) => isMobile, 'the phone project already runs at DPR 2.625');
 
   test('the DPR cap follows the preset: Low 1, Medium 1.5, High 2', async ({ page }) => {
     test.setTimeout(60_000);

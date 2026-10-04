@@ -58,7 +58,6 @@ async function sampleTown(page: Page): Promise<LifeDiagnostics> {
 }
 
 test('cars drive the sample-town roads (10 s video)', async ({ browser }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-chrome', 'the recorded drive runs once, on desktop');
   test.setTimeout(60_000);
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 },
@@ -149,7 +148,6 @@ test('bulldozing the road under a car removes that car cleanly', async ({ page }
 });
 
 test('cars add at most 6 draw calls', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-chrome', 'draw-call budget measured on desktop');
   const errors = trackErrors(page);
   await page.goto('/?debug');
   await page.waitForFunction(() => window.__THREE_GAME_DIAGNOSTICS__?.phase === 'title', undefined, { timeout: 15_000 });

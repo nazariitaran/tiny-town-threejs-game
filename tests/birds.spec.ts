@@ -84,8 +84,7 @@ test('test states never launch a flock by themselves', async ({ page }) => {
   errors.expectNone();
 });
 
-test('flocks come by themselves over the title and the town (?debug&flock=3)', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-chrome', 'the schedule is the same on phones; once is enough');
+test('flocks come by themselves over the title and the town (?debug&flock=3)', async ({ page }) => {
   test.setTimeout(45_000);
   const errors = trackErrors(page);
   await page.goto('/?debug&flock=3');
@@ -99,8 +98,7 @@ test('flocks come by themselves over the title and the town (?debug&flock=3)', a
   errors.expectNone();
 });
 
-test('no new flock at night; one comes once it is day again', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-chrome', 'pure schedule logic; once is enough');
+test('no new flock at night; one comes once it is day again', async ({ page }) => {
   test.setTimeout(45_000);
   const errors = trackErrors(page);
   await page.goto('/?debug&flock=2');

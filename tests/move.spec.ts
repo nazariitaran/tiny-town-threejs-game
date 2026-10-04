@@ -135,8 +135,7 @@ test('pick up a cottage, a refused drop, turn it, put it down, undo / redo, relo
   errors.expectNone();
 });
 
-test('put back with Esc and right-click; trees move but do not turn; the roundabout cannot be picked up', async ({ page }, testInfo) => {
-  test.skip(isMobile(testInfo.project.name), 'keyboard and right-click: desktop only');
+test('put back with Esc and right-click; trees move but do not turn; the roundabout cannot be picked up', async ({ page }) => {
   const errors = trackErrors(page);
   await setUpTown(page);
   const [houseB] = (await objectsByKind(page, 'cottage')).filter((o) => o.anchor.x === HOUSE_B.x);
@@ -191,23 +190,5 @@ test('put back with Esc and right-click; trees move but do not turn; the roundab
   const after = await diagnostics(page);
   expect(after.selection).toBeNull();
   expect(after.invalidCount).toBe(before.invalidCount);
-  errors.expectNone();
-});
-
-test('touch: tap a thing, tap where it goes', async ({ page }, testInfo) => {
-  test.skip(!isMobile(testInfo.project.name), 'touch taps: mobile only');
-  const errors = trackErrors(page);
-  await setUpTown(page);
-  const [houseB] = (await objectsByKind(page, 'cottage')).filter((o) => o.anchor.x === HOUSE_B.x);
-  await selectTool(page, 'move');
-  await pointAt(page, 'cottage', HOUSE_B, 0, true);
-  await expect.poll(async () => (await diagnostics(page)).selection?.id).toBe(houseB.id);
-  await expect(byId(page, UI_TEST_IDS.hint)).toContainText('Tap where it goes');
-  await pointAt(page, 'cottage', { x: 30, z: 28 }, 0, true);
-  await expectDiagnostics(page, { objects: 3, history: { undoDepth: 4 } }, 'moved by two taps');
-  expect((await diagnostics(page)).selection).toBeNull();
-  expect((await objectsByKind(page, 'cottage')).find((o) => o.id === houseB.id)?.anchor).toEqual({ x: 30, z: 28 });
-  mkdirSync(ARTIFACTS, { recursive: true });
-  await page.screenshot({ path: `${ARTIFACTS}/${testInfo.project.name}-dock.png` });
   errors.expectNone();
 });

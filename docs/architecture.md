@@ -3,7 +3,7 @@
 The technical reference: modules, data flow, grid, rules, save format, rendering, test hooks. If this file and the code disagree, the code wins; fix this file. What the game is and how it plays: `docs/design.md`. Assets: `docs/assets.md`. Build, deploy and budgets: `docs/release.md`.
 
 ## Stack
-TypeScript (strict) · Vite 8 · three.js r184 (`three/addons/*`: MapControls, GLTFLoader, RoomEnvironment) · Web Audio for SFX, `HTMLAudioElement` streaming for music · lil-gui (`?debug`) · Vitest (pure logic, Node) · Playwright (full Chromium, 1 worker). No physics engine: the game is grid-based. The build puts three.js in its own vendor chunk.
+TypeScript (strict) · Vite 8 · three.js r184 (`three/addons/*`: MapControls, GLTFLoader, RoomEnvironment) · Web Audio for SFX, `HTMLAudioElement` streaming for music · lil-gui (`?debug`) · Vitest (pure logic, Node) · Playwright (full Chromium; workers set on the command line). No physics engine: the game is grid-based. The build puts three.js in its own vendor chunk.
 
 ## Module map
 ```
@@ -256,6 +256,6 @@ Demo towns (`sampleTown.ts`, zero rejections, tested):
 There are no other diagnostics globals.
 
 ## Browser tests
-- Playwright projects: `desktop-chrome` (1280 × 720) and `mobile-chrome` (Pixel 7 emulation, touch), full Chromium (`channel: 'chromium'`) on the real GPU, 1 worker. The canvas inspector's `--mobile` is 390 × 844.
+- Playwright projects: `desktop-chrome` (1280 × 720); `mobile-chrome` (Pixel 7 emulation, touch) is commented out in `playwright.config.ts` while phone support is not a priority; full Chromium (`channel: 'chromium'`) on the real GPU. The config sets no worker count: pass `--workers=N` (6 on a normal machine, 1–2 in a limited cloud environment). The canvas inspector's `--mobile` is 390 × 844.
 - Stable DOM ids: `UI_TEST_IDS` and `MENU_TABS` in `src/ui/testIds.ts` (side-effect free; specs import it). A tool button exists only while its category is active; a menu control is visible only while its tab is selected (`tests/helpers.ts` `openMenuTab`).
 - Visual baselines: `tests/visual-regression.spec.ts-snapshots/`, 8 PNGs (title, sample-town, asset-gallery, night-town × desktop, mobile). Darwin only: there a missing baseline fails; on other platforms the spec is skipped.
