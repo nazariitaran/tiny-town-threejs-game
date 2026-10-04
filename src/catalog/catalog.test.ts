@@ -11,7 +11,7 @@ import { ALTITUDE } from '../life/FlockSim';
 import { CAR_FILES, CAR_SCALE } from '../life/LifeSystem';
 import { MODEL_STYLES } from '../render/modelStyles';
 import { EDGE_MODELS, GROUND_MODELS, MODELS, ROAD_JOINT_MODELS, ROAD_PIECE_MODELS, ZEBRA_JOINT_MODELS, type ModelId } from './models';
-import { footprintOf, heightScale, OBJECT_KINDS, OBJECTS } from './objects';
+import { footprintOf, heightScale, OBJECT_KINDS, OBJECTS, pickableVariants } from './objects';
 import { RETIRED_TOOLS, TOOL_CATEGORIES, TOOLS, toolsInCategory, variantIcon, type ToolLayer } from './tools';
 import { createGlbLoader, PUBLIC_DIR, publicPath } from '../testing/gltfNode';
 
@@ -66,7 +66,7 @@ describe('catalog', () => {
     for (const tool of placing) expect(tool.icon, tool.id).toBe(`/assets/icons/tool-${tool.id}.png`);
     const variantIcons = placing.flatMap((tool) => {
       const def = tool.layer === 'object' ? OBJECTS[tool.id as keyof typeof OBJECTS] : null;
-      return def ? Array.from({ length: def.variants - 1 }, (_, i) => `tool-${tool.id}-v${i + 1}.png`) : [];
+      return def ? Array.from({ length: pickableVariants(def) - 1 }, (_, i) => `tool-${tool.id}-v${i + 1}.png`) : [];
     });
     const files = fs.readdirSync(path.join(PUBLIC_DIR, 'assets/icons')).filter((f) => !f.startsWith('.')).sort();
     expect(files).toEqual([...placing.map((tool) => `tool-${tool.id}.png`), ...variantIcons].sort());
@@ -76,8 +76,19 @@ describe('catalog', () => {
     for (const tool of TOOLS.filter((t) => t.layer === 'object')) {
       const def = OBJECTS[tool.id as keyof typeof OBJECTS];
       expect(variantIcon(tool.id, 0)).toBe(tool.icon);
-      for (let n = 1; n < def.variants; n++) expect(variantIcon(tool.id, n)).toBe(`/assets/icons/tool-${tool.id}-v${n}.png`);
+      for (let n = 1; n < pickableVariants(def); n++) expect(variantIcon(tool.id, n)).toBe(`/assets/icons/tool-${tool.id}-v${n}.png`);
     }
+  });
+
+  it('variant weights: one chance per model, summing to 100, only on kinds the player does not pick the model of', () => {
+    for (const def of Object.values(OBJECTS)) {
+      if (!def.variantWeights) continue;
+      expect(def.variantWeights, def.kind).toHaveLength(def.models.length);
+      expect(def.variantWeights.reduce((a, b) => a + b, 0), def.kind).toBe(100);
+      expect(pickableVariants(def), def.kind).toBe(1);
+    }
+    // The postbox's cyphers: Elizabeth II first, because a save from before the cyphers holds variant 0.
+    expect(OBJECTS.postbox.variantWeights).toEqual([60, 7, 5, 16, 2, 8, 2]);
   });
 
   it('every category has at most 12 tools (digits 1–9 reach the first nine; ~12 fill a desktop row)', () => {

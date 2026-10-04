@@ -14,6 +14,7 @@
  */
 import { cellKey, edgeCells, edgeInBounds, edgeKey, edgeOfCellSide, footprintCells, NEIGHBOURS, ROAD_BLOCK, roadBlockCells } from './grid';
 import { ZEBRA_PIECE_MODELS } from '../catalog/models';
+import { pickWeighted } from '../utils/random';
 import { footprintOf, objectDef, placedFootprint, type ObjectDef } from '../catalog/objects';
 import { isFeatureCorner, roadFeatureAt, roadMask, roadTileFor } from './roadTiles';
 import type { BuildAction, Cell, GroundKind, InvalidReason, PlanResult, Rotation, TownChange, TownStateReader } from './types';
@@ -253,7 +254,11 @@ function planPlaceObject(state: TownStateReader, action: Extract<BuildAction, { 
     }
   }
   const variant =
-    named || def.footprints || def.variants <= 1 ? footprintVariant : Math.min(def.variants - 1, Math.floor(ctx.rng() * def.variants));
+    named || def.footprints || def.variants <= 1
+      ? footprintVariant
+      : def.variantWeights
+      ? pickWeighted(ctx.rng, def.variantWeights)
+      : Math.min(def.variants - 1, Math.floor(ctx.rng() * def.variants));
   changes.push({
     layer: 'object',
     op: 'add',

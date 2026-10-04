@@ -11,7 +11,8 @@
  */
 import * as THREE from 'three';
 import { EDGE_MODELS, GROUND_MODELS, ZEBRA_PIECE_MODELS } from '../catalog/models';
-import { footprintOf, objectDef, placedFootprint, type ObjectDef } from '../catalog/objects';
+import { footprintOf, objectDef, pickableVariants, placedFootprint, type ObjectDef } from '../catalog/objects';
+import { pickWeighted } from '../utils/random';
 import { actionForTool, RETIRED_TOOLS, toolDef, type DragMode, type ToolId } from '../catalog/tools';
 import type { DebugTools } from '../debug/DebugTools';
 import {
@@ -161,6 +162,8 @@ export class ToolController {
     scene: THREE.Scene,
     /** Templates are ready once the phase leaves 'loading'. */
     library: ModelLibrary,
+    /** The gameplay RNG: models rolled by weight (the postbox's cypher) come from it. */
+    private readonly rng: () => number,
     debug?: DebugTools,
   ) {
     this.ghost = new GhostPreview(scene, library);
@@ -257,8 +260,15 @@ export class ToolController {
     this.justPlaced.clear();
     this.cameraController.setToolActive(this.toolId !== null);
     this.chosenVariant = this.choiceFor(this.variantDef());
+    this.rollWeightedVariant();
     this.hoverDirty = true;
     this.emitToolChanged();
+  }
+
+  /** A kind that rolls its model by weight shows the next roll on the ghost, and a placement builds exactly that. */
+  private rollWeightedVariant(): void {
+    const weights = this.toolId && toolDef(this.toolId).layer === 'object' ? objectDef(this.toolId as ObjectKind).variantWeights : undefined;
+    if (weights) this.chosenVariant = pickWeighted(this.rng, weights);
   }
 
   /** Build model `choice` with the active tool from now on. */
@@ -281,7 +291,7 @@ export class ToolController {
   private variantDef(): ObjectDef | null {
     if (!this.toolId || toolDef(this.toolId).layer !== 'object') return null;
     const def = objectDef(this.toolId as ObjectKind);
-    return def.variants > 1 ? def : null;
+    return pickableVariants(def) > 1 ? def : null;
   }
 
   private choiceFor(def: ObjectDef | null): number {
@@ -605,6 +615,10 @@ export class ToolController {
     const toolId = this.toolId!;
     const result = this.editor.apply(action, toolId);
     if (result.ok && action.type !== 'bulldoze') this.rememberPlaced(result);
+    if (result.ok && action.type === 'place-object') {
+      this.rollWeightedVariant();
+      this.hoverDirty = true;
+    }
     // Only a deliberate click reports invalid; drags silently skip blocked cells.
     if (!result.ok && fromPress) this.reportInvalid(result, cell);
     return result;

@@ -3,7 +3,7 @@
  * Owns the active dock category and the digit shortcuts. Playwright selects by the ids in UI_TEST_IDS.
  */
 // Styles are imported from src/styles.css, not here, so this module has no CSS side effects.
-import { objectDef } from '../catalog/objects';
+import { objectDef, pickableVariants } from '../catalog/objects';
 import { TOOL_CATEGORIES, toolDef, toolsInCategory, variantIcon, type ToolCategory, type ToolDef, type ToolId } from '../catalog/tools';
 import { assetUrl } from '../game/config';
 import type { GameBus, GameEvents, GamePhase } from '../game/events';
@@ -37,7 +37,7 @@ const CARRY_HINTS: ReadonlySet<string> = new Set([CARRY_HINT_MOUSE, CARRY_HINT_M
 const VARIANT_HINT = ' · V for style';
 
 function modelCount(tool: ToolDef): number {
-  return tool.layer === 'object' ? objectDef(tool.id as Parameters<typeof objectDef>[0]).variants : 1;
+  return tool.layer === 'object' ? pickableVariants(objectDef(tool.id as Parameters<typeof objectDef>[0])) : 1;
 }
 
 /** Opens in a new tab, so the game keeps running. */

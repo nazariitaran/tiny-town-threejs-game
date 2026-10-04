@@ -310,6 +310,21 @@ describe('row 4 — place-object: footprint in bounds, unoccupied, ground ∈ al
     expect(high.layer === 'object' && high.object.variant).toBe(1);
   });
 
+  it('valid: a postbox rolls its cypher by weight (one draw), and a named one draws nothing', () => {
+    const state = makeState();
+    const variantAt = (value: number) => {
+      const context = ctx(value);
+      const [change] = expectOk(plan(state, placeObj('postbox', 1, 1), context));
+      expect(context.draws).toBe(1);
+      return change.layer === 'object' ? change.object.variant : -1;
+    };
+    expect([0, 0.59, 0.6, 0.7, 0.75, 0.9, 0.99].map(variantAt)).toEqual([0, 0, 1, 2, 3, 5, 6]);
+    const context = ctx(0.99);
+    const [named] = expectOk(plan(state, { ...placeObj('postbox', 1, 1), variant: 0 } as BuildAction, context));
+    expect(named.layer === 'object' && named.object.variant).toBe(0);
+    expect(context.draws).toBe(0);
+  });
+
   it('valid: a chosen variant (the variant picker) is built as given and draws no RNG', () => {
     const state = makeState();
     for (let variant = 0; variant < OBJECTS['garage-house'].variants; variant++) {

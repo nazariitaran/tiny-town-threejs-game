@@ -444,6 +444,13 @@ describe('parseSave and road features', () => {
     expect(ok(parseSave(JSON.parse(JSON.stringify(paved([[10, 10], [11, 11]]))))).objects).toEqual([]);
   });
 
+  it('keeps every postbox cypher, and a postbox saved before the cyphers is Elizabeth II (variant 0)', () => {
+    const postbox = (id: number, variant: number | undefined) => ({ id, kind: 'postbox', anchor: { x: id * 2, z: 3 }, rotation: 0, ...(variant === undefined ? {} : { variant }) });
+    const objects = [0, 1, 2, 3, 4, 5, 6, 7, 99].map((variant, i) => postbox(i + 1, variant));
+    const save = ok(parseSave({ ...blank(), objects: [...objects, postbox(10, undefined)], nextObjectId: 11 }));
+    expect(save.objects.map((o) => o.variant)).toEqual([0, 1, 2, 3, 4, 5, 6, 0, 0, 0]);
+  });
+
   it('drops a roundabout standing on non-road ground (even partly)', () => {
     const onField = ok(parseSave({ ...blank(), objects: [roundabout(1, 4, 4)], nextObjectId: 2 }));
     expect(onField.objects).toEqual([]);

@@ -3,7 +3,7 @@
  * Icons are drawn by the real ModelLibrary + TownRenderer on a tiny fake town, so they match what the player places.
  */
 import * as THREE from 'three';
-import { footprintOf, OBJECTS, objectDef, placedFootprint } from '../catalog/objects';
+import { footprintOf, OBJECTS, objectDef, pickableVariants, placedFootprint } from '../catalog/objects';
 import { TOOLS, variantIcon } from '../catalog/tools';
 import { CELL_SIZE, cellToWorld, footprintCentreWorld, PLOT_DEPTH, PLOT_WIDTH, ROAD_TILE_SIZE, roadBlockCentreWorld } from '../game/config';
 import type { GameBus } from '../game/events';
@@ -160,7 +160,7 @@ export async function renderToolIcons(size = 128, supersample = 2): Promise<Reco
     const spec = sceneForTool(tool.id);
     if (!spec) continue;
     jobs.push({ path: tool.icon, spec });
-    const models = spec.object ? objectDef(spec.object).variants : 1;
+    const models = spec.object ? pickableVariants(objectDef(spec.object)) : 1;
     for (let n = 1; n < models; n++) jobs.push({ path: variantIcon(tool.id, n), spec: sceneForTool(tool.id, n)! });
   }
   for (const { path, spec } of jobs) {

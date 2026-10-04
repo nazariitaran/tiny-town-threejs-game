@@ -48,7 +48,15 @@ export interface ObjectDef {
   /** Visual variants; PlacedObject.variant indexes into this list. */
   models: readonly ModelId[];
   variants: number;
+  /**
+   * Chance of each model (parallel to `models`) when a placement rolls one. Such a kind has no style
+   * strip: the tool pre-rolls the next model and the ghost shows it.
+   */
+  variantWeights?: readonly number[];
 }
+
+/** Models a player can pick between: 1 when the kind rolls its model by weight. */
+export const pickableVariants = (def: ObjectDef): number => (def.variantWeights ? 1 : def.variants);
 
 const OPEN_GROUND: readonly GroundKind[] = ['field', 'grass', 'meadow'];
 const PAVED_OK: readonly GroundKind[] = [...OPEN_GROUND, 'pavement'];
@@ -82,7 +90,17 @@ export const OBJECTS: Readonly<Record<ObjectKind, ObjectDef>> = {
   'traffic-light': def({ kind: 'traffic-light', label: 'Traffic light', group: 'street', footprint: [1, 1], allowedGround: PROP_GROUND, requiresAdjacent: 'road', residents: 0, models: ['traffic-light', 'traffic-light-hanging'] }),
   lamppost: def({ kind: 'lamppost', label: 'Lamppost', group: 'street', footprint: [1, 1], allowedGround: PROP_GROUND, residents: 0, models: ['lamppost'] }),
   'bus-stop': def({ kind: 'bus-stop', label: 'Bus stop', group: 'street', footprint: [2, 1], allowedGround: PROP_GROUND, requiresAdjacent: 'road', residents: 0, models: ['bus-stop'] }),
-  postbox: def({ kind: 'postbox', label: 'Postbox', group: 'street', footprint: [1, 1], allowedGround: PROP_GROUND, residents: 0, models: ['postbox'] }),
+  // Royal cyphers, in model order: Elizabeth II (60 %, and what saves from before the cyphers hold), Victoria, Edward VII, George V, Edward VIII, George VI, Charles III.
+  postbox: def({
+    kind: 'postbox',
+    label: 'Postbox',
+    group: 'street',
+    footprint: [1, 1],
+    allowedGround: PROP_GROUND,
+    residents: 0,
+    models: ['postbox', 'postbox-vr', 'postbox-evii', 'postbox-gr', 'postbox-eviii', 'postbox-gvir', 'postbox-ciiir'],
+    variantWeights: [60, 7, 5, 16, 2, 8, 2],
+  }),
   mailbox: def({ kind: 'mailbox', label: 'Mailbox', group: 'street', footprint: [1, 1], allowedGround: PROP_GROUND, residents: 0, models: ['mailbox'] }),
   cottage: def({ kind: 'cottage', label: 'Cottage', group: 'home', footprint: [4, 4], allowedGround: PAVED_OK, residents: 2, models: ['cottage'] }),
   townhouse: def({ kind: 'townhouse', label: 'Townhouse', group: 'home', footprint: [3, 4], allowedGround: PAVED_OK, residents: 3, models: ['townhouse', 'townhouse-alt'] }),

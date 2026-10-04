@@ -91,7 +91,7 @@ export function buildSampleTown(editor: TownEditor): DemoTownResult {
   place('traffic-light', 19, 23);
   place('traffic-light', 26, 26, 2);
   for (const x of [9, 14, 31, 37]) place('lamppost', x, 23);
-  place('postbox', 36, 23);
+  place('postbox', 36, 23, 0, 0);
   place('bus-stop', 16, 26, 2);
   place('zebra-crossing', 12, 24); // across the main street, between the west lampposts
   // A large car park east of the side street, its entrance facing west onto it (rotation 3).
@@ -169,7 +169,7 @@ export const GALLERY_OBJECTS: ReadonlyArray<readonly [ObjectKind, number, number
   // Row 2 (z 26–29): small things; the bus stop and traffic light stand behind a stub of road; then
   // the townhouse, mailbox and corner shop at the east end.
   ['fountain', 7, 26], ['swing', 10, 26], ['bench', 13, 26], ['barbecue', 15, 26], ['planter', 17, 26],
-  ['postbox', 19, 26], ['lamppost', 21, 26], ['oak', 23, 26], ['pine', 25, 26], ['birch', 27, 26],
+  ['postbox', 19, 26, 0], ['lamppost', 21, 26], ['oak', 23, 26], ['pine', 25, 26], ['birch', 27, 26],
   ['bush', 29, 26], ['bus-stop', 32, 28], ['traffic-light', 35, 28],
   ['townhouse', 37, 26], ['mailbox', 41, 26], ['corner-shop', 43, 26],
   // Row 3 (z 31–33).
@@ -238,7 +238,8 @@ export function buildStressTown(editor: TownEditor): DemoTownResult {
   const isRoadColumn = (x: number) => x % PERIOD_X < ROAD_BLOCK;
   // Birch and pine (42 / 204 triangles; an oak is 408) keep the plot inside the mobile budget.
   const trees = ['birch', 'pine', 'birch', 'birch'] as const;
-  const place = (kind: ObjectKind, x: number, z: number, rotation: Rotation) => run(kind, { type: 'place-object', kind, cell: { x, z }, rotation });
+  const place = (kind: ObjectKind, x: number, z: number, rotation: Rotation, variant?: number) =>
+    run(kind, variant === undefined ? { type: 'place-object', kind, cell: { x, z }, rotation } : { type: 'place-object', kind, cell: { x, z }, rotation, variant });
   const tree = (x: number, z: number) => place(trees[(x + z) % trees.length], x, z, 0);
   // Roads: one paint per block.
   for (let z = 0; z < depth; z += ROAD_BLOCK) {
@@ -254,7 +255,7 @@ export function buildStressTown(editor: TownEditor): DemoTownResult {
       for (const z of [z0 + 2, z0 + PERIOD_Z - 1]) {
         for (let x = x0; x <= x1; x += 1) run('pavement', { type: 'paint-ground', kind: 'pavement', cell: { x, z } });
         place('lamppost', x0 + 4, z, 0);
-        if (z === z0 + 2) place('postbox', x0 + 9, z, 0);
+        if (z === z0 + 2) place('postbox', x0 + 9, z, 0, 0);
       }
       // Two lot rows: z0+3..z0+6 face north (rotation 2), z0+7..z0+10 face south (rotation 0).
       for (const [top, rotation] of [[z0 + 3, 2], [z0 + 3 + LOT_DEPTH, 0]] as const) {

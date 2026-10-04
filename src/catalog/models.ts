@@ -91,7 +91,14 @@ export const MODELS = {
   lamppost: M('/assets/models/roads/light-curved.glb', 1, 2, { offset: [0, 0, 0.087], glow: 'lamp' }),
   'bus-stop': M('/assets/models/composed/bus-stop.glb', 0.8, 2),
   // ~1.2× real size so it still reads as a pillar box.
-  postbox: M('/assets/models/composed/postbox.glb', 1.4, 2),
+  // The pillar box with a royal cypher (scripts/build-postbox-cyphers.py), in the order of ObjectDef.variantWeights; the front faces −Z natively.
+  postbox: M('/assets/models/postbox/postbox-eiir.glb', 1.4, 2),
+  'postbox-vr': M('/assets/models/postbox/postbox-vr.glb', 1.4, 2),
+  'postbox-evii': M('/assets/models/postbox/postbox-evii.glb', 1.4, 2),
+  'postbox-gr': M('/assets/models/postbox/postbox-gr.glb', 1.4, 2),
+  'postbox-eviii': M('/assets/models/postbox/postbox-eviii.glb', 1.4, 2),
+  'postbox-gvir': M('/assets/models/postbox/postbox-gvir.glb', 1.4, 2),
+  'postbox-ciiir': M('/assets/models/postbox/postbox-ciiir.glb', 1.4, 2),
   // The door end faces +Z natively.
   mailbox: M('/assets/models/composed/mailbox.glb', 1, 0),
   // Homes are nudged back (−z at rotation 0) so a front yard reads between the door and the street.

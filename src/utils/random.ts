@@ -19,3 +19,14 @@ export function createSeededRandom(seed: number): () => number {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+
+/** An index into `weights`, chosen with probability proportional to its weight; one draw from `rng`. */
+export function pickWeighted(rng: () => number, weights: readonly number[]): number {
+  const total = weights.reduce((sum, w) => sum + w, 0);
+  let roll = rng() * total;
+  for (let i = 0; i < weights.length; i += 1) {
+    roll -= weights[i];
+    if (roll < 0) return i;
+  }
+  return weights.length - 1;
+}
