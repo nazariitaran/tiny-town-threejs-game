@@ -15,7 +15,7 @@ Almost all 3D models in `public/assets/models/` are licensed **CC0 1.0 Universal
 | Fantasy Town Kit 2.0 | Kenney | https://kenney.nl/assets/fantasy-town-kit | stall (Table), stall-bench (Long bench); fence (as composed/fence-small); fountain-round-detail (as composed/fountain); fountain-square (inside swimming-pool) |
 | Nature Kit 2.1 | Kenney | https://kenney.nl/assets/nature-kit | flower_red/yellow/purple A–C (inside composed/tulips-a/-b/-c, recoloured) |
 | Holiday Kit 2.0 | Kenney | https://kenney.nl/assets/holiday-kit | bench (garden bench, also inside bus-stop) |
-| Car Kit 3.1 | Kenney | https://kenney.nl/assets/car-kit | sedan, hatchback-sports, van, taxi |
+| Car Kit 3.1 | Kenney | https://kenney.nl/assets/car-kit | sedan, hatchback-sports, van, taxi (modified: hidden faces removed, wheels rebuilt, one mesh each) |
 | Tiny Town (original) | this project | — | composed/postbox.glb (procedural primitives, CC0); parking/parking-small/-medium/-large.glb (built by scripts/build-parking.py on the City Kit (Roads) atlas, CC0); stadium/stadium.glb (built by scripts/build-stadium.py on the same atlas, CC0) |
 
 ### Poly Pizza models

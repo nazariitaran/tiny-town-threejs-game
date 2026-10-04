@@ -15,7 +15,7 @@ One flat, colourful look: a 512 px gradient `colormap.png` per kit, the same gre
 | `platformer/` | Kenney Platformer Kit 4.1 | CC0 |
 | `fantasy-town/` | Kenney Fantasy Town Kit 2.0 | CC0 |
 | `holiday/` | Kenney Holiday Kit 2.0 | CC0 |
-| `cars/` | Kenney Car Kit 3.1 | CC0 |
+| `cars/` | Kenney Car Kit 3.1, optimised by `scripts/build-cars.py` (below) | CC0 |
 | `composed/` | built by `scripts/compose-models.mjs` (below) | CC0, except church, swing, barbecue, donut shop (remodelled), tiered fountain and slide: CC-BY 3.0 |
 | `parking/` | built in Blender by `scripts/build-parking.py` (below) | CC0 (original; samples the roads atlas) |
 | `stadium/` | built in Blender by `scripts/build-stadium.py` (below) | CC0 (original; samples the roads atlas) |
@@ -82,6 +82,11 @@ Native connections at rotation 0:
 - **Poly Pizza:** one source GLB scaled to game units, turned if needed, flat materials (metalness 0, roughness 1, no metal/roughness map): church, swing, barbecue, corner shop, tiered fountain (recoloured), slide, mailbox. Many Poly Pizza exports set metalness 0.4, which renders almost black without an environment map.
 - **Hand-remodelled:** the donut shop is built from `scripts/data/donut-shop-optimised.glb`, a committed GLB (the recipe merges it as it is, flat materials, no slab), because the Poly Pizza "Donut Store" source (3,318 triangles, 11 meshes) was rebuilt in Blender as one mesh of 1,012 triangles and 12 flat-coloured materials, same footprint and look, 0.02 lower. To change it, edit that GLB and re-run the recipe; `assets-src/polypizza/donut-store.glb` is no longer read.
 - **Nature Kit:** its materials set metalness 1 and store sRGB colours as linear factors, and its leaves are teal. `natureMaterials()` sets metalness 0, converts the factors and remaps the greens. The tulips (three flowers per model, one model per flower shape) are built this way; any further Nature Kit piece needs the same recipe.
+
+### Cars
+`cars/{hatchback-sports,van,taxi,sedan}.glb` are the Kenney Car Kit 3.1 cars, optimised in Blender: each is one mesh and one node (`LifeSystem` merges them into one `BatchedMesh` anyway) with the kit's own `colormap` material, and 1,061 / 1,095 / 1,087 / 1,047 triangles instead of about 2,050 each (5 meshes). Same bounding boxes and the same palette cells, so the look and the `headlights` night glow (head and tail lights) are unchanged.
+- **What changed:** every face no ray from outside can reach is gone (the underside, the wheel-arch interiors, anything behind a wheel); one quad stays under the body because shadows are cast from back faces; the wheels are rebuilt as 16-sided tyres with smooth shading and a hub dish.
+- **Rebuild:** `/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-cars.py` reads the originals from `assets-src/car-kit/Models/GLB format/` (gitignored, so put the Car Kit there first), rebuilds all four and rewrites the file Kenney-style (`Textures/colormap.png` by relative path, nothing embedded, the original material block). The output is byte-identical from run to run.
 
 ### Parking lots
 `scripts/build-parking.py` builds `public/assets/models/parking/parking-{small,medium,large}.glb` in Blender, procedurally, from the road kit's measurements. Run it headless (`/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-parking.py`), or `exec` it in an open session and call `build_all()` to review the lots in a "Parking" collection (`build_all(export_glb=True)` also writes the GLBs).
