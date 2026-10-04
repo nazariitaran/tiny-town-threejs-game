@@ -26,16 +26,17 @@ ATLAS = os.path.join(ROOT, 'public/assets/models/roads/Textures/colormap.png')
 ATLAS_URI = '../roads/Textures/colormap.png'
 
 # colormap.png texels (Blender UV, v up); every colour is one of the City Kit's own swatches. The gradient
-# cells (indigo, here) are sampled near their dark end.
+# cells are sampled at one v. Glazing samples the cell the houses' windows use (column 11, row 1 from the
+# top: the game's `windows` night mask), so no wall may sample that cell.
 UV = {
     'white': (0.5312, 0.375),         # ffffff
     'concrete': (0.4062, 0.375),      # a0a8c9
     'concrete_lt': (0.4688, 0.475),   # bec7ee
     'concrete_dk': (0.1562, 0.375),   # 868ba1
     'slate': (0.2812, 0.375),         # 4f5260: base course, sign board, reveals
-    'indigo': (0.7188, 0.530),        # 5859be: facade walls
+    'wall': (0.9688, 0.540),          # 6644be: facade walls (violet)
     'trim': (0.7812, 0.625),          # d0e8ff: frames, cornice, sign rim
-    'glass': (0.6562, 0.625),         # 6794d9: doors and ticket windows
+    'glass': (0.7188, 0.594),         # window glass, as on the supermarket (building-e): doors and ticket windows
     'bulb': (0.2812, 0.625),          # ffc044: marquee lamps
     'orange': (0.4688, 0.625),        # ff8744: the posters' title orange
 }
@@ -162,7 +163,10 @@ class Builder:
                 # the neighbour is nearer the street: this cell is the recess, the neighbour's side is exposed
                 near = y + cell[nb][0]
                 far = y + depth
+                # a reveal is a colour, or (sides, floor) when the recess floor differs
                 uv = reveal or base
+                if isinstance(uv, tuple):
+                    uv = uv[1] if kind == 'z-' else uv[0]
                 if kind == 'x+':
                     self.face([(b, far, c), (b, near, c), (b, near, d), (b, far, d)], uv)
                 elif kind == 'x-':
@@ -179,9 +183,9 @@ class Builder:
         self.face([(-HX, Y_BACK, 0), (HX, Y_BACK, 0), (HX, FRONT_Y, 0), (-HX, FRONT_Y, 0)], 'concrete_dk')
         # forecourt slab with a carpet running to the doors
         fz = FORE_Z
-        self.face([(-HX, Y_FORE, fz), (-0.45, Y_FORE, fz), (-0.45, FRONT_Y, fz), (-HX, FRONT_Y, fz)], 'concrete_lt')
-        self.face([(0.45, Y_FORE, fz), (HX, Y_FORE, fz), (HX, FRONT_Y, fz), (0.45, FRONT_Y, fz)], 'concrete_lt')
-        self.face([(-0.45, Y_FORE, fz), (0.45, Y_FORE, fz), (0.45, FRONT_Y, fz), (-0.45, FRONT_Y, fz)], 'orange')
+        self.face([(-HX, Y_FORE, fz), (-DOOR_HALF, Y_FORE, fz), (-DOOR_HALF, FRONT_Y, fz), (-HX, FRONT_Y, fz)], 'concrete_lt')
+        self.face([(DOOR_HALF, Y_FORE, fz), (HX, Y_FORE, fz), (HX, FRONT_Y, fz), (DOOR_HALF, FRONT_Y, fz)], 'concrete_lt')
+        self.face([(-DOOR_HALF, Y_FORE, fz), (DOOR_HALF, Y_FORE, fz), (DOOR_HALF, FRONT_Y, fz), (-DOOR_HALF, FRONT_Y, fz)], 'orange')
         self.face([(-HX, Y_FORE, 0), (-HX, Y_FORE, fz), (HX, Y_FORE, fz), (HX, Y_FORE, 0)][::-1], 'concrete_dk')
         self.face([(-HX, Y_FORE, 0), (-HX, FRONT_Y, 0), (HX, FRONT_Y, 0), (HX, Y_FORE, 0)], 'concrete_dk')
         self.face([(-HX, FRONT_Y, 0), (-HX, Y_FORE, 0), (-HX, Y_FORE, fz), (-HX, FRONT_Y, fz)], 'concrete_dk')
@@ -194,12 +198,13 @@ class Builder:
             rects.append((x0, z0, x1, z1, depth, texel, reveal))
 
         rect(-HX, 0, HX, BASE_H, 0, 'slate')
-        # entrance: a pale-blue frame on the wall, a recess with two glass doors
-        rect(-DOOR_HALF - 0.08, BASE_H, DOOR_HALF + 0.08, CANOPY_Z0, 0, 'trim')
-        rect(-DOOR_HALF, BASE_H, DOOR_HALF, DOOR_Z1, DOOR_DEPTH, 'slate', 'trim')
+        # entrance: a pale-blue frame on the wall, a recess with two glass doors; its floor is the forecourt's height
+        # and carries the carpet, so the threshold is level
+        rect(-DOOR_HALF - 0.08, FORE_Z, DOOR_HALF + 0.08, CANOPY_Z0, 0, 'trim')
+        rect(-DOOR_HALF, FORE_Z, DOOR_HALF, DOOR_Z1, DOOR_DEPTH, 'slate', ('trim', 'orange'))
         for s in (-1, 1):
             a, b = sorted((s * 0.04, s * (DOOR_HALF - 0.05)))
-            rect(a, BASE_H + 0.03, b, DOOR_Z1 - 0.05, DOOR_DEPTH, 'glass', 'trim')
+            rect(a, FORE_Z + 0.03, b, DOOR_Z1 - 0.05, DOOR_DEPTH, 'glass', ('trim', 'orange'))
         # ticket windows either side
         for s in (-1, 1):
             a, b = sorted((s * 0.80, s * 1.30))
@@ -210,11 +215,11 @@ class Builder:
         for cx in POSTER_CX:
             rect(cx - POSTER_W / 2 - BEZEL, POSTER_Z0 - BEZEL, cx + POSTER_W / 2 + BEZEL, POSTER_Z0 + POSTER_H + BEZEL, 0, 'trim')
             rect(cx - POSTER_W / 2, POSTER_Z0, cx + POSTER_W / 2, POSTER_Z0 + POSTER_H, POCKET, None, 'slate')
-        self.facade(rects, (-HX, 0, HX, WALL_TOP), FRONT_Y, 'indigo')
+        self.facade(rects, (-HX, 0, HX, WALL_TOP), FRONT_Y, 'wall')
 
         # lobby side walls: base, wall, a band at the canopy height
-        side = [(0, BASE_H, 'slate'), (BASE_H, CANOPY_Z0, 'indigo'), (CANOPY_Z0, CANOPY_Z1, 'trim'),
-                (CANOPY_Z1, WALL_TOP, 'indigo')]
+        side = [(0, BASE_H, 'slate'), (BASE_H, CANOPY_Z0, 'wall'), (CANOPY_Z0, CANOPY_Z1, 'trim'),
+                (CANOPY_Z1, WALL_TOP, 'wall')]
         self.wall((HX, FRONT_Y), (HX, LOBBY_BACK), side)
         self.wall((-HX, LOBBY_BACK), (-HX, FRONT_Y), side)
 
@@ -287,7 +292,7 @@ class Builder:
             x += (len(FONT[ch][0]) + 1) * SIGN_PX
         self.facade(rects, (-SIGN_HALF, SIGN_Z0, SIGN_HALF, SIGN_Z1), FRONT_Y, 'slate')
         yb = FRONT_Y + SIGN_D
-        self.face([(SIGN_HALF, yb, SIGN_Z0), (-SIGN_HALF, yb, SIGN_Z0), (-SIGN_HALF, yb, SIGN_Z1), (SIGN_HALF, yb, SIGN_Z1)], 'indigo')
+        self.face([(SIGN_HALF, yb, SIGN_Z0), (-SIGN_HALF, yb, SIGN_Z0), (-SIGN_HALF, yb, SIGN_Z1), (SIGN_HALF, yb, SIGN_Z1)], 'wall')
         self.face([(SIGN_HALF, FRONT_Y, SIGN_Z0), (SIGN_HALF, yb, SIGN_Z0), (SIGN_HALF, yb, SIGN_Z1), (SIGN_HALF, FRONT_Y, SIGN_Z1)], 'trim')
         self.face([(-SIGN_HALF, yb, SIGN_Z0), (-SIGN_HALF, FRONT_Y, SIGN_Z0), (-SIGN_HALF, FRONT_Y, SIGN_Z1), (-SIGN_HALF, yb, SIGN_Z1)], 'trim')
         self.face([(-SIGN_HALF, FRONT_Y, SIGN_Z1), (SIGN_HALF, FRONT_Y, SIGN_Z1), (SIGN_HALF, yb, SIGN_Z1), (-SIGN_HALF, yb, SIGN_Z1)], 'trim')
