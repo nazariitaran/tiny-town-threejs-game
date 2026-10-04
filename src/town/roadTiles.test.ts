@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { TownState } from './TownState';
 import type { TownChange } from './types';
-import { E, isFeatureArm, isFeatureCentre, N, roadFeatureAt, roadMask, roadTileFor, rotateMask, S, underRoadFeature, W } from './roadTiles';
+import { E, featureArmSide, isFeatureArm, isFeatureCentre, N, roadFeatureAt, roadMask, roadTileFor, rotateMask, S, underRoadFeature, W } from './roadTiles';
 
 describe('road auto-tiling', () => {
   it('rotates masks counter-clockwise (E→N, S→E)', () => {
@@ -97,5 +97,12 @@ describe('road auto-tiling next to a roundabout (road feature)', () => {
     expect(isFeatureArm(feature, { x: 6, z: 4 }, 2)).toBe(true); // north arm, entered southwards
     expect(isFeatureArm(feature, { x: 4, z: 4 }, 2)).toBe(false); // north-west corner
     expect(isFeatureArm(feature, { x: 4, z: 6 }, 1)).toBe(true); // west arm, entered eastwards
+    expect(featureArmSide(feature, { x: 6, z: 4 })).toBe(0);
+    expect(featureArmSide(feature, { x: 9, z: 7 })).toBe(1);
+    expect(featureArmSide(feature, { x: 7, z: 8 })).toBe(2);
+    expect(featureArmSide(feature, { x: 4, z: 6 })).toBe(3);
+    expect(featureArmSide(feature, { x: 6, z: 6 })).toBe(-1); // centre
+    expect(featureArmSide(feature, { x: 4, z: 4 })).toBe(-1); // corner
+    expect(featureArmSide(feature, { x: 20, z: 20 })).toBe(-1); // outside
   });
 });

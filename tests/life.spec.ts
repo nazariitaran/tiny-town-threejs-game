@@ -3,7 +3,8 @@ import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
-import { PLOT_WIDTH } from '../src/game/config';
+import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH } from '../src/game/config';
+import { RING_RADIUS } from '../src/life/lanePaths';
 import type { LifeDiagnostics } from '../src/life/LifeSystem';
 import { demoOffset } from '../src/town/sampleTown';
 import { applyState, attachJson, clickCell, diagnostics, gotoTitle, selectTool, trackErrors, waitFrames } from './helpers';
@@ -103,6 +104,29 @@ test('cars drive the sample-town roads (10 s video)', async ({ browser }, testIn
     copyFileSync(path, resolve(ARTIFACTS, 'cars-sample-town.webm'));
     await testInfo.attach('cars-sample-town', { path, contentType: 'video/webm' });
   }
+});
+
+test('cars on the sample-town roundabout drive its outer lane', async ({ page }) => {
+  test.setTimeout(75_000);
+  const errors = trackErrors(page);
+  await sampleTown(page);
+  // Island centre of the roundabout on layout cells 20-25 x 22-27.
+  const cx = (23 + O - PLOT_WIDTH / 2) * CELL_SIZE;
+  const cz = (25 + O - PLOT_DEPTH / 2) * CELL_SIZE;
+  const radii: number[] = [];
+  const t0 = Date.now();
+  while (radii.length < 25 && Date.now() - t0 < 60_000) {
+    const l = (await life(page))!;
+    for (const c of l.carCells) {
+      const r = Math.hypot(c.px - cx, c.pz - cz);
+      if (r < RING_RADIUS + 0.1) radii.push(r);
+    }
+    await page.waitForTimeout(100);
+  }
+  expect(radii.length, 'car positions seen on the ring').toBeGreaterThanOrEqual(25);
+  // On the ring (or bending on or off it): nearer than the outer lane would be the old inner circle.
+  expect(Math.min(...radii)).toBeGreaterThan(RING_RADIUS - 0.03);
+  errors.expectNone();
 });
 
 test('bulldozing the road under a car removes that car cleanly', async ({ page }, testInfo) => {

@@ -4,6 +4,9 @@ Player-facing release notes for Tiny Town. Budgets and measurements are in `docs
 
 ## Unreleased
 
+### Fixed
+- Cars on the roundabout drive round its outer lane, on their own side of the road, instead of hugging the island.
+
 ## v0.6 — 2026-10-02
 Package 0.6.0. Everything merged after `v0.5`, and the first public release, at https://tiny-town-threejs-game.nazariy-taran.workers.dev/. Saves stay on version 4, so v0.5 towns open unchanged.
 

@@ -69,7 +69,7 @@ Native connections at rotation 0:
 `src/town/roadTiles.ts` maps each of the 16 neighbour masks to a canonical piece (straight N+S, corner E+S, tee E+S+W, end S) plus quarter turns, counter-clockwise from above (E→N→W→S). Each piece's `rotationOffset` turns the native model onto the canonical one: straight 1, corner 1, tee 0, cross 0, end 3. Both are unit-tested, and the `asset-gallery` test state shows every mask.
 - The `-line` junctions are used so the centre lines meet.
 - A road block under a Zebra crossing draws `ZEBRA_PIECE_MODELS` (straight, tee, cross) with the plain piece's rotation; corners, ends and singles have no zebra.
-- The roundabout (`road-roundabout`, 3 × 3 tiles) is a road-feature object, not a road piece. A neighbouring road joins it only at the middle block of each side (`isFeatureArm`). Its lane ring radius is `RING_RADIUS` in `src/life/lanePaths.ts`.
+- The roundabout (`road-roundabout`, 3 × 3 tiles) is a road-feature object, not a road piece. A neighbouring road joins it only at the middle block of each side (`isFeatureArm`). Its outer lane, where cars drive, is `RING_RADIUS` in `src/life/lanePaths.ts`: 0.93 from the centre, between the lane marking (r 0.755) and the kerb gutter (from r 1.05). Re-measure it if the model changes (island kerb to r 0.45, outer kerb at r 1.15).
 - Road pieces, pavement and the roundabout are drawn with `warmAtlas`: the atlas's periwinkle kerb and paving texels become warm stone.
 
 ### Composed models

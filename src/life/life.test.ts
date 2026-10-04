@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { TownState } from '../town/TownState';
 import type { GroundKind, TownChange } from '../town/types';
 import { createSeededRandom } from '../utils/random';
-import { DIR_X, DIR_Z, LANE_OFFSET, lanePath, manoeuvreKind, RING_RADIUS, ringPath, samplePath, type Dir } from './lanePaths';
+import { armPath, DIR_X, DIR_Z, LANE_OFFSET, lanePath, manoeuvreKind, opposite, RING_RADIUS, ringPath, samplePath, type Dir, type LanePath } from './lanePaths';
 import { createGameBus } from '../game/events';
 import { buildSampleTown, demoOffset } from '../town/sampleTown';
-import { TownEditor } from '../town/TownEditor';
+import { TownEditor, type BatchItem } from '../town/TownEditor';
 import { densityTarget, MAX_CARS, TrafficSim } from './TrafficSim';
-import { PLOT_DEPTH, PLOT_WIDTH, roadBlockCentreWorld, worldToCell } from '../game/config';
+import { PLOT_DEPTH, PLOT_WIDTH, ROAD_TILE_SIZE, roadBlockCentreWorld, worldToCell } from '../game/config';
 
 /** Coordinates are road block coordinates; paint() fills all 4 cells of each block. */
 function paint(town: TownState, blocks: Array<[number, number]>, after: GroundKind = 'road'): TownChange[] {
@@ -219,23 +219,153 @@ describe('traffic: roundabouts', () => {
     return editor.state;
   }
 
-  it('ring paths start and end on the lanes, circle the island counter-clockwise and never cut it', () => {
+  /** Island-centre world points of a path from the block one tile out along `arm` (−1: the centre block). */
+  function inIslandFrame(path: LanePath, arm: number): number[] {
+    const ox = arm < 0 ? 0 : DIR_X[arm] * ROAD_TILE_SIZE;
+    const oz = arm < 0 ? 0 : DIR_Z[arm] * ROAD_TILE_SIZE;
+    return Array.from(path.points, (v, i) => v + (i % 2 === 0 ? ox : oz));
+  }
+
+  /** The route a car takes in by arm `from`, round the ring and out by arm `to` (the same arm: a lap). */
+  function route(from: Dir, to: Dir): number[] {
+    const inward = inIslandFrame(armPath(from, opposite(from), opposite(from)), from);
+    const ring = inIslandFrame(ringPath(opposite(from), to), -1);
+    const outward = inIslandFrame(armPath(to, to, to), to);
+    // Each piece starts exactly where the previous one ends.
+    for (let c = 0; c < 2; c += 1) {
+      expect(ring[c]).toBeCloseTo(inward[inward.length - 2 + c], 5);
+      expect(outward[c]).toBeCloseTo(ring[ring.length - 2 + c], 5);
+    }
+    return [...inward, ...ring.slice(2), ...outward.slice(2)];
+  }
+
+  const headingOf = (pts: readonly number[], i: number) => Math.atan2(pts[i * 2 + 3] - pts[i * 2 + 1], pts[i * 2 + 2] - pts[i * 2]);
+  const turnBetween = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(b - a), Math.cos(b - a)));
+
+  it('the ring lane is the outer one: between the lane marking and the kerb gutter of the road model', () => {
+    // road-roundabout: island kerb to r 0.45, lane marking at 0.755, gutter from 1.05, outer kerb 1.15.
+    expect(RING_RADIUS).toBeGreaterThan(0.755 + 0.1);
+    expect(RING_RADIUS).toBeLessThan(1.05 - 0.1);
+  });
+
+  it('ring arcs lie on the outer lane and run counter-clockwise, whichever arms they join', () => {
     for (let inDir = 0; inDir < 4; inDir += 1) {
       for (let outDir = 0; outDir < 4; outDir += 1) {
         const path = ringPath(inDir as Dir, outDir as Dir);
-        const start = samplePath(path, 0, { x: 0, z: 0, hx: 0, hz: 0 });
-        const end = samplePath(path, path.length, { x: 0, z: 0, hx: 0, hz: 0 });
-        expect(start.x).toBeCloseTo(-DIR_X[inDir] * 0.5 - DIR_Z[inDir] * LANE_OFFSET, 5);
-        expect(start.z).toBeCloseTo(-DIR_Z[inDir] * 0.5 + DIR_X[inDir] * LANE_OFFSET, 5);
-        expect(end.x).toBeCloseTo(DIR_X[outDir] * 0.5 - DIR_Z[outDir] * LANE_OFFSET, 5);
-        expect(end.z).toBeCloseTo(DIR_Z[outDir] * 0.5 + DIR_X[outDir] * LANE_OFFSET, 5);
         const sample = { x: 0, z: 0, hx: 0, hz: 0 };
         for (let s = 0; s <= path.length; s += 0.02) {
           samplePath(path, s, sample);
-          expect(Math.hypot(sample.x, sample.z)).toBeGreaterThan(RING_RADIUS * 0.8);
+          // Chords of the polyline sag a little inside the circle.
+          expect(Math.hypot(sample.x, sample.z)).toBeGreaterThan(RING_RADIUS - 0.002);
+          expect(Math.hypot(sample.x, sample.z)).toBeLessThan(RING_RADIUS + 1e-4);
           // Counter-clockwise with north up: the heading turns left of the radius (cross product > 0).
-          if (Math.hypot(sample.x, sample.z) < RING_RADIUS * 1.05) expect(sample.x * -sample.hz - -sample.z * sample.hx).toBeGreaterThan(0);
+          expect(sample.x * -sample.hz - -sample.z * sample.hx).toBeGreaterThan(0);
         }
+      }
+    }
+  });
+
+  it('ring arc lengths: the next arm is a short hop, straight on a third of a lap, the arm it came by most of a lap', () => {
+    const lap = 2 * Math.PI * RING_RADIUS;
+    // Driving in towards north (from the south arm): next arm anticlockwise is east.
+    expect(ringPath(0, 1).length).toBeLessThan(lap * 0.15);
+    expect(ringPath(0, 0).length).toBeGreaterThan(lap * 0.28);
+    expect(ringPath(0, 0).length).toBeLessThan(lap * 0.35);
+    expect(ringPath(0, 2).length).toBeGreaterThan(lap * 0.75);
+    expect(ringPath(0, 2).length).toBeLessThan(lap);
+  });
+
+  it('every route in, round and out is continuous, smooth and clear of the island and the other lanes', () => {
+    for (let from = 0; from < 4; from += 1) {
+      for (let to = 0; to < 4; to += 1) {
+        const pts = route(from as Dir, to as Dir);
+        const where = `${from}->${to}`;
+        const count = pts.length / 2;
+        for (let i = 0; i < count - 1; i += 1) {
+          const len = Math.hypot(pts[i * 2 + 2] - pts[i * 2], pts[i * 2 + 3] - pts[i * 2 + 1]);
+          // Pieces join without a jump or a doubled point.
+          expect(len, `${where} segment ${i}`).toBeGreaterThan(1e-4);
+          expect(len, `${where} segment ${i}`).toBeLessThan(0.4);
+          if (i > 0) expect(turnBetween(headingOf(pts, i - 1), headingOf(pts, i)), `${where} kink at ${i}`).toBeLessThan(0.2);
+        }
+        for (let i = 0; i < count; i += 1) {
+          const r = Math.hypot(pts[i * 2], pts[i * 2 + 1]);
+          expect(r, `${where} point ${i} keeps to the outer lane or further out`).toBeGreaterThan(RING_RADIUS - 1e-3);
+        }
+      }
+    }
+  });
+
+  it('every route keeps clear of the kerb', () => {
+    // Inner kerb edge of the road model beside an arm, as (a, l) with l to the entry side: the arm's
+    // kerb, then its fillet into the ring kerb (r 1.15) at 45 degrees, where the next arm's fillet starts.
+    const edge: Array<[number, number]> = [[1.5, 0.4], [1.08, 0.4], [1.06, 0.44], [1.03, 0.5], [1.0, 0.57], [0.91, 0.7], [0.81, 0.81]];
+    const kerbs: number[][] = [];
+    for (let arm = 0; arm < 4; arm += 1) {
+      for (const side of [1, -1]) {
+        kerbs.push(edge.flatMap(([a, l]) => [DIR_X[arm] * a + DIR_Z[arm] * l * side, DIR_Z[arm] * a - DIR_X[arm] * l * side]));
+      }
+    }
+    const distance = (px: number, pz: number, k: readonly number[]) => {
+      let best = Infinity;
+      for (let i = 0; i + 3 < k.length; i += 2) {
+        const dx = k[i + 2] - k[i];
+        const dz = k[i + 3] - k[i + 1];
+        const t = Math.max(0, Math.min(1, ((px - k[i]) * dx + (pz - k[i + 1]) * dz) / (dx * dx + dz * dz)));
+        best = Math.min(best, Math.hypot(px - (k[i] + dx * t), pz - (k[i + 1] + dz * t)));
+      }
+      return best;
+    };
+    // A car is about 0.25 wide.
+    const halfCar = 0.125;
+    for (let from = 0; from < 4; from += 1) {
+      for (let to = 0; to < 4; to += 1) {
+        const pts = route(from as Dir, to as Dir);
+        for (let i = 0; i < pts.length; i += 2) {
+          for (const k of kerbs) expect(distance(pts[i], pts[i + 1], k), `${from}->${to} point ${i / 2}`).toBeGreaterThan(halfCar + 0.03);
+        }
+      }
+    }
+  });
+
+  it('routes start on the arm lane they enter by and end on the lane they leave by', () => {
+    for (let arm = 0; arm < 4; arm += 1) {
+      const ox = DIR_X[arm];
+      const oz = DIR_Z[arm];
+      const inward = inIslandFrame(armPath(arm as Dir, opposite(arm as Dir), opposite(arm as Dir)), arm);
+      const outward = inIslandFrame(armPath(arm as Dir, arm as Dir, arm as Dir), arm);
+      // Right of a car driving in is (oz, −ox): the entry lane is on that side, the exit lane opposite.
+      expect(inward[0]).toBeCloseTo(ox * 1.5 + oz * LANE_OFFSET, 5);
+      expect(inward[1]).toBeCloseTo(oz * 1.5 - ox * LANE_OFFSET, 5);
+      expect(outward[outward.length - 2]).toBeCloseTo(ox * 1.5 - oz * LANE_OFFSET, 5);
+      expect(outward[outward.length - 1]).toBeCloseTo(oz * 1.5 + ox * LANE_OFFSET, 5);
+      // They meet the plain lane paths of the neighbouring road block (one tile further out).
+      const next = lanePath(arm as Dir, arm as Dir);
+      expect(outward[outward.length - 2]).toBeCloseTo(next.points[0] + ox * 2 * ROAD_TILE_SIZE, 5);
+      expect(outward[outward.length - 1]).toBeCloseTo(next.points[1] + oz * 2 * ROAD_TILE_SIZE, 5);
+      const prev = lanePath(opposite(arm as Dir), opposite(arm as Dir));
+      expect(inward[0]).toBeCloseTo(prev.points[prev.points.length - 2] + ox * 2 * ROAD_TILE_SIZE, 5);
+      expect(inward[1]).toBeCloseTo(prev.points[prev.points.length - 1] + oz * 2 * ROAD_TILE_SIZE, 5);
+    }
+  });
+
+  it('turning round in an arm with no road beyond it goes out by the exit lane and back in by the entry lane', () => {
+    for (let arm = 0; arm < 4; arm += 1) {
+      const turn = armPath(arm as Dir, arm as Dir, opposite(arm as Dir));
+      const outward = armPath(arm as Dir, arm as Dir, arm as Dir);
+      const inward = armPath(arm as Dir, opposite(arm as Dir), opposite(arm as Dir));
+      expect(turn.kind).toBe('uturn');
+      // Starts where the last ring arc ends and ends where the next ring arc starts, in the arm's frame.
+      expect(turn.points[0]).toBeCloseTo(outward.points[0], 5);
+      expect(turn.points[1]).toBeCloseTo(outward.points[1], 5);
+      expect(turn.points[turn.points.length - 2]).toBeCloseTo(inward.points[inward.points.length - 2], 5);
+      expect(turn.points[turn.points.length - 1]).toBeCloseTo(inward.points[inward.points.length - 1], 5);
+      const pts = inIslandFrame(turn, arm);
+      for (let i = 0; i < pts.length / 2 - 1; i += 1) {
+        expect(Math.hypot(pts[i * 2], pts[i * 2 + 1])).toBeGreaterThan(RING_RADIUS - 1e-3);
+        // Never leaves the arm block (it ends 1.5 from the island centre).
+        expect(pts[i * 2] * DIR_X[arm] + pts[i * 2 + 1] * DIR_Z[arm]).toBeLessThan(1.5);
+        if (i > 0) expect(turnBetween(headingOf(pts, i - 1), headingOf(pts, i))).toBeLessThan(0.25);
       }
     }
   });
@@ -260,6 +390,85 @@ describe('traffic: roundabouts', () => {
     }
     expect(visited.has('1,1')).toBe(true);
     expect([...visited].filter((k) => k !== '1,1').length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('traffic: roundabout lane, simulated', () => {
+  /** Sample-town roundabout (blocks 10-12 x 11-13 before the plot shift) or one with roads on `arms` only. */
+  function townWith(arms: readonly Dir[] | null) {
+    const editor = new TownEditor(new TownState(PLOT_WIDTH, PLOT_DEPTH), createGameBus(), createSeededRandom(1));
+    if (arms === null) {
+      buildSampleTown(editor);
+      return editor.state;
+    }
+    const items: BatchItem[] = [{ toolId: 'roundabout', action: { type: 'place-object', kind: 'roundabout', cell: { x: 20, z: 22 }, rotation: 0 } }];
+    for (const d of arms) {
+      // Centre block (11, 12); six blocks of road beyond the arm block.
+      for (let k = 2; k <= 7; k += 1) {
+        items.push({ toolId: 'road', action: { type: 'paint-ground', kind: 'road', cell: { x: (11 + DIR_X[d] * k) * 2, z: (12 + DIR_Z[d] * k) * 2 } } });
+      }
+    }
+    editor.applyBatch(items, { silent: true });
+    return editor.state;
+  }
+
+  /** Drives the sim and checks every car's distance from the island, and its step-to-step motion. */
+  function drive(arms: readonly Dir[] | null, seed: number, steps: number) {
+    const town = townWith(arms);
+    const sim = new TrafficSim(town, createSeededRandom(seed));
+    sim.onTownChanged([], 'load');
+    const centre = { x: 0, z: 0 };
+    const last = new Map<number, { x: number; z: number; hx: number; hz: number }>();
+    const seen = { ring: 0, arm: 0, turn: 0 };
+    let ringMin = Infinity;
+    let ringMax = 0;
+    let armMin = Infinity;
+    for (let i = 0; i < steps; i += 1) {
+      sim.step(1 / 30);
+      for (const car of sim.cars) {
+        const prev = last.get(car.id);
+        if (prev) {
+          // No jump where a car passes from one block's path to the next, and no kink.
+          expect(Math.hypot(car.x - prev.x, car.z - prev.z), `car ${car.id} step ${i}`).toBeLessThan(0.04);
+          expect(car.hx * prev.hx + car.hz * prev.hz, `car ${car.id} step ${i} heading`).toBeGreaterThan(0.9);
+        }
+        last.set(car.id, { x: car.x, z: car.z, hx: car.hx, hz: car.hz });
+        if (!car.ring && car.arm < 0) continue;
+        const island = car.ring ? { x: car.cx, z: car.cz } : { x: car.cx - DIR_X[car.arm], z: car.cz - DIR_Z[car.arm] };
+        roadBlockCentreWorld({ x: island.x * 2, z: island.z * 2 }, centre);
+        const r = Math.hypot(car.x - centre.x, car.z - centre.z);
+        if (car.ring) {
+          seen.ring += 1;
+          ringMin = Math.min(ringMin, r);
+          ringMax = Math.max(ringMax, r);
+        } else {
+          seen.arm += 1;
+          armMin = Math.min(armMin, r);
+          if (car.inDir !== car.outDir) seen.turn += 1;
+        }
+      }
+    }
+    return { seen, ringMin, ringMax, armMin };
+  }
+
+  it('cars on the ring drive its outer lane, never nearer the island', () => {
+    for (const seed of [2, 5, 11]) {
+      const { seen, ringMin, ringMax, armMin } = drive(null, seed, 6000);
+      expect(seen.ring).toBeGreaterThan(100);
+      expect(ringMin).toBeGreaterThan(RING_RADIUS - 0.005);
+      expect(ringMax).toBeLessThan(RING_RADIUS + 0.005);
+      // Cars bending on and off in the arm blocks stay on or outside the same circle.
+      expect(seen.arm).toBeGreaterThan(100);
+      expect(armMin).toBeGreaterThan(RING_RADIUS - 0.005);
+    }
+  });
+
+  it('cars turn round in a roundabout arm that has no road beyond it, still on the outer lane', () => {
+    const { seen, ringMin, armMin } = drive([0, 2], 3, 12000);
+    expect(seen.ring).toBeGreaterThan(100);
+    expect(seen.turn, 'cars that went into the empty east/west arms and came back').toBeGreaterThan(20);
+    expect(ringMin).toBeGreaterThan(RING_RADIUS - 0.005);
+    expect(armMin).toBeGreaterThan(RING_RADIUS - 0.005);
   });
 });
 
