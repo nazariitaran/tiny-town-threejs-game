@@ -15,6 +15,7 @@ import {
   expectDiagnostics,
   footprintPoint,
   gotoTitle,
+  reloadWhenLoaded,
   selectTool,
   startBuilding,
   trackErrors,
@@ -127,8 +128,7 @@ test('pick up a cottage, a refused drop, turn it, put it down, undo / redo, relo
   await byId(page, UI_TEST_IDS.redo).click();
   await expect.poll(async () => (await objectsByKind(page, 'cottage')).find((o) => o.id === houseA.id)).toEqual({ id: houseA.id, anchor: HOUSE_A_NEW, rotation: 3 });
 
-  await page.reload();
-  await gotoTitle(page);
+  await reloadWhenLoaded(page);
   await clickStart(page);
   await expect.poll(async () => (await objectsByKind(page, 'cottage')).find((o) => o.id === houseA.id)).toEqual({ id: houseA.id, anchor: HOUSE_A_NEW, rotation: 3 });
   expect((await diagnostics(page)).objects).toBe(3);

@@ -2,8 +2,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { MUSIC_POSITION_STORAGE_KEY, SETTINGS_STORAGE_KEY } from '../src/game/config';
 import { MUSIC_URL } from '../src/audio/MusicPlayer';
-import { SFX_TABLE } from '../src/audio/sfxTable';
-import { clickStart, openMenuTab } from './helpers';
+import { clickStart, openMenuTab, reloadWhenLoaded } from './helpers';
 
 
 type Diag = NonNullable<Window['__THREE_GAME_DIAGNOSTICS__']>;
@@ -35,27 +34,6 @@ async function waitForAudio(page: Page, minLoaded: number): Promise<void> {
 
 const cellPoint = (page: Page, x: number, z: number) =>
   page.evaluate(([cx, cz]) => window.__THREE_GAME_TEST_HOOKS__!.cellToClient(cx, cz), [x, z] as const);
-
-/** Distinct SFX files; AudioManager fetches them all on Start. */
-const SFX_FILES = new Set(Object.values(SFX_TABLE).flatMap((entry) => entry.files)).size;
-
-/**
- * Reload once the page has nothing left to load (models before the title, sounds after Start),
- * then wait for the title. Reloading mid-load aborts the fetches, and the dying page's GLTFLoader
- * errors and "[audio] … failed" warning reach the test's console collector.
- */
-async function reloadWhenLoaded(page: Page): Promise<void> {
-  await page.waitForFunction(
-    (sfx) => {
-      const d = window.__THREE_GAME_DIAGNOSTICS__;
-      return d !== undefined && d.phase !== 'loading' && (!d.audio.unlocked || d.audio.loaded === sfx);
-    },
-    SFX_FILES,
-    { timeout: 15_000 },
-  );
-  await page.reload();
-  await page.waitForFunction(() => window.__THREE_GAME_DIAGNOSTICS__?.phase === 'title', undefined, { timeout: 15_000 });
-}
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');

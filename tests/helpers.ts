@@ -11,6 +11,7 @@ import { toolDef } from '../src/catalog/tools';
 import { footprintOf, objectDef } from '../src/catalog/objects';
 import { rotatedFootprint } from '../src/town/grid';
 import type { Cell, ObjectKind, Rotation } from '../src/town/types';
+import { SFX_TABLE } from '../src/audio/sfxTable';
 import { UI_TEST_IDS } from '../src/ui/testIds';
 import type { MenuTab } from '../src/ui/testIds';
 
@@ -55,6 +56,27 @@ export async function waitFrames(page: Page, frames = 3): Promise<void> {
 export async function gotoTitle(page: Page, query = ''): Promise<void> {
   await page.goto(`/${query}`);
   await expect(page.locator('#game-canvas')).toBeVisible();
+  await page.waitForFunction(() => window.__THREE_GAME_DIAGNOSTICS__?.phase === 'title', undefined, { timeout: 15_000 });
+}
+
+/** Distinct SFX files; AudioManager fetches them all on Start. */
+const SFX_FILES = new Set(Object.values(SFX_TABLE).flatMap((entry) => entry.files)).size;
+
+/**
+ * Reload once the page has nothing left to load (models before the title, sounds after Start),
+ * then wait for the title. Reloading mid-load aborts the fetches, and the dying page's GLTFLoader
+ * errors and "[audio] … failed" warning reach the test's console collector.
+ */
+export async function reloadWhenLoaded(page: Page): Promise<void> {
+  await page.waitForFunction(
+    (sfx) => {
+      const d = window.__THREE_GAME_DIAGNOSTICS__;
+      return d !== undefined && d.phase !== 'loading' && (!d.audio.unlocked || d.audio.loaded === sfx);
+    },
+    SFX_FILES,
+    { timeout: 15_000 },
+  );
+  await page.reload();
   await page.waitForFunction(() => window.__THREE_GAME_DIAGNOSTICS__?.phase === 'title', undefined, { timeout: 15_000 });
 }
 
