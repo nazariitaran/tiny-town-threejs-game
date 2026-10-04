@@ -2,6 +2,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { MUSIC_POSITION_STORAGE_KEY, SETTINGS_STORAGE_KEY } from '../src/game/config';
 import { MUSIC_URL } from '../src/audio/MusicPlayer';
+import { SFX_TABLE } from '../src/audio/sfxTable';
 import { clickStart, openMenuTab } from './helpers';
 
 
@@ -35,10 +36,31 @@ async function waitForAudio(page: Page, minLoaded: number): Promise<void> {
 const cellPoint = (page: Page, x: number, z: number) =>
   page.evaluate(([cx, cz]) => window.__THREE_GAME_TEST_HOOKS__!.cellToClient(cx, cz), [x, z] as const);
 
+/** Distinct SFX files; AudioManager fetches them all on Start. */
+const SFX_FILES = new Set(Object.values(SFX_TABLE).flatMap((entry) => entry.files)).size;
+
+/**
+ * Reload once the page has nothing left to load (models before the title, sounds after Start),
+ * then wait for the title. Reloading mid-load aborts the fetches, and the dying page's GLTFLoader
+ * errors and "[audio] … failed" warning reach the test's console collector.
+ */
+async function reloadWhenLoaded(page: Page): Promise<void> {
+  await page.waitForFunction(
+    (sfx) => {
+      const d = window.__THREE_GAME_DIAGNOSTICS__;
+      return d !== undefined && d.phase !== 'loading' && (!d.audio.unlocked || d.audio.loaded === sfx);
+    },
+    SFX_FILES,
+    { timeout: 15_000 },
+  );
+  await page.reload();
+  await page.waitForFunction(() => window.__THREE_GAME_DIAGNOSTICS__?.phase === 'title', undefined, { timeout: 15_000 });
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.evaluate((keys) => keys.forEach((key) => window.localStorage.removeItem(key)), [SETTINGS_STORAGE_KEY, MUSIC_POSITION_STORAGE_KEY]);
-  await page.reload();
+  await reloadWhenLoaded(page);
 });
 
 test('Start unlocks audio and decodes every SFX without warnings', async ({ page }) => {
@@ -312,7 +334,7 @@ test('music position is saved on hide and on unload, and the next visit resumes 
   await setPageHidden(page, false);
   await expect.poll(async () => (await music(page)).playing, { timeout: 10_000 }).toBe(true);
 
-  await page.reload(); // pagehide saves again, a little later in the track
+  await reloadWhenLoaded(page); // pagehide saves again, a little later in the track
   const onUnload = await storedPosition(page);
   expect(onUnload!.time).toBeGreaterThanOrEqual(onHide!.time);
 
@@ -354,7 +376,7 @@ test('a resumed track still loops back to 0:00', async ({ page }) => {
 test('garbage or another track in the stored position starts from 0 without warnings', async ({ page }) => {
   const log = collectConsole(page);
   for (const value of ['{not json', JSON.stringify({ track: '/assets/music/other.mp3', time: 120 })]) {
-    await page.reload(); // back to the title first: leaving a playing game saves a real position on pagehide
+    await reloadWhenLoaded(page); // back to the title first: leaving a playing game saves a real position on pagehide
     await storePosition(page, value);
     await page.reload();
     await startGame(page);
