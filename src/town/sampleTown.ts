@@ -62,7 +62,7 @@ function roadRect(run: (toolId: ToolId, action: BuildAction) => void, x0: number
 /**
  * The sample town, in 48 × 48 layout coordinates shifted by demoOffset(): a main street (rows 24–25)
  * and a side street (columns 22–23) meeting at a roundabout (cells 20–25 × 22–27), with a car park on
- * the side street, homes, a civic corner, the stadium, gardens and trees. Uses every placing tool.
+ * the side street, homes, a civic corner, the stadium, the cinema, gardens and trees. Uses every placing tool.
  */
 export function buildSampleTown(editor: TownEditor): DemoTownResult {
   const { run, commit } = demoBuilder(editor, (item) => `${item.toolId}@${JSON.stringify(item.action)}`, true);
@@ -119,6 +119,7 @@ export function buildSampleTown(editor: TownEditor): DemoTownResult {
   // The stadium south of the shops, its gate facing west onto the side street across a paved forecourt.
   paint('pavement', 24, 32, 24, 45);
   place('stadium', 25, 32, 3);
+  place('cinema', 37, 33);
   // West of the side street: the donut shop faces the street (east), the tiered fountain below it.
   place('donut-shop', 19, 28, 1);
   place('tiered-fountain', 18, 33);
@@ -180,6 +181,8 @@ export const GALLERY_OBJECTS: ReadonlyArray<readonly [ObjectKind, number, number
   ['parking', 2, 38, 0], ['parking', 8, 36, 1], ['parking', 14, 34, 2],
   // South-east (x 24–37, z 31–41): the stadium.
   ['stadium', 24, 31],
+  // East of the stadium: the cinema.
+  ['cinema', 39, 31],
 ];
 
 /** The road the gallery's car parks open onto (block anchors along rows 40–41). */

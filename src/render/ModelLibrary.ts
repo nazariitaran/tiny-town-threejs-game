@@ -13,7 +13,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { MODELS, type GlowKind, type ModelId } from '../catalog/models';
 import { assetUrl } from '../game/config';
 import { applyWindSway } from '../fx/windSway';
-import { litMaterial, type MaterialMode } from './materials';
+import { createLitMaterial, litMaterial, type MaterialMode } from './materials';
 import { GlowRegistry } from './nightGlow';
 
 export interface ModelPart {
@@ -34,10 +34,14 @@ export interface ModelTemplate {
 
 /** Anisotropy requested for colour atlases (three clamps it to the GPU maximum). */
 const ANISOTROPY = 8;
+/** Poster atlas cells are sampled this far (fraction of a cell) inside their edges, so mips and filtering never bleed a neighbour in. */
+const POSTER_INSET = 0.008;
+const POSTER_COLUMNS = 2;
 
 export class ModelLibrary {
   private readonly templates = new Map<ModelId, ModelTemplate>();
   private readonly loader = new GLTFLoader();
+  private readonly textureLoader = new THREE.TextureLoader();
   /** Shared materials keyed by texture source + parameters. */
   private readonly materials = new Map<string, THREE.Material>();
   /** Textures kept alive by shared materials (deduplicated by source image URL). */
@@ -63,6 +67,7 @@ export class ModelLibrary {
         return { id, gltf, url };
       }),
     );
+    await Promise.all(ids.map((id) => this.loadPosterAtlas(id)));
     // Normalise in catalog order (not network order) so the shared-material choice is deterministic.
     for (const { id, gltf, url } of results) this.templates.set(id, this.normalise(id, gltf, url));
   }
@@ -139,9 +144,11 @@ export class ModelLibrary {
       if (!mesh.isMesh) return;
       const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       if (materials.length > 1) console.warn(`[models] ${id}: multi-material mesh, using first material`);
-      const material = this.shareMaterial(materials[0], gltf, fileUrl);
+      const slot = spec.posters ? spec.posters.slots.indexOf(materials[0].name) : -1;
+      const material = slot >= 0 ? this.posterMaterial(spec.posters!.url, materials[0]) : this.shareMaterial(materials[0], gltf, fileUrl);
       sourceGeometries.add(mesh.geometry);
       const geometry = mesh.geometry.clone().applyMatrix4(mesh.matrixWorld);
+      if (slot >= 0) remapToAtlasCell(geometry, slot);
       const list = byMaterial.get(material) ?? [];
       list.push(geometry);
       byMaterial.set(material, list);
@@ -167,6 +174,29 @@ export class ModelLibrary {
       parts.push({ geometry, material, matrix: new THREE.Matrix4() });
     }
     return { id, parts, bounds, triangles: Math.round(triangles) };
+  }
+
+  /** Loads the poster atlas of a model that has one (once per URL; glTF UV convention, so no flip). */
+  private async loadPosterAtlas(id: ModelId): Promise<void> {
+    const posters = MODELS[id].posters;
+    if (!posters || this.textures.has(posters.url)) return;
+    const texture = await this.textureLoader.loadAsync(assetUrl(posters.url));
+    texture.flipY = false;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = ANISOTROPY;
+    this.textures.set(posters.url, texture);
+  }
+
+  /** The one material every poster slot of a model shares; keeps the slot's side from the GLB. */
+  private posterMaterial(url: string, source: THREE.Material): THREE.Material {
+    const key = `poster|${url}`;
+    let material = this.materials.get(key);
+    if (!material) {
+      material = createLitMaterial({ map: this.textures.get(url), roughness: 1, metalness: 0, side: source.side }, this.materialMode);
+      material.name = 'posters';
+      this.materials.set(key, material);
+    }
+    return material;
   }
 
   /** The private glow clone of `source` for `kind` (one per pair, shared by every model using it). */
@@ -229,6 +259,19 @@ export class ModelLibrary {
     }
     return `${fileUrl}#texture:${texture.uuid}`;
   }
+}
+
+/** Maps a 0..1 slot UV set into atlas cell `slot` (row-major, POSTER_COLUMNS wide, two rows). */
+function remapToAtlasCell(geometry: THREE.BufferGeometry, slot: number): void {
+  const uv = geometry.getAttribute('uv');
+  const col = slot % POSTER_COLUMNS;
+  const row = Math.floor(slot / POSTER_COLUMNS);
+  const rows = 2;
+  const span = 1 - 2 * POSTER_INSET;
+  for (let i = 0; i < uv.count; i += 1) {
+    uv.setXY(i, (col + POSTER_INSET + uv.getX(i) * span) / POSTER_COLUMNS, (row + POSTER_INSET + uv.getY(i) * span) / rows);
+  }
+  uv.needsUpdate = true;
 }
 
 /** Merge same-material geometries of one model into one (attributes reduced to the common set). */

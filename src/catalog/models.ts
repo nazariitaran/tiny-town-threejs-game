@@ -17,6 +17,8 @@ export interface ModelSpec {
    * glow mask as its emissiveMap. Never set on shared road pieces.
    */
   glow?: GlowKind;
+  /** Poster slots: meshes named in `slots` (atlas cells in row-major order, 2 columns) share one material textured from the atlas. */
+  posters?: { url: string; slots: readonly string[] };
 }
 
 /** What lights up at night. */
@@ -114,6 +116,10 @@ export const MODELS = {
   church: M('/assets/models/composed/church.glb', HOME_SCALE, 0),
   // Built to game units by scripts/build-stadium.py; the gate faces +Z natively.
   stadium: M('/assets/models/stadium/stadium.glb', 1, 0, { glow: 'floodlight' }),
+  // Built to game units by scripts/build-cinema.py; the facade faces +Z natively.
+  cinema: M('/assets/models/cinema/cinema.glb', 1, 0, {
+    posters: { url: '/assets/posters/cinema-posters.webp', slots: ['poster-1', 'poster-2', 'poster-3', 'poster-4'] },
+  }),
   // Composed from Fantasy Town fountain modules and parasols.
   'swimming-pool': M('/assets/models/composed/swimming-pool.glb', 0.5, 2),
   fountain: M('/assets/models/composed/fountain.glb', 0.45, 0),

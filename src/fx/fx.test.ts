@@ -114,7 +114,7 @@ describe('fx recipes', () => {
       'traffic-light': 'prop', lamppost: 'prop', postbox: 'prop', mailbox: 'prop', 'bus-stop': 'small-building',
       cottage: 'building', townhouse: 'building', bungalow: 'building', 'family-home': 'building',
       'garage-house': 'building', 'big-house': 'building',
-      'corner-shop': 'building', 'donut-shop': 'building', supermarket: 'building', church: 'building', stadium: 'building', 'swimming-pool': 'building',
+      'corner-shop': 'building', 'donut-shop': 'building', supermarket: 'building', church: 'building', stadium: 'building', cinema: 'building', 'swimming-pool': 'building',
       'tiered-fountain': 'building',
       oak: 'tree', pine: 'tree', birch: 'tree', bush: 'tree', tulips: 'tree',
       hedge: 'fence', 'fence-low': 'fence', 'fence-tall': 'fence',

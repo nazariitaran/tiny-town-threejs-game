@@ -419,7 +419,7 @@ describe('stats after the sample town', () => {
     // Props: street (2 traffic lights, 4 lampposts, postbox, mailbox, bus stop = 9) + garden (2 benches,
     // 2 long benches, table, barbecue, swing, slide, planter = 9) + plants (2 bushes, 3 tulips) = 23.
     // Fences (edge layer): 14 low (x 6..19) + 6 hedge (z 13..18) + 8 tall (z 27..34) = 28.
-    expect(editor.state.stats()).toEqual({ homes: 8, residents: 25, amenities: 8, trees: 5, roadTiles: 46, props: 23, fences: 28 });
+    expect(editor.state.stats()).toEqual({ homes: 8, residents: 25, amenities: 9, trees: 5, roadTiles: 46, props: 23, fences: 28 });
   });
 });
 

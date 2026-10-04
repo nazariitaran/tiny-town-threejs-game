@@ -45,7 +45,7 @@ A perspective camera (FOV 35°) orbits a target on the ground through three.js `
 | --- | --- | --- |
 | Streets (1) | the road network | Road, Pavement, Roundabout, Parking, Zebra, Traffic light |
 | Homes (2) | where people live | Cottage, Townhouse, Bungalow, Family home, Suburban, Big house, Mailbox |
-| Town (3) | shops, civic places, shared street furniture | Tiered fountain, Corner shop, Donut shop, Church, Supermarket, Stadium, Bus stop, Postbox, Lamppost |
+| Town (3) | shops, civic places, shared street furniture | Tiered fountain, Corner shop, Donut shop, Church, Supermarket, Stadium, Cinema, Bus stop, Postbox, Lamppost |
 | Nature (4) | things that grow on their own | Grass, Wildflowers, Tulips, Bush, Oak, Pine, Birch |
 | Garden (5) | things people build in a yard or park | Hedge, Low fence, Tall fence, Planter, Bench, Long bench, Table, Barbecue, Swing, Slide, Pool |
 

@@ -95,6 +95,7 @@ export const OBJECTS: Readonly<Record<ObjectKind, ObjectDef>> = {
   supermarket: def({ kind: 'supermarket', label: 'Supermarket', group: 'amenity', footprint: [5, 4], allowedGround: PAVED_OK, residents: 0, models: ['supermarket'] }),
   church: def({ kind: 'church', label: 'Church', group: 'amenity', footprint: [3, 4], allowedGround: PAVED_OK, residents: 0, models: ['church'] }),
   stadium: def({ kind: 'stadium', label: 'Stadium', group: 'amenity', footprint: [14, 11], allowedGround: PAVED_OK, residents: 0, models: ['stadium'] }),
+  cinema: def({ kind: 'cinema', label: 'Cinema', group: 'amenity', footprint: [6, 4], allowedGround: PAVED_OK, residents: 0, models: ['cinema'] }),
   fountain: def({ kind: 'fountain', label: 'Fountain', group: 'amenity', footprint: [2, 2], allowedGround: PROP_GROUND, residents: 0, models: ['fountain'] }),
   'tiered-fountain': def({ kind: 'tiered-fountain', label: 'Tiered fountain', group: 'amenity', footprint: [3, 3], allowedGround: PROP_GROUND, residents: 0, models: ['tiered-fountain'] }),
   oak: def({ kind: 'oak', label: 'Oak', group: 'tree', footprint: [2, 2], allowedGround: OPEN_GROUND, residents: 0, models: ['oak'] }),

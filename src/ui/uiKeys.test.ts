@@ -26,7 +26,8 @@ describe('digit shortcuts', () => {
     expect(digitAction(key('Digit6'), 'streets', null)).toEqual({ type: 'tool', toolId: 'traffic-light' });
     expect(digitAction(key('Digit7'), 'homes', null)).toEqual({ type: 'tool', toolId: 'mailbox' });
     expect(digitAction(key('Digit6'), 'town', null)).toEqual({ type: 'tool', toolId: 'stadium' });
-    expect(digitAction(key('Digit9'), 'town', null)).toEqual({ type: 'tool', toolId: 'lamppost' });
+    expect(digitAction(key('Digit7'), 'town', null)).toEqual({ type: 'tool', toolId: 'cinema' });
+    expect(digitAction(key('Digit9'), 'town', null)).toEqual({ type: 'tool', toolId: 'postbox' });
     // Garden has 11 tools; 9 is the last one with a digit.
     expect(digitAction(key('Digit9'), 'garden', null)).toEqual({ type: 'tool', toolId: 'swing' });
   });

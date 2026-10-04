@@ -71,7 +71,7 @@ Full 64 × 64 town (`stress-town`), production preview, Medium preset, headless 
 | --- | --- | --- |
 | Draw calls | ≤ 150 / ≤ 120 | stress 33 / 33, at night 36 / 36; sample town 85 / 85, at night 89; cars in car parks add none; a match night adds 2 (the floodlights' spill pool and mast halos; 1 on Low) |
 | Triangles | ≤ 400k / ≤ 320k | stress 324.2k–325.3k / 324.2k (above the mobile target), at night 324.2k; sample town 185.0k (the stadium is 1,724; each car is about 1,070; the roundabout 906) |
-| Textures | ≤ 30 | stress 14, sample town 29 (incl. the glow masks; the stadium's floodlight mask is one); a match night adds none |
+| Textures | ≤ 30 | stress 14, sample town 30 (incl. the glow masks, the stadium's floodlight mask and the cinema's poster atlas); a match night adds none |
 | Shadow map | 1 × 2048 (Low 1024) | per preset |
 | DPR cap | Low 1, Medium 1.5, High 2 | per preset |
 | CPU per rendered frame | ≤ 8 ms | stress 1.39 ms building / 1.94 ms idle; sample town 1.68 / 2.88 ms |

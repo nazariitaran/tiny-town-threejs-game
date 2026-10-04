@@ -89,6 +89,7 @@ Original License.txt files are kept in `assets-src/<pack>/License.txt`.
 | Sound | File | Credit |
 |---|---|---|
 | Stadium crowd | `public/assets/audio/stadium-crowd.mp3` | Supplied by the project owner; all rights held by the project owner. Mixed to mono, made loopable and transcoded to MP3 (see `docs/assets.md`). |
+| Cinema posters (4) | `public/assets/posters/cinema-posters.webp` | Supplied by the project owner; all rights held by the project owner. Cropped to 3:4, resized and packed into one atlas by `scripts/build-cinema-posters.py` (see `docs/assets.md`). |
 
 ## Software
 

@@ -42,6 +42,7 @@ export type ObjectKind =
   | 'supermarket'
   | 'church'
   | 'stadium'
+  | 'cinema'
   | 'swimming-pool'
   | 'fountain'
   | 'tiered-fountain'
