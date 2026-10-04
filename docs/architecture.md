@@ -233,4 +233,4 @@ There are no other diagnostics globals.
 ## Browser tests
 - Playwright projects: `desktop-chrome` (1280 × 720) and `mobile-chrome` (Pixel 7 emulation, touch), full Chromium (`channel: 'chromium'`) on the real GPU, 1 worker. The canvas inspector's `--mobile` is 390 × 844.
 - Stable DOM ids: `UI_TEST_IDS` and `MENU_TABS` in `src/ui/testIds.ts` (side-effect free; specs import it). A tool button exists only while its category is active; a menu control is visible only while its tab is selected (`tests/helpers.ts` `openMenuTab`).
-- Visual baselines: `tests/visual-regression.spec.ts-snapshots/`, 8 PNGs (title, sample-town, asset-gallery, night-town × desktop, mobile). Darwin only; a missing baseline fails.
+- Visual baselines: `tests/visual-regression.spec.ts-snapshots/`, 8 PNGs (title, sample-town, asset-gallery, night-town × desktop, mobile). Darwin only: there a missing baseline fails; on other platforms the spec is skipped.

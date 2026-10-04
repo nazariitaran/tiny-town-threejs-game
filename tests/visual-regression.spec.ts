@@ -39,6 +39,9 @@ const runningUiAnimations = (page: Page) =>
       .map((el) => el.id || el.className);
   });
 
+// Elsewhere every baseline is missing, and Playwright would write untracked *-<platform>.png files into tests/.
+test.skip(process.platform !== 'darwin', 'screenshot baselines exist for darwin only');
+
 for (const state of STATES) {
   test(`visual baseline: ${state.name}`, async ({ page }, testInfo) => {
     const snapshot = `${state.name}.png`;

@@ -21,7 +21,7 @@ npm run test:unit      # vitest, src/**/*.test.ts (pure logic, Node)
 npm run test:e2e       # playwright, tests/*.spec.ts, desktop-chrome + mobile-chrome (starts its own dev server)
 npm test               # test:unit then test:e2e
 npm run verify:visual  # ONLY tests/visual.spec.ts (the load → Start → road-drag smoke journey), NOT the screenshot baselines
-npx playwright test tests/visual-regression.spec.ts   # screenshot baselines (darwin only; a missing baseline FAILS)
+npx playwright test tests/visual-regression.spec.ts   # screenshot baselines (darwin only, skipped elsewhere; a missing baseline FAILS)
 npm run build && npm run preview   # production build, served on PORT−1000 (default 4188)
 npm run inspect:canvas -- --state sample-town --run-id <id> --out artifacts/<id> [--mobile]   # needs a dev server; --mobile = 390×844
 npm run inspect:models # re-measure/verify the GLBs in public/assets/models (prints a report; add --three to load them via GLTFLoader)
