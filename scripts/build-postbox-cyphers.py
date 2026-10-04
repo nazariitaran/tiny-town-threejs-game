@@ -55,16 +55,40 @@ CYPHERS = [
     dict(name='charles-iii', label='Charles III 2%', crop=(490, 810, 690, 1075), grow=1, eps=5, min_loop=0.004),
 ]
 
-COLOURS = {                           # sRGB; 'gold' is the postbox's own plate colour
+COLOURS = {                           # sRGB; the cyphers use 'light-red'; 'gold' is the postbox's own plate colour
     'gold': (240, 190, 70),
     'cream': (253, 228, 199),         # atlas cell (0, 1) fde4c7
-    'light-red': (231, 96, 71),       # atlas cell (9, 1) e76047
+    'light-red': (231, 96, 71),       # atlas cell (9, 1) e76047: the cypher colour
 }
 
 
 def srgb_to_linear(c):
     c /= 255.0
     return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+
+# ---- hand-drawn shapes -------------------------------------------------------------------------
+# Edward VII's cypher is drawn, not traced: the source's E, VII and R are too tangled to survive at this
+# size. Loops in a 100-unit grid, x right, y down (the same orientation as image pixels); a loop inside
+# another is a hole. The relief fits the drawing's own box, so only its proportions matter.
+DRAWN = {
+    'edward-vii': [
+        # E, bold, serifs on the top and bottom arms
+        [(2, 0), (44, 0), (44, 20), (36, 20), (36, 12), (14, 12), (14, 28), (32, 28), (32, 40), (14, 40),
+         (14, 56), (36, 56), (36, 48), (44, 48), (44, 68), (2, 68)],
+        # R, bold, with a stem serif at the foot and a straight leg
+        [(48, 0), (80, 0), (92, 4), (98, 14), (98, 26), (92, 36), (84, 41), (100, 68), (86, 68), (72, 45),
+         (66, 45), (66, 60), (72, 60), (72, 68), (48, 68), (48, 60), (54, 60), (54, 8), (48, 8)],
+        # the R's counter
+        [(66, 12), (78, 12), (84, 16), (86, 22), (84, 28), (78, 32), (66, 32)],
+        # the small VII beneath: a V and two slab-serif I's
+        [(24, 80), (32, 80), (35, 94), (38, 80), (46, 80), (40, 105), (30, 105)],
+        [(52, 80), (64, 80), (64, 84), (61.5, 84), (61.5, 101), (64, 101), (64, 105), (52, 105), (52, 101),
+         (54.5, 101), (54.5, 84), (52, 84)],
+        [(67, 80), (79, 80), (79, 84), (76.5, 84), (76.5, 101), (79, 101), (79, 105), (67, 105), (67, 101),
+         (69.5, 101), (69.5, 84), (67, 84)],
+    ],
+}
 
 
 # ---- tracing -----------------------------------------------------------------------------------
@@ -200,7 +224,9 @@ def simplify_loop(loop, eps):
 
 
 def trace(px, spec):
-    """The cypher's outline loops in image pixels (y down), simplified."""
+    """The cypher's outline loops in image pixels (y down), simplified; a drawn cypher returns its drawing."""
+    if spec['name'] in DRAWN:
+        return [list(loop) for loop in DRAWN[spec['name']]]
     f = red_field(px, spec['crop'])
     mask = grow(f > 0.5, spec['grow'])
     f = smooth(smooth(mask.astype(np.float32)))
@@ -438,7 +464,7 @@ def clear(coll):
                 bpy.data.curves.remove(data)
 
 
-def build_all(origin=(0.0, -40.0, 0.0), spacing=0.42, colour='gold', extra_colours=True):
+def build_all(origin=(0.0, -40.0, 0.0), spacing=0.42, colour='light-red', extra_colours=False):
     coll = bpy.data.collections.get(COLLECTION) or bpy.data.collections.new(COLLECTION)
     if coll.name not in bpy.context.scene.collection.children:
         bpy.context.scene.collection.children.link(coll)
@@ -520,7 +546,7 @@ def build_scale_check(origin=(0.0, -36.0, 0.0)):
         spec = next(c for c in CYPHERS if c['name'] == name)
         top = clone_postbox(root, coll, f'scale-postbox-{name}', (ox - 0.55 + 0.3 * i, oy - 0.7, oz))
         me, _ = relief(trace(px, spec), f'scale-cypher-{name}')
-        me.materials.append(material('cypher-gold', COLOURS['gold']))
+        me.materials.append(material('cypher-light-red', COLOURS['light-red']))
         ob = bpy.data.objects.new(me.name, me)
         coll.objects.link(ob)
         ob.parent = top
@@ -582,8 +608,8 @@ def render_all(out_dir, origin=(0.0, -40.0, 0.0), scale_origin=(0.0, -36.0, 0.0)
     ox, oy, oz = origin
     row = (ox, oy, 0.12)
     show(row_prefix)
-    shot('overview-game-camera.png', row, 45, 38, 3.9, (2400, 1000))
-    shot('overview-front.png', (ox, oy, 0.1), 0, 15, 3.0, (2400, 640))
+    shot('overview-game-camera.png', row, 45, 38, 3.0, (2400, 1000))
+    shot('overview-front.png', (ox, oy, 0.1), 0, 15, 2.2, (2400, 640))
     for spec in CYPHERS:
         box = bpy.data.objects[f"postbox-{spec['name']}"]
         centre = (box.location.x, box.location.y - 0.045 * GAME_SCALE, Y_CENTRE * GAME_SCALE)
