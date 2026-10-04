@@ -12,8 +12,8 @@ import { expect, test, type Page } from '@playwright/test';
 import { diagnostics, prepareDeterministicState, trackErrors } from './helpers';
 
 const SEED = 12345;
-/** WebGL antialiasing may shift a few edge pixels between runs; layout/asset breaks are far larger. */
-const MAX_DIFF_PIXEL_RATIO = 0.01;
+/** Unchanged code reproduces the baselines to under 0.1 % of the pixels; one new building is about 1 %. */
+const MAX_DIFF_PIXEL_RATIO = 0.002;
 
 const STATES = [
   { name: 'title', phase: 'title', minObjects: 0 },
