@@ -46,6 +46,6 @@ Liveness holds (no deadlock or stuck car in the harness or in four review rounds
 - **`TrafficSim.stats` and `LifeSystem.publish` allocate every frame** (a stats object; the `carCells` callback), about 50 kB/s of short-lived garbage at 30 fps. Reuse one object and an indexed loop.
 
 ## Performance and release
-- **`stress-town` triangles are above the mobile target** (322k–328k against 320k), the same on `main`. Trim the densest models or lower the target's scope to desktop.
-- **`docs/release.md` "Latest"** was refreshed for draw calls and the main chunk only; CPU, GPU and download numbers are from the last release.
+- **`stress-town` triangles are above the mobile target** (330.9k on desktop against 320k). Trim the densest models or lower the target's scope to desktop.
+- **`docs/release.md` "Latest"** was refreshed for the desktop draw calls, triangles and textures and the main chunk only; the night and mobile figures, CPU, GPU and download numbers are from before the cinema, the postbox cyphers and the roundabout corners.
 - **Uninvestigated:** in one capture of a plot packed with car parks the dock's Parking card still looked selected after Esc while diagnostics reported no tool.

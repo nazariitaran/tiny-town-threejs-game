@@ -3,6 +3,10 @@
 Player-facing release notes for Tiny Town. Budgets and measurements are in `docs/release.md`.
 
 ## Unreleased
+Everything merged on `main` after `v0.7`. Saves stay on version 4.
+
+## v0.7 — 2026-10-04
+Package 0.7.0. Everything merged after `v0.6`. Saves stay on version 4, so v0.6 towns open unchanged.
 
 ### New
 - **Royal cyphers on postboxes.** Every new postbox now carries a small raised royal cypher below its yellow plate, picked by chance when you place it: Elizabeth II (E II R) is the most common (6 in 10), then George V, George VI, Victoria, Edward VII, and, rarely, Edward VIII and Charles III. The ghost shows the postbox you are about to build. Postboxes in towns you saved earlier become Elizabeth II ones, and Move keeps a postbox's cypher. Saves stay on version 4. At the default zoom the cypher is only a pixel or two wide: zoom right in to read it.
