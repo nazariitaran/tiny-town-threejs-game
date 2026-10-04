@@ -1,12 +1,12 @@
-# Design-for-review builder: the seven royal cyphers as raised relief on copies of the game's postbox
-# (public/assets/models/composed/postbox.glb), in a "Postbox cyphers" collection.
+# The seven royal cyphers as raised relief on the game's postbox (public/assets/models/composed/postbox.glb).
 #
 #   /Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-postbox-cyphers.py
 #
-# In an open Blender session, exec() this file (with __file__ set) and call build_all(). It adds the
-# postboxes, the cypher meshes and name labels to the collection; nothing is exported.
+# Headless, it writes public/assets/models/postbox/postbox-<id>.glb (export_all). In an open Blender
+# session, exec() this file (with __file__ set) and call build_all() to review the postboxes with their
+# cyphers in a "Postbox cyphers" collection (render_all() writes review renders); nothing is exported then.
 #
-# Outlines come from the owner's cypher map (CYPHER_MAP): the red field of each cypher is cut out of the
+# Outlines come from the owner's cypher map (CYPHER_MAP; put the file at assets-src/owner/royal-cyphers.png): the red field of each cypher is cut out of the
 # image (red minus green, so the black labels and the white page drop out), thickened by a few pixels so
 # the thin strokes survive, contoured with marching squares at sub-pixel accuracy and simplified with
 # Douglas-Peucker. The filled shapes are triangulated with a constrained Delaunay triangulation that also
@@ -29,7 +29,7 @@ from mathutils import Matrix, Vector, geometry
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..')) if '__file__' in globals() else os.getcwd()
 POSTBOX = os.path.join(ROOT, 'public/assets/models/composed/postbox.glb')
-CYPHER_MAP = '/Users/nazariitaran/Documents/code/_posters/Royal_Cyphers_1837-Present.png'
+CYPHER_MAP = os.path.join(ROOT, 'assets-src/owner/royal-cyphers.png')     # the owner's cypher map (gitignored)
 COLLECTION = 'Postbox cyphers'
 
 # the postbox (native units)
@@ -646,7 +646,92 @@ def render_all(out_dir, origin=(0.0, -40.0, 0.0), scale_origin=(0.0, -36.0, 0.0)
     return written
 
 
+# ---- export ------------------------------------------------------------------------------------
+# One GLB per cypher: composed/postbox.glb exactly as it is (its bytes, meshes, materials, names, native
+# frame: unscaled, front towards -Z) plus a `cypher` mesh on the roads atlas. Variant order is the game's:
+# variant 0 is Elizabeth II, the cypher every postbox had before cyphers existed.
+EXPORT_DIR = os.path.join(ROOT, 'public/assets/models/postbox')
+EXPORT = [('eiir', 'elizabeth-ii'), ('vr', 'victoria'), ('evii', 'edward-vii'), ('gr', 'george-v'),
+          ('eviii', 'edward-viii'), ('gvir', 'george-vi'), ('ciiir', 'charles-iii')]
+ATLAS_URI = '../roads/Textures/colormap.png'
+ROADS_REFERENCE = os.path.join(KIT, 'roads/roundabout-corner.glb')       # the material block the roads GLBs share
+CYPHER_UV = ((9 + 0.5) / 16, (1 + 0.5) / 4)       # atlas cell (9, 1) e76047, glTF (v from the top)
+
+
+def read_glb(path):
+    with open(path, 'rb') as fh:
+        data = fh.read()
+    jlen = struct.unpack_from('<I', data, 12)[0]
+    doc = json.loads(data[20:20 + jlen])
+    blen = struct.unpack_from('<I', data, 20 + jlen)[0]
+    return doc, data[28 + jlen:28 + jlen + blen]
+
+
+def cypher_arrays(me):
+    """Flat-shaded triangles of a cypher mesh, in the postbox's native glTF frame (Blender (x, y, z) -> (x, z, -y))."""
+    me.calc_loop_triangles()
+    pos, nor = [], []
+    for t in me.loop_triangles:
+        n = me.polygons[t.polygon_index].normal
+        for i in t.vertices:
+            v = me.vertices[i].co
+            pos.append((v.x, v.z, -v.y))
+            nor.append((n.x, n.z, -n.y))
+    return pos, nor
+
+
+def pack(rows):
+    return b''.join(struct.pack('<%df' % len(r), *r) for r in rows)
+
+
+def write_postbox(path, me):
+    doc, blob = read_glb(POSTBOX)
+    reference, _ = read_glb(ROADS_REFERENCE)
+    pos, nor = cypher_arrays(me)
+    uvs = [CYPHER_UV] * len(pos)
+    lo = [min(p[k] for p in pos) for k in range(3)]
+    hi = [max(p[k] for p in pos) for k in range(3)]
+    blob = bytes(blob) + b'\0' * (-len(blob) % 4)
+    views, accessors = len(doc['bufferViews']), len(doc['accessors'])
+    for data, kind, extra in ((pack(pos), 'VEC3', {'min': lo, 'max': hi}), (pack(nor), 'VEC3', {}), (pack(uvs), 'VEC2', {})):
+        doc['bufferViews'].append({'buffer': 0, 'byteOffset': len(blob), 'byteLength': len(data), 'target': 34962})
+        doc['accessors'].append({'bufferView': len(doc['bufferViews']) - 1, 'componentType': 5126, 'count': len(pos),
+                                 'type': kind, **extra})
+        blob += data + b'\0' * (-len(data) % 4)
+    doc['buffers'][0]['byteLength'] = len(blob)
+    # the roads GLBs' material block, pointing at the shared atlas by relative path
+    doc['materials'].append(reference['materials'][0])
+    for key in ('textures', 'samplers', 'extensionsUsed'):
+        doc[key] = reference[key]
+    doc['images'] = [{'uri': ATLAS_URI, 'name': 'colormap'}]
+    doc['meshes'].append({'name': 'cypher', 'primitives': [{'attributes': {'POSITION': accessors, 'NORMAL': accessors + 1,
+                                                                           'TEXCOORD_0': accessors + 2},
+                                                              'material': len(doc['materials']) - 1}]})
+    doc['nodes'].append({'name': 'cypher', 'mesh': len(doc['meshes']) - 1})
+    doc['nodes'][0]['children'].append(len(doc['nodes']) - 1)
+    js = json.dumps(doc, separators=(',', ':')).encode()
+    js += b' ' * (-len(js) % 4)
+    out = struct.pack('<III', 0x46546C67, 2, 28 + len(js) + len(blob))
+    out += struct.pack('<II', len(js), 0x4E4F534A) + js + struct.pack('<II', len(blob), 0x004E4942) + blob
+    with open(path, 'wb') as fh:
+        fh.write(out)
+    return len(pos) // 3
+
+
+def export_all(out_dir=EXPORT_DIR):
+    """Writes the seven postbox GLBs (variant order as in EXPORT) and returns triangles of each cypher."""
+    os.makedirs(out_dir, exist_ok=True)
+    px = load_map()
+    report = {}
+    for suffix, name in EXPORT:
+        spec = next(c for c in CYPHERS if c['name'] == name)
+        me, _ = relief(trace(px, spec), f'export-{name}')
+        path = os.path.join(out_dir, f'postbox-{suffix}.glb')
+        report[f'postbox-{suffix}'] = {'cypher_tris': write_postbox(path, me), 'bytes': os.path.getsize(path)}
+        bpy.data.meshes.remove(me)
+    return report
+
+
 if __name__ == '__main__' and bpy.app.background:
-    for k, v in build_all().items():
+    for k, v in export_all().items():
         print(k, v)
-    print(render_all(os.path.join(ROOT, 'artifacts/postbox-cyphers')))
