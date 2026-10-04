@@ -9,7 +9,7 @@ One flat, colourful look: a 512 px gradient `colormap.png` per kit, the same gre
 
 | Folder in `public/assets/models/` | Source | Licence |
 | --- | --- | --- |
-| `roads/` | Kenney City Kit (Roads) 2.1 | CC0 |
+| `roads/` | Kenney City Kit (Roads) 2.1; `road-roundabout` optimised by `scripts/build-roundabout.py` (below) | CC0 |
 | `suburban/` | Kenney City Kit (Suburban) 2.0 | CC0 |
 | `commercial/` | Kenney City Kit (Commercial) 2.1 | CC0 |
 | `platformer/` | Kenney Platformer Kit 4.1 | CC0 |
@@ -87,6 +87,11 @@ Native connections at rotation 0:
 `cars/{hatchback-sports,van,taxi,sedan}.glb` are the Kenney Car Kit 3.1 cars, optimised in Blender: each is one mesh and one node (`LifeSystem` merges them into one `BatchedMesh` anyway) with the kit's own `colormap` material, and 1,061 / 1,095 / 1,087 / 1,047 triangles instead of about 2,050 each (5 meshes). Same bounding boxes and the same palette cells, so the look and the `headlights` night glow (head and tail lights) are unchanged.
 - **What changed:** every face no ray from outside can reach is gone (the underside, the wheel-arch interiors, anything behind a wheel); one quad stays under the body because shadows are cast from back faces; the wheels are rebuilt as 16-sided tyres with smooth shading and a hub dish.
 - **Rebuild:** `/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-cars.py` reads the originals from `assets-src/car-kit/Models/GLB format/` (gitignored, so put the Car Kit there first), rebuilds all four and rewrites the file Kenney-style (`Textures/colormap.png` by relative path, nothing embedded, the original material block). The output is byte-identical from run to run.
+
+### Roundabout
+`roads/road-roundabout.glb` is the Kenney City Kit (Roads) roundabout, optimised in Blender: one mesh and one node with the kit's own `colormap` material, 906 triangles instead of 1,636. Same bounding box (3 × 0.02 × 3), the same palette cells and wall gradients, and the top surface within 0.2% of the original.
+- **What changed:** the unseen underside is gone; coplanar faces of one colour are merged; the round kerbs go from 48 to 24 segments, and the thin lane-marking rings and entry curves keep about twice that, so the outer kerb arcs are faintly faceted up close. Flat shading.
+- **Rebuild:** `/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-roundabout.py` reads the original from `assets-src/city-kit-roads/Models/GLB format/` (gitignored, so put the City Kit (Roads) there first) and rewrites the file Kenney-style (`Textures/colormap.png` by relative path, nothing embedded, the original material block). The output is byte-identical from run to run.
 
 ### Parking lots
 `scripts/build-parking.py` builds `public/assets/models/parking/parking-{small,medium,large}.glb` in Blender, procedurally, from the road kit's measurements. Run it headless (`/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-parking.py`), or `exec` it in an open session and call `build_all()` to review the lots in a "Parking" collection (`build_all(export_glb=True)` also writes the GLBs).

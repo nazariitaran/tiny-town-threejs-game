@@ -12,6 +12,7 @@ Player-facing release notes for Tiny Town. Budgets and measurements are in `docs
 
 ### Changed
 - **A lighter donut shop.** The donut shop is remodelled by hand with a third of the triangles and the same look, so towns with several of them draw a little faster.
+- **A lighter roundabout.** The roundabout has about half the triangles (1,636 down to 906) and the same look; its round kerbs are a touch more faceted when you zoom right in.
 - **Lighter cars.** The four cars have about half the triangles (about 2,050 down to about 1,070 each) and the same look, headlights and tail lights included.
 
 ## v0.6 — 2026-10-02
