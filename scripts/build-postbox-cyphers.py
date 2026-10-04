@@ -47,7 +47,7 @@ K = 1000.0                            # the 2D work is done in thousandths of a 
 # per cypher: crop box in the 1200 px map, thickening radius (px), simplification tolerance (px)
 CYPHERS = [
     dict(name='victoria', label='Victoria VR 7%', crop=(480, 30, 720, 260), grow=2, eps=4.5, min_loop=0.01),
-    dict(name='edward-vii', label='Edward VII 5%', crop=(840, 25, 1110, 280), grow=2, eps=6, min_loop=0.01),
+    dict(name='edward-vii', label='Edward VII 5%', crop=(840, 25, 1110, 280), grow=0, eps=7.5, min_loop=0.006, blur=1),
     dict(name='george-v', label='George V GR 16%', crop=(70, 470, 350, 640), grow=0, eps=4, min_loop=0.004),
     dict(name='edward-viii', label='Edward VIII 2%', crop=(450, 465, 750, 650), grow=0, eps=6, min_loop=0.004),
     dict(name='george-vi', label='George VI 8%', crop=(830, 440, 1120, 670), grow=2, eps=6, min_loop=0.01),
@@ -68,9 +68,10 @@ def srgb_to_linear(c):
 
 
 # ---- hand-drawn shapes -------------------------------------------------------------------------
-# Edward VII's cypher is drawn, not traced: the source's E, VII and R are too tangled to survive at this
-# size. Loops in a 100-unit grid, x right, y down (the same orientation as image pixels); a loop inside
-# another is a hole. The relief fits the drawing's own box, so only its proportions matter.
+# An alternative Edward VII, drawn instead of traced (off: USE_DRAWN). Loops in a 100-unit grid, x right,
+# y down (the same orientation as image pixels); a loop inside another is a hole. The relief fits the
+# drawing's own box, so only its proportions matter.
+USE_DRAWN = False
 DRAWN = {
     'edward-vii': [
         # E, bold, serifs on the top and bottom arms
@@ -225,11 +226,13 @@ def simplify_loop(loop, eps):
 
 def trace(px, spec):
     """The cypher's outline loops in image pixels (y down), simplified; a drawn cypher returns its drawing."""
-    if spec['name'] in DRAWN:
+    if USE_DRAWN and spec['name'] in DRAWN:
         return [list(loop) for loop in DRAWN[spec['name']]]
     f = red_field(px, spec['crop'])
     mask = grow(f > 0.5, spec['grow'])
-    f = smooth(smooth(mask.astype(np.float32)))
+    f = mask.astype(np.float32)
+    for _ in range(spec.get('blur', 2)):
+        f = smooth(f)
     f = np.pad(f, 3)
     loops = marching(f)
     out = []
@@ -464,7 +467,7 @@ def clear(coll):
                 bpy.data.curves.remove(data)
 
 
-def build_all(origin=(0.0, -40.0, 0.0), spacing=0.42, colour='light-red', extra_colours=False):
+def build_all(origin=(0.0, -40.0, 0.0), spacing=0.42, colour='light-red', extra_colours=False, overrides=None):
     coll = bpy.data.collections.get(COLLECTION) or bpy.data.collections.new(COLLECTION)
     if coll.name not in bpy.context.scene.collection.children:
         bpy.context.scene.collection.children.link(coll)
@@ -472,7 +475,8 @@ def build_all(origin=(0.0, -40.0, 0.0), spacing=0.42, colour='light-red', extra_
     root = template(coll)
     px = load_map()
     report = {}
-    slots = [(spec, colour) for spec in CYPHERS]
+    overrides = overrides or {}
+    slots = [({**spec, **overrides.get(spec['name'], {})}, colour) for spec in CYPHERS]
     if extra_colours:
         e2r = next(s for s in CYPHERS if s['name'] == 'elizabeth-ii')
         slots += [(e2r, c) for c in COLOURS if c != colour]
@@ -560,7 +564,7 @@ def aim(cam, target, yaw, elevation, dist):
     cam.rotation_euler = (t - cam.location).to_track_quat('-Z', 'Y').to_euler()
 
 
-def render_all(out_dir, origin=(0.0, -40.0, 0.0), scale_origin=(0.0, -36.0, 0.0)):
+def render_all(out_dir, origin=(0.0, -40.0, 0.0), scale_origin=(0.0, -36.0, 0.0), only=None, suffix=''):
     """Writes the review renders (Workbench, the game's 35 degree camera) to out_dir and restores the scene."""
     os.makedirs(out_dir, exist_ok=True)
     scene = bpy.context.scene
@@ -598,9 +602,11 @@ def render_all(out_dir, origin=(0.0, -40.0, 0.0), scale_origin=(0.0, -36.0, 0.0)
                 ob.hide_render = not ob.name.startswith(prefixes)
 
     def shot(name, target, yaw, elevation, dist, size):
+        if only is not None and name not in only:
+            return
         scene.render.resolution_x, scene.render.resolution_y = size
         aim(cam, target, yaw, elevation, dist)
-        path = os.path.join(out_dir, name)
+        path = os.path.join(out_dir, name.replace('.png', suffix + '.png'))
         scene.render.filepath = path
         bpy.ops.render.render(write_still=True)
         written.append(path)
