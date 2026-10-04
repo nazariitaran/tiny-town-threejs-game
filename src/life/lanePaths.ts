@@ -6,7 +6,7 @@
  *  - right turn (out == in + 1): a tight quarter arc around the near corner.
  *  - left turn  (out == in + 3): a wide quarter arc that crosses the oncoming lane.
  *  - U-turn     (out == in + 2): drive to the middle, loop round, drive back.
- *  - ring (roundabout centre): counter-clockwise round the island; see buildRingPath.
+ *  - roundabout: counter-clockwise on the outer lane of the ring road; see the roundabout section.
  *
  * Paths are pre-sampled polylines in tile-local world units (tile centre = origin), so sampling is
  * allocation-free.
@@ -50,8 +50,18 @@ export interface PathSample {
 
 const ARC_STEPS = 16;
 const HALF = ROAD_TILE_SIZE / 2;
-/** Radius of the lane round a roundabout island (Kenney road-roundabout: island kerb ≈ 0.3, outer kerb ≈ 0.73). */
-export const RING_RADIUS = 0.5 * ROAD_TILE_SIZE;
+/**
+ * Radius of the roundabout's outer lane, from the island centre. The road model (3 × 3 tiles) has the
+ * island kerb at r 0.25-0.45, the lane marking at 0.755, the gutter from about 1.05 and the outer
+ * kerb at 1.15-1.25: the lane centre sits between the marking and the gutter.
+ */
+export const RING_RADIUS = 0.93;
+/** Distance along an arm (from the island centre) where the lane starts to bend onto or off the ring. */
+const ARM_JOIN = 1.15;
+/** Angle round the ring, past the arm's lane line, where a car joining from an arm is on the ring (mirrored for leaving). */
+const MERGE_ANGLE = (22 * Math.PI) / 180;
+const ENTRY_ANGLE = Math.asin(LANE_OFFSET / RING_RADIUS) + MERGE_ANGLE;
+const CURVE_STEPS = 12;
 
 function buildPath(inDir: Dir, outDir: Dir): LanePath {
   const kind = manoeuvreKind(inDir, outDir);
@@ -109,66 +119,142 @@ function finishPath(kind: ManoeuvreKind, pts: readonly number[]): LanePath {
   return { kind, points, cum, length: cum[count - 1] };
 }
 
-/** Chaikin corner cutting, keeping both end points (rounds the kinks where lanes join the ring). */
-function smooth(pts: readonly number[], passes: number): number[] {
-  let cur = [...pts];
-  for (let p = 0; p < passes; p += 1) {
-    const next = [cur[0], cur[1]];
-    for (let i = 0; i + 3 < cur.length; i += 2) {
-      const [x0, z0, x1, z1] = [cur[i], cur[i + 1], cur[i + 2], cur[i + 3]];
-      next.push(0.75 * x0 + 0.25 * x1, 0.75 * z0 + 0.25 * z1, 0.25 * x0 + 0.75 * x1, 0.25 * z0 + 0.75 * z1);
-    }
-    next.push(cur[cur.length - 2], cur[cur.length - 1]);
-    cur = next;
+/*
+ * Roundabout. Everything is worked out in island-centre coordinates (x east, z south) and shifted into
+ * the block that owns each stretch. Arm `d` points from the island towards direction d. "a" is the
+ * distance along the arm and "l" the offset to the right of a car driving in, so the entry lane is at
+ * +LANE_OFFSET and the exit lane at -LANE_OFFSET. A car bends right onto the ring and right off it;
+ * the ring itself runs counter-clockwise (right-hand traffic) on its outer lane.
+ *  - arm block, driving in:  the straight lane, then a curve tangent to the ring (armPath).
+ *  - centre block:           the ring arc from one arm's merge point to the next exit (ringPath).
+ *  - arm block, driving out: the mirror image of driving in.
+ *  - arm block, turning round (an arm with no road beyond it): out, a half circle, in.
+ */
+
+/** Appends the island-centre point at arm distance `a` and lateral offset `l`. */
+function armPoint(out: number[], d: Dir, a: number, l: number): void {
+  out.push(DIR_X[d] * a + DIR_Z[d] * l, DIR_Z[d] * a - DIR_X[d] * l);
+}
+
+/** Appends the point of the outer lane at angle `psi` from arm d's axis (positive towards its entry side). */
+function ringPoint(out: number[], d: Dir, psi: number): void {
+  armPoint(out, d, RING_RADIUS * Math.cos(psi), RING_RADIUS * Math.sin(psi));
+}
+
+/** Counter-clockwise direction of travel at `ringPoint(_, d, psi)`. */
+function ringTangent(d: Dir, psi: number): [number, number] {
+  return [-DIR_X[d] * Math.sin(psi) + DIR_Z[d] * Math.cos(psi), -DIR_Z[d] * Math.sin(psi) - DIR_X[d] * Math.cos(psi)];
+}
+
+/** Appends a cubic Hermite from p0 to p1 with unit end tangents t0 and t1, every point after p0. */
+function hermite(out: number[], p0: readonly number[], t0: readonly number[], p1: readonly number[], t1: readonly number[]): void {
+  const k = 0.5 * Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+  for (let i = 1; i <= CURVE_STEPS; i += 1) {
+    const t = i / CURVE_STEPS;
+    const u = 1 - t;
+    const w0 = u * u * u;
+    const w1 = 3 * u * u * t;
+    const w2 = 3 * u * t * t;
+    const w3 = t * t * t;
+    for (let c = 0; c < 2; c += 1) out.push(w0 * p0[c] + w1 * (p0[c] + t0[c] * k) + w2 * (p1[c] - t1[c] * k) + w3 * p1[c]);
   }
-  return cur;
+}
+
+/** Appends the bend from the entry lane (at ARM_JOIN along arm d) onto the ring; the lane point is not repeated. */
+function mergeCurve(out: number[], d: Dir): void {
+  const lane: number[] = [];
+  armPoint(lane, d, ARM_JOIN, LANE_OFFSET);
+  const ring: number[] = [];
+  ringPoint(ring, d, ENTRY_ANGLE);
+  hermite(out, lane, [-DIR_X[d], -DIR_Z[d]], ring, ringTangent(d, ENTRY_ANGLE));
+}
+
+/** Appends the bend from the ring (starting at its diverge point, not repeated) to the exit lane at ARM_JOIN along arm d. */
+function divergeCurve(out: number[], d: Dir): void {
+  const ring: number[] = [];
+  ringPoint(ring, d, -ENTRY_ANGLE);
+  const lane: number[] = [];
+  armPoint(lane, d, ARM_JOIN, -LANE_OFFSET);
+  hermite(out, ring, ringTangent(d, -ENTRY_ANGLE), lane, [DIR_X[d], DIR_Z[d]]);
+}
+
+const armAngle = (d: Dir): number => Math.atan2(-DIR_Z[d], DIR_X[d]);
+
+type ArmManoeuvre = 'in' | 'out' | 'turn';
+
+/** An arm block's path, in its own frame: its centre is one tile out from the island centre. */
+function buildArmPath(d: Dir, manoeuvre: ArmManoeuvre): LanePath {
+  const pts: number[] = [];
+  const edge = HALF + ROAD_TILE_SIZE;
+  if (manoeuvre === 'in') {
+    armPoint(pts, d, edge, LANE_OFFSET);
+    armPoint(pts, d, ARM_JOIN, LANE_OFFSET);
+    mergeCurve(pts, d);
+  } else {
+    ringPoint(pts, d, -ENTRY_ANGLE);
+    divergeCurve(pts, d);
+    if (manoeuvre === 'out') {
+      armPoint(pts, d, edge, -LANE_OFFSET);
+    } else {
+      // Half circle round the arm's axis, from the exit lane over the far side to the entry lane.
+      for (let i = 1; i < ARC_STEPS; i += 1) {
+        const t = (i / ARC_STEPS) * Math.PI;
+        armPoint(pts, d, ARM_JOIN + Math.sin(t) * LANE_OFFSET, -Math.cos(t) * LANE_OFFSET);
+      }
+      armPoint(pts, d, ARM_JOIN, LANE_OFFSET);
+      mergeCurve(pts, d);
+    }
+  }
+  for (let i = 0; i < pts.length; i += 2) {
+    pts[i] -= DIR_X[d] * ROAD_TILE_SIZE;
+    pts[i + 1] -= DIR_Z[d] * ROAD_TILE_SIZE;
+  }
+  return finishPath(manoeuvre === 'turn' ? 'uturn' : 'right', pts);
 }
 
 /**
- * Roundabout centre tile: from the entry lane onto the ring (radius RING_RADIUS), counter-clockwise
- * seen from above with north up (right-hand traffic), off onto the exit lane. Straight on is half a
- * lap, a U-turn nearly a full one. Kind 'right' so cars take it at turning speed.
+ * Centre block: the outer-lane arc from the merge point of the arm the car came in by (it travels
+ * towards `inDir`) to the diverge point of the arm it leaves by (`outDir`), counter-clockwise.
+ * Straight on is about a third of a lap, leaving by the arm it came in on most of one. The points lie
+ * outside the centre block's own tile: the ring runs through the arm and corner blocks. Kind 'right'
+ * so cars take it at turning speed.
  */
 function buildRingPath(inDir: Dir, outDir: Dir): LanePath {
-  const dix = DIR_X[inDir];
-  const diz = DIR_Z[inDir];
-  const dox = DIR_X[outDir];
-  const doz = DIR_Z[outDir];
-  const startX = -dix * HALF - diz * LANE_OFFSET;
-  const startZ = -diz * HALF + dix * LANE_OFFSET;
-  const endX = dox * HALF - doz * LANE_OFFSET;
-  const endZ = doz * HALF + dox * LANE_OFFSET;
-  // Where each lane line meets the ring (the lane is LANE_OFFSET off a line through the centre).
-  const along = Math.sqrt(RING_RADIUS * RING_RADIUS - LANE_OFFSET * LANE_OFFSET);
-  const inX = -dix * along - diz * LANE_OFFSET;
-  const inZ = -diz * along + dix * LANE_OFFSET;
-  const outX = dox * along - doz * LANE_OFFSET;
-  const outZ = doz * along + dox * LANE_OFFSET;
-  // Screen angle (north up): φ = atan2(−z, x); counter-clockwise = increasing φ.
-  const a0 = Math.atan2(-inZ, inX);
-  let sweep = Math.atan2(-outZ, outX) - a0;
+  const a0 = armAngle(opposite(inDir)) + ENTRY_ANGLE;
+  let sweep = armAngle(outDir) - ENTRY_ANGLE - a0;
   while (sweep <= 0) sweep += Math.PI * 2;
   const steps = Math.max(4, Math.ceil((sweep / (Math.PI / 2)) * ARC_STEPS));
-  const pts: number[] = [startX, startZ];
+  const pts: number[] = [];
   for (let i = 0; i <= steps; i += 1) {
     const a = a0 + (sweep * i) / steps;
     pts.push(Math.cos(a) * RING_RADIUS, -Math.sin(a) * RING_RADIUS);
   }
-  pts.push(endX, endZ);
-  return finishPath('right', smooth(pts, 2));
+  return finishPath('right', pts);
 }
 
 /** All 16 manoeuvres, indexed [inDir * 4 + outDir]. */
 const PATHS: readonly LanePath[] = Array.from({ length: 16 }, (_, i) => buildPath((i >> 2) as Dir, (i & 3) as Dir));
 const RING_PATHS: readonly LanePath[] = Array.from({ length: 16 }, (_, i) => buildRingPath((i >> 2) as Dir, (i & 3) as Dir));
+const ARM_MANOEUVRES: readonly ArmManoeuvre[] = ['in', 'out', 'turn'];
+/** Indexed [arm * 3 + manoeuvre]. */
+const ARM_PATHS: readonly LanePath[] = Array.from({ length: 12 }, (_, i) => buildArmPath(Math.floor(i / 3) as Dir, ARM_MANOEUVRES[i % 3]));
 
 export function lanePath(inDir: Dir, outDir: Dir): LanePath {
   return PATHS[inDir * 4 + outDir];
 }
 
-/** The manoeuvre across a roundabout's centre tile (see buildRingPath). */
+/** The manoeuvre across a roundabout's centre block (see buildRingPath). */
 export function ringPath(inDir: Dir, outDir: Dir): LanePath {
   return RING_PATHS[inDir * 4 + outDir];
+}
+
+/**
+ * The manoeuvre across the roundabout arm block that lies towards `arm` from the island: driving in
+ * (travelling against `arm`), driving out (travelling along it) or turning round (in along `arm`, out
+ * against it). The path is in the arm block's own frame.
+ */
+export function armPath(arm: Dir, inDir: Dir, outDir: Dir): LanePath {
+  return ARM_PATHS[arm * 3 + (inDir !== outDir ? 2 : inDir === arm ? 1 : 0)];
 }
 
 /** Cell-local position + heading at arc length `s` (clamped to the path). Writes into `out`. */

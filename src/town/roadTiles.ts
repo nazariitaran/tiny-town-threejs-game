@@ -110,6 +110,25 @@ export function isFeatureCentre(feature: PlacedObject, cell: Cell): boolean {
   return bx * 2 + 1 === bw && bz * 2 + 1 === bd;
 }
 
+/**
+ * Which way the arm block containing `cell` lies from the feature's centre block (NEIGHBOURS index:
+ * 0 north, 1 east, 2 south, 3 west), or −1 for the centre, a corner or a cell outside the feature.
+ */
+export function featureArmSide(feature: PlacedObject, cell: Cell): number {
+  if (objectDef(feature.kind).roadArms === 'front') return -1;
+  const [w, d] = placedFootprint(feature);
+  const blocksW = w / ROAD_BLOCK;
+  const blocksD = d / ROAD_BLOCK;
+  const bx = Math.floor((cell.x - feature.anchor.x) / ROAD_BLOCK);
+  const bz = Math.floor((cell.z - feature.anchor.z) / ROAD_BLOCK);
+  if (bx < 0 || bz < 0 || bx >= blocksW || bz >= blocksD) return -1;
+  const midX = bx * 2 + 1 === blocksW;
+  const midZ = bz * 2 + 1 === blocksD;
+  if (midX === midZ) return -1;
+  if (midX) return bz === 0 ? 0 : bz === blocksD - 1 ? 2 : -1;
+  return bx === blocksW - 1 ? 1 : bx === 0 ? 3 : -1;
+}
+
 /** Connection mask of the road block containing `cell` (N=1, E=2, S=4, W=8 neighbouring blocks). */
 export function roadMask(state: TownStateReader, cell: Cell): number {
   const anchor = roadBlockAnchor(cell, scratchAnchor);

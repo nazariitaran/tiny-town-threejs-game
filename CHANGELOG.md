@@ -15,6 +15,9 @@ Player-facing release notes for Tiny Town. Budgets and measurements are in `docs
 - **A lighter roundabout.** The roundabout has about half the triangles (1,636 down to 906) and the same look; its round kerbs are a touch more faceted when you zoom right in.
 - **Lighter cars.** The four cars have about half the triangles (about 2,050 down to about 1,070 each) and the same look, headlights and tail lights included.
 
+### Fixed
+- Cars on the roundabout drive round its outer lane, on their own side of the road, instead of hugging the island.
+
 ## v0.6 — 2026-10-02
 Package 0.6.0. Everything merged after `v0.5`, and the first public release, at https://tiny-town-threejs-game.nazariy-taran.workers.dev/. Saves stay on version 4, so v0.5 towns open unchanged.
 

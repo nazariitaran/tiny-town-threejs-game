@@ -4,7 +4,8 @@
  *  - A car crosses one cell per manoeuvre and picks its next exit on entry: uniformly among the road
  *    neighbours except straight back; a U-turn only at a dead end.
  *  - In a roundabout only the centre and the 4 arms are drivable; cars join and leave through the arms
- *    and cross the centre on a ring path.
+ *    and circle the island on the ring's outer lane: bending on and off in the arm blocks, the arc
+ *    itself in the centre block (the paths reach beyond their own block).
  *  - target = min(MAX_CARS, drivable cells / CELLS_PER_CAR), scaled by the density. Spawns top up
  *    synchronously on every town change, so a state is fully determined by the town + seed.
  *  - A car whose cell or next cell stops being road is removed at once; extra cars leave newest first.
@@ -21,11 +22,11 @@
  */
 import type { TownChange, TownStateReader } from '../town/types';
 import { createSeededRandom } from '../utils/random';
-import { DIR_X, DIR_Z, lanePath, opposite, ringPath, samplePath, type Dir, type LanePath, type PathSample } from './lanePaths';
+import { armPath, DIR_X, DIR_Z, lanePath, opposite, ringPath, samplePath, type Dir, type LanePath, type PathSample } from './lanePaths';
 import { ROAD_TILE_SIZE, roadBlockCentreWorld } from '../game/config';
 import { objectDef } from '../catalog/objects';
 import { ROAD_BLOCK } from '../town/grid';
-import { isFeatureArm, isFeatureCentre, roadFeatureAt } from '../town/roadTiles';
+import { featureArmSide, isFeatureArm, isFeatureCentre, roadFeatureAt } from '../town/roadTiles';
 import type { PlacedObject } from '../town/types';
 import {
   entryRoute,
@@ -143,6 +144,8 @@ export interface Car {
   instant: boolean;
   /** The current block is a roundabout centre: the car follows ringPath, not lanePath. */
   ring: boolean;
+  /** The current block is a roundabout arm: the direction from the island towards it (the car follows armPath), else -1. */
+  arm: number;
   phase: CarPhase;
   /** Object id of the car park this car uses, 0 = none. In every lot phase cx/cz are the gate's front block. */
   lot: number;
@@ -386,12 +389,13 @@ export class TrafficSim {
     return isFeatureCentre(feature, this.probe) || isFeatureArm(feature, this.probe, 0) !== isFeatureArm(feature, this.probe, 1);
   }
 
-  /** Is block (x, z) a roundabout's island tile? */
-  private isRingBlock(x: number, z: number): boolean {
-    this.probe.x = x * ROAD_BLOCK;
-    this.probe.z = z * ROAD_BLOCK;
+  /** Sets `car.ring` and `car.arm` from the block the car is in. */
+  private classify(car: Car): void {
+    this.probe.x = car.cx * ROAD_BLOCK;
+    this.probe.z = car.cz * ROAD_BLOCK;
     const feature = this.town.inBounds(this.probe) ? roadFeatureAt(this.town, this.probe) : undefined;
-    return feature !== undefined && isFeatureCentre(feature, this.probe);
+    car.ring = feature !== undefined && isFeatureCentre(feature, this.probe);
+    car.arm = feature !== undefined ? featureArmSide(feature, this.probe) : -1;
   }
 
   /** Can a car drive from road block (x, z) to its road neighbour in direction `dir`? */
@@ -454,7 +458,7 @@ export class TrafficSim {
     car.cz = nz;
     car.inDir = car.outDir;
     car.sincePark += 1;
-    car.ring = this.isRingBlock(nx, nz);
+    this.classify(car);
     if (!car.ring && this.tryPark(car)) {
       if (car.phase === 'in' && car.s > car.route!.legs[0].length) car.s = car.route!.legs[0].length;
       return true;
@@ -530,7 +534,8 @@ export class TrafficSim {
         pushThrough: 0,
         age: 0,
         instant,
-        ring: this.isRingBlock(pick.x, pick.z),
+        ring: false,
+        arm: -1,
         phase: 'drive',
         lot: 0,
         stall: 0,
@@ -552,6 +557,7 @@ export class TrafficSim {
         exitSet: false,
         exitDir: 0,
       };
+      this.classify(car);
       car.s = pathOf(car).length / 2;
       this.place(car);
       this.cars.push(car);
@@ -994,6 +1000,7 @@ export class TrafficSim {
     car.route = null;
     car.sincePark = 0;
     car.ring = false;
+    car.arm = -1;
     if (small) {
       // The route ends on the front block's exit edge: cross it like any car.
       car.inDir = car.exitDir;
@@ -1048,7 +1055,8 @@ export function densityTarget(base: number, f: number): number {
   return Math.min(base, Math.max(1, Math.round(base * f)));
 }
 
-const pathOf = (car: Car): LanePath => (car.ring ? ringPath(car.inDir, car.outDir) : lanePath(car.inDir, car.outDir));
+const pathOf = (car: Car): LanePath =>
+  car.ring ? ringPath(car.inDir, car.outDir) : car.arm >= 0 ? armPath(car.arm as Dir, car.inDir, car.outDir) : lanePath(car.inDir, car.outDir);
 
 function speedFor(path: LanePath): number {
   return path.kind === 'straight' ? CRUISE_SPEED : path.kind === 'uturn' ? UTURN_SPEED : TURN_SPEED;
