@@ -19,6 +19,7 @@ One flat, colourful look: a 512 px gradient `colormap.png` per kit, the same gre
 | `composed/` | built by `scripts/compose-models.mjs` (below) | CC0, except church, swing, barbecue, donut shop (remodelled), tiered fountain and slide: CC-BY 3.0 |
 | `parking/` | built in Blender by `scripts/build-parking.py` (below) | CC0 (original; samples the roads atlas) |
 | `stadium/` | built in Blender by `scripts/build-stadium.py` (below) | CC0 (original; samples the roads atlas) |
+| `cinema/` | built in Blender by `scripts/build-cinema.py` (below) | CC0 (original; samples the roads atlas) |
 
 - Every pack folder keeps its `License.txt`; `composed/License.txt` names what each composed GLB is built from.
 - `assets-src/` (gitignored) holds the full source packs, the Nature Kit 2.1, the City Kit (Industrial) and `polypizza/` (the Poly Pizza source GLBs with their own `CREDITS.md`).
@@ -122,6 +123,13 @@ A road block in front of a car park's entrance draws its usual Kenney piece with
 - **No `warmAtlas`:** it is a building, so its concrete stays the kit's lavender-grey, like the supermarket.
 - **Night:** the lamps (atlas cell 0, 1) and scoreboard digits (5, 1) sample cells nothing else on the model uses; `GLOW_CELLS.floodlight` (`src/render/nightGlow.ts`) lights exactly those on a match night. The game measures the four lamp banks from those lamp-cell triangles (one bank per quadrant of the model) and lights the rest of the stadium from them, so keep one bank per corner and the lamps on their own cell. The pitch stripes (14, 3 and 15, 3), track (10, 2) and pitch paint and goals (9, 2) also keep their own cells, though nothing depends on it now. When changing colours: the roof, corner seats, lintel, dugouts and white flag use plain white (8, 2), which is the lamppost's lamp cell, and the yellow flags use (4, 1); both stay dark.
 - The floor markings are cut into the floor mesh (`pitch_cuts` / `pitch_texel`), not laid on top, so they cannot z-fight at any zoom.
+
+### Cinema
+`scripts/build-cinema.py` builds `public/assets/models/cinema/cinema.glb` in Blender, procedurally (`/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-cinema.py`; in an open session `exec` it with `__file__` set and call `build_cinema()` to review it in a "Cinema" collection). Not in the catalog yet. Like the stadium it shares the roads atlas (`../roads/Textures/colormap.png`, nothing embedded, no new swatches) and has no `warmAtlas`.
+- **Design:** a 6 × 4 cell lot (3 × 2 units, bounds 2.96 × 1.93 footprint, 2.08 tall to the top of the sign), front on +Z at rotation 0, scale 1. A low lobby (1.62) under a lavender-grey auditorium with a raised centre (1.80 / 1.98) and ribbed sides; an indigo facade with a pale-blue cornice, four poster lightboxes, a striped orange and white marquee with a lamp row over a glass entrance, a ticket window each side, an orange carpet across the forecourt and a CINEMA sign in pixel letters cut into a slate board on the roof. The posters' own palette (deep indigo, ice blue, orange) set the colours.
+- **Triangles:** 772 (764 for the building mesh, 8 for the poster quads).
+- **Poster slots:** four separate one-quad meshes, `poster-1` .. `poster-4` from left to right, each 0.48 × 0.64 (3:4 portrait) with its own material of the same name (flat placeholder colour, metalness 0, double-sided) and UVs filling 0..1. They sit 0.03 behind the facade, in recesses cut into the wall, so nothing is coplanar. Assign a poster by giving a slot's material a `map` (glTF convention, `flipY = false`; the image then reads upright). Distinct materials keep `ModelLibrary` from merging the four slots into one part.
+- **Rebuild:** the script is deterministic (the GLB is byte-identical from run to run). The exporter output is rewritten Kenney-style (external atlas image, `minFilter` 9987, metalness 0, double-sided, one node per mesh: `cinema`, `poster-1` .. `poster-4`).
 
 ### Ground colours
 Grass and wildflower ground share one lawn colour, walkways their own; both are flat procedural tiles in `GROUND_MODELS` (`src/catalog/models.ts`), with an instanced tuft or flower scatter on top. Pavement is the kit's `tile-low` with the warm atlas.
