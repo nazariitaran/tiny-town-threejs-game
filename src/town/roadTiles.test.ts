@@ -4,7 +4,7 @@ import { rotatedFootprint } from './grid';
 import { TownState } from './TownState';
 import type { Rotation, TownChange } from './types';
 import { ROAD_JOINT_MODELS, ROAD_PIECE_MODELS, ZEBRA_JOINT_MODELS, ZEBRA_PIECE_MODELS } from '../catalog/models';
-import { E, featureArmSide, isFeatureArm, isFeatureCentre, N, plainJoinMask, roadFeatureAt, roadJointFor, roadLook, roadMask, roadTileFor, rotateMask, S, underRoadFeature, W } from './roadTiles';
+import { E, featureArmSide, isFeatureArm, featureCornerIndex, isFeatureCentre, isFeatureCorner, N, plainJoinMask, roadFeatureAt, roadJointFor, roadLook, roadMask, roadTileFor, rotateMask, S, underRoadFeature, W } from './roadTiles';
 
 describe('road auto-tiling', () => {
   it('rotates masks counter-clockwise (E→N, S→E)', () => {
@@ -107,6 +107,9 @@ describe('road auto-tiling next to a roundabout (road feature)', () => {
     expect(featureArmSide(feature, { x: 6, z: 6 })).toBe(-1); // centre
     expect(featureArmSide(feature, { x: 4, z: 4 })).toBe(-1); // corner
     expect(featureArmSide(feature, { x: 20, z: 20 })).toBe(-1); // outside
+    for (const [x, z] of [[4, 4], [5, 5], [8, 4], [9, 5], [4, 8], [5, 9], [8, 8], [9, 9]]) expect(isFeatureCorner(feature, { x, z }), `${x},${z}`).toBe(true);
+    for (const [x, z] of [[6, 4], [4, 6], [6, 6], [7, 9], [9, 7]]) expect(isFeatureCorner(feature, { x, z }), `${x},${z}`).toBe(false);
+    expect([[4, 4], [9, 4], [9, 9], [4, 9], [6, 6]].map(([x, z]) => featureCornerIndex(feature, { x, z }))).toEqual([0, 1, 2, 3, -1]);
   });
 });
 

@@ -19,12 +19,14 @@ import type { Cell, GroundKind, PlacedEdge, PlacedObject, TownChange, TownStateR
 import { InstancePool, type PoolSlot } from './InstancePool';
 import { createLitMaterial, type LitMaterial } from './materials';
 import type { ModelLibrary } from './ModelLibrary';
-import { roadLook, underRoadFeature } from '../town/roadTiles';
+import { featureCornerIndex, roadFeatureAt, roadLook, underRoadFeature } from '../town/roadTiles';
 import { MODEL_STYLES } from './modelStyles';
 import { edgeOrigin, objectOrigin, styleMatrix } from './objectPose';
 import { easeOutBack, easeOutBackPeak, easeShrink, hash01, hopArc, hopHeight, moveEase } from './tween';
 
 const QUARTER = Math.PI / 2;
+/** Quarter turns that carry the paved-corner piece (made for the north-west block) onto corner 0..3. */
+const CORNER_QUARTER_TURNS: readonly number[] = [0, 3, 2, 1];
 /** Scratch for the move tween (no per-frame allocations). */
 const MOVE_POSITION = new THREE.Vector3();
 const MOVE_QUATERNION = new THREE.Quaternion();
@@ -389,7 +391,10 @@ export class TownRenderer {
     // A road block draws one tile, owned by its anchor (min corner) cell; the other cells draw nothing,
     // and nor does a block under a road feature (the roundabout or car park model draws the road there).
     const roadFiller = kind === 'road' && (cell.x % ROAD_BLOCK !== 0 || cell.z % ROAD_BLOCK !== 0 || underRoadFeature(this.town, cell));
-    const spec = kind === 'field' || roadFiller ? null : this.describeGround(kind, cell);
+    // A paved roundabout corner is one wedge piece per 2 × 2 block, owned by the block's anchor cell.
+    const corner = kind === 'pavement' ? this.pavedCorner(cell) : -1;
+    const cornerFiller = corner >= 0 && (cell.x % ROAD_BLOCK !== 0 || cell.z % ROAD_BLOCK !== 0);
+    const spec = kind === 'field' || roadFiller || cornerFiller ? null : this.describeGround(kind, cell, corner);
     if (current && spec && current.sig === spec.sig) return;
     const kindChanged = !current || !spec || current.sig.split(':')[0] !== spec.sig.split(':')[0];
 
@@ -405,7 +410,7 @@ export class TownRenderer {
       }
     }
     if (!spec) return;
-    const world = kind === 'road' ? roadBlockCentreWorld(cell) : cellToWorld(cell);
+    const world = kind === 'road' || corner >= 0 ? roadBlockCentreWorld(cell) : cellToWorld(cell);
     const origin = new THREE.Matrix4().makeRotationY(spec.rotation * QUARTER).setPosition(world.x, 0, world.z);
     const visual = this.createVisual(spec.sig, origin, spec.pieces, animate && kindChanged);
     if (inherit) {
@@ -417,7 +422,16 @@ export class TownRenderer {
     this.groundByCell.set(key, visual);
   }
 
-  private describeGround(kind: Exclude<GroundKind, 'field'>, cell: Cell): { sig: string; rotation: number; pieces: PieceSpec[] } {
+  /** The roundabout corner (0..3) a pavement cell lies in, or −1. */
+  private pavedCorner(cell: Cell): number {
+    const feature = roadFeatureAt(this.town, cell);
+    return feature ? featureCornerIndex(feature, cell) : -1;
+  }
+
+  private describeGround(kind: Exclude<GroundKind, 'field'>, cell: Cell, corner = -1): { sig: string; rotation: number; pieces: PieceSpec[] } {
+    if (corner >= 0) {
+      return { sig: `pavement:corner:${corner}`, rotation: CORNER_QUARTER_TURNS[corner], pieces: [{ source: this.modelSource('roundabout-corner', false), local: new THREE.Matrix4() }] };
+    }
     if (kind === 'road') {
       // The auto-tiled piece, or its zebra / car-park joint variant (roadLook).
       const look = roadLook(this.town, cell);

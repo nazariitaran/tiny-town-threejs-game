@@ -54,6 +54,8 @@ export const MODELS = {
   'pavement-tile': M('/assets/models/roads/tile-low.glb', 0.5, 0),
   // 3 × 3 road tiles (6 × 6 cells); arms at the middle of each side. Symmetric.
   roundabout: M('/assets/models/roads/road-roundabout.glb', 1, 0),
+  // The pavement that fills one grass wedge (the north-west corner block, origin at the block centre); turned per corner.
+  'roundabout-corner': M('/assets/models/roads/roundabout-corner.glb', 1, 0),
   // Parking lots (scripts/build-parking.py): whole road blocks, the entrance facing +Z natively.
   'parking-small': M('/assets/models/parking/parking-small.glb', 1, 0),
   'parking-medium': M('/assets/models/parking/parking-medium.glb', 1, 0),

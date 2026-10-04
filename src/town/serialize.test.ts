@@ -429,6 +429,21 @@ describe('parseSave and road features', () => {
     expect(decodeGround(save).filter((g) => g === 'road')).toHaveLength(48);
   });
 
+  it('keeps a roundabout whose corner blocks are pavement, and drops one with pavement on an arm or half a corner', () => {
+    const paved = (cells: Array<[number, number]>) => {
+      const editor = makeEditor();
+      expect(editor.apply({ type: 'place-object', kind: 'roundabout', cell: { x: 10, z: 10 }, rotation: 0 }, 'roundabout').ok).toBe(true);
+      editor.state.applyChanges(cells.map(([x, z]) => ({ layer: 'ground' as const, cell: { x, z }, before: 'road' as const, after: 'pavement' as const })));
+      return serializeTown(editor.state);
+    };
+    const corners = parseSave(JSON.parse(JSON.stringify(paved([[10, 10], [11, 10], [10, 11], [11, 11], [14, 14], [15, 14], [14, 15], [15, 15]]))));
+    const kept = ok(corners);
+    expect(kept.objects.map((o) => o.kind)).toEqual(['roundabout']);
+    expect(decodeGround(kept).filter((g) => g === 'pavement')).toHaveLength(8);
+    expect(ok(parseSave(JSON.parse(JSON.stringify(paved([[12, 10]]))))).objects).toEqual([]);
+    expect(ok(parseSave(JSON.parse(JSON.stringify(paved([[10, 10], [11, 11]]))))).objects).toEqual([]);
+  });
+
   it('drops a roundabout standing on non-road ground (even partly)', () => {
     const onField = ok(parseSave({ ...blank(), objects: [roundabout(1, 4, 4)], nextObjectId: 2 }));
     expect(onField.objects).toEqual([]);

@@ -9,7 +9,7 @@ One flat, colourful look: a 512 px gradient `colormap.png` per kit, the same gre
 
 | Folder in `public/assets/models/` | Source | Licence |
 | --- | --- | --- |
-| `roads/` | Kenney City Kit (Roads) 2.1; `road-roundabout` optimised by `scripts/build-roundabout.py` (below) | CC0 |
+| `roads/` | Kenney City Kit (Roads) 2.1; `road-roundabout` optimised by `scripts/build-roundabout.py` and `roundabout-corner` built by `scripts/build-roundabout-corner.py` (below) | CC0 |
 | `suburban/` | Kenney City Kit (Suburban) 2.0 | CC0 |
 | `commercial/` | Kenney City Kit (Commercial) 2.1 | CC0 |
 | `platformer/` | Kenney Platformer Kit 4.1 | CC0 |
@@ -93,6 +93,8 @@ Native connections at rotation 0:
 `roads/road-roundabout.glb` is the Kenney City Kit (Roads) roundabout, optimised in Blender: one mesh and one node with the kit's own `colormap` material, 906 triangles instead of 1,636. Same bounding box (3 × 0.02 × 3), the same palette cells and wall gradients, and the top surface within 0.2% of the original.
 - **What changed:** the unseen underside is gone; coplanar faces of one colour are merged; the round kerbs go from 48 to 24 segments, and the thin lane-marking rings and entry curves keep about twice that, so the outer kerb arcs are faintly faceted up close. Flat shading.
 - **Rebuild:** `/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-roundabout.py` reads the original from `assets-src/city-kit-roads/Models/GLB format/` (gitignored, so put the City Kit (Roads) there first) and rewrites the file Kenney-style (`Textures/colormap.png` by relative path, nothing embedded, the original material block). The output is byte-identical from run to run.
+
+`roads/roundabout-corner.glb` is the pavement piece that fills one grass wedge of the roundabout (§ Roundabout in `architecture.md`): 10 triangles, one mesh and one node with the kit's own `colormap` material, 1 × 0.02 × 1 (the north-west corner block, origin at the block centre, the roundabout centre at +1, +1 in x, z; `TownRenderer` turns it in quarter turns for the other three corners). `scripts/build-roundabout-corner.py` computes the wedge from `road-roundabout.glb` itself: the block square minus the XZ footprint of every triangle of the roundabout (a constrained Delaunay triangulation), so the piece's inner edge follows the roundabout's own kerb chords exactly, with no gap and no overlap. The top is at y = 0.02, flush with the kerb tops and the pavement tiles; walls (down to 0) stand only on the two block edges that face outward, because the arms' own sidewalk walls already close the other two and the kerb wall closes the curve; there is no underside. Every face samples tile-low's one texel (atlas column 6, row 2 from the top), so it takes the same `warmAtlas` tint as pavement. Rebuild: `/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-roundabout-corner.py` (reads only the committed `road-roundabout.glb`, byte-identical output). Rebuild it whenever `road-roundabout.glb` changes.
 
 ### Parking lots
 `scripts/build-parking.py` builds `public/assets/models/parking/parking-{small,medium,large}.glb` in Blender, procedurally, from the road kit's measurements. Run it headless (`/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-parking.py`), or `exec` it in an open session and call `build_all()` to review the lots in a "Parking" collection (`build_all(export_glb=True)` also writes the GLBs).

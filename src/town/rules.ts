@@ -15,7 +15,7 @@
 import { cellKey, edgeCells, edgeInBounds, edgeKey, edgeOfCellSide, footprintCells, NEIGHBOURS, ROAD_BLOCK, roadBlockCells } from './grid';
 import { ZEBRA_PIECE_MODELS } from '../catalog/models';
 import { footprintOf, objectDef, placedFootprint, type ObjectDef } from '../catalog/objects';
-import { roadMask, roadTileFor } from './roadTiles';
+import { isFeatureCorner, roadFeatureAt, roadMask, roadTileFor } from './roadTiles';
 import type { BuildAction, Cell, GroundKind, InvalidReason, PlanResult, Rotation, TownChange, TownStateReader } from './types';
 
 export interface PlanContext {
@@ -90,6 +90,8 @@ function planPaintGround(state: TownStateReader, action: Extract<BuildAction, { 
   if (!state.inBounds(cell)) return fail('out-of-bounds', RULE_MESSAGES.outOfBounds);
   const before = state.getGround(cell);
   if (before === action.kind) return fail('no-change', RULE_MESSAGES.noChange);
+  const feature = roadFeatureAt(state, cell);
+  if (feature && isFeatureCorner(feature, cell) && (before === 'road' || before === 'pavement')) return planPaintFeatureCorner(state, cell, action.kind, objectDef(feature.kind));
   if (action.kind === 'road') return planPaintRoadBlock(state, cell);
   if (before === 'road') {
     // Repainting a road cell turns its whole block. Only road features stand on road.
@@ -103,6 +105,14 @@ function planPaintGround(state: TownStateReader, action: Extract<BuildAction, { 
     if (!def.allowedGround.includes(action.kind)) return fail('occupied', `Move the ${def.label} first`);
   }
   return { ok: true, changes: [{ layer: 'ground', cell: { x: cell.x, z: cell.z }, before, after: action.kind }] };
+}
+
+/** A roundabout's corner block is road (its grass wedge shows) or pavement; grass or road paints the wedge back. */
+function planPaintFeatureCorner(state: TownStateReader, cell: Cell, kind: GroundKind, def: ObjectDef): PlanResult {
+  const after: GroundKind | null = kind === 'pavement' ? 'pavement' : kind === 'grass' || kind === 'road' ? 'road' : null;
+  if (!after) return fail('occupied', `Move the ${def.label} first`);
+  const changes = blockGroundChanges(state, cell, after);
+  return changes.length > 0 ? { ok: true, changes } : fail('no-change', RULE_MESSAGES.noChange);
 }
 
 /**

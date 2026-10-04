@@ -573,6 +573,12 @@ describe('road features — parking lots (one kind, a footprint per style, block
   });
 });
 
+const makeStateWithRoundabout = (): TownState => {
+  const state = makeState();
+  state.applyChanges(expectOk(plan(state, placeObj('roundabout', 2, 2))));
+  return state;
+};
+
 describe('road features — the roundabout (6×6 cells = 3×3 road blocks, block aligned)', () => {
   const footprint = (x0: number, z0: number): string[] => {
     const keys: string[] = [];
@@ -685,6 +691,40 @@ describe('road features — the roundabout (6×6 cells = 3×3 road blocks, block
       expectFail(plan(state, paint(kind, 4, 4)), 'occupied', 'Move the Roundabout first');
     }
     expectFail(plan(state, paint('road', 4, 4)), 'no-change', '');
+  });
+
+  it('corner blocks: pavement paints the whole 2 × 2 corner, grass or road paints the wedge back, other ground is refused', () => {
+    const state = makeState();
+    state.applyChanges(expectOk(plan(state, placeObj('roundabout', 2, 2))));
+    const paved = expectOk(plan(state, paint('pavement', 3, 3)));
+    expect(paved.map(cellOf).sort()).toEqual(['2,2', '2,3', '3,2', '3,3']);
+    expect(paved.every((c) => c.layer === 'ground' && c.before === 'road' && c.after === 'pavement')).toBe(true);
+    expect(paved[paved.length - 1]).toMatchObject({ cell: { x: 3, z: 3 } });
+    state.applyChanges(paved);
+    expectFail(plan(state, paint('pavement', 2, 2)), 'no-change', '');
+    expectFail(plan(state, paint('meadow', 2, 2)), 'occupied', 'Move the Roundabout first');
+    expectFail(plan(state, paint('walkway', 2, 2)), 'occupied', 'Move the Roundabout first');
+    expectFail(plan(state, paint('pavement', 4, 4)), 'occupied', 'Move the Roundabout first'); // centre block
+    expectFail(plan(state, paint('pavement', 4, 2)), 'occupied', 'Move the Roundabout first'); // arm block
+    for (const kind of ['grass', 'road'] as const) {
+      const back = expectOk(plan(state, paint(kind, 2, 3)));
+      expect(back.map(cellOf).sort()).toEqual(['2,2', '2,3', '3,2', '3,3']);
+      expect(back.every((c) => c.layer === 'ground' && c.before === 'pavement' && c.after === 'road')).toBe(true);
+    }
+    expectFail(plan(state, paint('grass', 4, 4)), 'occupied', 'Move the Roundabout first'); // centre block
+    expectFail(plan(makeStateWithRoundabout(), paint('grass', 2, 2)), 'no-change', ''); // a wedge already
+  });
+
+  it('corner blocks: bulldozing the roundabout leaves their pavement and turns the rest of its road to field', () => {
+    const state = makeState();
+    state.applyChanges(expectOk(plan(state, placeObj('roundabout', 2, 2))));
+    state.applyChanges(expectOk(plan(state, paint('pavement', 2, 2))));
+    const changes = expectOk(plan(state, bulldoze(5, 5)));
+    expect(changes).toHaveLength(32 + 1);
+    expect(changes.slice(0, 32).every((c) => c.layer === 'ground' && c.before === 'road' && c.after === 'field')).toBe(true);
+    state.applyChanges(changes);
+    expect(state.getGround({ x: 2, z: 2 })).toBe('pavement');
+    expect(state.getGround({ x: 5, z: 5 })).toBe('field');
   });
 
   it('invalid: fences across its (road) cells → blocked-by-road', () => {

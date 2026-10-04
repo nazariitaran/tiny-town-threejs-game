@@ -8,6 +8,7 @@
 import { PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
 import { OBJECTS, placedFootprint } from '../catalog/objects';
 import { cellKey, edgeCells, edgeInBounds, edgeKey, footprintCells, ROAD_BLOCK } from './grid';
+import { isFeatureCorner } from './roadTiles';
 import { sanitizeTownName } from './townName';
 import type { EdgeKind, GroundKind, ObjectKind, PlacedEdge, PlacedObject, Rotation, SavedTown, TownStateReader } from './types';
 
@@ -185,10 +186,10 @@ function parseSaveUnsafe(input: unknown, options: ParseOptions): SavedTown | Err
     const def = OBJECTS[object.kind];
     if ((def.roadFeature || def.roadMarking) && (object.anchor.x % ROAD_BLOCK !== 0 || object.anchor.z % ROAD_BLOCK !== 0)) continue;
     const cells = footprintCells(object.anchor, placedFootprint(object), object.rotation);
-    // A road feature stands on road only; everything else on its allowed ground.
+    // A road feature stands on road, or pavement in its corner blocks; everything else on its allowed ground.
     const fits = cells.every((c) => {
       const ground = groundAt(c.x, c.z);
-      const groundOk = def.roadFeature ? ground === 'road' : def.allowedGround.includes(ground);
+      const groundOk = def.roadFeature ? ground === 'road' || (ground === 'pavement' && isFeatureCorner(object, c)) : def.allowedGround.includes(ground);
       return c.x >= 0 && c.z >= 0 && c.x < plotW && c.z < plotD && !occupied.has(cellKey(c)) && groundOk;
     });
     if (!fits) continue;

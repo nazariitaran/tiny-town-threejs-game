@@ -110,6 +110,21 @@ export function isFeatureCentre(feature: PlacedObject, cell: Cell): boolean {
   return bx * 2 + 1 === bw && bz * 2 + 1 === bd;
 }
 
+/** Is `cell` in a corner block of a side-armed feature (the roundabout's grass wedges, which can be paved)? */
+export function isFeatureCorner(feature: PlacedObject, cell: Cell): boolean {
+  return featureCornerIndex(feature, cell) >= 0;
+}
+
+/** The corner block of a side-armed feature containing `cell`: 0 north-west, 1 north-east, 2 south-east, 3 south-west (clockwise from above), or −1. */
+export function featureCornerIndex(feature: PlacedObject, cell: Cell): number {
+  if (objectDef(feature.kind).roadArms === 'front') return -1;
+  const { bx, bz, bw, bd } = featureBlock(feature, cell);
+  const east = bx === bw - 1;
+  const south = bz === bd - 1;
+  if ((bx !== 0 && !east) || (bz !== 0 && !south)) return -1;
+  return south ? (east ? 2 : 3) : east ? 1 : 0;
+}
+
 /**
  * Which way the arm block containing `cell` lies from the feature's centre block (NEIGHBOURS index:
  * 0 north, 1 east, 2 south, 3 west), or −1 for the centre, a corner or a cell outside the feature.
