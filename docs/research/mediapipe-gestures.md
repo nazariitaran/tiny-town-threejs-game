@@ -124,7 +124,7 @@ All checks below ran in this cloud container: 4 Xeon cores at 2.1 GHz, no GPU (C
 | Unit tests, `src/gesture/gesture.test.ts` | 23 pass: One Euro filter, back-dated press, triggers, pinch geometry and mirror mapping, pinch hysteresis and loss, fist grab deltas, two-fist zoom, held commands, hand picking, nose offset, head calibration, mouth / pinch press, eyebrow and smile commands, re-centring |
 | `tests/gestures.spec.ts` (Chromium fake camera; no hand in view) | 3 pass: without the flag no gesture code or MediaPipe request at all; with it the panel starts the camera, frames go through the worker, Stop releases the camera; switching mode restarts with the face model |
 | `scripts/gesture-smoke.mjs` (real tracking on photos; Low preset, 960 × 540) | all checks pass (table below) |
-| Full e2e suite, 2 workers | see the hand-off notes on the branch: on this machine several existing specs time out waiting for the title, and the same specs time out on `main` here too |
+| Existing e2e specs (interaction, build-flow, move, smoke; 1 worker, 180 s timeout) | inconclusive on this machine: 4 pass, 9 fail, all on timeouts or wall-clock checks (a 1.5 s tooltip, the F-reset camera pose). `main` (`origin/main`) fails the same smoke and interaction tests here, the camera-pose assertion identically. **Re-run the full suite on a machine with a GPU before merging.** |
 
 **Smoke journey, hand mode** (each step's check is read from `__THREE_GAME_DIAGNOSTICS__`):
 
