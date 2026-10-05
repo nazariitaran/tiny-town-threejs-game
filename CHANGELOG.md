@@ -5,6 +5,15 @@ Player-facing release notes for Tiny Town. Budgets and measurements are in `docs
 ## Unreleased
 Everything merged on `main` after `v0.7`. Saves stay on version 4.
 
+### Changed
+- **The pool has a terrace.** The two parasols now stand on a paved strip beside the basin, so the pool fills its whole 4 × 3 plot.
+
+### Fixed
+- **No gap round the stadium and the cinema.** Their paving now reaches the edge of their plot, so pavement, grass and roads beside them meet it with no strip of field in between, and pavement painted under them no longer flickers. Ground painted under the stadium, the cinema or the pool is kept but not drawn while the building stands on it.
+- **The tiered fountain keeps its water** on pavement, grass and garden paths; the tiles used to cover it.
+- **The pool's water stays blue** on pavement and grass, and its edge and the parasols' feet no longer sink into them.
+- **Postboxes keep their dark plinth on pavement,** and a traffic light's base no longer flickers there.
+
 ## v0.7 — 2026-10-04
 Package 0.7.0. Everything merged after `v0.6`. Saves stay on version 4, so v0.6 towns open unchanged.
 

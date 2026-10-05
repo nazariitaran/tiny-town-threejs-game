@@ -321,7 +321,7 @@ def build_mesh(name, material):
     b.scoreboard()
     b.flags()
     b.shift(BOWL_SHIFT)
-    hx, hy = LOT[0] / 2 - 0.05, LOT[1] / 2 - 0.05
+    hx, hy = LOT[0] / 2, LOT[1] / 2
     b.box(-hx, -hy, 0, hx, hy, PLINTH_Z, 'concrete_md', faces={'+z': 'concrete_lt', '-z': 'concrete_dk'}, skip=())
     b.floodlights()
     return b.mesh(name, material)

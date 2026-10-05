@@ -10,9 +10,10 @@ import { CELL_SIZE, PLOT_CONTENT_HEIGHT, ROAD_TILE_SIZE } from '../game/config';
 import { ALTITUDE } from '../life/FlockSim';
 import { CAR_FILES, CAR_SCALE } from '../life/LifeSystem';
 import { MODEL_STYLES } from '../render/modelStyles';
-import { EDGE_MODELS, GROUND_MODELS, MODELS, ROAD_JOINT_MODELS, ROAD_PIECE_MODELS, ZEBRA_JOINT_MODELS, type ModelId } from './models';
+import { EDGE_MODELS, GROUND_MODELS, MODELS, ROAD_JOINT_MODELS, ROAD_PIECE_MODELS, ZEBRA_JOINT_MODELS, type ModelId, type ModelSpec } from './models';
 import { footprintOf, heightScale, OBJECT_KINDS, OBJECTS, pickableVariants } from './objects';
 import { RETIRED_TOOLS, TOOL_CATEGORIES, TOOLS, toolsInCategory, variantIcon, type ToolLayer } from './tools';
+import type { GroundKind } from '../town/types';
 import { createGlbLoader, PUBLIC_DIR, publicPath } from '../testing/gltfNode';
 
 
@@ -273,6 +274,71 @@ describe('catalog', () => {
       });
     }
     expect(drawn('roundabout').y).toBeCloseTo(roadHeight, 2);
+  });
+
+  it('models that bring their own ground fill their whole footprint', () => {
+    const covering = Object.values(OBJECTS).filter((def) => def.coversGround);
+    expect(covering.map((def) => def.kind)).toEqual(['stadium', 'cinema', 'swimming-pool']);
+    for (const def of covering) {
+      def.models.forEach((id, variant) => {
+        const [w, d] = footprintOf(def, variant);
+        const size = drawn(id);
+        expect(size.x, `${id} width`).toBeCloseTo(w * CELL_SIZE, 2);
+        expect(size.z, `${id} depth`).toBeCloseTo(d * CELL_SIZE, 2);
+        expect(MODELS[id].offset, `${id} offset`).toBeUndefined();
+      });
+    }
+  });
+
+  it('no model has a surface that a ground tile under it would hide (unless it brings its own ground)', async () => {
+    // Tile tops as drawn: the pavement tile, and the flat lawn and walkway slabs.
+    const tileTop = (ground: GroundKind): number => {
+      if (ground === 'field' || ground === 'road') return 0;
+      const visual = GROUND_MODELS[ground];
+      return visual.type === 'model' ? drawn(visual.model).y : visual.height;
+    };
+    const CLEARANCE = 0.003;
+    const load = await createGlbLoader();
+    const a = new THREE.Vector3();
+    const b = new THREE.Vector3();
+    const c = new THREE.Vector3();
+    const normal = new THREE.Vector3();
+    const hiddenBy: Record<string, number> = {};
+    for (const def of Object.values(OBJECTS)) {
+      if (def.roadFeature || def.roadMarking || def.coversGround) continue;
+      const limit = Math.max(...def.allowedGround.map(tileTop)) + CLEARANCE;
+      for (const id of def.models) {
+        const spec: ModelSpec = MODELS[id];
+        const gltf = await load(spec.url);
+        gltf.scene.scale.setScalar(spec.scale);
+        gltf.scene.updateMatrixWorld(true);
+        const base = new THREE.Box3().setFromObject(gltf.scene).min.y - (spec.offset?.[1] ?? 0);
+        const stretch = (MODEL_STYLES[id]?.scale?.[1] ?? 1) * heightScale(def);
+        let hidden = 0;
+        gltf.scene.traverse((object) => {
+          const mesh = object as THREE.Mesh;
+          if (!mesh.isMesh) return;
+          const position = mesh.geometry.getAttribute('position');
+          const index = mesh.geometry.index;
+          const count = index ? index.count : position.count;
+          for (let i = 0; i < count; i += 3) {
+            const at = (k: number) => (index ? index.getX(i + k) : i + k);
+            a.fromBufferAttribute(position, at(0)).applyMatrix4(mesh.matrixWorld);
+            b.fromBufferAttribute(position, at(1)).applyMatrix4(mesh.matrixWorld);
+            c.fromBufferAttribute(position, at(2)).applyMatrix4(mesh.matrixWorld);
+            normal.crossVectors(b.sub(a), c.sub(a));
+            const area = normal.length() / 2;
+            if (normal.y / (2 * area) < 0.7) continue;
+            // An upward face: a floor at y = 0 is the model's own underside or basin bed, not a detail.
+            const y = (a.y - base) * stretch;
+            if (y > 0.001 && y < limit) hidden += area;
+          }
+        });
+        if (hidden >= 0.0005) hiddenBy[id] = Number(hidden.toFixed(4));
+      }
+    }
+    // Area (world units²) of upward faces lower than the tallest tile the kind may stand on, plus a clearance.
+    expect(hiddenBy).toEqual({});
   });
 
   it('parking lots lie at road height round their whole rim (only the sign and bushes stand up, inside it)', async () => {

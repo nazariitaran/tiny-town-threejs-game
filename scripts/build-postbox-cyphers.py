@@ -12,7 +12,7 @@
 # Douglas-Peucker. The filled shapes are triangulated with a constrained Delaunay triangulation that also
 # honours the pillar's creases (below), and extruded into a flat-topped relief with no underside.
 #
-# The postbox's body is a 12-sided prism (r = 0.045, native units, y 0.012..0.13) whose front (-Z) is a
+# The postbox's body is a 12-sided prism (r = 0.045, native units, y 0.02..0.13) whose front (-Z) is a
 # vertex, so its front is a ridge with a flat facet 15 degrees either way. The relief follows those
 # facets exactly: the cypher is laid on the unrolled surface (u = distance along the facets, positive to the
 # viewer's right, v = height) and folded at the creases, so it sits on the pillar with no gap and the top
@@ -40,7 +40,7 @@ FACET = 2 * BODY_R * math.sin(math.pi / SIDES)       # facet width, 0.0233
 CREASES = (-1, 0, 1)                  # facet edges the cypher can straddle, in facets from the front ridge
 DEPTH = 0.0054                        # relief height above the surface: 0.0075 game units
 EMBED = 0.0006                        # the wall's foot sinks this far into the body
-Y_CENTRE = 0.041                      # between the plinth (0.012) and the yellow plate (0.07)
+Y_CENTRE = 0.041                      # between the plinth (0.02) and the yellow plate (0.07)
 W_MAX, H_MAX = 0.050, 0.040           # cypher fits this box: 0.07 x 0.056 game units
 K = 1000.0                            # the 2D work is done in thousandths of a native unit
 

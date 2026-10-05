@@ -83,9 +83,10 @@ export const MODELS = {
   'road-joint-zebra-straight-n': M('/assets/models/parking/road-joint-zebra-straight-n.glb', 1, 1),
   'road-joint-zebra-straight-ns': M('/assets/models/parking/road-joint-zebra-straight-ns.glb', 1, 1),
   // The lamps face −X natively (not −Z like the rest of the kit), so one quarter turn puts them on +z.
-  'traffic-light': M('/assets/models/roads/traffic-light.glb', 1, 1, { glow: 'traffic' }),
+  // Their base plate is kerb height (0.02); the lift keeps its top clear of a pavement tile's.
+  'traffic-light': M('/assets/models/roads/traffic-light.glb', 1, 1, { offset: [0, 0.005, 0], glow: 'traffic' }),
   // Its arm overhangs −X after the turn; like the lamppost, the offset puts the pole back mid-cell.
-  'traffic-light-hanging': M('/assets/models/roads/traffic-light-hanging.glb', 1, 1, { offset: [-0.103, 0, 0], glow: 'traffic' }),
+  'traffic-light-hanging': M('/assets/models/roads/traffic-light-hanging.glb', 1, 1, { offset: [-0.103, 0.005, 0], glow: 'traffic' }),
   // The pole is at the native origin and the arm overhangs −Z. Bounds-centring moves the pole
   // 0.0867 × scale off-centre; the offset puts it back mid-cell.
   lamppost: M('/assets/models/roads/light-curved.glb', 1, 2, { offset: [0, 0, 0.087], glow: 'lamp' }),

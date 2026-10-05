@@ -365,8 +365,9 @@ export class TownRenderer {
           if (change.op === 'add') this.moveObject(change.object, animate);
         } else if (change.op === 'add') this.addObject(change.object, animate);
         else this.removeObject(change.object.id, animate);
-        // Meadow scatter hides under objects: refresh the covered cells. A road feature also hides
-        // the road tiles under it and changes how the neighbouring road blocks join up.
+        // Meadow scatter hides under objects, and all ground under a coversGround model: refresh the
+        // covered cells. A road feature also hides the road tiles under it and changes how the
+        // neighbouring road blocks join up.
         const def = objectDef(change.object.kind);
         for (const cell of footprintCells(change.object.anchor, placedFootprint(change.object), change.object.rotation)) {
           if (!this.town.inBounds(cell)) continue;
@@ -394,7 +395,7 @@ export class TownRenderer {
     // A paved roundabout corner is one wedge piece per 2 × 2 block, owned by the block's anchor cell.
     const corner = kind === 'pavement' ? this.pavedCorner(cell) : -1;
     const cornerFiller = corner >= 0 && (cell.x % ROAD_BLOCK !== 0 || cell.z % ROAD_BLOCK !== 0);
-    const spec = kind === 'field' || roadFiller || cornerFiller ? null : this.describeGround(kind, cell, corner);
+    const spec = kind === 'field' || roadFiller || cornerFiller || this.underSlab(cell) ? null : this.describeGround(kind, cell, corner);
     if (current && spec && current.sig === spec.sig) return;
     const kindChanged = !current || !spec || current.sig.split(':')[0] !== spec.sig.split(':')[0];
 
@@ -420,6 +421,12 @@ export class TownRenderer {
       this.writeVisual(visual, inherit.scale);
     }
     this.groundByCell.set(key, visual);
+  }
+
+  /** True under an object whose model brings its own ground (ObjectDef.coversGround). */
+  private underSlab(cell: Cell): boolean {
+    const object = this.town.getObjectAt(cell);
+    return object !== undefined && objectDef(object.kind).coversGround === true;
   }
 
   /** The roundabout corner (0..3) a pavement cell lies in, or −1. */

@@ -176,6 +176,30 @@ function recolor(glb, colors) {
   return pruneTextures(glb);
 }
 
+/** Move every vertex of the named material that lies below `below` up to `to` (source units), e.g. a water surface. */
+function liftVertices(glb, material, below, to) {
+  const j = glb.json;
+  const index = j.materials.findIndex((m) => m.name === material);
+  const done = new Set();
+  for (const mesh of j.meshes) for (const p of mesh.primitives) {
+    if (p.material !== index || done.has(p.attributes.POSITION)) continue;
+    done.add(p.attributes.POSITION);
+    const acc = j.accessors[p.attributes.POSITION];
+    const view = j.bufferViews[acc.bufferView];
+    const start = (view.byteOffset || 0) + (acc.byteOffset || 0);
+    const stride = view.byteStride || 12;
+    let min = Infinity, max = -Infinity;
+    for (let i = 0; i < acc.count; i++) {
+      const at = start + i * stride + 4;
+      if (glb.bin.readFloatLE(at) < below) glb.bin.writeFloatLE(to, at);
+      const y = glb.bin.readFloatLE(at);
+      min = Math.min(min, y); max = Math.max(max, y);
+    }
+    acc.min[1] = min; acc.max[1] = max;
+  }
+  return glb;
+}
+
 /** Drop every primitive drawn with one of the named materials (e.g. a model's own ground slab). */
 function dropMaterials(glb, names) {
   const j = glb.json;
@@ -325,9 +349,11 @@ const recipes = {
   // Built from primitives: no CC0 kit has a postbox in this style.
   postbox: () => {
     const red = [214, 58, 52], dark = [52, 55, 72], black = [36, 38, 50], gold = [240, 190, 70];
+    // The plinth stands clear of a pavement tile (0.02 world; the catalog scales the postbox by 1.4).
+    const plinth = 0.02;
     return primitiveGlb([
-      { name: 'plinth', material: 'plinth', color: dark, tris: cylinder(0.052, 0, 0.012, 12) },
-      { name: 'body', material: 'red', color: red, tris: cylinder(0.045, 0.012, 0.13, 12, { top: false }) },
+      { name: 'plinth', material: 'plinth', color: dark, tris: cylinder(0.052, 0, plinth, 12) },
+      { name: 'body', material: 'red', color: red, tris: cylinder(0.045, plinth, 0.13, 12, { top: false }) },
       { name: 'cap-rim', material: 'red', color: red, tris: cylinder(0.05, 0.13, 0.142, 12) },
       { name: 'cap', material: 'red', color: red, tris: dome(0.047, 0.142, 0.03, 12, 3) },
       { name: 'slot', material: 'slot', color: black, tris: box(-0.022, 0.022, 0.108, 0.118, -0.0475, -0.04) },
@@ -335,11 +361,13 @@ const recipes = {
     ], GEN);
   },
   // A stretched fountain basin, since the modular pool pieces leave gaps in the water.
-  // Native 4 x 3 units; the catalog scales it by 0.5 onto 4 x 3 cells. The deck faces -Z.
+  // Native 4 x 3 units; the catalog scales it by 0.5 onto 4 x 3 cells. The terrace faces -Z: a paved strip
+  // (0.04 native, a pavement tile's height in the game) the parasols stand on, so the model fills its whole lot.
   'swimming-pool': () => merge([
     { file: kit('fantasy-town-kit', 'fountain-square.glb'), name: 'basin', translation: [0, 0, 0.5], scale: [2, 0.4, 1] },
-    { file: kit('city-kit-commercial', 'detail-parasol-a.glb'), name: 'parasol-a', translation: [-1.1, 0, -1.05], scale: 1.6 },
-    { file: kit('city-kit-commercial', 'detail-parasol-b.glb'), name: 'parasol-b', translation: [1.1, 0, -1.05], scale: 1.6 },
+    { file: kit('fantasy-town-kit', 'road.glb'), name: 'terrace', translation: [0, 0, -1], scale: [4, 1.6, 1] },
+    { file: kit('city-kit-commercial', 'detail-parasol-a.glb'), name: 'parasol-a', translation: [-1.1, 0.04, -1.05], scale: 1.6 },
+    { file: kit('city-kit-commercial', 'detail-parasol-b.glb'), name: 'parasol-b', translation: [1.1, 0.04, -1.05], scale: 1.6 },
   ], GEN),
   // As shipped, 2 x 2 units.
   fountain: () => merge([{ file: kit('fantasy-town-kit', 'fountain-round-detail.glb'), name: 'fountain' }], GEN),
@@ -357,7 +385,8 @@ const recipes = {
   // (scripts/data/donut-shop-optimised.glb, already at game scale).
   'donut-shop': () => flatMaterials(merge([{ file: path.join(root, 'scripts/data/donut-shop-optimised.glb'), name: 'donut-shop' }], GEN)),
   // "Fountain" by Poly by Google (CC-BY 3.0): the near-black stone and olive water are recoloured to match the Kenney fountain.
-  'tiered-fountain': () => flatMaterials(recolor(merge([{ file: poly('fountain-tiered.glb'), name: 'fountain', scale: 0.107 }], GEN), {
+  // The source's lower basin holds its water on the basin floor; it is lifted to 0.08 (0.745 source units), under the 0.12 rim.
+  'tiered-fountain': () => flatMaterials(recolor(liftVertices(merge([{ file: poly('fountain-tiered.glb'), name: 'fountain', scale: 0.107 }], GEN), 'lambert5SG', 1, 0.745), {
     lambert3SG: '#d8d2cc', lambert4SG: '#b9b1ab', lambert5SG: '#6fb6dc',
   })),
   // "Slide" by sirkitree (CC-BY 3.0): runs along X like the swing frame, about as tall as the swing.

@@ -41,6 +41,8 @@ export interface ObjectDef {
    * (catalog ZEBRA_PIECE_MODELS). Bulldozing it leaves the road; roads and traffic ignore it.
    */
   roadMarking?: boolean;
+  /** The model carries its own ground slab over its whole footprint: no ground tile is drawn under it. The painted ground stays in the town. */
+  coversGround?: boolean;
   /** Residents counted in stats (>0 means it's a home). */
   residents: number;
   /** Vertical stretch of the drawn model (default 1); drawing only, never changes the footprint. */
@@ -112,8 +114,8 @@ export const OBJECTS: Readonly<Record<ObjectKind, ObjectDef>> = {
   'donut-shop': def({ kind: 'donut-shop', label: 'Donut shop', group: 'amenity', footprint: [3, 3], allowedGround: PAVED_OK, residents: 0, models: ['donut-shop'] }),
   supermarket: def({ kind: 'supermarket', label: 'Supermarket', group: 'amenity', footprint: [5, 4], allowedGround: PAVED_OK, residents: 0, models: ['supermarket'] }),
   church: def({ kind: 'church', label: 'Church', group: 'amenity', footprint: [3, 4], allowedGround: PAVED_OK, residents: 0, models: ['church'] }),
-  stadium: def({ kind: 'stadium', label: 'Stadium', group: 'amenity', footprint: [14, 11], allowedGround: PAVED_OK, residents: 0, models: ['stadium'] }),
-  cinema: def({ kind: 'cinema', label: 'Cinema', group: 'amenity', footprint: [6, 4], allowedGround: PAVED_OK, residents: 0, models: ['cinema'] }),
+  stadium: def({ kind: 'stadium', label: 'Stadium', group: 'amenity', footprint: [14, 11], allowedGround: PAVED_OK, coversGround: true, residents: 0, models: ['stadium'] }),
+  cinema: def({ kind: 'cinema', label: 'Cinema', group: 'amenity', footprint: [6, 4], allowedGround: PAVED_OK, coversGround: true, residents: 0, models: ['cinema'] }),
   fountain: def({ kind: 'fountain', label: 'Fountain', group: 'amenity', footprint: [2, 2], allowedGround: PROP_GROUND, residents: 0, models: ['fountain'] }),
   'tiered-fountain': def({ kind: 'tiered-fountain', label: 'Tiered fountain', group: 'amenity', footprint: [3, 3], allowedGround: PROP_GROUND, residents: 0, models: ['tiered-fountain'] }),
   oak: def({ kind: 'oak', label: 'Oak', group: 'tree', footprint: [2, 2], allowedGround: OPEN_GROUND, residents: 0, models: ['oak'] }),
@@ -128,7 +130,7 @@ export const OBJECTS: Readonly<Record<ObjectKind, ObjectDef>> = {
   swing: def({ kind: 'swing', label: 'Swing', group: 'garden', footprint: [2, 1], allowedGround: OPEN_GROUND, residents: 0, models: ['swing'] }),
   slide: def({ kind: 'slide', label: 'Slide', group: 'garden', footprint: [2, 1], allowedGround: OPEN_GROUND, residents: 0, models: ['slide'] }),
   // In the Garden dock but counted as an amenity (stats, building FX).
-  'swimming-pool': def({ kind: 'swimming-pool', label: 'Pool', group: 'amenity', footprint: [4, 3], allowedGround: PROP_GROUND, residents: 0, models: ['swimming-pool'] }),
+  'swimming-pool': def({ kind: 'swimming-pool', label: 'Pool', group: 'amenity', footprint: [4, 3], allowedGround: PROP_GROUND, coversGround: true, residents: 0, models: ['swimming-pool'] }),
   barbecue: def({ kind: 'barbecue', label: 'Barbecue', group: 'garden', footprint: [1, 1], allowedGround: PROP_GROUND, residents: 0, models: ['barbecue'] }),
 };
 

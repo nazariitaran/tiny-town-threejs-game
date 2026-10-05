@@ -186,10 +186,14 @@ class Builder:
         self.face([(-HX, Y_FORE, fz), (-DOOR_HALF, Y_FORE, fz), (-DOOR_HALF, FRONT_Y, fz), (-HX, FRONT_Y, fz)], 'concrete_lt')
         self.face([(DOOR_HALF, Y_FORE, fz), (HX, Y_FORE, fz), (HX, FRONT_Y, fz), (DOOR_HALF, FRONT_Y, fz)], 'concrete_lt')
         self.face([(-DOOR_HALF, Y_FORE, fz), (DOOR_HALF, Y_FORE, fz), (DOOR_HALF, FRONT_Y, fz), (-DOOR_HALF, FRONT_Y, fz)], 'orange')
-        self.face([(-HX, Y_FORE, 0), (-HX, Y_FORE, fz), (HX, Y_FORE, fz), (HX, Y_FORE, 0)][::-1], 'concrete_dk')
         self.face([(-HX, Y_FORE, 0), (-HX, FRONT_Y, 0), (HX, FRONT_Y, 0), (HX, Y_FORE, 0)], 'concrete_dk')
-        self.face([(-HX, FRONT_Y, 0), (-HX, Y_FORE, 0), (-HX, Y_FORE, fz), (-HX, FRONT_Y, fz)], 'concrete_dk')
-        self.face([(HX, Y_FORE, 0), (HX, FRONT_Y, 0), (HX, FRONT_Y, fz), (HX, Y_FORE, fz)], 'concrete_dk')
+        # paving round the building out to the lot edge, level with the forecourt
+        lx, ly = LOT[0] / 2, LOT[1] / 2
+        top = {'+z': 'concrete_lt'}
+        self.box(-lx, -ly, 0, lx, Y_FORE, fz, 'concrete_dk', faces=top, skip=('-z', '+y'))
+        self.box(-lx, Y_BACK, 0, lx, ly, fz, 'concrete_dk', faces=top, skip=('-z', '-y'))
+        self.box(-lx, Y_FORE, 0, -HX, Y_BACK, fz, 'concrete_dk', faces=top, skip=('-z', '-y', '+y', '+x'))
+        self.box(HX, Y_FORE, 0, lx, Y_BACK, fz, 'concrete_dk', faces=top, skip=('-z', '-y', '+y', '-x'))
 
         # facade
         rects = []
