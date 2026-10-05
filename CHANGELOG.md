@@ -1,98 +1,116 @@
 # Changelog
 
-Player-facing release notes for Tiny Town. Budgets and measurements are in `docs/release.md`.
+Player-facing release notes for Tiny Town. How things behave is in `docs/design.md`; budgets and measurements are in `docs/release.md`.
 
 ## Unreleased
-Everything merged on `main` after `v0.7`. Saves stay on version 4.
 
 ### Changed
-- **The pool has a terrace.** The two parasols now stand on a paved strip beside the basin, so the pool fills its whole 4 × 3 plot.
+- The pool has a paved terrace under its parasols and fills its whole plot.
 
 ### Fixed
-- **No gap round the stadium and the cinema.** Their paving now reaches the edge of their plot, so pavement, grass and roads beside them meet it with no strip of field in between, and pavement painted under them no longer flickers. Ground painted under the stadium, the cinema or the pool is kept but not drawn while the building stands on it.
-- **The tiered fountain keeps its water** on pavement, grass and garden paths; the tiles used to cover it.
-- **The pool's water stays blue** on pavement and grass, and its edge and the parasols' feet no longer sink into them.
-- **Postboxes keep their dark plinth on pavement,** and a traffic light's base no longer flickers there.
+- No strip of field shows round the stadium or the cinema.
+- Ground painted under the stadium, the cinema or the pool no longer flickers through them.
+- The tiered fountain and the pool keep their water on pavement and grass.
+- Postboxes and traffic lights sit cleanly on pavement.
 
 ## v0.7 — 2026-10-04
-Package 0.7.0. Everything merged after `v0.6`. Saves stay on version 4, so v0.6 towns open unchanged.
 
-### New
-- **Royal cyphers on postboxes.** Every new postbox now carries a small raised royal cypher below its yellow plate, picked by chance when you place it: Elizabeth II (E II R) is the most common (6 in 10), then George V, George VI, Victoria, Edward VII, and, rarely, Edward VIII and Charles III. The ghost shows the postbox you are about to build. Postboxes in towns you saved earlier become Elizabeth II ones, and Move keeps a postbox's cypher. Saves stay on version 4. At the default zoom the cypher is only a pixel or two wide: zoom right in to read it.
-- **Pavement round the roundabout.** The Pavement tool now works on the four corners of a roundabout (the grass wedges between its arms), so pavement can run round it like it does beside other roads. A paved corner fits the roundabout's kerb exactly; painting Grass or Road on it brings the wedge back, and bulldozing the roundabout leaves the pavement behind. Saves stay on version 4, though an older version of the game would show the grass wedge over the pavement.
-- **A cinema.** Town has a new Cinema card: a violet picture house with a striped orange and white marquee over a glass entrance, ticket windows each side, a CINEMA sign on the roof and four film posters in lit frames across the front. It is 6 × 4 cells, the second tallest building after the church; `R` turns it, and Move and Bulldoze work on it like any building. In Town, Bus stop and Postbox move to keys 8 and 9, and Lamppost has no key.
-- **A stadium.** Town has a new Stadium card: a football ground with two tiers of red and white stands, a striped pitch inside a running track, a roofed main stand, a scoreboard, flags and four floodlight masts. It is by far the biggest thing you can build (14 × 11 cells) and the tallest, so leave it room; `R` turns it, and Move and Bulldoze work on it like any building. Birds fly a little higher to clear the masts. In Town, Bus stop, Postbox and Lamppost move to keys 7, 8 and 9.
-- **Match nights.** Every other night there is a match at the stadium, starting with the first night you see. At sunset, half way through dusk, the floodlights come up: they light the pitch and the stands, glow on their masts and spill onto the ground around the stadium, and the scoreboard switches on. Thirty seconds into the night they fade out again. While they are on you can hear the crowd: loud when you look at the stadium, quieter as you move the view away, and silent from 20 units off (about two thirds of the plot), wherever the stadium stands. On the nights in between the stadium stays dark and quiet, and Day mode never has a match. In Night mode a match starts when you switch to night on a match night, and the next night comes round after as long as an Auto day. The crowd follows the Volume slider and Mute, and dips with the music while the menu is open.
-- **Cars use the car parks.** Now and then a car turns off the street into a car park, noses into a free stall, sits there for a little while, then backs out and drives on. Other cars wait a moment while it turns in or backs out. It is the same few cars that drive round your town, so a car park is sometimes busy and sometimes empty. Parked cars aren't saved with the town, and bulldozing a car park (or the road it opens onto) sends its cars away.
-- **Car parks.** Streets has a new Parking card with three sizes, picked from its style row (`V` / `Shift+V`): a small row of 4 bays straight off the street, a medium car park for 8 cars and a large one for 12 with two little planter islands. It snaps to the road grid like the roundabout, `R` turns it, and a road in front of its entrance joins it like a driveway: the street keeps its centre line, and no lane line runs into the car park. Saves stay on version 4.
+### Added
+- Car parks in three sizes, under Streets. Cars pull in, park for a while and drive off.
+- A stadium, with floodlit match nights and a crowd you can hear every other night.
+- A cinema.
+- Pavement on the corners of a roundabout.
+- Postboxes carry a royal cypher, picked at random when placed.
 
 ### Changed
-- **A lighter donut shop.** The donut shop is remodelled by hand with a third of the triangles and the same look, so towns with several of them draw a little faster.
-- **A lighter roundabout.** The roundabout has about half the triangles (1,636 down to 906) and the same look; its round kerbs are a touch more faceted when you zoom right in.
-- **Lighter cars.** The four cars have about half the triangles (about 2,050 down to about 1,070 each) and the same look, headlights and tail lights included.
+- Lighter models for the donut shop, the roundabout and the cars, so busy towns draw faster.
+- Phones and other touch screens are no longer tested; new features are checked on desktop only.
 
 ### Fixed
-- Cars on the roundabout drive round its outer lane, on their own side of the road, instead of hugging the island.
+- Cars keep to the outer lane on a roundabout.
 
 ## v0.6 — 2026-10-02
-Package 0.6.0. Everything merged after `v0.5`, and the first public release, at https://tiny-town-threejs-game.nazariy-taran.workers.dev/. Saves stay on version 4, so v0.5 towns open unchanged.
+The first public release: https://tiny-town-threejs-game.nazariy-taran.workers.dev/
 
-### New
-- **Choose the style you build.** Townhouse, Bungalow, Suburban, Big house, Traffic light, Birch and Tulips each come in more than one style. Selecting one of them opens a row of style pictures above its card. Pick one, and the preview shows exactly that style and every placement builds it. Press `V` / `Shift+V` to step through the styles with the keyboard. Each item remembers your pick until you reload. A small row of dots on a card shows how many styles it has.
-- **Move things around.** The new Move button (`M`) picks up a placed building, tree or piece of furniture and puts it down somewhere else. Click (or tap) it, then click where it goes. `R` turns it on the way; Esc or a right-click puts it back. It slides and hops into place and is one undo step. The roundabout and zebra crossings stay with their road, and ground, hedges and fences don't move.
-- **Made by Nazarii Taran, with Claude.** The Credits panel ends with links to the game's GitHub page and the author's LinkedIn and X. Credits is wider on desktop, and the music credit names ElevenLabs.
-- The version shows in the title screen's bottom-right corner and under Menu → Help.
-- A favicon, and a Credits panel grouped by kind (3D models, sound effects, music, font, software) with links to every source and licence. The open-source licences are in `licenses.txt`.
+### Added
+- Styles: seven items come in more than one style, picked from a row above the card or with `V` / `Shift+V`.
+- A Move tool (`M`) that picks up a building, tree or piece of furniture and puts it down elsewhere.
+- The version number, on the title screen and under Menu → Help.
+- A favicon.
+- Credits grouped by kind, with links to every source and licence, and to the author.
 
 ### Changed
-- **Dock:** the street furniture (bus stop, postbox, lamppost) is under Town and the mailbox under Homes. Fountain and Garden path are retired: towns that have them still show them, and you can bulldoze them. The category row is centred, and the Rotate button only appears on touch screens (`R` / `Shift+R` elsewhere). On phones narrower than 390 px the dock uses two rows so every button stays easy to tap.
-- **Where things go:** homes can be built on pavement; oak, pine, birch and bush now need open ground (field, grass or wildflowers).
-- **Day and night:** in Auto, a day is 5 minutes and a night 2, with a minute each of dawn and dusk.
-- The Bulldoze highlight sits exactly on the thing it will remove and reads red on every model. The previews of the bush, fences, lamppost and pavement are the right size.
-- The Zebra crossing preview shows the marked road in its real colours.
-- Wildflowers grow on the grass lawn colour, and the lamppost's light comes from the lamp itself.
-- Menu → Help no longer has a Reset view button; `F` / `Home` still reset the camera.
+- Bus stop, postbox and lamppost are under Town; the mailbox is under Homes.
+- Homes can be built on pavement. Trees and bushes need open ground.
+- In Auto, a day lasts 5 minutes and a night 2, with a minute each of dawn and dusk.
+- The Rotate button only shows on touch screens; `R` / `Shift+R` work everywhere else.
+- The Bulldoze highlight and the placement previews match the real size and shape of each item.
+- Wildflowers grow on the lawn colour, and a lamppost's light comes from its lamp.
+- A new title tagline: "Build your own cosy dream town".
+
+### Removed
+- Fountain and Garden path are no longer in the dock. Towns that have them keep them.
+- The Reset view button. `F` / `Home` still reset the camera; touch screens have no reset.
 
 ## v0.5 — 2026-09-30
-Tag `v0.5`, package 0.5.0. Everything merged after `v0.4`. Saves stay on version 4, so v0.4 towns open unchanged.
 
-### New
-- **Name your town**. New towns get a name before you start building, with a random suggestion you can keep. Rename the town at any time from the name pill at the top left or from the menu. The name is saved with the town and appears on the town photo and in its file name.
-- **Town files**. Download your town as a `.tinytown.json` file and open it again in any browser: the folder button in the top bar, Menu → Town file on phones, or "Open a town file" on the title screen. The game asks before it replaces your current town.
-- **Birds**. Every so often a flock of pigeons, starlings, gulls or geese (in a V) flies over the town, casting flapping shadows. No birds at night.
-- **Seven new things to build**. Mailbox, tiered fountain, donut shop, tulips, long bench, garden table and slide. The garage is gone, and the swimming pool is now under Garden. A category can hold up to 12 tools (digit keys cover the first nine). That makes 40 tools in all.
-- **Graphics settings**. Menu → Graphics has three presets:
-  - **Low**: simpler lighting, no anti-aliasing, 30 fps, and a lower render resolution on standard (non-Retina) screens. About 4× cheaper per frame than Medium on a 1080p laptop.
-  - **Medium** (the default on every device): the usual look.
-  - **High**: full Retina resolution.
-
-  The choice is saved. Switching to or from Low asks for a reload ("Reload now"); every other change applies at once.
-- **Tabbed menu**: Town · Graphics · Sound · Help.
+### Added
+- Name your town, and rename it at any time. The name shows on the town photo and in the file name.
+- Town files: download your town and open it again in any browser.
+- Birds: a flock flies over the town now and then, by day only.
+- Seven new items: mailbox, tiered fountain, donut shop, tulips, long bench, garden table and slide.
+- Graphics presets under Menu → Graphics: Low, Medium (the default) and High.
+- A tabbed menu: Town · Graphics · Sound · Help.
 
 ### Changed
-- **Lighter on the GPU**. The game runs at 60 fps while you build and drops to 30 fps when idle, and the sun's shadows are redrawn only when something moves. On a 120 Hz MacBook Pro the default now uses about half the GPU while building and under a third at idle.
-- **Phones get the same look as desktops.** Earlier releases quietly gave touch screens a cheaper look with fewer decor trees and different lighting. Every device now starts on Medium, and you can pick Low yourself.
-- Car shadows update 30 times a second, so they no longer trail behind moving cars.
+- Lighter on the GPU: 60 fps while you build, 30 fps when idle.
+- Phones get the same look as desktops.
+- The swimming pool is under Garden.
+- Car shadows no longer trail behind moving cars.
+
+### Removed
+- The garage. Towns saved with garages open without them.
 
 ### Known issues
-- On Medium, phones draw about 324–328k triangles in a completely full town, slightly over the 320k mobile budget.
+- A completely full town is slightly over the triangle budget on phones.
 - Not tested on real iOS or Android devices.
 
 ## v0.4 — 2026-09-28
-- Bigger homes and town buildings, a smaller swing; only homes light up at night (save v4).
-- A 64 × 64-cell plot, a Zebra crossing tool, joined centre lines at junctions, a night-tinted grid, and right-click to deselect.
+
+### Added
+- A Zebra crossing tool.
+- Town photo: the camera button or `P` saves the current view as a Polaroid-style picture.
+- Right-click puts the tool away.
+
+### Changed
+- A bigger plot: 64 × 64 cells.
+- Bigger homes and town buildings, taller pines, a big 2 × 2 oak and a smaller swing.
+- Only homes light up at night.
+- Centre lines join up at junctions, and the grid is tinted at night.
 - The music picks up where it left off.
-- Taller pines and a big 2 × 2 oak.
-- **Town photo**: the camera button or `P` saves the current view as a Polaroid-style JPEG.
+- Towns saved in v0.3 or earlier no longer open.
 
 ## v0.3 — 2026-09-27
-- Five dock categories (Streets / Homes / Town / Nature / Garden; Shift+1–5) and many new items, including roundabouts and traffic lights (save v3).
-- A day/night cycle with Auto / Day / Night (`T`): lit windows, street-lamp pools, headlights and fireflies.
+
+### Added
+- A day and night cycle with Auto, Day and Night modes (`T`): lit windows, street lamps, headlights and fireflies.
+- Many new items, including roundabouts and traffic lights.
+
+### Changed
+- Five dock categories: Streets, Homes, Town, Nature and Garden (`Shift+1`–`5`).
+- Towns saved in v0.2 or earlier no longer open.
+
+### Fixed
+- Cars face the way they drive.
 
 ## v0.2 — 2026-09-27
-- A finer grid of half-size cells, roads laid as 2 × 2 blocks, and houses spanning several cells.
-- Background music with its own settings.
+
+### Added
+- Background music, with its own settings.
+
+### Changed
+- A finer grid of half-size cells: roads are two cells wide and houses span several.
 - The stats pill is gone, leaving a one-row top bar.
 
 ## v0.1 — 2026-09-26
-- The first complete build (checkpoint M3): paint roads, place homes, trees and props, undo/redo, autosave, cars, sound effects, and touch controls.
+- The first complete build: paint roads, place homes, trees and props, undo and redo, autosave, cars, sound effects and touch controls.
