@@ -50,6 +50,15 @@ export type GameEvents = {
   'intent:set-graphics': { preset: GraphicsPreset };
   /** Flushes the save and reloads so antialias / material take effect. */
   'intent:reload-graphics': void;
+  /**
+   * A pointer that isn't a DOM pointer (hand or head tracking) over the canvas, in client (CSS px)
+   * coordinates. ToolController treats it like a mouse's left button; 'leave' takes it off the canvas.
+   */
+  'intent:virtual-pointer': { phase: 'move' | 'down' | 'up' | 'leave'; clientX: number; clientY: number };
+  /** Drag the ground under the camera by this many CSS px (building only). */
+  'intent:pan-camera': { dx: number; dy: number };
+  /** Zoom by a factor (> 1 = closer), clamped to the camera's range (building only). */
+  'intent:zoom-camera': { factor: number };
 
   'phase:changed': { phase: GamePhase; previous: GamePhase };
   'load:progress': { loaded: number; total: number; label: string };

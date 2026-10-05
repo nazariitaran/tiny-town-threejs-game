@@ -229,3 +229,13 @@ Supplied by the project owner and copied unchanged; credit in `CREDITS.md`. The 
 - **Trim:** `MUSIC_TRIM` 0.25 (−12 dB) offsets the −13 LUFS master against SFX at about −25, so music at the default volume (0.5) sits about 15 dB under placement sounds. A replacement track mastered at a different loudness needs a new trim.
 - **Loop:** the loop fade-out starts 1.2 s before the end, on top of the track's own ending fade. A saved position within 5 s of the end (`RESUME_END_GUARD_S`) restarts from 0.
 - **Track id:** the saved position is keyed by `MUSIC_URL`; a new file name resets every player's position.
+
+## MediaPipe models (hands-free controls)
+Not assets the game draws, and not in git: the experimental hands-free controls (`?gestures`) need two MediaPipe model bundles, Apache-2.0 per their model cards. `node scripts/fetch-mediapipe-models.mjs` downloads the pinned versions into the gitignored `public/assets/mediapipe/`; without them the game fetches the same files from Google's bucket when the player presses Start camera.
+
+| File | Source | Size |
+| --- | --- | --- |
+| `gesture_recognizer.task` | `https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task` | 8,373,440 B |
+| `face_landmarker.task` | `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task` | 3,758,596 B |
+
+The WASM runtime is part of the `@mediapipe/tasks-vision` npm package (Apache-2.0, listed in `public/licenses.txt`). Whether to vendor the models is open: `docs/research/mediapipe-gestures.md` §Decisions.

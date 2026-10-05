@@ -35,12 +35,15 @@ npm run gen:sfx        # regenerate src/audio/sfxTable.ts from scripts/data/audi
 npm run gen:licenses   # regenerate public/licenses.txt (runtime dependencies + licence texts; verify fails if stale)
 node scripts/render-icons.mjs [--size 128]   # re-render the tool icons (tool-<id>.png, + tool-<id>-v<n>.png per extra model) from in-game models (needs a dev server on PORT)
 node scripts/compose-models.mjs              # rebuild public/assets/models/composed/*.glb (needs assets-src/, incl. assets-src/polypizza/)
+node scripts/fetch-mediapipe-models.mjs      # download the hands-free (?gestures) MediaPipe models into the gitignored public/assets/mediapipe/
+node scripts/gesture-smoke.mjs               # hands-free end to end with real MediaPipe tracking on test photos via a fake camera (needs a dev server on PORT, ffmpeg)
+node scripts/gesture-bench.mjs               # MediaPipe inference time per model and delegate in the tracking worker (needs a dev server on PORT)
 /Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-parking.py   # rebuild public/assets/models/parking/*.glb
 /Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-stadium.py   # rebuild public/assets/models/stadium/stadium.glb
 /Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-cars.py   # rebuild public/assets/models/cars/*.glb from the Kenney originals in assets-src/car-kit/
 /Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-roundabout.py   # rebuild public/assets/models/roads/road-roundabout.glb from the Kenney original in assets-src/city-kit-roads/
 ```
-- **E2E workers.** `playwright.config.ts` sets no worker count, so always pass `--workers=N`. Use 6 on a normal machine: the full suite (113 tests) then takes about 3–4 minutes. In an agent cloud environment with limited hardware use 1–2 workers, and expect it to take much longer.
+- **E2E workers.** `playwright.config.ts` sets no worker count, so always pass `--workers=N`. Use 6 on a normal machine: the full suite (116 tests) then takes about 3–4 minutes. In an agent cloud environment with limited hardware use 1–2 workers, and expect it to take much longer.
 - If `npm install` fails with EACCES on `~/.npm`, add `--cache .npm-cache`.
 - Browser checks (Playwright, `inspect:canvas`, `render-icons`) need a session where Chromium can launch; inside a nono sandbox it segfaults. If that happens, say so in your hand-off; don't skip the check.
 - **Ports.** The dev server, Playwright, the canvas inspector and `render-icons` honour the `PORT` env var (default 5188, strict); `vite preview` uses `PORT − 1000`. Parallel agents each use their own port (`PORT=5220 npm run test:e2e`). Never kill a dev server you didn't start.

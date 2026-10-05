@@ -56,6 +56,8 @@ src/
                               birds: schedule and flight (pure), one InstancedMesh
   fx/**                       placement VFX, wind sway
   photo/**                    town photo: capture, Polaroid frame; photoLayout.ts is pure
+  gesture/**                  experimental hands-free controls (`?gestures`, lazy): MediaPipe in tracker.worker.ts,
+                              Tracker (camera, worker), hand / head interpreters (pure), GestureRouter, HandsFree (panel, cursor)
   debug/DebugTools.ts         lil-gui panels (?debug)
   utils/random.ts, download.ts   seeded RNG + entropy seed; file download
   testing/gltfNode.ts         Vitest only: loads public/ GLBs in Node
@@ -68,6 +70,7 @@ scripts/                      canvas inspector, model inspector, generators, ico
 ## Data flow
 ```
  pointer/keys ─► ToolController ──BuildAction──► TownEditor ──► rules.planAction (pure)
+ hands / head ─► intent:virtual-pointer ─┘ (gesture/GestureRouter; DOM controls get a click)
       ▲                │                              │ ok: TownState.applyChanges + History
  UiRoot ─intent:*─►    │ tool:changed / hover:changed / selection:changed │
       ▲                ▼                              ▼
@@ -223,6 +226,15 @@ Ambient, like the rest of `life/`: nothing is saved and `TownEditor` never sees 
 - **Saving:** Download = object URL + `a[download]` inside the click: `<slug>-YYYY-MM-DD-HHMM.jpg` (`tiny-town-…` when the name has no ASCII letters or digits). No Share button; on iOS a long press on the preview offers "Save to Photos".
 - **Closing:** Esc or "Back to town" → `intent:close-menu`, tool still selected. A second photo is ignored while one develops.
 - **Cost:** 60–90 ms per photo on an M-series laptop; 0.2–0.4 MB JPEG.
+
+## Hands-free controls (experimental)
+Behind `?gestures` (`=head`, `=head-hand`; `,cpu` skips the GPU delegate): `main.ts` imports `gesture/HandsFree` only then, and MediaPipe (`@mediapipe/tasks-vision`) loads only on **Start camera**. Research, measurements and open decisions: `docs/research/mediapipe-gestures.md`.
+- **Pipeline:** `Tracker` opens the camera and sends each new video frame (`requestVideoFrameCallback`) to `tracker.worker.ts` as a transferred `ImageBitmap`, one in flight, newer frames dropped while busy. The worker runs the Gesture Recognizer (2 hands, landmarks + canned gesture) and / or the Face Landmarker (5 points, 4 blendshapes) and posts only those. `HandInterpreter` / `HeadInterpreter` (pure, time-based, unit-tested) turn them into a `GestureFrame` (pointer, press, grab, zoom, command); `GestureRouter` sends it on.
+- **Into the game:** over the canvas the pointer is `intent:virtual-pointer { phase: down | move | up | leave }`, which `ToolController` handles like a mouse's left button (same strokes, no pointer capture, coarse fence picking). Over a DOM control, press then release on the same control calls its `click()`, so `UiRoot` handles it as usual. A fist is `intent:pan-camera` (`CameraController.dragGround`, CSS px), two fists `intent:zoom-camera` (`zoomBy`), both building only; ✌ / a smile emit `intent:rotate`; 👎 / raised eyebrows dispatch an `Escape` keydown. `Game` counts virtual-pointer input as frame-budget activity; `UiRoot` places the tooltip by it.
+- **Delegate:** GPU unless WebGL is a software renderer (SwiftShader, llvmpipe); a GPU worker with no first frame in 4 s or averaging over 120 ms on its first 10 frames restarts on the CPU.
+- **Assets:** the WASM runtime comes from the npm package through Vite `?url` imports (hashed in `dist/assets/`). The models are fetched from `assets/mediapipe/*.task` (gitignored; `node scripts/fetch-mediapipe-models.mjs`) and, failing that, from Google's model bucket.
+- **DOM:** the panel and cursor are the module's own DOM (`#hf-root`, z-index 40), outside `UiRoot`: a deliberate exception while the feature is an experiment.
+- **Tests:** unit `src/gesture/gesture.test.ts`; e2e `tests/gestures.spec.ts` (fake camera, no hand); real tracking on photos: `scripts/gesture-smoke.mjs`; timing: `scripts/gesture-bench.mjs`.
 
 ## Budgets
 Targets and the latest measurements: `docs/release.md` §Budgets. The `stress-town` state is the gate.

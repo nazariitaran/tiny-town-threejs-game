@@ -262,6 +262,38 @@ export class CameraController {
     this.zoomTween = { from: current, to, elapsed: 0, duration: this.tuning.zoomDuration };
   }
 
+  /**
+   * Drags the ground by (dx, dy) CSS px, like a grab: the point under the screen centre moves with it.
+   * A vertical pixel covers more ground than a horizontal one (the view is tilted), hence the 1 / cos(polar).
+   */
+  dragGround(dx: number, dy: number): void {
+    if (!this.acceptsInput) return;
+    this.poseTween = null;
+    const spherical = this.readSpherical();
+    const { height } = this.viewportSize();
+    if (height <= 0) return;
+    const perPixel = (2 * spherical.radius * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2)) / height;
+    const right = -dx * perPixel;
+    const forward = (dy * perPixel) / Math.max(0.2, Math.cos(spherical.phi));
+    const theta = spherical.theta;
+    // Screen-right on the ground is (cosθ, −sinθ); the view looks along (−sinθ, −cosθ).
+    const moveX = Math.cos(theta) * right - Math.sin(theta) * forward;
+    const moveZ = -Math.sin(theta) * right - Math.cos(theta) * forward;
+    this.controls.target.x += moveX;
+    this.controls.target.z += moveZ;
+    this.camera.position.x += moveX;
+    this.camera.position.z += moveZ;
+  }
+
+  /** Zooms by `factor` (> 1 = closer) at once, within the distance clamps. */
+  zoomBy(factor: number): void {
+    if (!this.acceptsInput || !(factor > 0)) return;
+    this.poseTween = null;
+    this.zoomTween = null;
+    const radius = this.readSpherical().radius;
+    this.setDistance(THREE.MathUtils.clamp(radius / factor, this.controls.minDistance, this.controls.maxDistance));
+  }
+
   /** With a tool active, left mouse / one finger belong to the tool; the camera uses the other gestures. */
   setToolActive(active: boolean): void {
     this.toolActive = active;

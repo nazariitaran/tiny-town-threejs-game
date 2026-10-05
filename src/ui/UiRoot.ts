@@ -183,6 +183,13 @@ export class UiRoot {
         this.hoverReason = !valid && reason && !this.quietHoverKey ? reason : null;
         this.renderTooltip();
       }),
+      bus.on('intent:virtual-pointer', ({ phase, clientX, clientY }) => {
+        if (phase === 'leave') return;
+        this.pointerX = clientX;
+        this.pointerY = clientY;
+        this.pointerTouch = false;
+        if (!this.el(UI_TEST_IDS.tooltip).hidden) this.positionTooltip();
+      }),
       bus.on('build:invalid', ({ reason }) => this.flashInvalid(reason)),
       bus.on('build:placed', () => this.clearTooltip(true)),
       bus.on('history:changed', ({ canUndo, canRedo }) => {

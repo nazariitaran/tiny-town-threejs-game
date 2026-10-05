@@ -7,6 +7,13 @@ Known gaps and follow-ups. An item stays until it is fixed or dropped; when it i
 - **`ui.spec.ts` "stress-town screenshots" can lose its hint on a slow machine.** The refusal hint hides after 3.5 s of wall time (`HINT_MS`) and the test's steps can take longer than that without a GPU. Running the `cellAboveDock` scan before the tool click would keep the 3.5 s window to the taps.
 - **`docs/failing-tests/` is a one-off investigation record** (report, container config, probes). Delete it once its findings are absorbed.
 
+## Hands-free controls (experimental, `?gestures`)
+Research, measurements and the full roadmap: [`research/mediapipe-gestures.md`](research/mediapipe-gestures.md).
+- **Owner decisions:** vendor the MediaPipe models (Apache-2.0, 12.2 MB) or keep fetching them from Google; how the feature is offered (flag, menu, title); move the panel into `UiRoot` / the menu.
+- **Never tried by a person on a real webcam:** all tracking so far ran on photos through Chromium's fake camera, without a GPU. Measure latency (`scripts/gesture-bench.mjs`) and tune the thresholds with real people.
+- **Hands-free gaps:** no rotate control in head mode without the smile (the dock's Rotate button is touch-only); sliders can't be dragged; **Open a town file** needs a real click (no user activation from a gesture).
+- **MediaPipe logs to the console** (some through `console.error`); quieten them before it ships beyond a flag.
+
 ## Match nights at the stadium
 - **Nobody has listened to it.** The crowd's level against the music and the placement sounds (`CROWD_TRIM`), the distance curve and the loop seam are set by measurement and tests, not by ear. Play a match night with sound on and adjust `CROWD_TRIM`, `CROWD_FULL_DISTANCE` and `CROWD_CUTOFF_DISTANCE`.
 - **The crowd file's credit wording** in `CREDITS.md` says "supplied by the project owner"; if it was generated with a service (as the music was), name it there and decide whether the Credits panel should carry a line.

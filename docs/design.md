@@ -100,6 +100,9 @@ Letter and digit keys use `event.code`, so layouts and Shift don't change the ma
 | P | Take a photo (building only; no modifiers, so Ctrl/Cmd+P still prints) | `UiRoot` |
 | ? | Controls help | `UiRoot` |
 
+### Hands-free (experimental)
+Only with `?gestures` in the URL: a **Hands-free** pill under the town name opens a panel with the camera preview. Nothing starts until **Start camera**; the picture never leaves the browser. Modes: **Hand** (point with the hand, pinch to click, hold the pinch to drag, a fist drags the map, two fists zoom, ✌ rotates, 👎 is Esc), **Head** (the nose points, an open mouth clicks and drags, resting on a button for 1 s presses it, a held smile rotates, raised eyebrows are Esc) and **Head + hand** (the head points, a pinch clicks). A ring cursor fills as a pinch closes or a command is held; buttons under it get a blue outline. Mechanism and research: `architecture.md` §Hands-free controls, `research/mediapipe-gestures.md`.
+
 ## Screen
 
 ```

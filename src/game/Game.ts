@@ -189,6 +189,14 @@ export class Game {
       if (this.phase === 'menu') this.setPhase('building');
     });
     this.bus.on('intent:reset-camera', () => this.cameraController.reset());
+    // Hand / head tracking isn't the DOM input FrameBudget listens for: count it as activity here.
+    this.bus.on('intent:virtual-pointer', () => this.frameBudget.markActive());
+    this.bus.on('intent:pan-camera', ({ dx, dy }) => {
+      if (this.phase === 'building') this.cameraController.dragGround(dx, dy);
+    });
+    this.bus.on('intent:zoom-camera', ({ factor }) => {
+      if (this.phase === 'building') this.cameraController.zoomBy(factor);
+    });
     this.bus.on('intent:take-photo', () => this.takePhoto());
     this.bus.on('intent:toggle-grid', ({ visible }) => {
       this.gridPreferred = visible;
