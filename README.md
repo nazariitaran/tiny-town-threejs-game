@@ -60,7 +60,7 @@ npm run preview    # serve the build
 
 **Tech:** [three.js](https://threejs.org), TypeScript and Vite, tested with Vitest and Playwright.
 
-**For developers:** [architecture](docs/architecture.md) · [design](docs/design.md) · [assets](docs/assets.md) · [release](docs/release.md)
+**For developers:** [architecture](docs/architecture.md) · [game design](docs/game-design.md) · [assets](docs/assets.md) · [release](docs/release.md)
 
 ## Credits
 

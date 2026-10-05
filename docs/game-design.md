@@ -1,4 +1,4 @@
-# Design
+# Game design
 
 What Tiny Town is, and how it behaves. Rules, numbers and modules: [`architecture.md`](architecture.md). Tools: `src/catalog/tools.ts`.
 

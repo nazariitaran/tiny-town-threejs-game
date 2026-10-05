@@ -4,7 +4,7 @@ A cosy browser city-builder sandbox: three.js + TypeScript + Vite. The game live
 
 ## Where facts live
 - `docs/architecture.md`: module map, data flow, grid, placement rules, save format, rendering, test hooks, diagnostics. If it disagrees with the code, the code wins; fix the doc.
-- `docs/design.md`: what the game is and isn't, and how the camera, tools and UI behave.
+- `docs/game-design.md`: what the game is and isn't, and how the camera, tools and UI behave.
 - `docs/assets.md`: where models and sounds come from, scale and orientation conventions, how to rebuild them. `CREDITS.md`: every asset's source and licence.
 - `docs/release.md`: build, deploy, debug and test-hook policy, budgets.
 - `docs/backlog.md`: known gaps and follow-ups, open until fixed or dropped.
@@ -71,7 +71,7 @@ node scripts/compose-models.mjs              # rebuild public/assets/models/comp
 - One branch per change, off `main`. Agree a plan with the owner before a non-trivial change.
 - Merge to `main` only after the owner approves. The owner sets version numbers and tags.
 - Before hand-off: `npm run verify`, plus the e2e specs that cover the change (the full `npm run test:e2e` for wide changes). Re-capture visual baselines only for an approved look change.
-- With the change: update `CHANGELOG.md` (Unreleased) and whichever of `docs/architecture.md`, `docs/design.md`, `docs/assets.md` it makes stale.
+- With the change: update `CHANGELOG.md` (Unreleased) and whichever of `docs/architecture.md`, `docs/game-design.md`, `docs/assets.md` it makes stale.
 - Multi-agent work runs on an integration branch with one worktree per worker, merged into `main` only after the owner approves the whole.
 
 ## Hand-off checklist (final message / PR description)

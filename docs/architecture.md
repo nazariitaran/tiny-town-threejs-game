@@ -1,6 +1,6 @@
 # Tiny Town — architecture
 
-The technical reference: modules, data flow, grid, rules, save format, rendering, test hooks. If this file and the code disagree, the code wins; fix this file. What the game is and how it plays: `docs/design.md`. Assets: `docs/assets.md`. Build, deploy and budgets: `docs/release.md`.
+The technical reference: modules, data flow, grid, rules, save format, rendering, test hooks. If this file and the code disagree, the code wins; fix this file. What the game is and how it plays: `docs/game-design.md`. Assets: `docs/assets.md`. Build, deploy and budgets: `docs/release.md`.
 
 ## Stack
 TypeScript (strict) · Vite 8 · three.js r184 (`three/addons/*`: MapControls, GLTFLoader, RoomEnvironment) · Web Audio for SFX, `HTMLAudioElement` streaming for music · lil-gui (`?debug`) · Vitest (pure logic, Node) · Playwright (full Chromium; workers set on the command line). No physics engine: the game is grid-based. The build puts three.js in its own vendor chunk.

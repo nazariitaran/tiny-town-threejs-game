@@ -1,6 +1,6 @@
 # Changelog
 
-Player-facing release notes for Tiny Town. How things behave is in `docs/design.md`; budgets and measurements are in `docs/release.md`.
+Player-facing release notes for Tiny Town. How things behave is in `docs/game-design.md`; budgets and measurements are in `docs/release.md`.
 
 ## Unreleased
 
