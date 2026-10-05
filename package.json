@@ -16,6 +16,7 @@
     "verify:visual": "playwright test tests/visual.spec.ts",
     "inspect:canvas": "node scripts/inspect-threejs-canvas.mjs",
     "inspect:models": "node scripts/inspect-models.mjs",
+    "inspect:object": "node scripts/inspect-object.mjs",
     "gen:sfx": "node scripts/gen-sfx-table.mjs",
     "gen:licenses": "node scripts/gen-licenses.mjs"
   },

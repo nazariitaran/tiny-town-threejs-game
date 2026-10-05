@@ -77,6 +77,50 @@ test('every setState name is acknowledged; unknown states throw', async ({ page 
   errors.expectNone();
 });
 
+test('loadTown loads a save as a test state; ground under a building that brings its own is not drawn', async ({ page }) => {
+  const errors = trackErrors(page);
+  await gotoTitle(page);
+
+  // An 8 × 6 patch of pavement with a cinema (6 × 4) on its north-west corner.
+  const size = 64;
+  const cells: string[] = new Array(size * size).fill('field');
+  for (let z = 10; z < 16; z += 1) for (let x = 10; x < 18; x += 1) cells[z * size + x] = 'pavement';
+  const ground: Array<[string, number]> = [];
+  for (const kind of cells) {
+    const last = ground[ground.length - 1];
+    if (last && last[0] === kind) last[1] += 1;
+    else ground.push([kind, 1]);
+  }
+  const save = {
+    version: 4,
+    width: size,
+    depth: size,
+    ground,
+    objects: [{ id: 1, kind: 'cinema', anchor: { x: 10, z: 10 }, rotation: 0, variant: 0 }],
+    edges: [],
+    nextObjectId: 2,
+  };
+  const loaded = await page.evaluate((town) => window.__THREE_GAME_TEST_HOOKS__!.loadTown(town), save);
+  expect(loaded).toEqual({ objects: 1, edges: 0 });
+  await waitFrames(page, 2);
+  const diag = await diagnostics(page);
+  expect(diag.phase).toBe('building');
+  expect(diag.daytime.pinned).toBe(true);
+  expect(diag.render.objects).toBe(1);
+  expect(diag.render.groundTiles, 'pavement tiles outside the cinema only').toBe(8 * 6 - 6 * 4);
+
+  const bad = await page.evaluate(async () => {
+    try {
+      await window.__THREE_GAME_TEST_HOOKS__!.loadTown({ version: 999 });
+      return '';
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error);
+    }
+  });
+  expect(bad).toContain('loadTown');
+  errors.expectNone();
+});
+
 test('screenshot hooks freeze the scene while rendering continues', async ({ page }, testInfo) => {
   const errors = trackErrors(page);
   await prepareDeterministicState(page, 'sample-town');

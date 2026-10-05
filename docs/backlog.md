@@ -45,6 +45,10 @@ Liveness holds (no deadlock or stuck car in the harness or in four review rounds
 - **Two cars can chase each other round a 2 × 2 loop of road blocks** in near contact for seconds (a two-block-wide road makes such loops).
 - **`TrafficSim.stats` and `LifeSystem.publish` allocate every frame** (a stats object; the `carCells` callback), about 50 kB/s of short-lived garbage at 30 fps. Reuse one object and an indexed loop.
 
+## Visual inspection
+- **The object inspector only sees a settled town.** `scripts/inspect-object.mjs` and the `town-visual-inspector` agent photograph stills, so nothing covers the ghost preview, the pop-in, a move in flight or a bulldoze. One known case: when a `coversGround` building is bulldozed, the tiles under it come back at once while the building is still shrinking, so pavement may flicker against its slab for that moment. A script mode that plays a short action sequence through real input and captures frames mid-animation would cover these.
+- **Two short diagonal patches on the stadium's rim change under the inspector's sub-pixel pan** (`--kind stadium`, the `top` view, about 40 pixels). Not checked: a real coplanar pair at the bowl's corners, or aliasing.
+
 ## Performance and release
 - **`stress-town` triangles are above the mobile target** (330.9k on desktop against 320k). Trim the densest models or lower the target's scope to desktop.
 - **`docs/release.md` "Latest"** was refreshed for the desktop draw calls, triangles and textures and the main chunk only; the night and mobile figures, CPU, GPU and download numbers are from before the cinema, the postbox cyphers and the roundabout corners.

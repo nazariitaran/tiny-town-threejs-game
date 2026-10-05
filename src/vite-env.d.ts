@@ -120,6 +120,12 @@ interface ThreeGameTestHooks {
   seed(value: number): void | Promise<void>;
   /** Acknowledges after setup/assets are ready; throws for unknown states (Game.TEST_STATES). */
   setState(name: string): { state: string } | Promise<{ state: string }>;
+  /**
+   * Loads a town (a SavedTown, as in a town file's `town`) as a test state: same reseed, pinned clock and
+   * autosave-off as setState. The save is repaired like any other (parseSave), so compare the returned
+   * counts with what was sent; throws when it cannot be read.
+   */
+  loadTown(save: unknown): Promise<{ objects: number; edges: number }>;
   /** Stops simulation/state transitions immediately; keeps rendering. */
   setPausedForScreenshot(paused: boolean): void | Promise<void>;
   /** Stabilize ambient/idle visuals without requiring an unpaused simulation tick. */

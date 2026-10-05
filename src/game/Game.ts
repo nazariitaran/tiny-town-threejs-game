@@ -26,6 +26,7 @@ import { TownRenderer } from '../render/TownRenderer';
 import { TownEditor } from '../town/TownEditor';
 import { TownState } from '../town/TownState';
 import { buildAssetGallery, buildSampleTown, buildStressTown } from '../town/sampleTown';
+import { parseSave } from '../town/serialize';
 import type { SavedTown } from '../town/types';
 import { parseTownNames, pickTownName, TOWN_NAMES_PATH } from '../town/townName';
 import { UiRoot } from '../ui/UiRoot';
@@ -550,6 +551,15 @@ export class Game {
   }
 
   private async applyTestState(name: TestState): Promise<void> {
+    await this.enterTestTown(name === 'title' ? 'title' : 'building', name === 'night-town' ? T_NIGHT : T_AFTERNOON, () => {
+      if (name === 'sample-town' || name === 'active-play' || name === 'night-town') buildSampleTown(this.editor);
+      if (name === 'asset-gallery') buildAssetGallery(this.editor);
+      if (name === 'stress-town') buildStressTown(this.editor);
+    });
+  }
+
+  /** A deterministic town for tests and captures: reseeded, autosave and flocks off, the clock pinned at `t`. */
+  private async enterTestTown(phase: 'title' | 'building', t: number, build: () => void): Promise<void> {
     await this.ready;
     // Demo/test towns must never overwrite or clear the player's save (stays off until reload).
     this.saves.autosaveEnabled = false;
@@ -558,14 +568,11 @@ export class Game {
     this.fxRng = createSeededRandom(this.seedValue ^ 0x9e3779b9);
     this.editor.reset();
     if (this.tools.activeTool) this.tools.selectTool(null);
-    if (name === 'sample-town' || name === 'active-play') buildSampleTown(this.editor);
-    if (name === 'asset-gallery') buildAssetGallery(this.editor);
-    if (name === 'stress-town') buildStressTown(this.editor);
-    if (name === 'night-town') buildSampleTown(this.editor);
-    this.setPhase(name === 'title' ? 'title' : 'building');
-    this.cameraController.setMode(name === 'title' ? 'title' : 'build');
+    build();
+    this.setPhase(phase);
+    this.cameraController.setMode(phase === 'title' ? 'title' : 'build');
     // Pinned until setTimeOfDay(null) or a reload.
-    this.clock.pin(name === 'night-town' ? T_NIGHT : T_AFTERNOON);
+    this.clock.pin(t);
     this.match.reset(this.clock.t);
     this.matchPinned = true;
     this.applyDaylight();
@@ -593,6 +600,14 @@ export class Game {
         this.renderNow();
         this.measureMaterials();
         return { state: name };
+      },
+      loadTown: async (save: unknown) => {
+        const town = parseSave(save);
+        if (town instanceof Error) throw new Error(`loadTown: ${town.message}`);
+        await this.enterTestTown('building', T_AFTERNOON, () => this.editor.load(town));
+        this.renderNow();
+        this.measureMaterials();
+        return { objects: [...this.town.objects()].length, edges: [...this.town.edges()].length };
       },
       setPausedForScreenshot: (paused: boolean) => {
         this.pausedForScreenshot = paused;

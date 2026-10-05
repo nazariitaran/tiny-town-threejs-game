@@ -12,6 +12,8 @@ A cosy browser city-builder sandbox: three.js + TypeScript + Vite. The game live
 - `CHANGELOG.md`: player-facing notes; "Unreleased" is what's merged on `main` since the last tag.
 - History lives in git, not in docs.
 
+Agents live in `.claude/agents/`: `town-modeller` designs and builds models in Blender; `town-visual-inspector` stages objects in the running game and reports visual defects (gaps, flicker, sunk or clipping parts). Run the inspector after adding or changing a model, ground kind or anything in how the town is drawn.
+
 Skills are user-level, in `~/.claude/skills/` (not in this repo). `threejs-game-director` routes to the others: `threejs-gameplay-systems`, `threejs-aaa-graphics-builder`, `threejs-game-ui-designer`, `threejs-qa-release`, `threejs-debug-profiler`. `webgpu-threejs-tsl` covers WebGPU and TSL.
 
 ## Phone support
@@ -30,6 +32,7 @@ npm run verify:visual  # ONLY tests/visual.spec.ts (the load → Start → road-
 npx playwright test tests/visual-regression.spec.ts   # screenshot baselines (darwin only, skipped elsewhere; a missing baseline FAILS)
 npm run build && npm run preview   # production build, served on PORT−1000 (default 4188)
 npm run inspect:canvas -- --state sample-town --run-id <id> --out artifacts/<id> [--mobile]   # needs a dev server; --mobile = 390×844
+npm run inspect:object -- --kind <kind> [--variant all] [--out artifacts/inspect/<kind>]   # stage a kind in the game and photograph it (contact sheets + z-fight counts); also --sweep (against every other kind), scene flags (--ground / --neighbour / --edge), --recipe / --town; needs a dev server, not preview
 npm run inspect:models # re-measure/verify the GLBs in public/assets/models (prints a report; add --three to load them via GLTFLoader)
 npm run gen:sfx        # regenerate src/audio/sfxTable.ts from scripts/data/audio.json
 npm run gen:licenses   # regenerate public/licenses.txt (runtime dependencies + licence texts; verify fails if stale)
@@ -40,10 +43,10 @@ node scripts/compose-models.mjs              # rebuild public/assets/models/comp
 /Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-cars.py   # rebuild public/assets/models/cars/*.glb from the Kenney originals in assets-src/car-kit/
 /Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-roundabout.py   # rebuild public/assets/models/roads/road-roundabout.glb from the Kenney original in assets-src/city-kit-roads/
 ```
-- **E2E workers.** `playwright.config.ts` sets no worker count, so always pass `--workers=N`. Use 6 on a normal machine: the full suite (113 tests) then takes about 3–4 minutes. In an agent cloud environment with limited hardware use 1–2 workers, and expect it to take much longer.
+- **E2E workers.** `playwright.config.ts` sets no worker count, so always pass `--workers=N`. Use 6 on a normal machine: the full suite (114 tests) then takes about 3–4 minutes. In an agent cloud environment with limited hardware use 1–2 workers, and expect it to take much longer.
 - If `npm install` fails with EACCES on `~/.npm`, add `--cache .npm-cache`.
-- Browser checks (Playwright, `inspect:canvas`, `render-icons`) need a session where Chromium can launch; inside a nono sandbox it segfaults. If that happens, say so in your hand-off; don't skip the check.
-- **Ports.** The dev server, Playwright, the canvas inspector and `render-icons` honour the `PORT` env var (default 5188, strict); `vite preview` uses `PORT − 1000`. Parallel agents each use their own port (`PORT=5220 npm run test:e2e`). Never kill a dev server you didn't start.
+- Browser checks (Playwright, `inspect:canvas`, `inspect:object`, `render-icons`) need a session where Chromium can launch; inside a nono sandbox it segfaults. If that happens, say so in your hand-off; don't skip the check.
+- **Ports.** The dev server, Playwright, the canvas and object inspectors and `render-icons` honour the `PORT` env var (default 5188, strict); `vite preview` uses `PORT − 1000`. Parallel agents each use their own port (`PORT=5220 npm run test:e2e`). Never kill a dev server you didn't start.
 - **Worktrees.** `node_modules/`, `assets-src/` and `artifacts/` are gitignored, so a fresh worktree has none of them: install with the main checkout's `.npm-cache`, read raw assets from the main checkout, and copy `artifacts/` out before `git worktree remove --force` deletes it.
 
 ## Hard rules

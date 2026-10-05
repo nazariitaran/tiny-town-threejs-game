@@ -39,7 +39,10 @@ The numbers live in `docs/assets.md` (scale, pivot, orientation, reference sizes
 
 - World units. A grid cell is 0.5; a road piece is one unit square and covers a 2 × 2-cell road block. A model's footprint is a whole number of cells; anything that roads join or that replaces road must be whole road blocks.
 - Road surface at 0.01, kerb and sidewalk top at 0.02, sidewalks 0.1 wide, painted lines 0.02 wide. A model that meets the road matches these exactly.
-- The base sits at 0 and the model is centred on its footprint, with a small margin (about 0.05) inside the lot.
+- The base sits at 0 and the model is centred on its footprint.
+- **Meeting the ground.** The game draws ground tiles under and round an object: lawn tops at 0.016, pavement at 0.02. Two ways to build, and nothing in between:
+  - A model with ground of its own (a building on a plinth or forecourt, a pool with a deck): the slab fills the whole lot, edge to edge, with its top at 0.02, so it meets pavement and kerbs flush with no strip of field between. Its kind then sets `coversGround` when it is integrated, and the game draws no tile under it; say so in your report. A slab that stops short of the lot edge leaves a gap nobody can fill.
+  - A model with no ground of its own (a house, a prop, a tree) stands on whatever the player paints, so it shows nothing below about 0.023: a plinth, step, foot or water surface lower than that is buried by a tile or flickers against it. Walls simply start at 0. It may sit inside its lot with room round it.
 - The front faces +Z at rotation 0. Blender is Z-up and its −Y becomes +Z on export, so build the front towards Blender's −Y.
 - Sizes to compare against: a car is about 0.25 wide, 0.45 long and 0.2 tall; a cottage is about 1.1 tall on a 2 × 2-unit lot. Take the rest from the reference table in `docs/assets.md` rather than from memory, and note when a model would become the tallest thing in town, since the birds and the sun's shadows are tuned to that.
 - Triangles: a road piece is about 45, a car park 150–320, a building 500–2,000. Spend them where they show.
@@ -49,7 +52,7 @@ The numbers live in `docs/assets.md` (scale, pivot, orientation, reference sizes
 1. **Understand the brief and its neighbours.** Load the existing pieces the model has to sit beside (road pieces, a cottage, a car) and measure them: heights, widths, which swatches they use. Decide the footprint in cells and the main dimensions from those measurements, not by eye.
 2. **Build with a script, never by hand.** Write a Python script that constructs the mesh with Blender's `bmesh`, with every dimension a named constant. A script makes the model exact, reviewable and rebuildable byte for byte.
 3. **Review it like an artist.** Put a car and a cottage next to it at game scale; this is the check that catches a model that is technically fine and simply the wrong size. Look at it from the game's angle (about 45° round, 50–55° from vertical), from the back, and from above, and critique what you see before you show anyone: does it read at a glance, is it the right size for what it is, is any face plain or any detail invisible? Then iterate.
-4. **Check it numerically.** Triangle count, bounds against the footprint, and face orientation (list the faces that point down and confirm each is a real underside). Screenshots do not reveal a flipped face.
+4. **Check it numerically.** Triangle count, bounds against the footprint (a model with its own ground slab matches the lot exactly), the lowest upward-facing surface against the tile heights above, and face orientation (list the faces that point down and confirm each is a real underside). Screenshots do not reveal a flipped face.
 5. **Show the owner** and stop. Offer variations if a choice was a close call.
 
 ### Working in Blender

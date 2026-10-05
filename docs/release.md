@@ -61,7 +61,7 @@ Release checks, on the preview (desktop and mobile) and on `dist/` copied under 
 
 Test hooks stay in production because the canvas inspector, the e2e suite and the bots run against `vite preview`. Rules:
 - installing the hooks has no side effects; every hook acts only when called;
-- `setState` turns autosave off, so it never overwrites a player's save;
+- `setState` and `loadTown` turn autosave off, so they never overwrite a player's save;
 - never add a hook that runs on load or changes defaults.
 
 ## Budgets

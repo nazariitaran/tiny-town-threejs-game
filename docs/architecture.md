@@ -61,7 +61,7 @@ src/
   testing/gltfNode.ts         Vitest only: loads public/ GLBs in Node
   vite-env.d.ts         [C]   diagnostics and test-hook types
 tests/                        Playwright specs + helpers.ts
-scripts/                      canvas inspector, model inspector, generators, icon renderer, model composer, checks
+scripts/                      canvas inspector, object inspector (staged scenes), model inspector, generators, icon renderer, model composer, checks
 ```
 `[C]` = shared contract: types and constants the whole game builds against. Adding an optional field, event or entry is fine; a rename, removal or signature change updates every caller in the same change.
 
@@ -232,6 +232,7 @@ Targets and the latest measurements: `docs/release.md` §Budgets. The `stress-to
 `window.__THREE_GAME_TEST_HOOKS__` (installed in production too; policy in `docs/release.md`), typed in `vite-env.d.ts`:
 - `seed(n)` reseeds every stream;
 - `setState(name)` for `title | empty-build | sample-town | active-play | asset-gallery | stress-town | night-town`: reseeds, rebuilds deterministically, pins the clock (0.55; `night-town` = sample town at 0.82, no match), turns autosave and spontaneous flocks off until reload. Unknown names throw;
+- `loadTown(save)`: loads a `SavedTown` as a test state (the same reseed, pinned clock at 0.55 and autosave-off as `setState`); the save goes through `parseSave`, so anything that breaks a rule is dropped, and the hook resolves with the `{ objects, edges }` it kept. An unreadable save throws. `scripts/inspect-object.mjs` stages its scenes with it;
 - `setPausedForScreenshot`, `setReducedMotion`, `hideDebugUi`;
 - `cellToClient(x, z)`: client coordinates of a cell centre, so bots click with real input;
 - `setCameraPose({ targetX, targetZ, azimuth, polar, distance })`: moves the camera at once and renders;
