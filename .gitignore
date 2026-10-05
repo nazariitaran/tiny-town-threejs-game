@@ -7,3 +7,5 @@ assets-src/
 .DS_Store
 .npm-cache/
 .wrangler/
+# MediaPipe models for ?gestures, downloaded by scripts/fetch-mediapipe-models.mjs; not committed.
+public/assets/mediapipe/

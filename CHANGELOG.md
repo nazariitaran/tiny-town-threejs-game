@@ -4,6 +4,9 @@ Player-facing release notes for Tiny Town. How things behave is in `docs/game-de
 
 ## Unreleased
 
+### New
+- **Hands-free controls (experimental, hidden).** Open the game with `?gestures` at the end of its address and a Hands-free panel lets you build with your webcam: point with your hand and pinch to click (hold the pinch to drag a road), make a fist to slide the map, or steer with your head and open your mouth to click. Everything runs on your computer with Google MediaPipe; the camera picture never leaves the browser, and nothing is loaded or asked for unless you open the panel and press Start camera. Without `?gestures` the game is unchanged.
+
 ## v0.9.1 — 2026-10-16
 
 ### Changed

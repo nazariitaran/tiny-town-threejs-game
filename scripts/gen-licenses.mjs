@@ -15,6 +15,12 @@ const TITLES = {
   three: 'three.js',
   'lil-gui': 'lil-gui (the ?debug tuning panel)',
   '@fontsource-variable/nunito': 'Nunito variable font (packaged by Fontsource)',
+  '@mediapipe/tasks-vision': 'MediaPipe Tasks Vision (the experimental hands-free controls)',
+};
+
+/** Packages that ship no licence file: the standard text of their declared licence, kept in scripts/data/. */
+const LICENCE_FILES = {
+  '@mediapipe/tasks-vision': 'scripts/data/apache-2.0.txt',
 };
 
 function readJson(file) {
@@ -34,6 +40,7 @@ function sourceUrl(pkg) {
 }
 
 function licenceText(dir, name) {
+  if (LICENCE_FILES[name]) return readFileSync(join(root, LICENCE_FILES[name]), 'utf8').replace(/\r\n/g, '\n').trim();
   const file = readdirSync(dir).find((f) => /^(licen[cs]e|copying)(\.(md|txt))?$/i.test(f));
   if (!file) throw new Error(`${name} ships no LICENSE file: add its licence text by hand`);
   return readFileSync(join(dir, file), 'utf8').replace(/\r\n/g, '\n').trim();

@@ -1,0 +1,305 @@
+/* Hands-free controls (src/gesture/HandsFree.ts): a toggle, a panel and the cursor, above the game UI. */
+
+.hf-root {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.hf-root :where(button, input, label) {
+  pointer-events: auto;
+  font: inherit;
+  color: inherit;
+}
+
+.hf-root [hidden] {
+  display: none !important;
+}
+
+.hf-toggle {
+  position: absolute;
+  top: calc(var(--safe-top) + var(--topbar-h) + 10px);
+  left: var(--safe-left);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.hf-live {
+  display: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brick);
+  box-shadow: 0 0 0 3px var(--brick-tint);
+}
+
+.hf-root.is-live .hf-live {
+  display: inline-block;
+}
+
+.hf-panel {
+  position: absolute;
+  top: calc(var(--safe-top) + var(--topbar-h) + 54px);
+  left: var(--safe-left);
+  width: 260px;
+  /* Clear of the dock (≤ 150 px) at the bottom. */
+  max-height: calc(100% - var(--topbar-h) - 54px - 190px);
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  pointer-events: auto;
+}
+
+.hf-panel > * {
+  flex: none;
+}
+
+.hf-root[data-panel='closed'] .hf-panel {
+  display: none;
+}
+
+.hf-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hf-head h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.hf-badge {
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--sun);
+  font-size: 0.7rem;
+  font-weight: 800;
+  vertical-align: 2px;
+}
+
+.hf-icon {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.hf-modes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.hf-mode,
+.hf-btn {
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  font-weight: 800;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.hf-mode[aria-pressed='true'] {
+  border-color: var(--green-dark);
+  background: var(--green-tint);
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+
+.hf-btn-primary {
+  background: var(--green);
+  border-color: var(--green-dark);
+  color: #fff !important;
+}
+
+.hf-preview {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: #2f2c27;
+}
+
+.hf-video,
+.hf-preview canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* A mirror: you move right, the picture moves right. */
+  transform: scaleX(-1);
+}
+
+.hf-status {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 4px 8px;
+  background: rgba(47, 44, 39, 0.72);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.hf-status:empty {
+  display: none;
+}
+
+.hf-root[data-status='error'] .hf-status {
+  background: var(--brick-dark);
+}
+
+.hf-legend {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+
+.hf-legend summary {
+  font-weight: 800;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.hf-legend ul {
+  margin: 4px 0 0;
+  padding-left: 16px;
+}
+
+.hf-legend li + li {
+  margin-top: 2px;
+}
+
+.hf-head-tools {
+  display: none;
+  gap: 6px;
+}
+
+.hf-root:not([data-mode='hand']) .hf-head-tools {
+  display: grid;
+}
+
+/* Dwell is for head mode alone: with a hand to pinch it only adds accidental clicks. */
+.hf-root[data-mode='head-hand'] .hf-dwell-row {
+  display: none;
+}
+
+.hf-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.hf-row input[type='range'] {
+  flex: 1;
+}
+
+.hf-note {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+}
+
+/* The cursor: a ring that fills as a pinch closes (or an open mouth widens), a dot at the point. */
+.hf-cursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  --hf-pressure: 0;
+  --hf-progress: 0;
+}
+
+.hf-ring,
+.hf-dot {
+  position: absolute;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.hf-ring {
+  width: calc(44px - 18px * var(--hf-pressure));
+  height: calc(44px - 18px * var(--hf-pressure));
+  border: 3px solid var(--green);
+  background: conic-gradient(rgba(244, 196, 78, 0.85) calc(var(--hf-progress) * 360deg), transparent 0);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), var(--shadow-soft);
+  transition:
+    width 80ms linear,
+    height 80ms linear,
+    border-color var(--fast) var(--ease);
+}
+
+.hf-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--ink);
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.hf-cursor.is-ui .hf-ring {
+  border-color: var(--blue);
+}
+
+.hf-cursor.is-pressed .hf-ring {
+  border-color: var(--blue);
+  background-color: rgba(74, 155, 232, 0.35);
+}
+
+.hf-cursor.is-grab .hf-ring {
+  width: 52px;
+  height: 52px;
+  border-color: var(--sun);
+  border-style: dashed;
+}
+
+.hf-cursor.is-calibrating .hf-ring {
+  border-color: var(--ink-faint);
+  border-style: dotted;
+}
+
+/* The control under the cursor, and the one being pressed. */
+.hf-hover {
+  outline: 3px solid var(--blue) !important;
+  outline-offset: 2px;
+}
+
+.hf-pressed {
+  transform: scale(0.94);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hf-ring {
+    transition: none;
+  }
+}

@@ -8,6 +8,8 @@
  *
  * Touch: one finger becomes the tool after TOUCH_COMMIT_MS or TOUCH_COMMIT_PX, so a second finger
  * can still turn it into a camera gesture.
+ *
+ * Hand / head tracking arrives as `intent:virtual-pointer`: the same strokes, with no DOM pointer to capture.
  */
 import * as THREE from 'three';
 import { EDGE_MODELS, GROUND_MODELS, ZEBRA_PIECE_MODELS } from '../catalog/models';
@@ -25,7 +27,7 @@ import {
   roadBlockCentreWorld,
   worldToNearestEdge,
 } from '../game/config';
-import type { GameBus } from '../game/events';
+import type { GameBus, GameEvents } from '../game/events';
 import type { ModelLibrary } from '../render/ModelLibrary';
 import { roadLook } from '../town/roadTiles';
 import {
@@ -70,6 +72,8 @@ const RIGHT_CLICK_SLOP_PX = 5;
 /** Bulldoze targets a fence when the pointer is within this many cells of it (touch: coarser). */
 const BULLDOZE_EDGE_RANGE = 0.3;
 const BULLDOZE_EDGE_RANGE_COARSE = 0.4;
+/** Stroke id of the hand / head pointer (`intent:virtual-pointer`); DOM pointer ids are never negative. */
+const VIRTUAL_POINTER_ID = -2;
 
 interface Stroke {
   pointerId: number;
@@ -198,6 +202,7 @@ export class ToolController {
       bus.on('town:changed', () => {
         this.hoverDirty = true;
       }),
+      bus.on('intent:virtual-pointer', (event) => this.onVirtualPointer(event)),
     );
 
     const folder = debug?.folder('Ghost');
@@ -417,13 +422,7 @@ export class ToolController {
       // A tap: place at the touch point.
       this.commitPendingTouch();
     }
-    if (this.stroke && this.stroke.pointerId === event.pointerId) {
-      if (this.stroke.mode === 'line' && this.stroke.axis === null) {
-        // A click (no drag) with a fence tool: place the edge nearest the press point.
-        this.applyEdge(this.stroke.startEdge, true);
-      }
-      this.finishStroke();
-    }
+    this.releaseStroke(event.pointerId);
     if (event.pointerType === 'touch' && this.touchPointers.size === 0) {
       // No hover on touch screens: tidy the ghost away once the finger lifts.
       this.pointer = null;
@@ -463,10 +462,45 @@ export class ToolController {
   };
 
   private trackPointer(event: PointerEvent): void {
-    this.pointer = { x: event.clientX, y: event.clientY };
-    this.coarsePointer = event.pointerType === 'touch';
-    this.lastPick = this.picker.pick(event.clientX, event.clientY);
+    this.trackAt(event.clientX, event.clientY, event.pointerType === 'touch');
+  }
+
+  private trackAt(clientX: number, clientY: number, coarse: boolean): void {
+    this.pointer = { x: clientX, y: clientY };
+    this.coarsePointer = coarse;
+    this.lastPick = this.picker.pick(clientX, clientY);
     this.hoverDirty = true;
+  }
+
+  /** The end of a press: a fence click (no drag) places the edge nearest the press point; any stroke ends. */
+  private releaseStroke(pointerId: number): void {
+    const stroke = this.stroke;
+    if (!stroke || stroke.pointerId !== pointerId) return;
+    if (stroke.mode === 'line' && stroke.axis === null) this.applyEdge(stroke.startEdge, true);
+    this.finishStroke();
+  }
+
+  /**
+   * Hand / head tracking: a mouse with one button, minus the camera (fists and two-hand gestures move it
+   * through their own intents). Coarse, so bulldozing picks fences from further away.
+   */
+  private onVirtualPointer({ phase, clientX, clientY }: GameEvents['intent:virtual-pointer']): void {
+    if (!this.enabled) return;
+    if (phase === 'leave') {
+      if (this.stroke?.pointerId === VIRTUAL_POINTER_ID) return;
+      this.pointer = null;
+      this.lastPick = null;
+      this.hoverDirty = true;
+      return;
+    }
+    this.trackAt(clientX, clientY, true);
+    if (phase === 'down') {
+      if (this.toolId && !this.stroke) this.beginStroke(VIRTUAL_POINTER_ID, clientX, clientY);
+    } else if (phase === 'up') {
+      this.releaseStroke(VIRTUAL_POINTER_ID);
+    } else if (this.stroke?.pointerId === VIRTUAL_POINTER_ID && this.lastPick) {
+      this.continueStroke(this.lastPick);
+    }
   }
 
   private commitPendingTouch(): void {
@@ -510,7 +544,7 @@ export class ToolController {
     };
     this.stroke = stroke;
     try {
-      if (!this.canvas.hasPointerCapture(pointerId)) this.canvas.setPointerCapture(pointerId);
+      if (pointerId !== VIRTUAL_POINTER_ID && !this.canvas.hasPointerCapture(pointerId)) this.canvas.setPointerCapture(pointerId);
     } catch {
       // Synthetic or already-released pointers can't be captured; blur/visibility still end the stroke.
     }
@@ -804,7 +838,7 @@ export class ToolController {
     this.stroke = null;
     this.editor.endStroke();
     try {
-      if (this.canvas.hasPointerCapture(stroke.pointerId)) this.canvas.releasePointerCapture(stroke.pointerId);
+      if (stroke.pointerId !== VIRTUAL_POINTER_ID && this.canvas.hasPointerCapture(stroke.pointerId)) this.canvas.releasePointerCapture(stroke.pointerId);
     } catch {
       // Pointer already gone.
     }

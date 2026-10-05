@@ -9,6 +9,9 @@ export default defineConfig({
   // Relative base, so dist/ works from any static-host sub-path; runtime asset URLs go through assetUrl().
   base: './',
   define: { __APP_VERSION__: JSON.stringify(version) },
+  // Only the lazily created tracking worker imports MediaPipe; found at run time, the dev server would
+  // re-optimise and reload the page on the first "Start camera".
+  optimizeDeps: { include: ['@mediapipe/tasks-vision'] },
   server: {
     host: '127.0.0.1',
     port,
