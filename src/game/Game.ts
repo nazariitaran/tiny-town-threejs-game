@@ -4,6 +4,7 @@
  */
 import * as THREE from 'three';
 import { AudioManager } from '../audio/AudioManager';
+import { FpsMeter } from '../core/FpsMeter';
 import { FrameBudget } from '../core/FrameBudget';
 import { Loop } from '../core/Loop';
 import { createRenderer, resizeRenderer } from '../core/Renderer';
@@ -89,6 +90,8 @@ export class Game {
   private nameRng = createSeededRandom(entropySeed());
   private townNames: string[] = [];
   private gridPreferred = true;
+  private fpsShown = false;
+  private readonly fpsMeter = new FpsMeter();
   private invalidCount = 0;
 
   private readonly town = new TownState(PLOT_WIDTH, PLOT_DEPTH);
@@ -196,6 +199,11 @@ export class Game {
       this.saves.setSettings({ grid: visible });
       this.environment.setGridVisible(visible && this.phase === 'building');
     });
+    this.bus.on('intent:toggle-fps', ({ visible }) => {
+      this.fpsShown = visible;
+      this.fpsMeter.reset();
+      this.saves.setSettings({ fps: visible });
+    });
     this.bus.on('build:invalid', () => {
       this.invalidCount += 1;
     });
@@ -206,6 +214,7 @@ export class Game {
     this.announceGraphics(); // the UI exists: sync its Graphics radios
 
     if (!this.gridPreferred) this.bus.emit('intent:toggle-grid', { visible: false }); // sync the UI switch
+    if (this.saves.getSettings().fps) this.bus.emit('intent:toggle-fps', { visible: true }); // sync the UI switch and counter
     this.announceDaytime(); // sync the UI time button with the stored mode
     resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr, this.tuning.renderScale);
     this.installTestHooks();
@@ -292,6 +301,10 @@ export class Game {
   private update(delta: number, elapsed: number): void {
     this.frame += 1;
     this.frameDelta = delta;
+    if (this.fpsShown) {
+      const fps = this.fpsMeter.frame(elapsed);
+      if (fps !== null) this.bus.emit('fps:measured', { fps });
+    }
     resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr, this.tuning.renderScale);
     if (!this.pausedForScreenshot) {
       const animDelta = this.reducedMotion ? 0 : delta;

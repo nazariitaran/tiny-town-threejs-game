@@ -31,6 +31,9 @@ export const UI_TEST_IDS = {
   credits: 'btn-credits',
   volume: 'range-volume',
   grid: 'chk-grid',
+  fps: 'chk-fps',
+  /** Shown only while the Show FPS switch is on; reads "60 FPS". */
+  fpsCounter: 'ui-fps',
   music: 'chk-music',
   musicVolume: 'range-music',
   /** Cycles Auto → Day → Night; data-mode is the current mode. */

@@ -151,7 +151,7 @@ Letter and digit keys use `event.code`, so layouts and Shift don't change the ma
 
 ### Menu tabs
 - **Town:** Time of day (Auto / Day / Night); Town file (phones ≤ 440 px); Rename town · New town.
-- **Graphics:** Quality (Low / Medium / High) with the preset's one-line description; "Some changes apply after a reload" with **Reload now** when the choice changes MSAA or the material from what the page booted with; Show grid.
+- **Graphics:** Quality (Low / Medium / High) with the preset's one-line description; "Some changes apply after a reload" with **Reload now** when the choice changes MSAA or the material from what the page booted with; Show grid; Show FPS (off by default): a small frame-rate pill under the town name, top left, while building and in the menu. It never takes pointer input and is not in photos. The game caps its own frame rate (60 while you interact, 30 when idle on Medium and High; 30 on Low), so the counter reads the cap on a machine that keeps up.
 - **Sound:** Volume, Music on/off, Music volume.
 - **Help:** Controls, Credits, and the version (`Tiny Town v0.7`).
 - The graphics controls render only from the last `graphics:changed` fact. Picking a preset emits `intent:set-graphics` and applies the live parts at once; Reload now emits `intent:reload-graphics`, which flushes the save and reloads to the title.

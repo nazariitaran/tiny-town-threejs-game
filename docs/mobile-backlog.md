@@ -9,3 +9,6 @@ Full phone support is not a priority; the existing phone infrastructure is left 
 - **Desktop-only skips were dropped.** Tests that used to skip on the phone project (keyboard shortcuts, hover-based checks, budgets) now run unconditionally and would need their skips back.
 - **`move.spec.ts` "pick up a cottage…" failed on `mobile-chrome`**: the Move hint read "Click where it goes" where the test expects "Tap where it goes". Decide which wording the emulated phone should show.
 - **The `night-town` mobile visual baseline failed intermittently**: only the DOM UI differed (top bar, hint line and dock text shifted by a pixel), the canvas was identical. Find what the capture waits for (fonts or layout timing).
+
+## Features
+- **FPS counter** (`.ui-fps`): it shares the row under the top bar with the centred hint line; on a narrow screen a long hint runs under it. Give the counter its own spot or shorten the hint's width there.

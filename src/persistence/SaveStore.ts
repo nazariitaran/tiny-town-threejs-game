@@ -26,6 +26,8 @@ export interface GameSettings {
   /** Master, 0..1. */
   volume: number;
   grid: boolean;
+  /** The frame-rate counter in the corner. */
+  fps: boolean;
   music: boolean;
   /** 0..1, under the master volume. */
   musicVolume: number;
@@ -38,6 +40,7 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = {
   muted: false,
   volume: 0.8,
   grid: true,
+  fps: false,
   music: true,
   musicVolume: 0.5,
   timeMode: 'auto',
@@ -227,6 +230,7 @@ export class SaveStore {
     if (typeof r.muted === 'boolean') settings.muted = r.muted;
     if (typeof r.volume === 'number' && Number.isFinite(r.volume)) settings.volume = Math.min(1, Math.max(0, r.volume));
     if (typeof r.grid === 'boolean') settings.grid = r.grid;
+    if (typeof r.fps === 'boolean') settings.fps = r.fps;
     if (typeof r.music === 'boolean') settings.music = r.music;
     if (typeof r.musicVolume === 'number' && Number.isFinite(r.musicVolume)) settings.musicVolume = Math.min(1, Math.max(0, r.musicVolume));
     if (isTimeMode(r.timeMode)) settings.timeMode = r.timeMode;
@@ -239,6 +243,7 @@ export class SaveStore {
     if (typeof patch.muted === 'boolean') next.muted = patch.muted;
     if (typeof patch.volume === 'number' && Number.isFinite(patch.volume)) next.volume = Math.min(1, Math.max(0, patch.volume));
     if (typeof patch.grid === 'boolean') next.grid = patch.grid;
+    if (typeof patch.fps === 'boolean') next.fps = patch.fps;
     if (typeof patch.music === 'boolean') next.music = patch.music;
     if (typeof patch.musicVolume === 'number' && Number.isFinite(patch.musicVolume)) next.musicVolume = Math.min(1, Math.max(0, patch.musicVolume));
     if (isTimeMode(patch.timeMode)) next.timeMode = patch.timeMode;

@@ -26,6 +26,7 @@ src/
   persistence/SaveStore.ts    localStorage: autosave, settings, music position
   persistence/townFile.ts     town file encode/decode, file name (pure)
   core/Loop.ts, FrameBudget.ts, Renderer.ts   paced rAF loop; active / idle frame cap; WebGLRenderer setup + resize
+  core/FpsMeter.ts            averaged frame rate for the optional counter
   render/ModelLibrary.ts      GLB load + normalise, in the preset's material family
   render/TownRenderer.ts      incremental instanced drawing; pop-in, shrink-out and move tweens
   render/InstancePool.ts, tween.ts   one InstancedMesh per (model, part); easing curves
@@ -134,7 +135,7 @@ New catalog kinds therefore need no version bump; an older build drops kinds it 
 
 **Autosave** (`SaveStore`): key `tiny-town:save:v1`, written 1 s after the last `town:changed` or rename; never on cause `load`; cause `reset` clears the save (an empty plot is never offered as Continue); flushed on `pagehide`. Off after any test state until reload.
 
-**Settings** (`tiny-town:settings:v1`): `muted` false, `volume` 0.8, `grid` true, `music` true, `musicVolume` 0.5, `timeMode` `auto`, `graphics` `medium`. A missing or invalid field loads its default.
+**Settings** (`tiny-town:settings:v1`): `muted` false, `volume` 0.8, `grid` true, `fps` false, `music` true, `musicVolume` 0.5, `timeMode` `auto`, `graphics` `medium`. A missing or invalid field loads its default.
 
 **Music position** (`tiny-town:music:v1`): `{ track, time }` via `SaveStore.getMusicPosition()` / `setMusicPosition()`; survives deleting the town. Resume rules: `docs/assets.md`.
 
@@ -155,6 +156,7 @@ New catalog kinds therefore need no version bump; an older build drops kinds it 
 ## Frame budget
 - **Pacing** (`core/Loop.ts` `paceFrame`, `core/FrameBudget.ts`): at most `activeFps` while the player interacts and `idleFps` after `idleAfterS` (4 s) without activity. Activity = pointer, wheel, touch or key input on the window, a moving camera outside the title screen, TownRenderer tweens, a developing photo. Skipped rAF ticks run neither update nor render; `delta` spans back to the last rendered tick (clamped to 50 ms). The pacing grid is fixed, so 144 Hz averages 60.
 - **Shadow map on demand** (`render/ShadowScheduler.ts`, `shadowMap.autoUpdate = false`): redrawn after `town:changed`, after `Environment.shadowVersion` changes (key light re-aimed or refitted, map resized), and every frame while town tweens run. Cars and birds refresh it at `carHz` / `birdHz` (30 each; the faster while both move); cars only while one of them is not parked, pops in or has just come, gone or parked (`LifeSystem.castsShadows`), so a town whose cars all stand parked is still. A still town draws no shadow pass. Test hooks, screenshot pauses and photos always redraw it first.
+- **FPS counter** (Menu → Graphics → Show FPS, `settings.fps`): while it is on, `core/FpsMeter.ts` averages rendered frames over 0.5 s windows in `Game.update` and `Game` emits `fps:measured`; `UiRoot` writes it into `#ui-fps`. A gap of 2 s or more (hidden tab) restarts the window. It reads the paced rate, so an idle town shows `idleFps`.
 - `?debug` → lil-gui `Performance`: active / idle fps (0 = display rate), idle delay, car / bird shadow Hz; a preset change overwrites them.
 
 ## Graphics presets

@@ -4,6 +4,9 @@ Player-facing release notes for Tiny Town. How things behave is in `docs/design.
 
 ## Unreleased
 
+### Added
+- Menu → Graphics → Show FPS puts a frame-rate counter in the top-left corner; off by default and remembered.
+
 ### Changed
 - The pool has a paved terrace under its parasols and fills its whole plot.
 

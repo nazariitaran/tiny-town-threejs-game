@@ -24,6 +24,8 @@ type NameDialog = { mode: 'new' | 'rename'; from: 'title' | 'menu' | 'building' 
 type UiSfx = 'ui-hover' | 'ui-click' | 'ui-open' | 'ui-close';
 
 const HINT_MAX_USES = 3;
+/** The counter's text until the first reading. */
+const FPS_PENDING = '-- FPS';
 const HINT_MS = 3500;
 const PICK_HINT_MOUSE = 'Pick something below, then click the map to build';
 const PICK_HINT_TOUCH = 'Pick an item below · two fingers move the view';
@@ -203,6 +205,15 @@ export class UiRoot {
       bus.on('intent:toggle-grid', ({ visible }) => {
         this.el<HTMLInputElement>(UI_TEST_IDS.grid).checked = visible;
       }),
+      bus.on('intent:toggle-fps', ({ visible }) => {
+        this.el<HTMLInputElement>(UI_TEST_IDS.fps).checked = visible;
+        const counter = this.el(UI_TEST_IDS.fpsCounter);
+        counter.classList.toggle('is-on', visible);
+        counter.textContent = FPS_PENDING;
+      }),
+      bus.on('fps:measured', ({ fps }) => {
+        this.el(UI_TEST_IDS.fpsCounter).textContent = `${fps} FPS`;
+      }),
       bus.on('daytime:changed', ({ mode, phase }) => {
         this.timeMode = mode;
         this.dayPhase = phase;
@@ -300,6 +311,7 @@ export class UiRoot {
         </div>
       </header>
 
+      <p class="ui-fps ui-hud" id="${id.fpsCounter}" data-phase="building menu" aria-hidden="true">${FPS_PENDING}</p>
       <p class="ui-hint ui-hud" id="${id.hint}" data-phase="building" aria-live="polite"></p>
       <div class="ui-dock-wrap ui-hud" data-phase="building menu">
         <div class="ui-variants" id="${id.variants}" role="group" aria-label="Styles" hidden></div>
@@ -371,6 +383,10 @@ export class UiRoot {
               <label class="ui-field ui-check" for="${id.grid}">
                 ${GLYPHS.grid}<span>Show grid</span>
                 <input type="checkbox" id="${id.grid}" role="switch" checked />
+              </label>
+              <label class="ui-field ui-check" for="${id.fps}">
+                ${GLYPHS.fps}<span>Show FPS</span>
+                <input type="checkbox" id="${id.fps}" role="switch" />
               </label>
             </div>
             <div class="ui-menu-page" role="tabpanel" id="${id.menuTabPanel('sound')}" aria-labelledby="${id.menuTab('sound')}" hidden>
@@ -610,6 +626,9 @@ export class UiRoot {
     } else if (target.id === UI_TEST_IDS.grid && event.type === 'change') {
       this.sfx('ui-click');
       this.bus.emit('intent:toggle-grid', { visible: target.checked });
+    } else if (target.id === UI_TEST_IDS.fps && event.type === 'change') {
+      this.sfx('ui-click');
+      this.bus.emit('intent:toggle-fps', { visible: target.checked });
     } else if (target.name === 'time-mode' && event.type === 'change' && target.checked) {
       this.sfx('ui-click');
       this.bus.emit('intent:set-time-mode', { mode: target.value as TimeMode });

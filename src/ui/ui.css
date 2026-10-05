@@ -467,6 +467,27 @@
   gap: 8px;
 }
 
+.ui-fps {
+  position: absolute;
+  top: calc(var(--safe-top) + var(--topbar-h) + 10px);
+  left: var(--safe-left);
+  margin: 0;
+  min-width: 4.2em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(59, 58, 54, 0.78);
+  color: #fffaf0;
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ui-fps:not(.is-on) {
+  display: none;
+}
+
 .ui-hint {
   /* Just under the top bar, so it never covers the build area. */
   position: absolute;

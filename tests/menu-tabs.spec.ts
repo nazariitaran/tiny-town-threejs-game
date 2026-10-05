@@ -14,7 +14,7 @@ const LABELS: Record<MenuTab, string> = { town: 'Town', graphics: 'Graphics', so
 /** The controls each tab must carry. */
 const CONTENT: Record<MenuTab, string[]> = {
   town: [ids.timeModeGroup, ids.renameTown, ids.newTown, ids.townFileMenu],
-  graphics: [ids.graphicsGroup, ids.graphicsReload, ids.grid],
+  graphics: [ids.graphicsGroup, ids.graphicsReload, ids.grid, ids.fps],
   sound: [ids.volume, ids.music, ids.musicVolume],
   help: [ids.help, ids.credits],
 };
@@ -299,6 +299,42 @@ async function menuLayoutProblems(page: Page): Promise<string[]> {
     { menuId: UI_TEST_IDS.menuPanel },
   );
 }
+
+test('Show FPS: the switch shows a live counter in the corner and is remembered after a reload', async ({ page }) => {
+  const errors = trackErrors(page);
+  await gotoTitle(page);
+  await startBuilding(page);
+  const counter = byId(page, ids.fpsCounter);
+  const toggle = byId(page, ids.fps);
+  await expect(counter).toBeHidden();
+
+  await openMenuTab(page, 'graphics');
+  await expect(toggle).not.toBeChecked();
+  await toggle.click();
+  await expect(toggle).toBeChecked();
+  await expect(counter).toBeVisible();
+  await expect(counter).toHaveText(/^[1-9]\d* FPS$/);
+
+  await page.keyboard.press('Escape');
+  await expect.poll(() => phase(page)).toBe('building');
+  await expect(counter).toBeVisible();
+  const box = (await counter.boundingBox())!;
+  const hit = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.id, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  expect(hit, 'the counter never takes clicks from the map').toBe('game-canvas');
+
+  mkdirSync(OUT, { recursive: true });
+  await page.screenshot({ path: `${OUT}/fps-counter.png` });
+
+  await gotoTitle(page);
+  await expect(counter).toBeHidden();
+  await startBuilding(page);
+  await expect(counter).toHaveText(/^[1-9]\d* FPS$/);
+  await openMenuTab(page, 'graphics');
+  await expect(toggle).toBeChecked();
+  await toggle.click();
+  await expect(counter).toBeHidden();
+  errors.expectNone();
+});
 
 test('phone layout: every tab fits 390 × 844 and the project viewport, no clipped labels, ≥ 40 px targets; screenshots', async ({ page }, info) => {
   const errors = trackErrors(page);

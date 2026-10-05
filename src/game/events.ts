@@ -36,6 +36,8 @@ export type GameEvents = {
   'intent:set-volume': { volume: number };
   'intent:toggle-grid': { visible: boolean };
   /** Persisted. */
+  'intent:toggle-fps': { visible: boolean };
+  /** Persisted. */
   'intent:set-music': { enabled: boolean };
   /** 0..1, persisted. */
   'intent:set-music-volume': { volume: number };
@@ -87,6 +89,8 @@ export type GameEvents = {
   'music:changed': { enabled: boolean; volume: number };
   /** At boot and on every change. reloadRequired: the page runs with a different antialias / material than `preset` wants. */
   'graphics:changed': { preset: GraphicsPreset; reloadRequired: boolean };
+  /** Rendered frames per second, about twice a second while the counter is shown. */
+  'fps:measured': { fps: number };
   /** On a mode or phase change and once at boot; never per frame. */
   'daytime:changed': { mode: TimeMode; phase: DayPhase };
 
