@@ -43,7 +43,7 @@ node scripts/compose-models.mjs              # rebuild public/assets/models/comp
 /Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-cars.py   # rebuild public/assets/models/cars/*.glb from the Kenney originals in assets-src/car-kit/
 /Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-roundabout.py   # rebuild public/assets/models/roads/road-roundabout.glb from the Kenney original in assets-src/city-kit-roads/
 ```
-- **E2E workers.** `playwright.config.ts` sets no worker count, so always pass `--workers=N`. Use 6 on a normal machine: the full suite (114 tests) then takes about 3–4 minutes. In an agent cloud environment with limited hardware use 1–2 workers, and expect it to take much longer.
+- **E2E workers.** `playwright.config.ts` sets no worker count, so always pass `--workers=N`. Use 6 on a normal machine: the full suite (115 tests) then takes about 3–4 minutes. In an agent cloud environment with limited hardware use 1–2 workers, and expect it to take much longer.
 - If `npm install` fails with EACCES on `~/.npm`, add `--cache .npm-cache`.
 - Browser checks (Playwright, `inspect:canvas`, `inspect:object`, `render-icons`) need a session where Chromium can launch; inside a nono sandbox it segfaults. If that happens, say so in your hand-off; don't skip the check.
 - **Ports.** The dev server, Playwright, the canvas and object inspectors and `render-icons` honour the `PORT` env var (default 5188, strict); `vite preview` uses `PORT − 1000`. Parallel agents each use their own port (`PORT=5220 npm run test:e2e`). Never kill a dev server you didn't start.

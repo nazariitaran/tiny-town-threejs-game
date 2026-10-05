@@ -4,6 +4,8 @@ Player-facing release notes for Tiny Town. How things behave is in `docs/game-de
 
 ## Unreleased
 
+## v0.7.1 — 2026-10-05
+
 ### Added
 - Menu → Graphics → Show FPS puts a frame-rate counter in the top-left corner; off by default and remembered.
 

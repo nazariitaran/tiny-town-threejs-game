@@ -54,7 +54,7 @@ const AUTHOR_LINKS = [
 ] as const;
 
 const MADE_BY = 'Made by Nazarii Taran, with Claude';
-/** "v0.7" for 0.7.0; the patch number shows only when it isn't 0. */
+/** "v0.7" for 0.7.0, "v0.7.1" for 0.7.1: the patch number shows only when it isn't 0. */
 const VERSION_LABEL = `v${__APP_VERSION__.replace(/\.0$/, '')}`;
 
 function authorLinks(): string {

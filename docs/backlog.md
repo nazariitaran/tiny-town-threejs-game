@@ -50,5 +50,5 @@ Liveness holds (no deadlock or stuck car in the harness or in four review rounds
 
 ## Performance and release
 - **`stress-town` triangles are above the mobile target** (330.9k on desktop against 320k). Trim the densest models or lower the target's scope to desktop.
-- **`docs/release.md` "Latest"** was refreshed for the desktop draw calls, triangles and textures and the main chunk only; the night and mobile figures, CPU, GPU and download numbers are from before the cinema, the postbox cyphers and the roundabout corners.
+- **`docs/release.md` "Latest"** was refreshed for the desktop draw calls, triangles and textures, the main chunk and the download sizes only; the night and mobile figures and the CPU and GPU numbers are from before the cinema, the postbox cyphers and the roundabout corners.
 - **Uninvestigated:** in one capture of a plot packed with car parks the dock's Parking card still looked selected after Esc while diagnostics reported no tool.
