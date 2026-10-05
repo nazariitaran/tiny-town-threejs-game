@@ -139,16 +139,16 @@ All checks below ran in this cloud container: 4 Xeon cores at 2.1 GHz, no GPU (C
 | *Head mode:* face centred, then sliding 140 px | pointer stays within 10 % of the screen width of the centre | ✓ worst 19 px (2.0 %) |
 | *Head mode:* a held smile (the portrait smiles) | rotation changes | ✓ |
 
-**Inference time** (`scripts/gesture-bench.mjs`: the real worker on its own, no game rendering beside it; 640 × 480 frames; median per frame):
+**Inference time** (`node scripts/gesture-bench.mjs --frames 30`: the real worker on its own, no game rendering beside it; 640 × 480 frames; renderer reported as SwiftShader):
 
-| | CPU delegate | GPU delegate (software WebGL here) |
+| | CPU delegate: median / p90 | GPU delegate on software WebGL: median / p90 |
 | --- | --- | --- |
-| Gesture Recognizer (2 hands) | 76 ms | 593 ms |
-| Face Landmarker (+ blendshapes) | 24 ms | 164 ms |
-| Both (Head + hand) | 104 ms | n/a |
-| Load (WASM + model, warm HTTP cache) | 0.4–0.6 s | 0.4 s, plus a 2–3 s first frame |
+| Gesture Recognizer (2 hands) | 79 / 86 ms | 637 / 686 ms |
+| Face Landmarker (+ blendshapes) | 25 / 30 ms | 142 / 173 ms |
+| Both (Head + hand) | 105 / 124 ms | 753 / 824 ms |
+| Load (WASM + model, warm HTTP cache) | 0.3–0.6 s, first frame 0.2–0.3 s | 0.4–0.6 s, first frame 2.2–5.9 s |
 
-In the game here, the worker shares the 4 cores with the game rendering through SwiftShader. The smoke run therefore got about 4 results a second (170–180 ms each) on the Low preset, and about 1 a second on Medium at 1280 × 720. These are worst-case numbers from a machine with no GPU. **They say nothing about a real laptop**, where the game renders on the GPU and MediaPipe's GPU delegate is expected to take single-digit milliseconds. Measuring that is follow-up 1.
+In the game here, the worker shares the 4 cores with the game rendering through SwiftShader. The smoke run therefore got about 4 results a second (170–180 ms each) on the Low preset at 960 × 540, and under one a second (1.4–1.6 s each) on Medium at 1280 × 720. These are worst-case numbers from a machine with no GPU. **They say nothing about a real laptop**, where the game renders on the GPU and MediaPipe can use a real GPU delegate; expect it to be much faster, but it has not been measured. Measuring it is the first follow-up.
 
 **Latency budget**, in the usual case: at most one camera frame waiting (≤ 33 ms) + inference + one message hop. The tracker never queues frames: while the worker is busy, newer frames are dropped, so lag doesn't grow on a slow machine; the result rate falls instead. The interpreters are time-based (seconds, not frames), so holds and filters behave the same at 4 or 30 results a second.
 
