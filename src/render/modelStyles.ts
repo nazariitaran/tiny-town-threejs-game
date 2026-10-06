@@ -24,6 +24,8 @@ export const MODEL_STYLES: Readonly<Partial<Record<ModelId, ModelStyle>>> = {
   'fence-low': { color: '#9a6a42', scale: [1, 1.4, 1] },
   // A little longer so neighbouring runs close up at corners.
   hedge: { scale: [1.12, 1, 1] },
+  // A touch taller so its low leaves clear the ground.
+  'tulips-c': { scale: [1, 1.05, 1] },
   // The oak canopy squashed into a low shrub (the model's offset sinks the trunk).
   bush: { scale: [1, 0.58, 1] },
   // Same warm stone kerbs as the road pieces.

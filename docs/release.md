@@ -13,7 +13,7 @@ npm run preview         # serves dist/ on PORT − 1000 (default 4188): test thi
 - **Cloudflare.** The live site is a Cloudflare Worker with static assets, built from `main` on push: `npm ci`, `npm run build`, then `npx wrangler deploy`, which uploads `dist/` as configured in `wrangler.jsonc`. `public/.assetsignore` keeps the `.map` files out of the upload. Cloudflare's build runs npm 10, so after a dependency change check that `npx -y npm@10.9.2 ci` accepts the lock file.
 
 - **Base path.** `base: './'`, so the same `dist/` works at a domain root or any sub-path. Every runtime URL goes through `assetUrl()` (`src/game/config.ts`), which prefixes `import.meta.env.BASE_URL`; never hard-code `"/assets/..."` in a `fetch`, loader, `<img src>` or `<audio src>`. Check: every hit of `grep -rn "/assets/" src` is a catalog or constant path passed to `assetUrl()`.
-- **Version.** `package.json` `version` is the only source: `define` in `vite.config.ts` turns it into `__APP_VERSION__`, and `VERSION_LABEL` in `src/ui/UiRoot.ts` shows it as `v0.7.1` on the title screen and under Menu → Help. Bump it and cut the CHANGELOG section together.
+- **Version.** `package.json` `version` is the only source: `define` in `vite.config.ts` turns it into `__APP_VERSION__`, and `VERSION_LABEL` in `src/ui/UiRoot.ts` shows it as `v0.8` on the title screen and under Menu → Help. Bump it and cut the CHANGELOG section together.
 - **Chunks.** three.js is its own vendor chunk; `PhotoFrame` is a lazy chunk. `chunkSizeWarningLimit` is 900 kB.
 - **Sourcemaps.** `sourcemap: 'hidden'`: `.map` files are written, but the JS has no `sourceMappingURL`. Don't deploy them.
 - **CSS.** Minified by lightningcss, which drops `translate:` when the same rule also sets `transform:`. Never combine the two in one rule; run the visual baselines against the preview after CSS changes.
@@ -76,8 +76,8 @@ Full 64 × 64 town (`stress-town`), production preview, Medium preset, headless 
 | DPR cap | Low 1, Medium 1.5, High 2 | per preset |
 | CPU per rendered frame | ≤ 8 ms | stress 1.39 ms building / 1.94 ms idle; sample town 1.68 / 2.88 ms |
 | Frame cap | 60 active / 30 idle (Low 30 / 30) | held |
-| Download before the title (JS, CSS, font, models, SFX, icons, name list) | ≤ 8 MB | 5.65 MB; `dist/` without maps or music 5.82 MB |
-| Main JS chunk | < 900 kB | 356 kB (113 kB gzip) + three.js 642 kB (162 kB gzip) |
+| Download before the title (JS, CSS, font, models, SFX, icons, name list) | ≤ 8 MB | 5.68 MB; `dist/` without maps or music 6.05 MB |
+| Main JS chunk | < 900 kB | 375 kB (118 kB gzip) + three.js 642 kB (162 kB gzip) |
 
 Per preset, stress town: triangles Low 289k–298k, Medium / High 324k–332k (phone / desktop). GPU busy on an M2 Max at 1512 × 982, DPR 2, active / idle: Low 11 / 11 %, Medium 33–35 / 20–21 %, High 44–45 / 26–27 %. On a 1080p DPR-1 screen Low renders about 4× cheaper per frame than Medium (render scale 0.75).
 

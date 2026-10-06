@@ -13,9 +13,10 @@ export type ModeToolId = 'move' | 'bulldoze';
  *   streets: the road network (roads, pavement, roundabout, parking, zebra, traffic lights)
  *   homes:   where people live (and their mailbox)
  *   town:    shops, civic places and the street furniture everyone shares
- *   nature:  things that grow on their own (ground cover, trees, bushes)
+ *   nature:  things that grow on their own (ground cover, ponds, trees, bushes, pond plants)
  *   garden:  things people build in a yard or park (hedges, fences, furniture)
- * Inside a category tools run surfaces → lines → objects (ground paint, then edges, then placed items).
+ * Inside a category tools run surfaces → lines → objects (ground paint, then edges, then placed items);
+ * the pond is the exception: it sits right before the items that go in it.
  * Digits 1–9 pick the first nine tools of a category; a category holds at most 12 (~12 cards fill a desktop row).
  */
 export type ToolCategory = 'streets' | 'homes' | 'town' | 'nature' | 'garden';
@@ -43,6 +44,7 @@ const BUILD = 'Click to build · R to rotate';
 const PLACE = 'Click to place · R to rotate';
 const SCATTER = 'Click or drag to place · R to rotate';
 const PLANT = 'Click or drag to plant';
+const POND_PLANT = 'Click or drag across a pond to plant';
 const EDGE = 'Drag along cell edges';
 
 const ROWS: readonly ToolRow[] = [
@@ -76,6 +78,11 @@ const ROWS: readonly ToolRow[] = [
   { id: 'oak', label: 'Oak', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT },
   { id: 'pine', label: 'Pine', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT },
   { id: 'birch', label: 'Birch', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: PLANT },
+  { id: 'pond', label: 'Pond', category: 'nature', layer: 'ground', drag: 'paint', sfx: 'place-nature', hint: 'Drag to dig a pond — neighbouring cells join into one' },
+  { id: 'lily-pads', label: 'Lily pads', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: POND_PLANT },
+  { id: 'reeds', label: 'Reeds', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: POND_PLANT },
+  { id: 'cattails', label: 'Cattails', category: 'nature', layer: 'object', drag: 'scatter', sfx: 'place-nature', hint: POND_PLANT },
+  { id: 'bird-house', label: 'Bird house', category: 'nature', layer: 'object', drag: 'single', sfx: 'place-prop', hint: 'Click a pond to float a bird house · R to rotate' },
   { id: 'hedge', label: 'Hedge', category: 'garden', layer: 'edge', drag: 'line', sfx: 'place-nature', hint: `${EDGE} to grow a hedge` },
   { id: 'fence-low', label: 'Low fence', category: 'garden', layer: 'edge', drag: 'line', sfx: 'place-prop', hint: `${EDGE} to build a fence` },
   { id: 'fence-tall', label: 'Tall fence', category: 'garden', layer: 'edge', drag: 'line', sfx: 'place-prop', hint: `${EDGE} to build a fence` },

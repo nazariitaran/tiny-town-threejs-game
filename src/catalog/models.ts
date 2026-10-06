@@ -1,3 +1,5 @@
+import { GROUND_Y } from '../game/config';
+import type { PondPiece } from '../town/pondTiles';
 import type { RoadPiece } from '../town/roadTiles';
 import type { EdgeKind, GroundKind, Rotation } from '../town/types';
 
@@ -17,6 +19,8 @@ export interface ModelSpec {
    * glow mask as its emissiveMap. Never set on shared road pieces.
    */
   glow?: GlowKind;
+  /** Keep the file's own origin and base instead of centring on the bounds (pieces placed by a grid convention, like pond shores). */
+  nativeOrigin?: boolean;
   /** Poster slots: meshes named in `slots` (atlas cells in row-major order, 2 columns) share one material textured from the atlas. */
   posters?: { url: string; slots: readonly string[] };
 }
@@ -49,6 +53,8 @@ export const MODELS = {
   'road-tee-zebra': M('/assets/models/roads/road-intersection-path.glb', 1, 0),
   'road-cross-zebra': M('/assets/models/roads/road-crossroad-path.glb', 1, 0),
   'road-end': M('/assets/models/roads/road-end-round.glb', 1, 3),
+  // The grass in the two corners the round end leaves open (ROAD_END_VERGE_MODEL); a top face at ground level, in the road end's frame.
+  'road-end-verge': M('/assets/models/roads/road-end-verge.glb', 1, 3, { nativeOrigin: true }),
   'road-single': M('/assets/models/roads/road-square.glb', 1, 0),
   // One pavement tile per cell; TownRenderer doubles its height so the kerb stays 0.02.
   'pavement-tile': M('/assets/models/roads/tile-low.glb', 0.5, 0),
@@ -56,6 +62,10 @@ export const MODELS = {
   roundabout: M('/assets/models/roads/road-roundabout.glb', 1, 0),
   // The pavement that fills one grass wedge (the north-west corner block, origin at the block centre); turned per corner.
   'roundabout-corner': M('/assets/models/roads/roundabout-corner.glb', 1, 0),
+  // The same wedge as grass, for a corner block left as road; a top face at ground level.
+  'roundabout-corner-grass': M('/assets/models/roads/roundabout-corner-grass.glb', 1, 0, { nativeOrigin: true }),
+  // The grass inside the roundabout's inner kerb (ROUNDABOUT_ISLAND_MODEL); a top face at ground level, origin at the roundabout's centre.
+  'roundabout-island-grass': M('/assets/models/roads/roundabout-island-grass.glb', 1, 0, { nativeOrigin: true }),
   // Parking lots (scripts/build-parking.py): whole road blocks, the entrance facing +Z natively.
   'parking-small': M('/assets/models/parking/parking-small.glb', 1, 0),
   'parking-medium': M('/assets/models/parking/parking-medium.glb', 1, 0),
@@ -146,6 +156,40 @@ export const MODELS = {
   'tulips-a': M('/assets/models/composed/tulips-a.glb', 1, 0, { sway: true }),
   'tulips-b': M('/assets/models/composed/tulips-b.glb', 1, 0, { sway: true }),
   'tulips-c': M('/assets/models/composed/tulips-c.glb', 1, 0, { sway: true }),
+  // Pond plants and the bird house (scripts/build-pond.py).
+  // Lily pads float: the lift puts the pads just above the water (POND_WATER_Y).
+  'lily-pads-a': M('/assets/models/pond/lily-pads-a.glb', 1, 0, { offset: [0, 0.009, 0] }),
+  'lily-pads-b': M('/assets/models/pond/lily-pads-b.glb', 1, 0, { offset: [0, 0.009, 0] }),
+  'lily-pads-c': M('/assets/models/pond/lily-pads-c.glb', 1, 0, { offset: [0, 0.009, 0] }),
+  'reeds-a': M('/assets/models/pond/reeds-a.glb', 1, 0, { sway: true }),
+  'reeds-b': M('/assets/models/pond/reeds-b.glb', 1, 0, { sway: true }),
+  'cattails-a': M('/assets/models/pond/cattails-a.glb', 1, 0, { sway: true }),
+  'cattails-b': M('/assets/models/pond/cattails-b.glb', 1, 0, { sway: true }),
+  // The house's door faces +Z natively.
+  // Scaled so the raft clears the banks of a one-cell-wide pond.
+  'bird-house': M('/assets/models/pond/bird-house.glb', 0.85, 0),
+  // Shore pieces (POND_SHORE_MODELS): one quarter cell each, made for the north-west quarter, origin at its centre.
+  'pond-edge-a': M('/assets/models/pond/pond-edge-a.glb', 1, 0, { nativeOrigin: true }),
+  'pond-edge-b': M('/assets/models/pond/pond-edge-b.glb', 1, 0, { nativeOrigin: true }),
+  'pond-edge-c': M('/assets/models/pond/pond-edge-c.glb', 1, 0, { nativeOrigin: true }),
+  'pond-edge-d': M('/assets/models/pond/pond-edge-d.glb', 1, 0, { nativeOrigin: true }),
+  'pond-outer-a': M('/assets/models/pond/pond-outer-a.glb', 1, 0, { nativeOrigin: true }),
+  'pond-outer-b': M('/assets/models/pond/pond-outer-b.glb', 1, 0, { nativeOrigin: true }),
+  'pond-outer-c': M('/assets/models/pond/pond-outer-c.glb', 1, 0, { nativeOrigin: true }),
+  'pond-outer-d': M('/assets/models/pond/pond-outer-d.glb', 1, 0, { nativeOrigin: true }),
+  'pond-inner': M('/assets/models/pond/pond-inner.glb', 1, 0, { nativeOrigin: true }),
+  // The same pieces with the bank in the lawn's green (POND_LAWN_SHORE_MODELS).
+  'pond-edge-a-lawn': M('/assets/models/pond/pond-edge-a-lawn.glb', 1, 0, { nativeOrigin: true }),
+  'pond-edge-b-lawn': M('/assets/models/pond/pond-edge-b-lawn.glb', 1, 0, { nativeOrigin: true }),
+  'pond-edge-c-lawn': M('/assets/models/pond/pond-edge-c-lawn.glb', 1, 0, { nativeOrigin: true }),
+  'pond-edge-d-lawn': M('/assets/models/pond/pond-edge-d-lawn.glb', 1, 0, { nativeOrigin: true }),
+  'pond-outer-a-lawn': M('/assets/models/pond/pond-outer-a-lawn.glb', 1, 0, { nativeOrigin: true }),
+  'pond-outer-b-lawn': M('/assets/models/pond/pond-outer-b-lawn.glb', 1, 0, { nativeOrigin: true }),
+  'pond-outer-c-lawn': M('/assets/models/pond/pond-outer-c-lawn.glb', 1, 0, { nativeOrigin: true }),
+  'pond-outer-d-lawn': M('/assets/models/pond/pond-outer-d-lawn.glb', 1, 0, { nativeOrigin: true }),
+  'pond-inner-lawn': M('/assets/models/pond/pond-inner-lawn.glb', 1, 0, { nativeOrigin: true }),
+  // Drawn by life/DuckSystem, not placed; the bill faces +Z natively.
+  duck: M('/assets/models/pond/duck.glb', 1, 0),
   planter: M('/assets/models/suburban/planter.glb', 1, 2),
   // The seat faces +Z natively.
   bench: M('/assets/models/holiday/bench.glb', 0.3, 0),
@@ -206,9 +250,41 @@ export const ROAD_JOINT_MODELS: Readonly<Partial<Record<RoadPiece, Readonly<Reco
   end: { 4: 'road-joint-end-s' },
 };
 
+/** Drawn with the roundabout, whose model leaves its centre open. */
+export const ROUNDABOUT_ISLAND_MODEL: ModelId = 'roundabout-island-grass';
+
+/** Drawn with every round dead end (and twice, squashed, for a lone road block). */
+export const ROAD_END_VERGE_MODEL: ModelId = 'road-end-verge';
+
 /** The zebra straight beside a car park; the zebra tee and cross have no centre lines to remove. */
 export const ZEBRA_JOINT_MODELS: Readonly<Partial<Record<RoadPiece, Readonly<Record<number, ModelId>>>>> = {
   straight: { 1: 'road-joint-zebra-straight-n', 5: 'road-joint-zebra-straight-ns' },
+};
+
+/**
+ * Pond shore pieces by kind (town/pondTiles.ts); a quarter picks one of its kind's models by a hash of
+ * its cell, so long banks don't repeat. Every model of a kind meets its neighbours with the same bank profile.
+ */
+export const POND_SHORE_MODELS: Readonly<Record<Exclude<PondPiece, 'open'>, readonly ModelId[]>> = {
+  edge: ['pond-edge-a', 'pond-edge-b', 'pond-edge-c', 'pond-edge-d'],
+  outer: ['pond-outer-a', 'pond-outer-b', 'pond-outer-c', 'pond-outer-d'],
+  inner: ['pond-inner'],
+};
+
+/** Outer corners whose land stays near the cell's rim, for a pond cell that holds an object. */
+export const POND_ROOMY_OUTER_MODELS: readonly ModelId[] = ['pond-outer-a', 'pond-outer-b'];
+
+/** Each shore piece's twin with a lawn-green bank, drawn beside grass and meadow. */
+export const POND_LAWN_SHORE_MODELS: Readonly<Partial<Record<ModelId, ModelId>>> = {
+  'pond-edge-a': 'pond-edge-a-lawn',
+  'pond-edge-b': 'pond-edge-b-lawn',
+  'pond-edge-c': 'pond-edge-c-lawn',
+  'pond-edge-d': 'pond-edge-d-lawn',
+  'pond-outer-a': 'pond-outer-a-lawn',
+  'pond-outer-b': 'pond-outer-b-lawn',
+  'pond-outer-c': 'pond-outer-c-lawn',
+  'pond-outer-d': 'pond-outer-d-lawn',
+  'pond-inner': 'pond-inner-lawn',
 };
 
 /** How non-road ground kinds are drawn: a model tile, or a procedural flat tile. */
@@ -219,11 +295,13 @@ export type GroundVisual =
 export const GROUND_MODELS: Readonly<Record<Exclude<GroundKind, 'field' | 'road'>, GroundVisual>> = {
   // Colours sampled from the Kenney kits; grass/meadow also get an instanced tuft/flower scatter.
   pavement: { type: 'model', model: 'pavement-tile' },
-  // Drawn as a 0.5-wide hub + arms by TownRenderer.
-  walkway: { type: 'flat', color: '#c9b99a', height: 0.016 },
-  grass: { type: 'flat', color: '#6cb562', height: 0.016 },
+  // Drawn as a 0.5-wide hub + arms by TownRenderer, laid on the field.
+  walkway: { type: 'flat', color: '#c9b99a', height: GROUND_Y },
+  grass: { type: 'flat', color: '#6cb562', height: GROUND_Y },
   // Same lawn as grass; only the flower scatter differs.
-  meadow: { type: 'flat', color: '#6cb562', height: 0.016 },
+  meadow: { type: 'flat', color: '#6cb562', height: GROUND_Y },
+  // The water sheet (a top face only); TownRenderer adds the auto-tiled shore pieces (POND_SHORE_MODELS) on top.
+  pond: { type: 'flat', color: '#5bb3d9', height: 0.008 },
 };
 
 export const EDGE_MODELS: Readonly<Record<EdgeKind, ModelId>> = {

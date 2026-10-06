@@ -14,7 +14,7 @@ import { DAY_KEYFRAMES, DAY_TUNING, type DayKeyframe, type DaySample } from './d
 import { DecorRing } from './DecorRing';
 import { GRID_NIGHT, GridOverlay } from './GridOverlay';
 import { Sky, type SkyPalette } from './Sky';
-import { createOuterTerrain, createPlotBase } from './Terrain';
+import { createOuterTerrain, createPlotBase, setFieldRaised } from './Terrain';
 import { KERB_WIDTH, PLOT_HALF_X, PLOT_HALF_Z, SLAB_BOTTOM_Y } from './terrainShape';
 
 export const SKY_PALETTE: SkyPalette = {
@@ -138,6 +138,11 @@ export class Environment {
     this.decorFraction = profile.decorFraction;
     this.decor.setFraction(profile.decorFraction);
     this.sky.octaves = profile.skyOctaves;
+  }
+
+  /** Bare field stands at ground level; a painted cell drops to the bed under its tile. */
+  setFieldRaised(x: number, z: number, raised: boolean): void {
+    setFieldRaised(this.plotBase, x, z, raised);
   }
 
   get graphicsState(): { shadowMapSize: number; decorFraction: number; decorInstances: number; skyOctaves: number } {

@@ -26,4 +26,5 @@ export const SFX_TABLE: Record<SfxEvent, SfxEntry> = {
   'invalid': { files: ['/assets/audio/invalid.mp3'], group: 'ui', volume: 0.6, pitchJitter: 0, cooldownMs: 250 },
   'undo': { files: ['/assets/audio/undo-redo.mp3'], group: 'ui', volume: 0.6, pitchJitter: 0.02, cooldownMs: 60, playbackRate: 0.89 },
   'redo': { files: ['/assets/audio/undo-redo.mp3'], group: 'ui', volume: 0.6, pitchJitter: 0.02, cooldownMs: 60, playbackRate: 1.12 },
+  'duck-quack': { files: ['/assets/audio/duck-quack-1.mp3', '/assets/audio/duck-quack-2.mp3', '/assets/audio/duck-quack-3.mp3'], group: 'sfx', volume: 0.6, pitchJitter: 0.05, cooldownMs: 3000 },
 };

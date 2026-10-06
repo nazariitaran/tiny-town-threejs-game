@@ -408,5 +408,43 @@
     ],
     "playbackRate": 1.12,
     "note": "One file shared by undo and redo: play undo at ~0.89x and redo at ~1.12x playbackRate."
+  },
+  {
+    "event": "duck-quack",
+    "files": [
+      "/assets/audio/duck-quack-1.mp3",
+      "/assets/audio/duck-quack-2.mp3",
+      "/assets/audio/duck-quack-3.mp3"
+    ],
+    "group": "sfx",
+    "suggestedVolume": 0.6,
+    "pitchJitter": 0.05,
+    "cooldownMs": 3000,
+    "source": "Supplied by the project owner (ducks_quack.mp3, cut into three)",
+    "license": "Project owner, all rights held",
+    "durationMs": 782,
+    "peakDb": -13.6,
+    "lufs": -27.0,
+    "targetLufs": -27,
+    "perFile": [
+      {
+        "file": "/assets/audio/duck-quack-1.mp3",
+        "durationMs": 717,
+        "peakDb": -13.6,
+        "lufs": -26.9
+      },
+      {
+        "file": "/assets/audio/duck-quack-2.mp3",
+        "durationMs": 723,
+        "peakDb": -15.0,
+        "lufs": -27.0
+      },
+      {
+        "file": "/assets/audio/duck-quack-3.mp3",
+        "durationMs": 782,
+        "peakDb": -14.6,
+        "lufs": -27.1
+      }
+    ]
   }
 ]

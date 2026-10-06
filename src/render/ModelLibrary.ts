@@ -133,7 +133,8 @@ export class ModelLibrary {
     const bounds = new THREE.Box3().setFromObject(root);
     const centre = bounds.getCenter(new THREE.Vector3());
     const [ox, oy, oz] = spec.offset ?? [0, 0, 0];
-    scene.position.set(-centre.x + ox, -bounds.min.y + oy, -centre.z + oz);
+    if (spec.nativeOrigin) scene.position.set(ox, oy, oz);
+    else scene.position.set(-centre.x + ox, -bounds.min.y + oy, -centre.z + oz);
     root.updateMatrixWorld(true);
 
     // Bake every mesh into model space, grouped by its shared material.

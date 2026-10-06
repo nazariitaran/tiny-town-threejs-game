@@ -75,7 +75,7 @@ For each scene, ask:
 
 Perspective fools the eye about overhang: a tall part (a mast, a sign, a roof) always appears to lean over whatever is behind it in the view. Before you report that something reaches into the next lot or over the road, check it from the `top` view and against the model's bounds (`npm run inspect:models -- <file>` against the footprint × 0.5); report it only if the numbers agree.
 
-Judge as a player would. The camera never comes closer than the close shots, so a flaw you can only find by enlarging one of them further is not worth reporting. Things that are how the game is meant to look are not findings: the grid lines, the darker lip round lawn tiles, pavement being warm stone while buildings' own paving is lavender-grey, cars that happen to be on a staged road.
+Judge as a player would. The camera never comes closer than the close shots, so a flaw you can only find by enlarging one of them further is not worth reporting. Things that are how the game is meant to look are not findings: the grid lines, ground kinds meeting flush with no step between them, road asphalt lying a little below its kerbs, pond water a little below its bank, pavement being warm stone while buildings' own paving is lavender-grey, cars that happen to be on a staged road.
 
 ## Where defects hide
 

@@ -12,4 +12,5 @@ export type SfxEvent =
   | 'remove'
   | 'invalid'
   | 'undo'
-  | 'redo';
+  | 'redo'
+  | 'duck-quack';

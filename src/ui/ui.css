@@ -857,6 +857,55 @@
   opacity: 1;
 }
 
+/* Scroll arrows over the tray's ends (above the edge fades); UiRoot.updateTrayCue shows each one only when there are cards that way. */
+.ui-tray-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 44px;
+  margin-top: -20px;
+  border-radius: 999px;
+  background: var(--panel-solid);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 2px 0 var(--line-strong), var(--shadow-soft);
+  color: var(--ink);
+  animation: ui-arrow-in var(--fast) var(--ease);
+  transition:
+    transform var(--fast) var(--ease),
+    background-color var(--fast) var(--ease);
+}
+
+.ui-tray-prev {
+  left: -4px;
+}
+
+.ui-tray-next {
+  right: -4px;
+}
+
+.ui-tray-arrow:hover {
+  background: var(--card);
+  transform: scale(1.06);
+}
+
+.ui-tray-arrow:active {
+  transform: scale(0.96);
+}
+
+@keyframes ui-arrow-in {
+  from { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-tray-arrow {
+    animation: none;
+    transition: none;
+  }
+}
+
 .ui-mode.is-idle {
   opacity: 0.55;
 }
@@ -1546,6 +1595,10 @@
      styles.css, which would otherwise win. */
   #ui-root {
     --topbar-h: 52px;
+  }
+
+  .ui-tray-arrow {
+    width: 44px;
   }
 
   .ui-icon-btn {

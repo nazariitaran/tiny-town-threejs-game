@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Build Tiny Town's SFX (public/assets/audio/*.mp3) and scripts/data/audio.json from the Kenney CC0 packs.
+"""Build Tiny Town's SFX (public/assets/audio/*.mp3) and scripts/data/audio.json from the Kenney CC0 packs
+(and the duck quacks from the owner's recording, assets-src/owner/ducks-quack-source.mp3).
 
 Run from the repo root, with the packs unpacked in assets-src/<pack>/ (fetch commands: docs/assets.md):
 
@@ -50,11 +51,15 @@ def limit(x, sr, ceil_db, look_ms=3.0, release_ms=40.0):
         g[i] = cur
     return np.clip(x * g, -ceil, ceil)
 
-# A layer: (pack, file, gainDb=0, offsetMs=0, maxLenSec=None). A file spec: list of layers.
+# A layer: (pack, file, gainDb=0, offsetMs=0, maxLenSec=None, startSec=0: where in the source it begins).
+# A file spec: list of layers.
 # Event: (event, group, targetLUFS, maxLenSec|None, fadeSec, trimDb, volume, pitchJitter, cooldownMs, [file specs], extra)
-def L(pack, fn, db=0.0, at=0, maxlen=None):
-    return (pack, fn, db, at, maxlen)
+def L(pack, fn, db=0.0, at=0, maxlen=None, start=0.0):
+    return (pack, fn, db, at, maxlen, start)
 IS, IF, UA, RPG = 'impact-sounds', 'interface-sounds', 'ui-audio', 'rpg-audio'
+# The owner's own recordings lie flat in assets-src/owner/ (no Audio/ folder).
+OWNER = 'owner'
+QUACK = lambda start, length: L(OWNER, 'ducks-quack-source.mp3', 0, 0, length, start)
 POP = lambda: L(IF, 'drop_003.ogg', -6, 0, 0.17)   # the source stops abruptly at 188 ms: cap and fade it
 PLAN = [
  ('ui-hover', 'ui', -32, None, 0, -50, 0.35, 0.04, 60, [[L(UA, 'rollover2.ogg')], [L(UA, 'rollover5.ogg')]], {}),
@@ -90,6 +95,11 @@ PLAN = [
  ('undo-redo', 'ui', -29, None, 0, -50, 0.6, 0.02, 60, [[L(IF, 'back_004.ogg')]],
   {'variants': {'undo': {'playbackRate': 0.89}, 'redo': {'playbackRate': 1.12}},
    'note': 'One file shared by undo and redo: play undo at ~0.89x and redo at ~1.12x playbackRate.'}),
+ # Three pairs of quacks cut from one run of eight, each cut in the silence between quacks. Ambient: quieter
+ # than a placement.
+ ('duck-quack', 'sfx', -27, None, 0, -50, 0.6, 0.05, 3000,
+  [[QUACK(0.42, 0.78)], [QUACK(1.25, 0.77)], [QUACK(2.07, 0.83)]],
+  {'source': 'Supplied by the project owner (ducks_quack.mp3, cut into three)', 'license': 'Project owner, all rights held'}),
 ]
 
 def run(cmd):
@@ -118,8 +128,9 @@ def measure(path):
 
 def build_file(layers, maxlen, fade, trim_db, hpf=HPF_HZ):
     parts = []
-    for pack, fn, db, at, lmax in layers:
-        y = decode(os.path.join(SRC, pack, 'Audio', fn)) * 10 ** (db / 20)
+    for pack, fn, db, at, lmax, start in layers:
+        y = decode(os.path.join(SRC, pack, fn) if pack == OWNER else os.path.join(SRC, pack, 'Audio', fn)) * 10 ** (db / 20)
+        y = y[int(start * SR):]
         # every layer gets its own end fade: several Kenney sources stop on a non-zero sample, which
         # clicks when another layer is still sounding underneath
         y = fade_out(y[: int(lmax * SR)].copy(), 0.03) if lmax else fade_out(y.copy(), END_FADE_MS / 1000)
@@ -175,13 +186,13 @@ def main():
             stats.append(dict(file=f'/assets/audio/{name}', durationMs=f['durationMs'], peakDb=f['truePeak'], lufs=f['lufs'],
                               gainDb=gain, limited=limited, bytes=os.path.getsize(mp3)))
             outs.append(f'/assets/audio/{name}')
-            srcs.append(' + '.join(f'{p} / {fn}' + (f' @ {db:g} dB' if db else '') for p, fn, db, _a, _m in layers))
+            srcs.append(' + '.join(f'{p} / {fn}' + (f' @ {db:g} dB' if db else '') for p, fn, db, _a, _m, _s in layers))
         entry = dict(event=ev, files=outs, group=group, suggestedVolume=vol, pitchJitter=jit, cooldownMs=cd,
-                     source='Kenney ' + '; Kenney '.join(srcs), license='CC0',
+                     source=extra.get('source', 'Kenney ' + '; Kenney '.join(srcs)), license=extra.get('license', 'CC0'),
                      durationMs=max(s['durationMs'] for s in stats), peakDb=max(s['peakDb'] for s in stats),
                      lufs=round(sum(s['lufs'] for s in stats) / len(stats), 1), targetLufs=target,
                      perFile=[{k: s[k] for k in ('file', 'durationMs', 'peakDb', 'lufs')} for s in stats])
-        extra = {k: v for k, v in extra.items() if k not in ('maxLimitDb', 'hpfHz')}
+        extra = {k: v for k, v in extra.items() if k not in ('maxLimitDb', 'hpfHz', 'source', 'license')}
         if 'variants' in extra:  # undo/redo share one file: emit one audio.json entry per event
             for sub, v in extra['variants'].items():
                 manifest.append(dict(entry, event=sub, playbackRate=v['playbackRate'], note=extra['note']))

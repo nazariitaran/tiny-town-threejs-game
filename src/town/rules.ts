@@ -37,6 +37,7 @@ export const GROUND_LABELS: Readonly<Record<GroundKind, string>> = {
   road: 'road',
   pavement: 'pavement',
   walkway: 'walkway',
+  pond: 'a pond',
 };
 
 /** Player-facing messages that don't depend on a label. */
@@ -44,6 +45,7 @@ export const RULE_MESSAGES = {
   outOfBounds: 'Outside your plot',
   occupied: 'Something is already here',
   fenceAcrossRoad: "Fences can't cross roads",
+  fenceInPond: "Fences can't stand in a pond",
   busStopNeedsRoad: 'Bus stops need to be next to a road',
   trafficLightNeedsRoad: 'Traffic lights need to be next to a road',
   zebraNeedsStraight: 'Zebra crossings go on a straight road or a junction',
@@ -65,11 +67,15 @@ function orList(items: readonly string[]): string {
 /** Human description of the ground an object may stand on ("grass, meadow or open field"). */
 export function allowedGroundText(def: ObjectDef): string {
   // Friendlier order: soft ground first, then paved, then the bare field.
-  const order: GroundKind[] = ['grass', 'meadow', 'pavement', 'walkway', 'field', 'road'];
+  const order: GroundKind[] = ['grass', 'meadow', 'pavement', 'walkway', 'field', 'road', 'pond'];
   return orList(order.filter((kind) => def.allowedGround.includes(kind)).map((kind) => GROUND_LABELS[kind]));
 }
 
 const isRoad = (state: TownStateReader, cell: Cell): boolean => state.inBounds(cell) && state.getGround(cell) === 'road';
+const isPondCell = (state: TownStateReader, cell: Cell): boolean => state.inBounds(cell) && state.getGround(cell) === 'pond';
+
+/** Kinds that only ever stand in a pond. */
+const onlyInPond = (def: ObjectDef): boolean => def.allowedGround.length === 1 && def.allowedGround[0] === 'pond';
 
 export function planAction(state: TownStateReader, action: BuildAction, ctx: PlanContext): PlanResult {
   switch (action.type) {
@@ -98,14 +104,19 @@ function planPaintGround(state: TownStateReader, action: Extract<BuildAction, { 
     // Repainting a road cell turns its whole block. Only road features stand on road.
     const feature = state.getObjectAt(cell);
     if (feature) return fail('occupied', `Move the ${objectDef(feature.kind).label} first`);
-    return { ok: true, changes: blockGroundChanges(state, cell, action.kind) };
+    const block = roadBlockCells(cell).filter((c) => state.inBounds(c));
+    const removals = action.kind === 'pond' ? block.flatMap((c) => fenceRemovalsTowards(state, c, isPondCell)) : [];
+    return { ok: true, changes: [...removals, ...blockGroundChanges(state, cell, action.kind)] };
   }
   const object = state.getObjectAt(cell);
   if (object) {
     const def = objectDef(object.kind);
     if (!def.allowedGround.includes(action.kind)) return fail('occupied', `Move the ${def.label} first`);
   }
-  return { ok: true, changes: [{ layer: 'ground', cell: { x: cell.x, z: cell.z }, before, after: action.kind }] };
+  // A pond swallows the hedges and fences between it and the pond cells around it.
+  const changes = action.kind === 'pond' ? fenceRemovalsTowards(state, cell, isPondCell) : [];
+  changes.push({ layer: 'ground', cell: { x: cell.x, z: cell.z }, before, after: action.kind });
+  return { ok: true, changes };
 }
 
 /** A roundabout's corner block is road (its grass wedge shows) or pavement; grass or road paints the wedge back. */
@@ -155,6 +166,18 @@ function fenceRemovalsForRoad(state: TownStateReader, cells: readonly Cell[]): T
   return changes;
 }
 
+/** Removals of the fences on `cell`'s sides whose neighbour passes `towards`. */
+function fenceRemovalsTowards(state: TownStateReader, cell: Cell, towards: (state: TownStateReader, cell: Cell) => boolean): TownChange[] {
+  const changes: TownChange[] = [];
+  for (let side = 0; side < 4; side += 1) {
+    const offset = NEIGHBOURS[side];
+    if (!towards(state, { x: cell.x + offset.x, z: cell.z + offset.z })) continue;
+    const placed = state.getEdge(edgeOfCellSide(cell, side as 0 | 1 | 2 | 3));
+    if (placed) changes.push({ layer: 'edge', op: 'remove', placed: { kind: placed.kind, edge: { ...placed.edge } } });
+  }
+  return changes;
+}
+
 /** Ground changes turning the block around `cell` into `after`, the clicked cell's change last. */
 function blockGroundChanges(state: TownStateReader, cell: Cell, after: GroundKind): TownChange[] {
   const changes: TownChange[] = [];
@@ -199,6 +222,8 @@ function checkObjectSpot(
     const ground = state.getGround(c);
     if (def.allowedGround.includes(ground)) continue;
     if (ground === 'road') return fail('blocked-by-road', `${def.label} can't go on a road`);
+    if (onlyInPond(def)) return fail('needs-ground', `${def.label} must go in a pond`);
+    if (ground === 'pond') return fail('needs-ground', `${def.label} can't go in a pond`);
     return fail('needs-ground', `${def.label} needs ${allowedGroundText(def)}`);
   }
   if (def.roadMarking && !ZEBRA_PIECE_MODELS[roadTileFor(roadMask(state, cell)).piece]) {
@@ -272,6 +297,7 @@ function planPlaceEdge(state: TownStateReader, action: Extract<BuildAction, { ty
   if (!edgeInBounds(edge, state.width, state.depth)) return fail('out-of-bounds', RULE_MESSAGES.outOfBounds);
   const [a, b] = edgeCells(edge);
   if (isRoad(state, a) && isRoad(state, b)) return fail('blocked-by-road', RULE_MESSAGES.fenceAcrossRoad);
+  if (isPondCell(state, a) && isPondCell(state, b)) return fail('needs-ground', RULE_MESSAGES.fenceInPond);
   const existing = state.getEdge(edge);
   if (existing?.kind === action.kind) return fail('no-change', RULE_MESSAGES.noChange);
   const changes: TownChange[] = [];

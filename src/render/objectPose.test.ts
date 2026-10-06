@@ -14,7 +14,7 @@ describe('objectPose', () => {
 
   it('gives trees and plants a stable hashed yaw, ±12 % size and their height', () => {
     const jittered = OBJECT_KINDS.filter((kind) => hasJitter(objectDef(kind)));
-    expect(jittered.sort()).toEqual(['birch', 'bush', 'oak', 'pine', 'tulips']);
+    expect(jittered.sort()).toEqual(['birch', 'bush', 'cattails', 'lily-pads', 'oak', 'pine', 'reeds', 'tulips']);
     for (let id = 1; id < 200; id += 1) {
       const pose = objectPose(objectDef('pine'), 0, id);
       expect(pose.yaw).toBeGreaterThanOrEqual(0);

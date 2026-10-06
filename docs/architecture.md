@@ -24,6 +24,7 @@ src/
   town/serialize.ts           save format, validation, SAVE_MIGRATIONS
   town/sampleTown.ts          demo towns: sample, asset gallery, stress
   town/townName.ts, roadTiles.ts   name rules and slug; road auto-tiling, road-feature helpers (pure)
+  town/pondTiles.ts           pond shore auto-tiling per quarter cell, pond finding (pure)
   persistence/SaveStore.ts    localStorage: autosave, settings, music position
   persistence/townFile.ts     town file encode/decode, file name (pure)
   core/Loop.ts, FrameBudget.ts, Renderer.ts   paced rAF loop; active / idle frame cap; WebGLRenderer setup + resize
@@ -56,6 +57,8 @@ src/
   life/matchSchedule.ts       match nights at the stadium: schedule, level, crowd distance curve, stadium sites (pure)
   life/FlockSim.ts, BirdSystem.ts
                               birds: schedule and flight (pure), one InstancedMesh
+  life/DuckSim.ts, DuckSystem.ts, quacks.ts
+                              ducks on ponds: count, wander, rest (pure), one InstancedMesh per duck part
   fx/**                       placement VFX, wind sway
   photo/**                    town photo: capture, Polaroid frame; photoLayout.ts is pure
   debug/DebugTools.ts         lil-gui panels (?debug)
@@ -83,6 +86,7 @@ scripts/                      canvas inspector, object inspector (staged scenes)
         └ CrowdLoop      │ (no events; Game.updateCrowd sets its level every frame)
       PlacementFx  ◄─────┘ build:placed / build:removed
       BirdSystem           (no events; reads town.stats().trees when a flock launches)
+      DuckSystem   ◄────── town:changed   (ponds re-found; ducks arrive, leave or stop)
 ```
 `build:placed` / `build:removed` carry `worldX/worldZ` at the footprint centre, the road-block centre for road, or the edge midpoint for fences and hedges.
 
@@ -100,7 +104,7 @@ Rules:
 - The `scene` step blocks the main thread, so `Game.load` waits for a paint first (at most 100 ms, for hidden tabs). The saved town is not built here; it loads on Continue.
 
 ## Frame update order (`Game.update`)
-`resizeRenderer` → `ToolController.update` → `CameraController.update` → `TownRenderer.update` → `LifeSystem.update` → `BirdSystem.update` → `DayClock.advance` and `MatchSchedule.advance` / `tick` (building phase only) → `applyDaylight` (Environment, the match level, NightLights, `LifeSystem.setNight`, `BirdSystem.setDaylight`, the crowd's level, `daytime:changed` on a mode/phase change) → `Environment.update` → `PlacementFx.update` → activity tracking (frame budget) → render (the shadow scheduler decides whether the sun's map is redrawn). Everything after the camera gets `animDelta`, which is 0 under `setReducedMotion(true)`. With `setPausedForScreenshot(true)` nothing updates but rendering continues.
+`resizeRenderer` → `ToolController.update` → `CameraController.update` → `TownRenderer.update` → `LifeSystem.update` → `BirdSystem.update` → `DuckSystem.update` → `DayClock.advance` and `MatchSchedule.advance` / `tick` (building phase only) → `applyDaylight` (Environment, the match level, NightLights, `LifeSystem.setNight`, `BirdSystem.setDaylight`, the crowd's level, `daytime:changed` on a mode/phase change) → `Environment.update` → `PlacementFx.update` → activity tracking (frame budget) → render (the shadow scheduler decides whether the sun's map is redrawn). Everything after the camera gets `animDelta`, which is 0 under `setReducedMotion(true)`. With `setPausedForScreenshot(true)` nothing updates but rendering continues.
 
 ## Grid
 - Plot `64 × 64` cells (`PLOT_WIDTH/DEPTH`), `CELL_SIZE = 0.5`, centred on the origin: 32 × 32 world units. Toy scale: 1 unit ≈ 8 m, a cell ≈ 4 m. `cellToWorld`, `footprintCentreWorld`, `worldToGridPoint` (fractional), `worldToCell`, `edgeToWorld` in `config.ts`.
@@ -109,7 +113,9 @@ Rules:
 - **Road markings** (`ObjectDef.roadMarking`; only the zebra crossing): covers one road block that tiles as a straight, tee or cross. No model of its own: the road tile under it draws its zebra piece (`ZEBRA_PIECE_MODELS`); if the road around it becomes a corner or end, the block draws plain. Placing / bulldozing it adds / removes the object only; its road can't be repainted while it stands. Traffic and connectivity ignore it.
 - **Footprints** (cells at rotation 0, `catalog/objects.ts`): stadium 14×11; cinema 6×4; roundabout 6×6; car park by style (`ObjectDef.footprints`): small 4×2, medium 4×4, large 4×6; big house, supermarket 5×4; cottage, bungalow, family home, suburban 4×4; pool 4×3; townhouse, church 3×4; corner shop, donut shop, tiered fountain 3×3; fountain, oak, zebra 2×2; bus stop, swing, slide 2×1; everything else 1×1. A placed object covers its own style's footprint: always read it through `footprintOf(def, variant)` / `placedFootprint(object)` (an unknown style covers style 0's). `grid.anchorForPointer` centres a footprint on the pointer (odd sizes on the hovered cell, even on the nearest corner, clamped into the plot); `snap` keeps a road feature on the block grid.
 - **Layers per cell:** ground (one `GroundKind`, default `field`), object (0–1; multi-cell footprints anchored at the min corner), edges (hedges and fences on cell borders, canonical `n` / `w` sides).
-- **Ground under objects:** tiles are drawn under an object like anywhere else (lawn and walkway tops at 0.016, pavement at 0.02), so a model must not show a surface below them. A kind with `ObjectDef.coversGround` (stadium, cinema, pool) brings its own ground: its model's slab fills the whole footprint with its top at 0.02, and `TownRenderer` draws no ground tile on its cells (`underSlab`), which would be coplanar with the slab. The painted ground stays in the town and the save and shows again when the object moves or goes. `catalog.test.ts` holds both sides: a `coversGround` model fills its footprint exactly, and no other model has an upward face lower than the tallest tile it may stand on plus 0.003.
+- **Ponds** (`GroundKind` `pond`): painted a cell at a time like grass; 4-connected pond cells are one pond (`pondTiles.findPonds`). A pond cell draws a flat sheet of water (`GROUND_MODELS.pond`, at 0.008; a top face only, since a bank wall stands on every side that is not pond) and, per quarter cell (0.25 × 0.25), a shore piece chosen by `pondTiles.pondQuarter` from the quarter's two side neighbours and the diagonal between them: `open` (nothing), `edge` (land on one side), `outer` (land on both sides: a rounded convex corner) or `inner` (land only on the diagonal: a concave notch). Pieces are modelled for the north-west quarter with their origin at its centre (`ModelSpec.nativeOrigin`) and turned about it; each quarter picks one of its kind's models (`POND_SHORE_MODELS`) by a hash of the quarter, so long banks vary (`pondShoreModel`). An outer corner keeps to the roomy models (`POND_ROOMY_OUTER_MODELS`) on a cell that holds an object and on a one-cell pond, and a bank beside grass or meadow draws its lawn-green twin (`POND_LAWN_SHORE_MODELS`): an edge by its dry side, a notch by its diagonal cell, an outer corner when at least two of its three land cells are lawn. Every model of every kind meets its neighbours with one bank profile (top at ground level, 0.02, at the cell boundary, sloping under the water 0.066 in); `catalog.test.ts` checks the seams. A ground change re-tiles the 8 neighbours. Painting pond removes hedges and fences towards neighbouring pond cells, and no edge stands between two pond cells (`rules`, `parseSave`). Lily pads, reeds, cattails and the floating bird house allow only `pond`; nothing else allows it ("{label} can't go in a pond").
+- **Ground level** (`GROUND_Y` = 0.02, `game/config.ts`): every kind of ground reads as ground, none as a plate laid on the field. The plot field (`world/Terrain.ts`) is one quad per cell: a bare-field cell's quad is drawn at `GROUND_Y`, and a painted cell's quad drops to the bed (`FIELD_Y`, −0.005) so the cell's tile, standing on y = 0, fills the hole with its top at `GROUND_Y` and its side walls out of sight. `TownRenderer.syncField` drives it through `fieldSurface` (`Environment.setFieldRaised`) on every ground refresh; when a tile is bulldozed with animation the field rises only once the tile has shrunk away. Lawns are flat sheets at `GROUND_Y`; pavement, kerbs, car-park rims and `coversGround` slabs already top out there; road asphalt is 0.01 below ground inside its kerbs and pond water 0.012 below. A walkway does not fill its cell, so its cell's field stays up and the path is a sheet laid 0.0015 above it with a depth bias. Tiles that leave part of their block open get a grass filler at `GROUND_Y`: `road-end-verge` with every round dead end (and with both halves of a lone road block), `roundabout-corner-grass` on a roundabout corner block left as road, and `roundabout-island-grass` inside the roundabout's inner kerb. The fillers are painted in the field's base green and each instance is tinted to the field's mottled colour where it lies (`fieldTint`, an instance colour on a `tinted` `InstancePool`). A plain soil quad lies under the whole bed, so nothing shows through the step beside a cell whose tile is still popping in. A ghost whose own ground lies at or below ground level (a road piece, a road feature, a `coversGround` building) is lifted by `GROUND_GHOST_LIFT`, or the field under it would cover it.
+- **Ground under objects:** ground is drawn under an object like anywhere else, with its top at `GROUND_Y`, so a model must not show a surface below it. A kind with `ObjectDef.coversGround` (stadium, cinema, pool) brings its own ground: its model's slab fills the whole footprint with its top at 0.02, and `TownRenderer` draws no ground tile on its cells (`underSlab`), which would be coplanar with the slab. The painted ground stays in the town and the save and shows again when the object moves or goes. `catalog.test.ts` holds both sides: a `coversGround` model fills its footprint exactly, and no other model has an upward face lower than the highest ground it may stand on plus 0.003.
 - **Rotation:** quarter turns CCW from above; rotation 0 faces +z (towards the default camera). Each model's native facing is corrected by `rotationOffset` in `catalog/models.ts`.
 
 ## Placement rules (`town/rules.ts`)
@@ -117,10 +123,11 @@ Rules:
 | --- | --- | --- |
 | paint-ground | in bounds, kind differs; under an object only a kind in its `allowedGround` | `out-of-bounds` "Outside your plot" · `no-change` (never shown) · `occupied` "Move the {label} first" |
 | paint road / over road | road converts the whole 2 × 2 block (any object in the block blocks it) and removes fences inside the block and towards neighbouring road; another kind on a road cell converts the whole block. Clicked cell's change last | `occupied` "Move the {label} first" (also over a road feature or zebra) |
-| place-object | every footprint cell in bounds, free, ground ∈ `allowedGround`; road features / markings block-aligned; a zebra only on a straight, tee or cross | `out-of-bounds` (also "{label} must line up with the road grid", scripted actions only) · `occupied` "Something is already here" · `blocked-by-road` "{label} can't go on a road" · `needs-ground` "{label} needs {ground}" / "Zebra crossings go on a straight road or a junction" |
+| place-object | every footprint cell in bounds, free, ground ∈ `allowedGround`; road features / markings block-aligned; a zebra only on a straight, tee or cross | `out-of-bounds` (also "{label} must line up with the road grid", scripted actions only) · `occupied` "Something is already here" · `blocked-by-road` "{label} can't go on a road" · `needs-ground` "{label} needs {ground}" / "{label} must go in a pond" (pond plants, bird house) / "{label} can't go in a pond" / "Zebra crossings go on a straight road or a junction" |
 | place-object, `requiresAdjacent: 'road'` (bus stop, traffic light) | a footprint cell 4-adjacent to road | `needs-ground` "Bus stops need to be next to a road" / "Traffic lights need to be next to a road" |
 | place roundabout or car park | any ground, the footprint of the chosen style. Changes: fence removals → ground → road for non-road cells → object add (last) | as place-object |
-| place-edge | in bounds (border edges allowed), not between two road cells; same kind ⇒ `no-change`; other kind ⇒ replaced | `out-of-bounds` · `blocked-by-road` "Fences can't cross roads" |
+| paint pond | as paint-ground; also removes the hedges and fences between the cell and neighbouring pond cells (a road block repainted to pond: for all four cells) | as paint-ground |
+| place-edge | in bounds (border edges allowed), not between two road cells nor two pond cells; same kind ⇒ `no-change`; other kind ⇒ replaced | `out-of-bounds` · `blocked-by-road` "Fences can't cross roads" · `needs-ground` "Fences can't stand in a pond" |
 | move-object | the object exists and is movable (not a road feature or marking); the new spot passes the place-object checks ignoring the object itself. Trees and plants keep their rotation. Changes: remove → add with the **same id and variant** | `nothing-here` "Nothing to move" · `cannot-move` "{label} can't be moved" · `no-change` · the place-object reasons |
 | bulldoze | object on the cell ⇒ remove it (a road feature also returns its road to field); else the picked edge (within 0.3 cell, 0.4 on touch) ⇒ remove it; else road ⇒ its block to field; else non-field ground ⇒ field | `nothing-here` "Nothing to remove" (silent on drag) |
 
@@ -133,7 +140,7 @@ Rules:
 - a smaller save is centred on the plot by whole road blocks;
 - partial road blocks become field;
 - objects of unknown kinds, out of bounds, overlapping or on the wrong ground are dropped; road features and markings must be block-aligned, features on road; an out-of-range variant becomes 0, and an object is checked against its (repaired) style's footprint;
-- unknown edge kinds and edges between two road cells are dropped.
+- unknown edge kinds and edges between two road cells or two pond cells are dropped.
 
 New catalog kinds therefore need no version bump; an older build drops kinds it doesn't know.
 
@@ -153,7 +160,7 @@ New catalog kinds therefore need no version bump; an older build drops kinds it 
 - **Open:** `UiRoot` reads and decodes the picked file and confirms (name, date); Replace → `intent:open-town { save }` → `Game.openTown`: `editor.load` (history cleared), the save is written at once and autosave turns on, building phase, the file's camera. From the title it also acts as Start (audio unlock, morning); from the menu the time of day carries on.
 
 ## Rendering
-- `ModelLibrary` loads each GLB once and normalises it (scale, facing, base on y = 0, footprint-centred).
+- `ModelLibrary` loads each GLB once and normalises it (scale, facing, base on y = 0, footprint-centred); a `nativeOrigin` model (the pond shore pieces) keeps its own origin and base.
 - `TownRenderer` draws `InstancedMesh` pools keyed by (model, part), capacity doubling. `field` ground is the plot plane, not drawn per cell; nor is any ground under a `coversGround` object (§Grid). Kenney kits share one colour-atlas texture per kit; never clone materials per instance.
 - **Moves:** a remove + add of the same id in one change list is a move: the object keeps its instances and tweens to its new pose (0.3 s slide, a hop of 0.1–0.35 units by distance, slerped turn; `tween.ts` `moveEase` / `hopArc` / `hopHeight`), also for undo / redo. Reduced motion, load and reset place it at once. `isAnimating` covers moves.
 - **Ghost** (`GhostPreview`): `ModelLibrary.createObject()` with its own translucent material, posed by `render/objectPose.ts` like the town (`GhostPreview.test.ts` checks ghost = renderer for every kind × variant × rotation and edge kind). The bulldoze ghost and the Move tool's sky-blue `selected` ghost lie exactly on the object, sway with it and use a polygon offset, so only its visible surfaces tint; red and blue states recolour after the atlas (`uGhostRecolor`). `ToolController` has two ghosts: the hover / carry preview and the `selected` one on the carried object where it stands.
@@ -223,6 +230,15 @@ Ambient, like the rest of `life/`: nothing is saved and `TownEditor` never sees 
 - **Species:** pigeon (cloud), starling (tight cloud), goose (V), gull (loose line); `SPECIES` in `FlockSim.ts`.
 - **Tests and motion:** test states switch spontaneous flocks off until reload; `spawnFlock(species?)` launches one. The OS reduce-motion setting stops spontaneous flocks; `setReducedMotion(true)` clears the sky. `?debug&flock=N` gives a fixed N-second wait.
 
+## Ducks
+Ambient, like the birds: nothing is saved and `TownEditor` never sees a duck.
+- **How many** (`life/DuckSim.ts`, pure, own mulberry32 stream `seed ^ DUCK_SEED_SALT`): each pond keeps `ducksForPond(cells)` ducks: none under `MIN_POND_CELLS` (6), then 1 + one per `CELLS_PER_DUCK` (10) more cells, at most `MAX_DUCKS_PER_POND` (6) per pond and `MAX_DUCKS` (24) on the plot.
+- **Following the town** (`DuckSystem` marks itself dirty on `town:changed` and syncs once in its next update): a duck whose spot is no longer open water leaves (shrinks out over 0.35 s); a pond with too many loses its newest; a pond with too few gets ducks at random open spots (pop in). A load or reset puts them on at once.
+- **Open water** (`isOpenWater`): the four corners of a 0.12 square round the duck are pond cells with no object other than lily pads, and the duck is not in a quarter cell with an outer corner bank (the bigger corners' land reaches well into it). Swims go only along straight lines that stay in open water (sampled every 0.04), to targets up to 1.6 away and 0.22 clear of other ducks; a duck turns towards its target at 2.4 rad/s and swims at up to 0.09 /s, slowing while it faces away. Then it rests 2–7 s, or dabbles (tail up, 1.6 s) with a 25 % chance. Above night 0.6 it finishes its swim and rests.
+- **Drawing:** the `duck` model (ModelLibrary), one `InstancedMesh` per part (+1 draw call per part while any duck is on the plot), hens tinted brown by instance colour. No shadow, so ducks never wake the shadow map.
+- **Quacks** (`life/quacks.ts`, pure; `Game.updateQuacks`): while building, by day (night ≤ 0.6), with the camera within 22 of its ground target and a duck within 3 of that target, a `QuackTimer` rolls 2 s after the ducks come into earshot and then every 6 s; each roll plays `duck-quack` with a 30 % chance (one of three files, the SFX cooldown 3 s). The timer has its own seeded stream (`seed ^ QUACK_SEED_SALT`), follows the animation clock (silent under reduced motion) and starts over whenever the ducks go out of earshot.
+- **Tests:** test states put ducks on at once and keep them still (`auto` off) until reload; `setReducedMotion(true)` finishes their pops.
+
 ## Town photo
 - **Flow:** the top-bar camera or `P` (no modifiers, building only) → `intent:take-photo` → `Game.takePhoto()`:
   1. enters the **menu** phase (the UI shows the photo view): tools off (no ghost or hover), grid hidden, clock stopped, music ducked −3 dB;
@@ -249,8 +265,8 @@ Targets and the latest measurements: `docs/release.md` §Budgets. The `stress-to
 - `setMatchNight(on | null)`: `true` holds a stadium match at full level (lights and crowd, once it is dark), `false` holds none, `null` returns to the schedule. Applies at once, even while paused.
 
 Demo towns (`sampleTown.ts`, zero rejections, tested):
-- `sample-town` uses every placing tool (41; Move and Bulldoze are modes): homes 8, residents 25, amenities 9 (incl. the stadium south of the shops, its gate on the side street, and the cinema east of it), trees 5, roadTiles 46 (incl. the large car park facing the side street), props 23, fences 28.
-- `asset-gallery` places all 35 object kinds at rotation 0 (the three car-park styles on a road of their own, the stadium in the south-east), every edge kind, the ground swatches and the 16 road masks.
+- `sample-town` uses every placing tool (46; Move and Bulldoze are modes): homes 8, residents 25, amenities 9 (incl. the stadium south of the shops, its gate on the side street, and the cinema east of it), trees 5, roadTiles 46 (incl. the large car park facing the side street), props 31 (incl. the pond plants and bird house in the 32-cell pond north-east of the car park, 3 ducks), fences 28.
+- `asset-gallery` places all 39 object kinds at rotation 0 (the three car-park styles on a road of their own, the stadium in the south-east, the pond plants and bird house in a 7 × 5 pond with one dry corner east of the road masks), every edge kind, the ground swatches and the 16 road masks.
 - `stress-town` fills the plot: 100 homes, 50 mailboxes, a roundabout.
 
 ## Diagnostics
@@ -260,6 +276,7 @@ Demo towns (`sampleTown.ts`, zero rejections, tested):
 - `town` (`TownState.stats()`: homes, residents, amenities (amenity group), trees, roadTiles (road blocks), props (street, garden and plant objects), fences (all edges)), `townName`, `objects`, `history`;
 - `render`: what TownRenderer draws (objects, ground tiles, edges, instances, pools, call and triangle estimates, animating, dying, materials, `roadJoints`: road tiles drawn as a car-park joint);
 - `quality` (the preset) and `graphics` `{preset, booted, reloadRequired, antialias, material, maxDpr, renderScale, shadowMapSize, decorFraction, decorInstances, skyOctaves, activeFps, idleFps, lampHalos}`; `antialias` is read from the context, `material` measured over the scene after load and every test state (`standard | lambert | mixed | none`);
+- `ducks` `{auto, ponds, ducks, wanted, drawCalls, positions}`;
 - `audio` (incl. `music` and `crowd` `{level, gain, requested, loaded, playing, ducked, starts}`), `match` `{night, matchNight, playing, forced, level, stadiums, distance}`, `save` `{available, pending, lastError}`, `fx`, `life` (cars, target, `parked`, `manoeuvring`, per car `carCells` with its cell, position, `phase`, `lot`, `stall`), `birds`, `daytime` `{mode, t, phase, pinned, night, lightsOn, lamps, drawCalls, stadiums, floodlights}`, `photo` `{taken, developing, last}`, `perf` `{targetFps, idle, shadowRenders}`;
 - `renderer` (three.js calls, triangles, geometries, textures) and `canvas` (sizes, effective DPR); the canvas inspector reads these.
 
@@ -267,5 +284,5 @@ There are no other diagnostics globals.
 
 ## Browser tests
 - Playwright projects: `desktop-chrome` (1280 × 720); `mobile-chrome` (Pixel 7 emulation, touch) is commented out in `playwright.config.ts` while phone support is not a priority; full Chromium (`channel: 'chromium'`) on the real GPU. The config sets no worker count: pass `--workers=N` (6 on a normal machine, 1–2 in a limited cloud environment). The canvas inspector's `--mobile` is 390 × 844.
-- Stable DOM ids: `UI_TEST_IDS` and `MENU_TABS` in `src/ui/testIds.ts` (side-effect free; specs import it). A tool button exists only while its category is active; a menu control is visible only while its tab is selected (`tests/helpers.ts` `openMenuTab`).
+- Stable DOM ids: `UI_TEST_IDS` and `MENU_TABS` in `src/ui/testIds.ts` (side-effect free; specs import it). A tool button exists only while its category is active; a menu control is visible only while its tab is selected (`tests/helpers.ts` `openMenuTab`). The tray's scroll arrows (`trayPrev`, `trayNext`) are hidden unless there are cards that way.
 - Visual baselines: `tests/visual-regression.spec.ts-snapshots/`, 8 PNGs (title, sample-town, asset-gallery, night-town × desktop, mobile). Darwin only: there a missing baseline fails; on other platforms the spec is skipped.

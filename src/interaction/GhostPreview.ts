@@ -13,7 +13,7 @@ import * as THREE from 'three';
 import type { ModelId } from '../catalog/models';
 import type { ObjectDef } from '../catalog/objects';
 import { applyWindSway } from '../fx/windSway';
-import { CELL_SIZE } from '../game/config';
+import { CELL_SIZE, GROUND_Y } from '../game/config';
 import { createLitMaterial, type LitMaterial } from '../render/materials';
 import type { ModelLibrary } from '../render/ModelLibrary';
 import { objectPose, styleScale } from '../render/objectPose';
@@ -53,6 +53,9 @@ const SELECTED_OPACITY = 0.7;
 const onObject = (state: GhostState): boolean => state === 'remove' || state === 'selected';
 
 /** A model placed inside the ghost, in cell-local coordinates (before the ghost's own yaw). */
+/** Lift of a ghost whose own ground lies at or below ground level (road pieces, slabs), so the field under it does not cover it. */
+export const GROUND_GHOST_LIFT = GROUND_Y + 0.002;
+
 export interface GhostPart {
   model: ModelId;
   x?: number;
@@ -73,7 +76,7 @@ export interface GhostPart {
  */
 export function objectGhostPart(def: ObjectDef, model: ModelId, rotation: Rotation, id: number | null): GhostPart {
   const pose = objectPose(def, rotation, id);
-  return { model, yaw: pose.yaw, scale: pose.scale, scaleY: pose.scaleY };
+  return { model, yaw: pose.yaw, scale: pose.scale, scaleY: pose.scaleY, y: def.roadFeature || def.coversGround ? GROUND_GHOST_LIFT : undefined };
 }
 
 export interface GhostShowOptions {

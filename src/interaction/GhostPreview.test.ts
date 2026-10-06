@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { EDGE_MODELS, type ModelId } from '../catalog/models';
-import { OBJECT_KINDS, objectDef } from '../catalog/objects';
+import { OBJECT_KINDS, objectDef, type ObjectDef } from '../catalog/objects';
 import { WIND_SWAY_CACHE_KEY } from '../fx/windSway';
 import { edgeToWorld, footprintCentreWorld } from '../game/config';
 import type { ModelLibrary } from '../render/ModelLibrary';
 import { edgeOrigin, hasJitter, objectOrigin, styleMatrix } from '../render/objectPose';
 import type { Edge, EdgeKind, Rotation } from '../town/types';
-import { GhostPreview, objectGhostPart, type GhostShowOptions } from './GhostPreview';
+import { GhostPreview, GROUND_GHOST_LIFT, objectGhostPart, type GhostShowOptions } from './GhostPreview';
 
 const ROTATIONS: readonly Rotation[] = [0, 1, 2, 3];
 const SWAY_MODELS = new Set<ModelId>(['pine', 'oak']);
@@ -53,6 +53,11 @@ function expectSameMatrix(actual: THREE.Matrix4, expected: THREE.Matrix4, label:
   actual.elements.forEach((value, i) => expect(value, `${label} [${i}]`).toBeCloseTo(expected.elements[i], 6));
 }
 
+/** A ghost whose own ground lies at or below ground level floats just above the field, which would cover it. */
+function lift(def: ObjectDef, expected: THREE.Matrix4): void {
+  if (def.roadFeature || def.coversGround) expected.premultiply(new THREE.Matrix4().makeTranslation(0, GROUND_GHOST_LIFT, 0));
+}
+
 describe('GhostPreview lies exactly on what TownRenderer draws', () => {
   it('bulldoze: every object kind × variant × rotation, trees with their own yaw and size', () => {
     const { ghost, scene } = makeGhost();
@@ -76,6 +81,7 @@ describe('GhostPreview lies exactly on what TownRenderer draws', () => {
             });
             // As TownRenderer.addObject draws it (origin · style; the pop-in scale is 1 once settled).
             const expected = objectOrigin(placed, def, new THREE.Matrix4()).multiply(styleMatrix(model, new THREE.Matrix4()));
+            lift(def, expected);
             expectSameMatrix(actual, expected, `${kind}/${model} r${rotation} id${id}`);
           }
         }
@@ -100,6 +106,7 @@ describe('GhostPreview lies exactly on what TownRenderer draws', () => {
           snap: true,
         });
         const expected = objectOrigin({ id: 1, anchor, rotation }, def, new THREE.Matrix4()).multiply(styleMatrix(def.models[0], new THREE.Matrix4()));
+        lift(def, expected);
         expectSameMatrix(actual, expected, `${kind} r${rotation}`);
       }
     }

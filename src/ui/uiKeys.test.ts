@@ -40,7 +40,6 @@ describe('digit shortcuts', () => {
     expect(digitAction(key('Digit7'), 'streets', null)).toBeNull();
     expect(digitAction(key('Digit8'), 'homes', null)).toBeNull();
     expect(digitAction(key('Digit9'), 'homes', null)).toBeNull();
-    expect(digitAction(key('Digit8'), 'nature', null)).toBeNull();
   });
 
   it('Shift+1–5 switches category', () => {

@@ -9,7 +9,7 @@ One flat, colourful look: a 512 px gradient `colormap.png` per kit, the same gre
 
 | Folder in `public/assets/models/` | Source | Licence |
 | --- | --- | --- |
-| `roads/` | Kenney City Kit (Roads) 2.1; `road-roundabout` optimised by `scripts/build-roundabout.py` and `roundabout-corner` built by `scripts/build-roundabout-corner.py` (below) | CC0 |
+| `roads/` | Kenney City Kit (Roads) 2.1; `road-roundabout` optimised by `scripts/build-roundabout.py` `roundabout-corner` built by `scripts/build-roundabout-corner.py` and the grass fillers built by `scripts/build-road-verges.py` (below) | CC0 |
 | `suburban/` | Kenney City Kit (Suburban) 2.0 | CC0 |
 | `commercial/` | Kenney City Kit (Commercial) 2.1 | CC0 |
 | `platformer/` | Kenney Platformer Kit 4.1 | CC0 |
@@ -21,6 +21,7 @@ One flat, colourful look: a 512 px gradient `colormap.png` per kit, the same gre
 | `stadium/` | built in Blender by `scripts/build-stadium.py` (below) | CC0 (original; samples the roads atlas) |
 | `cinema/` | built in Blender by `scripts/build-cinema.py` (below) | CC0 (original; samples the roads atlas) |
 | `postbox/` | built in Blender by `scripts/build-postbox-cyphers.py` (below) from `composed/postbox.glb` | CC0 (original; samples the roads atlas) |
+| `pond/` | built in Blender by `scripts/build-pond.py` (below) | CC0 (original; samples the roads atlas) |
 
 - Every pack folder keeps its `License.txt`; `composed/License.txt` names what each composed GLB is built from.
 - `assets-src/` (gitignored) holds the full source packs, the Nature Kit 2.1, the City Kit (Industrial) and `polypizza/` (the Poly Pizza source GLBs with their own `CREDITS.md`).
@@ -47,7 +48,7 @@ One flat, colourful look: a 512 px gradient `colormap.png` per kit, the same gre
 ### Pivot and orientation
 - **Axes:** Y-up. In top-down terms +X is east, +Z is south (towards the default camera); N = −Z, W = −X.
 - **Pivot:** `ModelLibrary` re-centres every model on its bounding-box footprint centre and puts its base on y = 0. A catalog `offset` only matters when the visible part should sit off the bounds centre: the lamppost (pole at the native origin, arm overhanging −Z; offset z 0.087) and the hanging traffic light (offset x −0.103 after its turn). Both traffic lights are also lifted 0.005 (offset y), so their kerb-height base plate clears a pavement tile.
-- **Ground clearance:** ground tiles are drawn under objects: lawn and walkway tops at 0.016, pavement at 0.02. A model therefore shows nothing below about 0.023 (plinths, steps, water, feet), or it is hidden or z-fights; a basin bed at y = 0 under translucent water takes the tile's colour. A model with a ground slab of its own (stadium, cinema, pool) instead fills its whole lot, edge to edge, with the slab top at 0.02 (flush with pavement and kerbs), and its kind sets `ObjectDef.coversGround` so no tile is drawn under it. `catalog.test.ts` checks both.
+- **Ground level is 0.02** (`GROUND_Y`): bare field, lawns, pavement, kerbs and building slabs all top out there, flush with each other; road asphalt (0.01) and pond water (0.008) lie below it, and a walkway is laid a hair above the field. A model's origin stays at y = 0, so its lowest 0.02 is in the ground on every kind of ground. A model therefore shows nothing below about 0.023 (plinths, steps, water, feet), or it is hidden or z-fights; a basin bed at y = 0 under translucent water takes the ground's colour. A model with a ground slab of its own (stadium, cinema, pool) instead fills its whole lot, edge to edge, with the slab top at 0.02 (flush with the field, pavement and kerbs), and its kind sets `ObjectDef.coversGround` so no tile is drawn under it. `catalog.test.ts` checks both.
 - **Front:** the game's contract is "rotation 0 ⇒ front faces +Z". Kenney city, suburban and commercial models, and the composed bus stop, postbox, pool and donut shop, face −Z, so they use `rotationOffset: 2`. Exceptions:
   - traffic lights face −X: `rotationOffset: 1`;
   - corner shop, church, mailbox and the holiday bench face +Z: `0`;
@@ -98,6 +99,8 @@ Native connections at rotation 0:
 
 `roads/roundabout-corner.glb` is the pavement piece that fills one grass wedge of the roundabout (§ Roundabout in `architecture.md`): 10 triangles, one mesh and one node with the kit's own `colormap` material, 1 × 0.02 × 1 (the north-west corner block, origin at the block centre, the roundabout centre at +1, +1 in x, z; `TownRenderer` turns it in quarter turns for the other three corners). `scripts/build-roundabout-corner.py` computes the wedge from `road-roundabout.glb` itself: the block square minus the XZ footprint of every triangle of the roundabout (a constrained Delaunay triangulation), so the piece's inner edge follows the roundabout's own kerb chords exactly, with no gap and no overlap. The top is at y = 0.02, flush with the kerb tops and the pavement tiles; walls (down to 0) stand only on the two block edges that face outward, because the arms' own sidewalk walls already close the other two and the kerb wall closes the curve; there is no underside. Every face samples tile-low's one texel (atlas column 6, row 2 from the top), so it takes the same `warmAtlas` tint as pavement. Rebuild: `/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-roundabout-corner.py` (reads only the committed `road-roundabout.glb`, byte-identical output). Rebuild it whenever `road-roundabout.glb` changes.
 
+`roads/road-end-verge.glb`, `roads/roundabout-corner-grass.glb` and `roads/roundabout-island-grass.glb` are the grass fillers for the places a road model leaves its block open, which would otherwise show as pits now that the ground is flush (§ Ground level in `architecture.md`): the two far corners of a round dead end (20 triangles, in `road-end-round`'s own frame, also right for `road-joint-end-s`), a roundabout's corner wedge left as road (6 triangles, in `roundabout-corner`'s frame) and the disc inside the roundabout's inner kerb (28 triangles, origin at the roundabout's centre). Each is a single flat top at y = 0.02 with no walls, in the field's green swatch (atlas column 4, top band, `#84c27c`), on the roads atlas with nothing embedded, registered with `nativeOrigin`. `scripts/build-road-verges.py` computes each as the block minus the XZ footprint of the road model's triangles, so the filler's edge follows the kerb exactly, with no gap and no overlap. Rebuild: `/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-road-verges.py` (reads only the committed road models, byte-identical output); rebuild whenever `road-roundabout.glb` or `road-end-round.glb` changes.
+
 ### Parking lots
 `scripts/build-parking.py` builds `public/assets/models/parking/parking-{small,medium,large}.glb` in Blender, procedurally, from the road kit's measurements. Run it headless (`/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-parking.py`), or `exec` it in an open session and call `build_all()` to review the lots in a "Parking" collection (`build_all(export_glb=True)` also writes the GLBs).
 - **Look:** every face samples one texel of the City Kit (Roads) `colormap.png`, as the road pieces do: asphalt at y = 0.01, a 0.1-wide sidewalk kerb at y = 0.02, 0.02-wide paint lines, bays in the road's darker kerb-side grey. The GLBs embed no texture and reference `../roads/Textures/colormap.png`, so `ModelLibrary` shares the road material, and `warmAtlas` warms kerbs and paint the same way. A blue "P" sign (its blue is below the warm tint's luminance cut) and planters with low-poly bushes.
@@ -145,19 +148,44 @@ A road block in front of a car park's entrance draws its usual Kenney piece with
 - **Size and look:** the cyphers are 0.04 to 0.07 game units wide (the pillar is 0.24 tall) and 0.0075 high, and follow the pillar's 12 sides, which meet in a ridge at the front. At the default zoom a cypher is 1 to 2 px wide and shows only when zoomed in. The outlines are traced from an owner-supplied cypher map, with Edward VII thinned for legibility.
 - **Rebuild:** `/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-postbox-cyphers.py` writes the seven GLBs (byte-identical from run to run). It needs the cypher map at `assets-src/owner/royal-cyphers.png` (gitignored, like the rest of `assets-src/`). In an open Blender session, `exec` the script and call `build_all()` and `render_all()` to review the cyphers in a "Postbox cyphers" collection.
 
+### Pond
+`scripts/build-pond.py` builds the 27 files in `public/assets/models/pond/` in Blender, procedurally. Each is one mesh, one node and one material on the roads atlas (`../roads/Textures/colormap.png`, nothing embedded), flat-shaded, with no `warmAtlas`.
+
+| Model | What | Frame | Size (w × h × d) | Triangles |
+| --- | --- | --- | --- | --- |
+| `pond-edge-a/-b/-c/-d` | straight bank: plain, with three stones at the waterline, with a bulge into the pond, with a cove and a point | quarter cell (0.25 × 0.25), origin at its centre, base at 0, land to −Z, `nativeOrigin` | 0.25 wide, 0.02 tall (b 0.028) | 8 / 35 / 33 / 38 |
+| `pond-outer-a/-b` | rounded convex corner (a quarter circle in 8 facets): plain, with a boulder on the bank; land is about 13% of the cell | as above, land to −X and −Z | 0.25 × 0.25, 0.02 / 0.064 tall | 46 / 59 |
+| `pond-outer-c/-d` | bigger corners: a wide chamfer-like cut (17% of the cell), a lobe of land with a sand beach (19%) | as above | 0.25 × 0.25 | 56 / 67 |
+| `pond-inner` | concave notch round the −X −Z corner point | as above | 0.066 × 0.02 × 0.066 | 20 |
+| `<shore piece>-lawn` | each of the nine pieces again, with the bank top and land wall in the lawn's green | as its twin | as its twin | as its twin |
+| `lily-pads-a/-b/-c` | 3, 5 and 3 pads (c with a water lily) | 1 cell; 0.005 thick, lifted 0.009 by the catalog offset to float on the water | about 0.3 across; c 0.033 tall | 84 / 140 / 98 |
+| `reeds-a/-b` | a clump of bent three-sided blades; b with plumed stems | 1 cell, `sway` | 0.30 × 0.267 × 0.30 / 0.30 × 0.294 × 0.28 | 81 / 128 |
+| `cattails-a/-b` | 3 and 5 stems with brown heads, plus blades | 1 cell, `sway` | 0.22 × 0.281 × 0.30 / 0.28 × 0.318 × 0.32 | 138 / 218 |
+| `bird-house` | a floating duck house: a low plank raft with a small white house set to its back left, a slate gable roof and an arched doorway towards +Z | 1 cell; drawn at scale 0.85 so the raft clears the banks of a one-cell-wide pond | 0.38 × 0.199 × 0.38 in the file, deck top at 0.024; 0.32 × 0.17 × 0.32 in game | 70 |
+| `duck` | a mallard drake, bill towards +Z; `life/DuckSystem` tints hens brown | not placed; base at 0 | 0.074 × 0.091 × 0.142 | 184 |
+
+- **Water:** the pond's water is not a model: `TownRenderer` draws a flat sheet per pond cell in `GROUND_MODELS.pond` (`#5bb3d9`, at 0.008, a top face only), under the shore pieces.
+- **Shore contract** (held by `catalog.test.ts`): a piece is made for the north-west quarter of a cell and stays inside it; the game turns it about its origin in quarter turns. Wherever a piece meets a neighbouring piece its cross-section equals `pond-edge-a`'s, so any variant meets any other: the edges' two ends, the outer corners' east and south ends, the inner piece's west and north sides. Variety (stones, bulges, the boulder, the beach) lives in the middle of a piece. A vertical wall stands on each cell boundary that faces land (edge: north; outer corner: north and west).
+- **Waterline limits** (the game's ducks and pond items rely on them): an edge's waterline stays within 0.11 of the land boundary (`pond-edge-d` reaches 0.104; ducks keep `SHORE_CLEARANCE` 0.12); an outer corner's comes no closer than 0.10 to the cell centre (`pond-outer-d`: 0.107). Ducks stay out of outer-corner quarters altogether.
+- **Bank profile**, from the land boundary inward: top 0.02 (ground level, flush with the land beside it) for 0.026 (grass), down to 0.012 at 0.046 and to 0 at 0.066 (sand). It passes under the water about 0.053 in, so the sand rim is about 0.027 wide.
+- **Two colourways:** the bank's grass and land wall are the field's green (`#84c27c`, `world/Terrain.ts`), or, in the `-lawn` files, the lawn tile's (`#6cb562`, `GROUND_MODELS.grass`). `pondShoreModel` (`TownRenderer`) draws the lawn twin where the land beside the bank is grass or meadow (`POND_LAWN_SHORE_MODELS`).
+- **Swatches added to the roads atlas** (top row, previously black cells, flat 32 × 32 blocks from the top): column 4: `#84c27c` (field green), `#ead9a6` (sand), `#4fa24e` (leaf green: pads, dark blades), `#a5c95a` (yellow-green: reed and cattail blades); column 5: `#6cb562` (lawn green), `#8b9199` (slate roof), `#6a7079` (dark slate), `#8a7462` (weathered timber); column 6: `#a08a74` (light timber), `#66564a` (dark timber). The script checks every swatch it samples against the image and fails if one has moved.
+- **A new shore variant:** add its builder to the script (it exports the `-lawn` twin too), both files to `MODELS`, its id to `POND_SHORE_MODELS` and the pair to `POND_LAWN_SHORE_MODELS` (`src/catalog/models.ts`); a hash of the quarter picks among a kind's models. An outer corner whose land leaves room for a pond item at the cell centre also goes in `POND_ROOMY_OUTER_MODELS`. Budget: an edge ≤ 40 triangles, a corner ≤ 70 (a 10 × 10 pond draws about 80–100 shore quarters).
+- **Rebuild:** `/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-pond.py` (byte-identical from run to run), then `node scripts/render-icons.mjs --only pond,lily-pads,reeds,cattails,bird-house`. In an open session, `exec` the script with `__file__` set and call `build_pond()` to review the models in a "Pond" collection.
+
 ### Ground colours
-Grass and wildflower ground share one lawn colour, walkways their own; both are flat procedural tiles in `GROUND_MODELS` (`src/catalog/models.ts`), with an instanced tuft or flower scatter on top. Pavement is the kit's `tile-low` with the warm atlas.
+Grass and wildflower ground share one lawn colour, walkways their own; both are flat procedural sheets (a top face, no sides) in `GROUND_MODELS` (`src/catalog/models.ts`), with an instanced tuft or flower scatter on the lawn. Pavement is the kit's `tile-low` with the warm atlas. Pond water is a flat sheet too (§Pond).
 
 ### Icons
 - `public/assets/icons/tool-<id>.png`: one 128 × 128 icon per placing tool, plus `tool-<id>-v<n>.png` for every extra model n ≥ 1 of a multi-model tool (`variantIcon` in `catalog/tools.ts`).
-- Rendered from the in-game models and materials by `node scripts/render-icons.mjs [--size 128]`, which drives `src/render/IconStudio.ts` in Chromium and needs a dev server on `PORT`. It writes only the icons the catalog references; a run nudges unchanged icons by a few pixels.
+- Rendered from the in-game models and materials by `node scripts/render-icons.mjs [--size 128] [--only <tool ids>]`, which drives `src/render/IconStudio.ts` in Chromium and needs a dev server on `PORT`. It writes only the icons the catalog references; a run nudges unchanged icons by a few pixels, so `--only` writes just the listed tools' icons (and their variant icons). The Pond icon is a one-cell pond; a pond item's icon stands on open water (its cell cut out of a 3 × 3 pond).
 - `catalog.test.ts` checks that the folder holds exactly the tool and variant icons.
 - Move and Bulldoze use UI svgs (`/assets/ui/move.svg`, `/assets/ui/bulldoze.svg`).
 - An icon carries its model's licence; the six CC-BY models' icons carry their attribution.
 
 ## Sound effects
 
-All SFX come from Kenney CC0 audio packs. MP3 (VBR `-q:a 4`), mono, 44.1 kHz: Safari's Web Audio support for Ogg Vorbis is unreliable, so everything is transcoded. Two groups, `ui` and `sfx`, share one master gain (mute, volume).
+All SFX come from Kenney CC0 audio packs, except the duck quacks, which are cut from a recording the project owner supplied. MP3 (VBR `-q:a 4`), mono, 44.1 kHz: Safari's Web Audio support for Ogg Vorbis is unreliable, so everything is transcoded. Two groups, `ui` and `sfx`, share one master gain (mute, volume).
 
 ### Event → file
 
@@ -175,14 +203,17 @@ All SFX come from Kenney CC0 audio packs. MP3 (VBR `-q:a 4`), mono, 44.1 kHz: Sa
 | `remove` | `remove-1/2` | `footstep_snow_001/002` + `impactPlank_medium_001/002` @ −5 dB |
 | `invalid` | `invalid` | Interface Sounds / `bong_001` |
 | `undo` / `redo` | `undo-redo` (shared) | Interface Sounds / `back_004`, played at 0.89× / 1.12× |
+| `duck-quack` | `duck-quack-1..3` (7.1 / 7.5 / 8.0 kB, 0.72–0.78 s) | the owner's `ducks_quack.mp3` (3.0 s, stereo, 48 kHz, 192 kbps, 73 kB: a run of eight quacks), kept as `assets-src/owner/ducks-quack-source.mp3`; three pairs of quacks cut in the silence between them (from 0.42, 1.25 and 2.07 s), −27 LUFS |
 
-Which tool plays which placement event: `sfx` in `src/catalog/tools.ts`. Bulldozing pitches `remove` by layer: object 0.92×, edge 1×, ground 1.06×.
+Which tool plays which placement event: `sfx` in `src/catalog/tools.ts`. `duck-quack` is ambient: `Game.updateQuacks` plays it (§ Ducks in `architecture.md`). Bulldozing pitches `remove` by layer: object 0.92×, edge 1×, ground 1.06×.
 
 ### Levels
 Loudness is **one-shot LUFS**: the highest EBU R128 momentary (400 ms) loudness, measured with 0.6 s of silence padded on. Targets: UI −29 to −32 (`invalid` −26), placements −21 to −25, `remove` −24, `rotate` −28. Kenney impacts are a single transient and the build allows at most 4 dB of limiting, so several placements land a few LU under target. Per-event runtime gain (`suggestedVolume`): UI 0.35–0.6, SFX 0.6–1.0; a building (1.0) is the loudest thing the player does, the bulldozer (0.75) sits under it. Measured numbers per file: `scripts/data/audio.json`.
 
 ### Rebuilding the SFX
 `scripts/build-audio.py` builds every MP3 and writes `scripts/data/audio.json`; `npm run gen:sfx` turns that JSON into `src/audio/sfxTable.ts` (generated, never edited by hand). Edit the `PLAN` list at the top of the script to change sources, layers, targets or runtime gains. It needs Python 3 with numpy and scipy, plus ffmpeg.
+
+The duck quacks need the owner's recording at `assets-src/owner/ducks-quack-source.mp3` (gitignored, like the rest of `assets-src/`).
 
 ```bash
 # 1. fetch + unpack the packs into the gitignored assets-src/
