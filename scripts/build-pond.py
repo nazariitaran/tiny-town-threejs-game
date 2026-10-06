@@ -69,7 +69,7 @@ WATER_Y = 0.008                       # top of the game's water slab (GROUND_MOD
 # ---- shore ---------------------------------------------------------------------------------------
 Q = 0.25                              # a quarter cell
 H = Q / 2
-BANK_TOP = 0.022
+BANK_TOP = 0.02                       # ground level: flush with the field, lawn, pavement and kerb tops
 # Bank profile from the land boundary into the pond: (distance, height, the colour of the strip that starts
 # here). Every shore piece meets its neighbours with exactly this section.
 PROFILE = [

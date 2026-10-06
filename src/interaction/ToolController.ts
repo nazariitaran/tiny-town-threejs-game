@@ -17,11 +17,12 @@ import { actionForTool, RETIRED_TOOLS, toolDef, type DragMode, type ToolId } fro
 import type { DebugTools } from '../debug/DebugTools';
 import {
   CELL_SIZE,
-  PLOT_DEPTH,
-  PLOT_WIDTH,
   cellToWorld,
   edgeToWorld,
   footprintCentreWorld,
+  GROUND_Y,
+  PLOT_DEPTH,
+  PLOT_WIDTH,
   roadBlockCentreWorld,
   worldToNearestEdge,
 } from '../game/config';
@@ -47,13 +48,13 @@ import type { TownEditor } from '../town/TownEditor';
 import { isMovable, isTurnable } from '../town/rules';
 import type { BuildAction, Cell, Edge, GroundKind, ObjectKind, PlacedObject, PlanResult, Rotation } from '../town/types';
 import type { CameraController } from './CameraController';
-import { GhostPreview, objectGhostPart, type GhostPart, type GhostState } from './GhostPreview';
+import { GhostPreview, GROUND_GHOST_LIFT, objectGhostPart, type GhostPart, type GhostState } from './GhostPreview';
 import type { GridPicker, PickResult } from './GridPicker';
 import { isEditableTarget } from './keyboard';
 import { clampCellNearPlot, isNearEdge, KeyedThrottle, lineEdges, lockAxis, segmentSamples, type GridPoint, type LineAxis } from './strokeMath';
 
 /** Lawn/meadow slab top height in TownRenderer (tufts and flowers stand on it). */
-const LAWN_TOP = 0.02;
+const LAWN_TOP = GROUND_Y;
 const ONE_TILE: readonly [number, number] = [1, 1];
 const BLOCK_TILE: readonly [number, number] = [ROAD_BLOCK, ROAD_BLOCK];
 /** Pavement tile top colour, for block ghosts. */
@@ -975,7 +976,7 @@ export class ToolController {
     const state = this.editor.state;
     if (kind === 'road') {
       const look = roadLook(state, cell);
-      return { parts: [{ model: look.model, quarterTurns: look.rotation }] };
+      return { parts: [{ model: look.model, quarterTurns: look.rotation, y: GROUND_GHOST_LIFT }] };
     }
     if (kind === 'walkway') {
       let mask = 0;

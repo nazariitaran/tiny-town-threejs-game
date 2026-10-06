@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import * as THREE from 'three';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { CELL_SIZE, PLOT_CONTENT_HEIGHT, ROAD_TILE_SIZE } from '../game/config';
+import { CELL_SIZE, GROUND_Y, PLOT_CONTENT_HEIGHT, ROAD_TILE_SIZE } from '../game/config';
 import { ALTITUDE } from '../life/FlockSim';
 import { CAR_FILES, CAR_SCALE } from '../life/LifeSystem';
 import { MODEL_STYLES } from '../render/modelStyles';
@@ -294,9 +294,10 @@ describe('catalog', () => {
   });
 
   it('no model has a surface that a ground tile under it would hide (unless it brings its own ground)', async () => {
-    // Tile tops as drawn: the pavement tile, and the flat lawn and walkway slabs.
+    // Ground tops as drawn: bare field at ground level, the pavement tile, the lawn and walkway sheets, the pond's water.
     const tileTop = (ground: GroundKind): number => {
-      if (ground === 'field' || ground === 'road') return 0;
+      if (ground === 'field') return GROUND_Y;
+      if (ground === 'road') return 0;
       const visual = GROUND_MODELS[ground];
       return visual.type === 'model' ? drawn(visual.model).y : visual.height;
     };

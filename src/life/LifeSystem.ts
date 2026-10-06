@@ -10,7 +10,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { litMaterial, type LitMaterial, type MaterialMode } from '../render/materials';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { DebugTools } from '../debug/DebugTools';
-import { assetUrl, worldToCell } from '../game/config';
+import { assetUrl, GROUND_Y, worldToCell } from '../game/config';
 import { ROAD_BLOCK } from '../town/grid';
 import type { GameBus } from '../game/events';
 import type { TownStateReader } from '../town/types';
@@ -24,7 +24,7 @@ export const CAR_SCALE = 0.17;
 /** Car Kit models already face +Z (headlights at +Z, tail lights at −Z), which is our forward. */
 const FRONT_ROTATION = 0;
 /** Road / pavement tile top. */
-export const ROAD_TOP_Y = 0.02;
+export const ROAD_TOP_Y = GROUND_Y;
 const POP_IN_S = 0.32;
 /** Visual heading smoothing (1/s); polyline headings step a few degrees per sample. */
 const YAW_FOLLOW = 18;

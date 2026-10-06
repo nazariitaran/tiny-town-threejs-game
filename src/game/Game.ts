@@ -169,6 +169,7 @@ export class Game {
     this.picker = new GridPicker(this.camera, canvas);
     this.tools = new ToolController(canvas, this.picker, this.editor, this.cameraController, this.bus, this.scene, this.library, () => this.rng(), this.debug);
     this.townRenderer = new TownRenderer(this.scene, this.library, this.town, this.bus, this.debug);
+    this.townRenderer.fieldSurface = this.environment;
     this.fx = new PlacementFx(this.scene, this.bus, fxRand);
     // Ambient cars use the cosmetic stream so they never shift gameplay variants.
     this.life = new LifeSystem(this.scene, this.town, this.bus, fxRand, this.debug, boot.material);

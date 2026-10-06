@@ -8,6 +8,7 @@ import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
 import { createLitMaterial, type MaterialMode } from '../render/materials';
 import {
   FIELD_Y,
+  GROUND_Y,
   KERB_TOP_Y,
   KERB_WIDTH,
   PLOT_HALF_X,
@@ -72,16 +73,29 @@ class GeometryBuilder {
 }
 
 /** The plot slab: subtly mottled field, cream kerb, soil faces. */
+const FIELD = new THREE.Color(TERRAIN_PALETTE.field);
+const FIELD_ALT = new THREE.Color(TERRAIN_PALETTE.fieldAlt);
+
+/** The plot field's mottled colour at a world point. */
+export function fieldColor(x: number, z: number, out = new THREE.Color()): THREE.Color {
+  const n = fbm(x * 0.18 + 3.1, z * 0.18 - 1.7, 3, 5);
+  return out.lerpColors(FIELD, FIELD_ALT, smoothstep(0.3, 0.75, n));
+}
+
+/** The colour that, multiplied into a piece painted in the field's base green, gives the field's own colour at a world point. */
+export function fieldTint(x: number, z: number, out = new THREE.Color()): THREE.Color {
+  fieldColor(x, z, out);
+  out.r /= FIELD.r;
+  out.g /= FIELD.g;
+  out.b /= FIELD.b;
+  return out;
+}
+
 export function createPlotBase(mode: MaterialMode = 'standard'): THREE.Mesh {
   const g = new GeometryBuilder();
-  const field = new THREE.Color(TERRAIN_PALETTE.field);
-  const fieldAlt = new THREE.Color(TERRAIN_PALETTE.fieldAlt);
-  const fieldColor = (x: number, z: number): THREE.Color => {
-    const n = fbm(x * 0.18 + 3.1, z * 0.18 - 1.7, 3, 5);
-    return new THREE.Color().lerpColors(field, fieldAlt, smoothstep(0.3, 0.75, n));
-  };
 
-  // Field top: one quad per cell so the mottling is smooth and deterministic.
+  // Field top: one quad per cell (the first PLOT_WIDTH × PLOT_DEPTH quads, see setFieldRaised) so the
+  // mottling is smooth and deterministic.
   const w = PLOT_WIDTH * CELL_SIZE;
   const dpt = PLOT_DEPTH * CELL_SIZE;
   for (let i = 0; i < PLOT_WIDTH; i += 1) {
@@ -90,7 +104,7 @@ export function createPlotBase(mode: MaterialMode = 'standard'): THREE.Mesh {
       const z0 = -dpt / 2 + j * CELL_SIZE;
       const x1 = x0 + CELL_SIZE;
       const z1 = z0 + CELL_SIZE;
-      g.quad([x0, FIELD_Y, z0], [x0, FIELD_Y, z1], [x1, FIELD_Y, z1], [x1, FIELD_Y, z0], [
+      g.quad([x0, GROUND_Y, z0], [x0, GROUND_Y, z1], [x1, GROUND_Y, z1], [x1, GROUND_Y, z0], [
         fieldColor(x0, z0),
         fieldColor(x0, z1),
         fieldColor(x1, z1),
@@ -98,6 +112,10 @@ export function createPlotBase(mode: MaterialMode = 'standard'): THREE.Mesh {
       ]);
     }
   }
+
+  // The soil under the bed, so nothing shows through the step between a raised cell and a dropped one.
+  const under = FIELD_Y - 0.02;
+  g.quad([-w / 2, under, -dpt / 2], [-w / 2, under, dpt / 2], [w / 2, under, dpt / 2], [w / 2, under, -dpt / 2], [FIELD, FIELD, FIELD, FIELD]);
 
   const kerbTop = new THREE.Color(TERRAIN_PALETTE.kerbTop);
   const kerbSide = new THREE.Color(TERRAIN_PALETTE.kerbSide);
@@ -142,6 +160,16 @@ export function createPlotBase(mode: MaterialMode = 'standard'): THREE.Mesh {
   mesh.name = 'plot-field';
   mesh.receiveShadow = true;
   return mesh;
+}
+
+/** Lifts a cell of the plot field to ground level (bare field) or drops it to the bed (a painted cell, whose tile fills the hole). */
+export function setFieldRaised(plotBase: THREE.Mesh, x: number, z: number, raised: boolean): void {
+  const position = plotBase.geometry.getAttribute('position') as THREE.BufferAttribute;
+  const first = (x * PLOT_DEPTH + z) * 6;
+  const y = raised ? GROUND_Y : FIELD_Y;
+  if (position.getY(first) === y) return;
+  for (let i = 0; i < 6; i += 1) position.setY(first + i, y);
+  position.needsUpdate = true;
 }
 
 /** The meadow disc: polar grid, radial spacing growing with distance, vertex-coloured. */

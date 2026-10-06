@@ -11,6 +11,7 @@ Player-facing release notes for Tiny Town. How things behave is in `docs/game-de
 - Arrows at the ends of the item tray scroll it when the cards don't fit; a mouse wheel over the tray scrolls it too.
 
 ### Changed
+- The ground is flat: lawns, pavement, roads and ponds lie flush with the field instead of standing on it like plates, and a pond's water sits just below its bank.
 - The loading screen says what it is doing in a few plain steps instead of naming every model, and shows from the moment the page opens.
 
 ## v0.7.1 — 2026-10-05

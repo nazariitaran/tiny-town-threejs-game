@@ -54,7 +54,8 @@ Liveness holds (no deadlock or stuck car in the harness or in four review rounds
 - **Uninvestigated:** in one capture of a plot packed with car parks the dock's Parking card still looked selected after Esc while diagnostics reported no tool.
 
 ## Ponds
-- **The bank's land wall:** facing the camera the 0.022-high wall shows as a darker line along the square cell boundary, and against road and pavement the bank is still a grass lip (a kerb-height stone wall might suit better). Both go away if the ground is made flush.
+- **Flush ground, left over:** the grid lines stop at the grass fillers (road-end corners, roundabout wedges and island), since those blocks are road; a `coversGround` building placed on painted ground shows its footprint as bare bed for the moment it pops in; pond banks in the field colourway are a flat green against the mottled field (the fillers are tinted, the banks are not); the tool icons of the ground kinds were not re-rendered and still show the old slabs.
+- **The bank against road and pavement** is the same grass verge as against field; a stone edge might suit better there.
 - **Big ponds still read as rectangles from above:** the corner and edge variants soften the shore, but a quarter-cell piece can't round a corner over several cells. A mirrored cove edge and a larger inner notch would add variety.
 - **A corner piece is one colour:** where lawn and field meet at a pond corner, a quarter cell of bank is the wrong green for one of its sides.
 - **Ducks rest on lily pads** (lily cells count as open water), overlapping them.

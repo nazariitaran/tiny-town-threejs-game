@@ -9,9 +9,9 @@
  *  - Object ids are reused after reset / load, so a remove always frees its visual before the next add.
  */
 import * as THREE from 'three';
-import { EDGE_MODELS, GROUND_MODELS, POND_LAWN_SHORE_MODELS, POND_ROOMY_OUTER_MODELS, POND_SHORE_MODELS, ROAD_PIECE_MODELS, type ModelId } from '../catalog/models';
+import { EDGE_MODELS, GROUND_MODELS, POND_LAWN_SHORE_MODELS, POND_ROOMY_OUTER_MODELS, POND_SHORE_MODELS, ROAD_END_VERGE_MODEL, ROAD_PIECE_MODELS, ROUNDABOUT_ISLAND_MODEL, type ModelId } from '../catalog/models';
 import { objectDef, placedFootprint } from '../catalog/objects';
-import { CELL_SIZE, cellToWorld, ROAD_TILE_SIZE, roadBlockCentreWorld } from '../game/config';
+import { CELL_SIZE, cellToWorld, GROUND_Y, ROAD_TILE_SIZE, roadBlockCentreWorld } from '../game/config';
 import type { DebugTools } from '../debug/DebugTools';
 import type { GameBus } from '../game/events';
 import { cellKey, edgeKey, footprintCells, NEIGHBOURS, ROAD_BLOCK, roadBlockAnchor } from '../town/grid';
@@ -20,6 +20,7 @@ import { InstancePool, type PoolSlot } from './InstancePool';
 import { createLitMaterial, type LitMaterial } from './materials';
 import type { ModelLibrary } from './ModelLibrary';
 import { featureCornerIndex, roadFeatureAt, roadLook, underRoadFeature } from '../town/roadTiles';
+import { fieldTint } from '../world/Terrain';
 import { isPond, POND_QUARTERS, pondQuarter, type PondQuarter } from '../town/pondTiles';
 import { MODEL_STYLES } from './modelStyles';
 import { edgeOrigin, objectOrigin, styleMatrix } from './objectPose';
@@ -48,14 +49,12 @@ function movedObjectIds(changes: readonly TownChange[]): Set<number> {
 const BURST_EVENTS = 24;
 /** More changes than this in one frame ⇒ scripted batch / huge undo ⇒ no animation. */
 const BURST_CHANGES = 64;
-/** Lawn slab (grass/meadow) top height; matches the road/pavement tile tops (y = 0.02). */
-const LAWN_HEIGHT = 0.016;
-/** Side (lip) shade of the lawn slab relative to its top. */
-const LAWN_LIP_SHADE = 0.86;
+/** Lawn (grass, meadow): a sheet at ground level. */
+const LAWN_HEIGHT = GROUND_Y;
 /** Walkway paving width: half a cell, so it reads as a path, not a fence. */
 const WALKWAY_WIDTH = 0.5 * CELL_SIZE;
-const WALKWAY_HEIGHT = 0.016;
-const WALKWAY_LIP_SHADE = 0.78;
+/** A walkway is laid on the field, a hair above it. */
+const WALKWAY_HEIGHT = GROUND_Y + 0.0015;
 /** Warm-stone multipliers applied to a light periwinkle texel's luminance. */
 const WARM_STONE: readonly [number, number, number] = [1.17, 1.15, 1.1];
 /** Which clump a meadow cell grows (hashed per cell, stable across reloads). */
@@ -65,6 +64,10 @@ export function meadowScatterModel(cell: Cell): ModelId {
 }
 
 const QUARTER_OFFSET = CELL_SIZE / 4;
+/** Grass pieces in the field's base green; each instance is tinted to the field's own colour where it lies (fieldTint). */
+const FIELD_FILLER_MODELS: ReadonlySet<ModelId> = new Set<ModelId>([ROAD_END_VERGE_MODEL, ROUNDABOUT_ISLAND_MODEL, 'roundabout-corner-grass']);
+/** Road pieces with a round dead end, which leaves two corners of the block open. */
+const ROUND_END_MODELS: ReadonlySet<ModelId> = new Set<ModelId>([ROAD_PIECE_MODELS.end, 'road-joint-end-s']);
 
 const isLawn = (town: TownStateReader, x: number, z: number): boolean => {
   const cell = { x, z };
@@ -101,12 +104,16 @@ interface PieceSource {
   parts: ReadonlyArray<{ geometry: THREE.BufferGeometry; material: THREE.Material }>;
   castShadow: boolean;
   triangles: number[];
+  /** Its instances take a colour (PieceSpec.tint). */
+  tinted?: boolean;
 }
 
 interface PieceSpec {
   source: PieceSource;
   /** Transform relative to the visual's origin. */
   local: THREE.Matrix4;
+  /** Multiplies the piece's colour; needs a `tinted` source. */
+  tint?: THREE.Color;
 }
 
 interface Piece extends PieceSpec {
@@ -139,6 +146,8 @@ interface Visual {
   scale: number;
   /** Mode 'move' only. While it runs, `origin` holds the current in-between pose. */
   move?: MoveTween;
+  /** A ground tile shrinking out of a cell that turns to bare field: the field rises there once it is gone. */
+  fieldCell?: Cell;
 }
 
 export interface RenderTuning {
@@ -179,6 +188,9 @@ export class TownRenderer {
   // Scratch (no per-frame allocations).
   private readonly scratch = new THREE.Matrix4();
   private readonly scaleMatrix = new THREE.Matrix4();
+
+  /** The plot field, which this renderer raises under bare field and drops under tiles. */
+  fieldSurface: { setFieldRaised(x: number, z: number, raised: boolean): void } | null = null;
 
   constructor(
     scene: THREE.Scene,
@@ -424,12 +436,13 @@ export class TownRenderer {
     const key = cellKey(cell);
     const current = this.groundByCell.get(key);
     const kind = this.town.getGround(cell);
+    // A roundabout corner is one wedge piece per 2 × 2 block, owned by the block's anchor cell: paving
+    // on pavement, grass on road.
+    const corner = kind === 'pavement' || kind === 'road' ? this.featureCorner(cell) : -1;
+    const cornerFiller = corner >= 0 && (cell.x % ROAD_BLOCK !== 0 || cell.z % ROAD_BLOCK !== 0);
     // A road block draws one tile, owned by its anchor (min corner) cell; the other cells draw nothing,
     // and nor does a block under a road feature (the roundabout or car park model draws the road there).
-    const roadFiller = kind === 'road' && (cell.x % ROAD_BLOCK !== 0 || cell.z % ROAD_BLOCK !== 0 || underRoadFeature(this.town, cell));
-    // A paved roundabout corner is one wedge piece per 2 × 2 block, owned by the block's anchor cell.
-    const corner = kind === 'pavement' ? this.pavedCorner(cell) : -1;
-    const cornerFiller = corner >= 0 && (cell.x % ROAD_BLOCK !== 0 || cell.z % ROAD_BLOCK !== 0);
+    const roadFiller = kind === 'road' && corner < 0 && (cell.x % ROAD_BLOCK !== 0 || cell.z % ROAD_BLOCK !== 0 || underRoadFeature(this.town, cell));
     const spec = kind === 'field' || roadFiller || cornerFiller || this.underSlab(cell) ? null : this.describeGround(kind, cell, corner);
     if (current && spec && current.sig === spec.sig) return;
     const kindChanged = !current || !spec || current.sig.split(':')[0] !== spec.sig.split(':')[0];
@@ -437,14 +450,18 @@ export class TownRenderer {
     let inherit: Visual | null = null;
     if (current) {
       this.groundByCell.delete(key);
-      if (animate && kindChanged) this.retire(current);
-      else {
+      if (animate && kindChanged) {
+        // The field stays down until the old tile has shrunk away, or it would cover it.
+        current.fieldCell = cell;
+        this.retire(current);
+      } else {
         // Re-tile (same kind, new shape): swap instantly but keep any running pop-in going.
         inherit = current.mode === 'in' ? current : null;
         this.animating.delete(current);
         this.freeVisual(current);
       }
     }
+    if (!current?.fieldCell) this.syncField(cell);
     if (!spec) return;
     const world = kind === 'road' || corner >= 0 ? roadBlockCentreWorld(cell) : cellToWorld(cell);
     const origin = new THREE.Matrix4().makeRotationY(spec.rotation * QUARTER).setPosition(world.x, 0, world.z);
@@ -458,21 +475,37 @@ export class TownRenderer {
     this.groundByCell.set(key, visual);
   }
 
+  /** Bare field is drawn at ground level, and a walkway is laid on it; any other tile, or a model's own slab, fills the cell's hole. */
+  private syncField(cell: Cell): void {
+    const kind = this.town.getGround(cell);
+    this.fieldSurface?.setFieldRaised(cell.x, cell.z, (kind === 'field' || kind === 'walkway') && !this.underSlab(cell));
+  }
+
+  /** The field's colour at a cell's road block, as a tint for a grass filler there. */
+  private blockTint(cell: Cell): THREE.Color {
+    const world = roadBlockCentreWorld(cell);
+    return fieldTint(world.x, world.z);
+  }
+
   /** True under an object whose model brings its own ground (ObjectDef.coversGround). */
   private underSlab(cell: Cell): boolean {
     const object = this.town.getObjectAt(cell);
     return object !== undefined && objectDef(object.kind).coversGround === true;
   }
 
-  /** The roundabout corner (0..3) a pavement cell lies in, or −1. */
-  private pavedCorner(cell: Cell): number {
+  /** The roundabout corner (0..3) a cell lies in, or −1. */
+  private featureCorner(cell: Cell): number {
     const feature = roadFeatureAt(this.town, cell);
     return feature ? featureCornerIndex(feature, cell) : -1;
   }
 
   private describeGround(kind: Exclude<GroundKind, 'field'>, cell: Cell, corner = -1): { sig: string; rotation: number; pieces: PieceSpec[] } {
     if (corner >= 0) {
-      return { sig: `pavement:corner:${corner}`, rotation: CORNER_QUARTER_TURNS[corner], pieces: [{ source: this.modelSource('roundabout-corner', false), local: new THREE.Matrix4() }] };
+      const piece: PieceSpec =
+        kind === 'road'
+          ? { source: this.modelSource('roundabout-corner-grass', false), local: new THREE.Matrix4(), tint: this.blockTint(cell) }
+          : { source: this.modelSource('roundabout-corner', false), local: new THREE.Matrix4() };
+      return { sig: `${kind}:corner:${corner}`, rotation: CORNER_QUARTER_TURNS[corner], pieces: [piece] };
     }
     if (kind === 'road') {
       // The auto-tiled piece, or its zebra / car-park joint variant (roadLook).
@@ -483,12 +516,24 @@ export class TownRenderer {
         const end = this.modelSource(ROAD_PIECE_MODELS.end, false);
         const north = new THREE.Matrix4().makeTranslation(0, 0, -0.25 * ROAD_TILE_SIZE).multiply(new THREE.Matrix4().makeScale(1, 1, 0.5));
         const south = new THREE.Matrix4().makeRotationY(Math.PI).multiply(north);
-        return { sig: 'road:single:0', rotation: 0, pieces: [{ source: end, local: north }, { source: end, local: south }] };
+        const verge = this.modelSource(ROAD_END_VERGE_MODEL, false);
+        const tint = this.blockTint(cell);
+        return {
+          sig: 'road:single:0',
+          rotation: 0,
+          pieces: [{ source: end, local: north }, { source: end, local: south }, { source: verge, local: north, tint }, { source: verge, local: south, tint }],
+        };
       }
       return {
         sig: `road:${look.model}:${look.rotation}`,
         rotation: look.rotation,
-        pieces: [{ source: this.modelSource(look.model, false), local: new THREE.Matrix4() }],
+        // A round dead end leaves its block's two far corners open: grass fills them.
+        pieces: ROUND_END_MODELS.has(look.model)
+          ? [
+              { source: this.modelSource(look.model, false), local: new THREE.Matrix4() },
+              { source: this.modelSource(ROAD_END_VERGE_MODEL, false), local: new THREE.Matrix4(), tint: this.blockTint(cell) },
+            ]
+          : [{ source: this.modelSource(look.model, false), local: new THREE.Matrix4() }],
       };
     }
     if (kind === 'walkway') return this.describeWalkway(cell);
@@ -515,9 +560,9 @@ export class TownRenderer {
     // A lone walkway still reads as a short path (north–south) rather than a square pad.
     const arms = mask === 0 ? 0b0101 : mask;
     const color = GROUND_MODELS.walkway.type === 'flat' ? GROUND_MODELS.walkway.color : '#c9b99a';
-    const hub = this.slabSource('walkway-hub', color, WALKWAY_WIDTH, WALKWAY_HEIGHT, WALKWAY_WIDTH, WALKWAY_LIP_SHADE);
+    const hub = this.sheetSource('walkway-hub', color, WALKWAY_WIDTH, WALKWAY_WIDTH, WALKWAY_HEIGHT, true);
     const armLength = (CELL_SIZE - WALKWAY_WIDTH) / 2;
-    const arm = this.slabSource('walkway-arm', color, WALKWAY_WIDTH, WALKWAY_HEIGHT, armLength, WALKWAY_LIP_SHADE);
+    const arm = this.sheetSource('walkway-arm', color, WALKWAY_WIDTH, armLength, WALKWAY_HEIGHT, true);
     const pieces: PieceSpec[] = [{ source: hub, local: new THREE.Matrix4() }];
     // Arms run along Z, from the hub edge to the cell edge, towards each connected neighbour (N, E, S, W).
     const reach = WALKWAY_WIDTH / 2 + armLength / 2;
@@ -535,7 +580,7 @@ export class TownRenderer {
     const water = GROUND_MODELS.pond;
     const height = water.type === 'flat' ? water.height : 0.008;
     const color = water.type === 'flat' ? water.color : '#5bb3d9';
-    const pieces: PieceSpec[] = [{ source: this.waterSource(color, height), local: new THREE.Matrix4() }];
+    const pieces: PieceSpec[] = [{ source: this.sheetSource('pond-water', color, CELL_SIZE, CELL_SIZE, height), local: new THREE.Matrix4() }];
     let sig = 'pond:';
     POND_QUARTERS.forEach(([sx, sz], q) => {
       const quarter = pondQuarter(this.town, cell, q);
@@ -571,7 +616,12 @@ export class TownRenderer {
     // Trees get their stable per-id jitter (objectPose, shared with the ghost).
     const origin = objectOrigin(placed, def, new THREE.Matrix4());
     const local = styleMatrix(model, new THREE.Matrix4());
-    const visual = this.createVisual(`object:${model}`, origin, [{ source: this.modelSource(model, true), local }], animate);
+    const pieces: PieceSpec[] = [{ source: this.modelSource(model, true), local }];
+    if (model === 'roundabout') {
+      const centre = new THREE.Vector3().setFromMatrixPosition(origin);
+      pieces.push({ source: this.modelSource(ROUNDABOUT_ISLAND_MODEL, false), local: new THREE.Matrix4(), tint: fieldTint(centre.x, centre.z) });
+    }
+    const visual = this.createVisual(`object:${model}`, origin, pieces, animate);
     this.objectsById.set(placed.id, visual);
   }
 
@@ -618,7 +668,7 @@ export class TownRenderer {
       const piece: Piece = { ...spec, slots: [] };
       this.composeInto(this.scratch, origin, visual.scale, spec.local);
       spec.source.parts.forEach((part, i) => {
-        piece.slots.push(this.pool(spec.source, i, part.geometry, part.material).add(this.scratch));
+        piece.slots.push(this.pool(spec.source, i, part.geometry, part.material).add(this.scratch, spec.tint));
       });
       visual.pieces.push(piece);
     }
@@ -704,6 +754,11 @@ export class TownRenderer {
   private freeVisual(visual: Visual): void {
     for (const piece of visual.pieces) for (const slot of piece.slots) slot.pool.remove(slot);
     visual.pieces.length = 0;
+    if (visual.fieldCell) {
+      const cell = visual.fieldCell;
+      visual.fieldCell = undefined;
+      this.syncField(cell);
+    }
   }
 
   private writeVisual(visual: Visual, scale: number): void {
@@ -734,7 +789,7 @@ export class TownRenderer {
     let pool = this.pools.get(key);
     if (!pool) {
       const layer = source.castShadow ? (EDGE_MODEL_IDS.has(source.key) ? this.edgeLayer : this.objectLayer) : this.groundLayer;
-      pool = new InstancePool(key, geometry, material, layer, source.castShadow, source.triangles[part] ?? 0);
+      pool = new InstancePool(key, geometry, material, layer, source.castShadow, source.triangles[part] ?? 0, source.tinted);
       this.pools.set(key, pool);
     }
     return pool;
@@ -767,52 +822,32 @@ export class TownRenderer {
         parts,
         castShadow,
         triangles: template.parts.map((p) => (p.geometry.index ? p.geometry.index.count : p.geometry.getAttribute('position').count) / 3),
+        tinted: FIELD_FILLER_MODELS.has(id),
       };
       this.modelSources.set(id, source);
     }
     return source;
   }
 
-  /** Procedural lawn slab: 1×1 top at LAWN_HEIGHT, softly darker lip so painted lawns read against the field. */
+  /** Procedural lawn: a flat sheet at ground level, flush with the field round it. */
   private lawnSource(kind: string, color: string): PieceSource {
-    return this.slabSource(`lawn-${kind}`, color, CELL_SIZE, LAWN_HEIGHT, CELL_SIZE, LAWN_LIP_SHADE);
+    return this.sheetSource(`lawn-${kind}`, color, CELL_SIZE, CELL_SIZE, LAWN_HEIGHT);
   }
 
-  /** A flat box (base on y = 0) with vertex-colour shading: top 1, sides `lipShade`. Cached by key. */
-  private slabSource(key: string, color: string, width: number, height: number, depth: number, lipShade: number): PieceSource {
+  /** A flat sheet (a top face only) at height `y`; `decal` biases its depth so it never flickers against the surface just under it. Cached by key. */
+  private sheetSource(key: string, color: string, width: number, depth: number, y: number, decal = false): PieceSource {
     let source = this.lawnSources.get(key);
     if (!source) {
-      const geometry = new THREE.BoxGeometry(width, height, depth).translate(0, height / 2, 0);
-      geometry.name = `slab:${key}`;
-      const normals = geometry.getAttribute('normal');
-      const colors = new Float32Array(normals.count * 3);
-      for (let i = 0; i < normals.count; i += 1) {
-        const shade = normals.getY(i) > 0.5 ? 1 : lipShade;
-        colors[i * 3] = shade;
-        colors[i * 3 + 1] = shade;
-        colors[i * 3 + 2] = shade;
-      }
-      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-      this.ownedGeometries.push(geometry);
-      const material = createLitMaterial({ color, roughness: 1, vertexColors: true }, this.library.materialMode);
-      material.name = `slab:${key}`;
-      this.ownedMaterials.push(material);
-      source = { key, parts: [{ geometry, material }], castShadow: false, triangles: [12] };
-      this.lawnSources.set(key, source);
-    }
-    return source;
-  }
-
-  /** One cell of pond water: a top face only, since a bank wall stands on every side that isn't pond (sides would flicker against it). */
-  private waterSource(color: string, height: number): PieceSource {
-    const key = 'pond-water';
-    let source = this.lawnSources.get(key);
-    if (!source) {
-      const geometry = new THREE.PlaneGeometry(CELL_SIZE, CELL_SIZE).rotateX(-Math.PI / 2).translate(0, height, 0);
+      const geometry = new THREE.PlaneGeometry(width, depth).rotateX(-Math.PI / 2).translate(0, y, 0);
       geometry.name = `slab:${key}`;
       this.ownedGeometries.push(geometry);
       const material = createLitMaterial({ color, roughness: 1 }, this.library.materialMode);
       material.name = `slab:${key}`;
+      if (decal) {
+        material.polygonOffset = true;
+        material.polygonOffsetFactor = -2;
+        material.polygonOffsetUnits = -2;
+      }
       this.ownedMaterials.push(material);
       source = { key, parts: [{ geometry, material }], castShadow: false, triangles: [2] };
       this.lawnSources.set(key, source);

@@ -3,7 +3,7 @@
  * field and the plot/border dimensions. Shared by the terrain mesh and the decor ring so trees sit
  * exactly on the ground.
  */
-import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
+import { CELL_SIZE, GROUND_Y, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
 
 /** Half extents of the buildable plot in world units. */
 export const PLOT_HALF_X = (PLOT_WIDTH * CELL_SIZE) / 2;
@@ -12,8 +12,9 @@ export const PLOT_HALF_Z = (PLOT_DEPTH * CELL_SIZE) / 2;
 /** Diorama border around the plot: a cream kerb on top of a soil slab. */
 export const KERB_WIDTH = 0.24;
 export const KERB_TOP_Y = 0.035;
-/** Plot field surface (ground tiles sit on top of it at y ≥ 0). */
+/** The bed under painted cells, whose tiles stand on y = 0 above it; bare field is drawn at GROUND_Y. */
 export const FIELD_Y = -0.005;
+export { GROUND_Y };
 /** Level of the surrounding meadow right next to the plot: the plot is a raised slab. */
 export const MEADOW_BASE_Y = -0.32;
 /** Bottom of the soil faces (below MEADOW_BASE_Y so no gap shows). */

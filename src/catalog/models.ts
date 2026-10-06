@@ -1,3 +1,4 @@
+import { GROUND_Y } from '../game/config';
 import type { PondPiece } from '../town/pondTiles';
 import type { RoadPiece } from '../town/roadTiles';
 import type { EdgeKind, GroundKind, Rotation } from '../town/types';
@@ -52,6 +53,8 @@ export const MODELS = {
   'road-tee-zebra': M('/assets/models/roads/road-intersection-path.glb', 1, 0),
   'road-cross-zebra': M('/assets/models/roads/road-crossroad-path.glb', 1, 0),
   'road-end': M('/assets/models/roads/road-end-round.glb', 1, 3),
+  // The grass in the two corners the round end leaves open (ROAD_END_VERGE_MODEL); a top face at ground level, in the road end's frame.
+  'road-end-verge': M('/assets/models/roads/road-end-verge.glb', 1, 3, { nativeOrigin: true }),
   'road-single': M('/assets/models/roads/road-square.glb', 1, 0),
   // One pavement tile per cell; TownRenderer doubles its height so the kerb stays 0.02.
   'pavement-tile': M('/assets/models/roads/tile-low.glb', 0.5, 0),
@@ -59,6 +62,10 @@ export const MODELS = {
   roundabout: M('/assets/models/roads/road-roundabout.glb', 1, 0),
   // The pavement that fills one grass wedge (the north-west corner block, origin at the block centre); turned per corner.
   'roundabout-corner': M('/assets/models/roads/roundabout-corner.glb', 1, 0),
+  // The same wedge as grass, for a corner block left as road; a top face at ground level.
+  'roundabout-corner-grass': M('/assets/models/roads/roundabout-corner-grass.glb', 1, 0, { nativeOrigin: true }),
+  // The grass inside the roundabout's inner kerb (ROUNDABOUT_ISLAND_MODEL); a top face at ground level, origin at the roundabout's centre.
+  'roundabout-island-grass': M('/assets/models/roads/roundabout-island-grass.glb', 1, 0, { nativeOrigin: true }),
   // Parking lots (scripts/build-parking.py): whole road blocks, the entrance facing +Z natively.
   'parking-small': M('/assets/models/parking/parking-small.glb', 1, 0),
   'parking-medium': M('/assets/models/parking/parking-medium.glb', 1, 0),
@@ -243,6 +250,12 @@ export const ROAD_JOINT_MODELS: Readonly<Partial<Record<RoadPiece, Readonly<Reco
   end: { 4: 'road-joint-end-s' },
 };
 
+/** Drawn with the roundabout, whose model leaves its centre open. */
+export const ROUNDABOUT_ISLAND_MODEL: ModelId = 'roundabout-island-grass';
+
+/** Drawn with every round dead end (and twice, squashed, for a lone road block). */
+export const ROAD_END_VERGE_MODEL: ModelId = 'road-end-verge';
+
 /** The zebra straight beside a car park; the zebra tee and cross have no centre lines to remove. */
 export const ZEBRA_JOINT_MODELS: Readonly<Partial<Record<RoadPiece, Readonly<Record<number, ModelId>>>>> = {
   straight: { 1: 'road-joint-zebra-straight-n', 5: 'road-joint-zebra-straight-ns' },
@@ -282,11 +295,11 @@ export type GroundVisual =
 export const GROUND_MODELS: Readonly<Record<Exclude<GroundKind, 'field' | 'road'>, GroundVisual>> = {
   // Colours sampled from the Kenney kits; grass/meadow also get an instanced tuft/flower scatter.
   pavement: { type: 'model', model: 'pavement-tile' },
-  // Drawn as a 0.5-wide hub + arms by TownRenderer.
-  walkway: { type: 'flat', color: '#c9b99a', height: 0.016 },
-  grass: { type: 'flat', color: '#6cb562', height: 0.016 },
+  // Drawn as a 0.5-wide hub + arms by TownRenderer, laid on the field.
+  walkway: { type: 'flat', color: '#c9b99a', height: GROUND_Y },
+  grass: { type: 'flat', color: '#6cb562', height: GROUND_Y },
   // Same lawn as grass; only the flower scatter differs.
-  meadow: { type: 'flat', color: '#6cb562', height: 0.016 },
+  meadow: { type: 'flat', color: '#6cb562', height: GROUND_Y },
   // The water sheet (a top face only); TownRenderer adds the auto-tiled shore pieces (POND_SHORE_MODELS) on top.
   pond: { type: 'flat', color: '#5bb3d9', height: 0.008 },
 };
