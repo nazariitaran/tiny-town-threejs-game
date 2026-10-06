@@ -4,6 +4,8 @@ Player-facing release notes for Tiny Town. How things behave is in `docs/game-de
 
 ## Unreleased
 
+## v0.8.0 — 2026-10-06
+
 ### Added
 - Ponds, under Nature: paint water a cell at a time and neighbouring cells join into one pond with a rounded, uneven shore.
 - Lily pads, reeds, cattails and a floating bird house, for ponds only.
