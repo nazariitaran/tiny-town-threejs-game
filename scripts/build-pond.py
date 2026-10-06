@@ -1,5 +1,5 @@
-# Builds the pond models (public/assets/models/pond/*.glb) on the Kenney City Kit (Roads) atlas: the six
-# shore pieces, lily pads, reeds, cattails, the floating bird house and the duck.
+# Builds the pond models (public/assets/models/pond/*.glb) on the Kenney City Kit (Roads) atlas: the shore
+# pieces (each in a field and a lawn colourway), lily pads, reeds, cattails, the floating duck house and the duck.
 #
 #   /Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-pond.py
 #
@@ -29,10 +29,17 @@ ATLAS_PX = 512
 BLOCK_PX = 32
 
 # colormap.png swatches as (column, 32 px row from the top, hex at the block's centre). The atlas is 16 x 4
-# cells of 32 x 128 px; a gradient cell is sampled at one height. Cell (4, 0) holds the pond's own four flat
-# bands. No face samples the houses' window cell (column 11, the second cell from the top).
+# cells of 32 x 128 px; a gradient cell is sampled at one height. Cells (4, 0), (5, 0) and (6, 0) hold the
+# pond's own flat bands. No face samples the houses' window cell (column 11, the second cell from the top).
 SWATCHES = {
     'field': (4, 0, '84c27c'),      # the plot's field green (world/Terrain.ts): bank tops and walls
+    'lawn': (5, 0, '6cb562'),       # the lawn tile's green (GROUND_MODELS.grass): the -lawn colourway's bank
+    'slate': (5, 1, '8b9199'),      # the duck house's roof
+    'slate_dk': (5, 2, '6a7079'),
+    'timber': (5, 3, '8a7462'),     # the raft's weathered planks
+    'timber_lt': (6, 0, 'a08a74'),
+    'timber_dk': (6, 1, '66564a'),
+    'blue': (10, 5, '6794d9'),      # the drake's wing patch
     'sand': (4, 1, 'ead9a6'),       # the bank's slope
     'pad': (4, 2, '4fa24e'),        # lily pads, dark blades
     'reed': (4, 3, 'a5c95a'),       # reed and cattail blades
@@ -71,10 +78,19 @@ PROFILE = [
     (0.046, 0.012, 'sand'),
     (0.066, 0.0, None),
 ]
+LIP = PROFILE[1][0]                   # where the flat top ends and the slope starts
 OUTER_STEPS = 8                       # facets of an outer corner's quarter circle
 INNER_STEPS = 4
 BULGE = 0.034                         # how far pond-edge-c pushes its waterline into the pond
 BULGE_SHAPE = [(0.0, 0.0), (0.12, 0.0), (0.32, 0.8), (0.5, 1.0), (0.68, 0.8), (0.88, 0.0), (1.0, 0.0)]
+# pond-edge-d: a cove and a point. (along 0..1, the lip's distance from the land boundary); the slope is offset
+# square to this line, so the waterline runs about 0.027 further out.
+WAVE_LIP = [(0.0, LIP), (0.12, 0.018), (0.28, 0.008), (0.44, 0.024), (0.58, 0.058), (0.71, 0.074), (0.85, 0.054), (1.0, LIP)]
+# The wide corners pull the lip in from pond-outer-a's quarter circle (radius Q - LIP round the cell centre) by
+# CUT * sin(2 * angle) ** POWER: nothing at the two seams, most on the diagonal.
+CHAMFER_CUT, CHAMFER_POWER, CHAMFER_STEPS = 0.068, 1.5, 10      # pond-outer-c
+BEACH_CUT, BEACH_POWER, BEACH_STEPS = 0.092, 1.25, 9            # pond-outer-d: the sand's outer edge
+BEACH_GRASS_CUT, BEACH_GRASS_POWER = 0.022, 2.0                 # ... and where its grass stops
 
 # ---- pond items ----------------------------------------------------------------------------------
 PAD_THICK = 0.005
@@ -85,6 +101,8 @@ GOLDEN = math.pi * (3 - math.sqrt(5))
 
 class Builder:
     """Collects faces given in game coordinates; one atlas swatch per face."""
+
+    swap = {}                         # swatch substitutions (the lawn colourway)
 
     def __init__(self):
         self.bm = bmesh.new()
@@ -120,7 +138,7 @@ class Builder:
             return
         f = self.bm.faces.new(verts)
         for loop in f.loops:
-            loop[self.uv].uv = UV[uv]
+            loop[self.uv].uv = UV[self.swap.get(uv, uv)]
 
     def box(self, x0, y0, z0, x1, y1, z1, uv, faces=None, skip=()):
         """An axis-aligned box; `faces` overrides the swatch per side ('+x', '-y', ...)."""
@@ -211,6 +229,64 @@ def land_wall(b, p0, p1, out):
     b.face([(p0[0], 0, p0[1]), (p1[0], 0, p1[1]), (p1[0], BANK_TOP, p1[1]), (p0[0], BANK_TOP, p0[1])], 'field', want=(out[0], 0, out[1]))
 
 
+def offset_rows(lip, first, last):
+    """rows(d) for a slope that runs square to the plan polyline `lip` (the line at distance LIP). `first` and
+    `last` are the unit offsets at the two seams; they also tell which side of the line the pond is on."""
+    normals = []
+    for a, b in zip(lip, lip[1:]):
+        length = math.hypot(b[0] - a[0], b[1] - a[1])
+        normals.append(((b[1] - a[1]) / length, -(b[0] - a[0]) / length))
+    if normals[0][0] * first[0] + normals[0][1] * first[1] < 0:
+        normals = [(-x, -z) for x, z in normals]
+    mitres = [first]
+    for n0, n1 in zip(normals, normals[1:]):
+        mx, mz = n0[0] + n1[0], n0[1] + n1[1]
+        scale = 1 / (mx * n0[0] + mz * n0[1])
+        mitres.append((mx * scale, mz * scale))
+    mitres.append(last)
+    return lambda d: [(p[0] + m[0] * (d - LIP), p[1] + m[1] * (d - LIP)) for p, m in zip(lip, mitres)]
+
+
+def wave_piece():
+    """A bank along the north side whose lip follows WAVE_LIP: a cove, then a point."""
+    b = Builder()
+    lip = [(-H + u * Q, -H + d) for u, d in WAVE_LIP]
+    b.face([(-H, BANK_TOP, -H), (H, BANK_TOP, -H)] + [(x, BANK_TOP, z) for x, z in reversed(lip)], 'field', want=(0, 1, 0))
+    sweep(b, offset_rows(lip, (0, 1), (0, 1)))
+    land_wall(b, (-H, -H), (H, -H), (0, -1))
+    return b
+
+
+def wide_arc(cut, power, steps):
+    """A corner's lip from the east seam to the south seam: pond-outer-a's arc pulled towards the cell centre."""
+    out = []
+    for k in range(steps + 1):
+        a = k / steps * math.pi / 2
+        r = Q - LIP - cut * max(0.0, math.sin(2 * a)) ** power
+        out.append((H - math.sin(a) * r, H - math.cos(a) * r))
+    return out
+
+
+def wide_outer_piece(cut, power, steps, grass=None):
+    """A convex corner, land north and west, that fills more of its quarter than outer_piece. `grass` (cut, power)
+    stops the grass on a nearer arc and leaves a flat crescent of sand between the two."""
+    b = Builder()
+    lip = wide_arc(cut, power, steps)
+    green = wide_arc(grass[0], grass[1], steps) if grass else lip
+    top = lambda p: (p[0], BANK_TOP, p[1])
+    corner = (-H, BANK_TOP, -H)
+    b.face([corner, top(green[0]), (H, BANK_TOP, -H)], 'field', want=(0, 1, 0))
+    for k in range(steps):
+        b.face([corner, top(green[k]), top(green[k + 1])], 'field', want=(0, 1, 0))
+        if grass:
+            b.face([top(green[k]), top(green[k + 1]), top(lip[k + 1]), top(lip[k])], 'sand', want=(0, 1, 0))
+    b.face([corner, (-H, BANK_TOP, H), top(green[-1])], 'field', want=(0, 1, 0))
+    sweep(b, offset_rows(lip, (0, 1), (1, 0)))
+    land_wall(b, (-H, -H), (H, -H), (0, -1))
+    land_wall(b, (-H, -H), (-H, H), (-1, 0))
+    return b
+
+
 def edge_piece(shape=((0.0, 0.0), (1.0, 0.0)), bulge=0.0):
     """A straight bank along the north side; `shape` (along 0..1, amount 0..1) pushes the waterline south by `bulge`."""
     b = Builder()
@@ -273,6 +349,10 @@ def pond_edge_c():
     return edge_piece(BULGE_SHAPE, BULGE)
 
 
+def pond_edge_d():
+    return wave_piece()
+
+
 def pond_outer_a():
     return outer_piece()
 
@@ -284,8 +364,29 @@ def pond_outer_b():
     return b
 
 
+def pond_outer_c():
+    """A wide grassy corner: the waterline cuts across the quarter like a soft chamfer."""
+    return wide_outer_piece(CHAMFER_CUT, CHAMFER_POWER, CHAMFER_STEPS)
+
+
+def pond_outer_d():
+    """A lobe of land with a crescent beach."""
+    return wide_outer_piece(BEACH_CUT, BEACH_POWER, BEACH_STEPS, grass=(BEACH_GRASS_CUT, BEACH_GRASS_POWER))
+
+
 def pond_inner():
     return inner_piece()
+
+
+def lawn(make):
+    """The same piece with its grass in the lawn tile's green."""
+    def build():
+        Builder.swap = {'field': 'lawn'}
+        try:
+            return make()
+        finally:
+            Builder.swap = {}
+    return build
 
 
 # ---- lily pads -------------------------------------------------------------------------------------
@@ -416,64 +517,62 @@ def cattails_b():
     return cattails(5, 7, 0.34, start=2.1)
 
 
-# ---- bird house ------------------------------------------------------------------------------------
-RAFT_X, RAFT_Z = 0.125, 0.105         # deck half sizes
-DECK_Y0, DECK_Y1 = 0.014, 0.030
-LOG_X, LOG_R, LOG_Z = 0.092, 0.0155, 0.128
-PLANKS = 5
-POST, POST_TOP = 0.012, 0.098
-FLOOR_Y = 0.106
-BOX_X, BOX_Z = 0.058, 0.05            # nest box half sizes
-WALL_Y, PEAK_Y = 0.176, 0.222
-EAVE, ROOF_Z, ROOF_T = 0.02, 0.066, 0.013
-HOLE_Y, HOLE_R = 0.158, 0.019
+# ---- duck house ------------------------------------------------------------------------------------
+RAFT = 0.19                           # the raft's half size
+DECK_Y = 0.024
+PLANKS = 6
+HOUSE_X0, HOUSE_X1 = -0.135, 0.035    # the house stands at the back left of the raft
+HOUSE_Z0, HOUSE_Z1 = -0.145, 0.005
+BASE_Y, WALL_Y, PEAK_Y = 0.046, 0.124, 0.186
+EAVE, GABLE_EAVE, ROOF_T = 0.022, 0.024, 0.013
+DOOR_W, DOOR_SHOULDER, DOOR_TOP, DOOR_TOP_W = 0.031, 0.062, 0.088, 0.011
 
 
 def bird_house():
-    """A nest box on a post on a plank raft with two log floats; the hole faces +Z."""
+    """A floating duck house: a low square plank raft, a squat pale house at its back left with a slate gable
+    roof (ridge along x) and a dark chamfered-arch doorway towards +Z."""
     b = Builder()
-    # floats: two hexagonal logs along z, half under the water
-    for s in (-1, 1):
-        ring = lambda z: [(s * LOG_X + math.cos(k * math.tau / 6) * LOG_R, LOG_R * math.sin(math.tau / 6) + math.sin(k * math.tau / 6) * LOG_R, z)
-                          for k in range(6)]
-        b.loft([ring(-LOG_Z), ring(LOG_Z)], ['brown_dk'], caps=('tan_dk', 'tan_dk'))
-    # deck: planks along x in two tans, cut edge to edge
-    step = 2 * RAFT_Z / PLANKS
+    # raft: planks along x in two timbers, cut edge to edge; dark sides down to y = 0
+    step = 2 * RAFT / PLANKS
     for k in range(PLANKS):
-        z0 = -RAFT_Z + k * step
-        b.face([(-RAFT_X, DECK_Y1, z0), (RAFT_X, DECK_Y1, z0), (RAFT_X, DECK_Y1, z0 + step), (-RAFT_X, DECK_Y1, z0 + step)],
-               'tan' if k % 2 == 0 else 'tan_md', want=(0, 1, 0))
-    b.box(-RAFT_X, DECK_Y0, -RAFT_Z, RAFT_X, DECK_Y1, RAFT_Z, 'brown', skip=('+y',))
-    # post and the box's floor
-    b.box(-POST, DECK_Y1, -POST, POST, POST_TOP, POST, 'brown_md', skip=('-y', '+y'))
-    b.box(-BOX_X - 0.008, POST_TOP, -BOX_Z - 0.008, BOX_X + 0.008, FLOOR_Y, BOX_Z + 0.014, 'brown')
-    # walls: the front gable has the hole cut into it
-    for s in (-1, 1):
-        b.face([(s * BOX_X, FLOOR_Y, -BOX_Z), (s * BOX_X, FLOOR_Y, BOX_Z), (s * BOX_X, WALL_Y, BOX_Z), (s * BOX_X, WALL_Y, -BOX_Z)],
-               'cream', want=(s, 0, 0))
-    gable = [(-BOX_X, FLOOR_Y), (BOX_X, FLOOR_Y), (BOX_X, WALL_Y), (0.0, PEAK_Y), (-BOX_X, WALL_Y)]
-    b.face([(x, y, -BOX_Z) for x, y in gable], 'cream', want=(0, 0, -1))
-    hole = [(math.cos((k + 0.5) / 8 * math.tau) * HOLE_R, HOLE_Y + math.sin((k + 0.5) / 8 * math.tau) * HOLE_R) for k in range(8)]
-    points = gable + hole
-    for tri in tessellate_polygon([[Vector((x, y, 0)) for x, y in gable], [Vector((x, y, 0)) for x, y in hole]]):
-        b.face([(points[i][0], points[i][1], BOX_Z) for i in tri], 'cream', want=(0, 0, 1))
-    b.face([(x, y, BOX_Z) for x, y in hole], 'dark', want=(0, 0, 1))
-    # perch
-    b.box(-0.005, 0.124, BOX_Z, 0.005, 0.134, BOX_Z + 0.03, 'brown_md', skip=('-z',))
+        z0 = -RAFT + k * step
+        b.face([(-RAFT, DECK_Y, z0), (RAFT, DECK_Y, z0), (RAFT, DECK_Y, z0 + step), (-RAFT, DECK_Y, z0 + step)],
+               'timber' if k % 2 == 0 else 'timber_lt', want=(0, 1, 0))
+    b.box(-RAFT, 0.0, -RAFT, RAFT, DECK_Y, RAFT, 'timber_dk', skip=('+y', '-y'))
+    # walls: a stone course under whitewash; the gables are on the x sides
+    x0, x1, z0, z1 = HOUSE_X0, HOUSE_X1, HOUSE_Z0, HOUSE_Z1
+    zc = (z0 + z1) / 2
+    for y0, y1, uv in ((DECK_Y, BASE_Y, 'offwhite'), (BASE_Y, WALL_Y, 'white')):
+        b.face([(x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0)], uv, want=(0, 0, -1))
+        for x, s in ((x0, -1), (x1, 1)):
+            b.face([(x, y0, z0), (x, y0, z1), (x, y1, z1), (x, y1, z0)], uv, want=(s, 0, 0))
+    for x, s in ((x0, -1), (x1, 1)):
+        b.face([(x, WALL_Y, z0), (x, WALL_Y, z1), (x, PEAK_Y, zc)], 'white', want=(s, 0, 0))
+    # front: the doorway is cut through both courses
+    dx = (x0 + x1) / 2
+    d0, d1, ds, dt = dx - DOOR_W, dx + DOOR_W, DOOR_SHOULDER, DOOR_TOP
+    door = [(d0, DECK_Y), (d1, DECK_Y), (d1, ds), (dx + DOOR_TOP_W, dt), (dx - DOOR_TOP_W, dt), (d0, ds)]
+    b.face([(x, y, z1) for x, y in door], 'dark', want=(0, 0, 1))
+    for xa, xb in ((x0, d0), (d1, x1)):
+        b.face([(xa, DECK_Y, z1), (xb, DECK_Y, z1), (xb, BASE_Y, z1), (xa, BASE_Y, z1)], 'offwhite', want=(0, 0, 1))
+    upper = [(x0, BASE_Y), (d0, BASE_Y), (d0, ds), (dx - DOOR_TOP_W, dt), (dx + DOOR_TOP_W, dt), (d1, ds), (d1, BASE_Y),
+             (x1, BASE_Y), (x1, WALL_Y), (x0, WALL_Y)]
+    for tri in tessellate_polygon([[Vector((x, y, 0)) for x, y in upper]]):
+        b.face([(upper[i][0], upper[i][1], z1) for i in tri], 'white', want=(0, 0, 1))
     # roof: two slabs meeting at the ridge, overhanging the walls all round
-    slope = (PEAK_Y - WALL_Y) / BOX_X
-    ex = BOX_X + EAVE
+    slope = (PEAK_Y - WALL_Y) / (z1 - zc)
+    reach = z1 - zc + EAVE
     eave_y = WALL_Y - slope * EAVE
+    rx0, rx1 = x0 - GABLE_EAVE, x1 + GABLE_EAVE
     for s in (-1, 1):
-        lo = [(s * ex, eave_y), (0.0, PEAK_Y), (0.0, PEAK_Y + ROOF_T), (s * ex, eave_y + ROOF_T)]
-        section = lambda z: [(x, y, z) for x, y in lo]
-        front, back = section(ROOF_Z), section(-ROOF_Z)
-        mid = (s * ex / 2, (eave_y + PEAK_Y + ROOF_T) / 2, 0)
-        b.face([back[3], back[2], front[2], front[3]], 'red', away=mid)       # top
-        b.face([back[0], back[1], front[1], front[0]], 'red_dk', away=mid)    # underside
-        b.face([back[0], back[3], front[3], front[0]], 'red_dk', away=mid)    # eave edge
-        b.face(front, 'red_dk', away=mid)
-        b.face(back, 'red_dk', away=mid)
+        lo = [(zc + s * reach, eave_y), (zc, PEAK_Y), (zc, PEAK_Y + ROOF_T), (zc + s * reach, eave_y + ROOF_T)]
+        left, right = [(rx0, y, z) for z, y in lo], [(rx1, y, z) for z, y in lo]
+        mid = ((rx0 + rx1) / 2, (eave_y + PEAK_Y + ROOF_T) / 2, zc + s * reach / 2)
+        b.face([left[3], left[2], right[2], right[3]], 'slate', away=mid)          # top
+        b.face([left[0], left[1], right[1], right[0]], 'slate_dk', away=mid)       # underside
+        b.face([left[0], left[3], right[3], right[0]], 'slate_dk', away=mid)       # eave edge
+        b.face(left, 'slate_dk', away=mid)
+        b.face(right, 'slate_dk', away=mid)
     return b
 
 
@@ -484,33 +583,47 @@ def section(z, w, y0, ym, y1, top=0.55, bottom=0.6):
     return [(-w * bottom, y0, z), (w * bottom, y0, z), (w, ym, z), (w * top, y1, z), (-w * top, y1, z), (-w, ym, z)]
 
 
+def hull(z, w, y0, ym, yh, y1):
+    """An eight-point body section at z: keel, the widest point at ym, shoulders at yh, a narrow back at y1."""
+    return [(-w * 0.5, y0, z), (w * 0.5, y0, z), (w, ym, z), (w * 0.8, yh, z), (w * 0.36, y1, z),
+            (-w * 0.36, y1, z), (-w * 0.8, yh, z), (-w, ym, z)]
+
+
 def duck():
-    """A mallard drake, bill towards +Z, sitting on y = 0 (the game sinks it by its draft). Light flanks and a grey
-    back, so a brown instance tint turns it into a hen."""
+    """A mallard drake, bill towards +Z, sitting on y = 0 (the game sinks it by its draft). Light flanks and grey
+    wings, so a brown instance tint turns it into a hen."""
     b = Builder()
-    flank = ['offwhite', 'offwhite', 'offwhite', 'grey_lt', 'offwhite', 'offwhite']   # keel, right low, right high, back, left high, left low
+    # sides of a hull band: keel, right low, right flank, right wing, back, left wing, left flank, left low
+    sides = lambda wing: ['offwhite', 'offwhite', 'offwhite', wing, 'grey', wing, 'offwhite', 'offwhite']
     body = [
-        section(-0.068, 0.011, 0.024, 0.030, 0.036),
-        section(-0.042, 0.029, 0.004, 0.022, 0.040),
-        section(-0.006, 0.036, 0.000, 0.022, 0.047),
-        section(0.030, 0.032, 0.000, 0.023, 0.045),
-        section(0.052, 0.017, 0.008, 0.025, 0.039),
+        hull(-0.068, 0.008, 0.031, 0.036, 0.040, 0.042),      # the tail's tip, turned up
+        hull(-0.052, 0.022, 0.012, 0.026, 0.035, 0.040),
+        hull(-0.030, 0.033, 0.002, 0.022, 0.036, 0.045),
+        hull(-0.002, 0.037, 0.000, 0.022, 0.038, 0.048),
+        hull(0.028, 0.033, 0.000, 0.023, 0.037, 0.046),
+        hull(0.050, 0.020, 0.007, 0.025, 0.035, 0.041),
     ]
-    b.loft(body, ['dark', flank, flank, 'brown_md'], caps=('white', 'brown_md'))
+    b.loft(body, ['dark', sides('blue'), sides('grey_lt'), sides('grey_lt'), 'brown_md'], caps=('white', 'brown_md'))
+    # folded wing tips over the rump
+    for s in (-1, 1):
+        low, high, under, tip = (s * 0.032, 0.034, -0.022), (s * 0.014, 0.047, -0.022), (s * 0.024, 0.029, -0.030), (s * 0.011, 0.045, -0.059)
+        centre = (s * 0.02, 0.038, -0.035)
+        for tri in ((low, high, tip), (low, under, tip), (under, high, tip)):
+            b.face(tri, 'grey', away=centre)
     # white collar, green head, yellow bill
-    b.box(-0.012, 0.040, 0.026, 0.012, 0.054, 0.050, 'white', skip=('-y', '+y'))
+    ring = lambda z, y, r: [(math.cos(k * math.tau / 6) * r, y, z + math.sin(k * math.tau / 6) * r) for k in range(6)]
+    b.loft([ring(0.034, 0.041, 0.014), ring(0.038, 0.059, 0.011)], ['white'])
     head = [
-        section(0.020, 0.012, 0.057, 0.069, 0.080),
-        section(0.029, 0.019, 0.053, 0.069, 0.088),
-        section(0.052, 0.019, 0.053, 0.069, 0.088),
-        section(0.061, 0.012, 0.057, 0.067, 0.078),
+        section(0.021, 0.008, 0.064, 0.071, 0.079),
+        section(0.028, 0.017, 0.058, 0.072, 0.087),
+        section(0.040, 0.020, 0.056, 0.072, 0.091),
+        section(0.052, 0.018, 0.057, 0.071, 0.088),
+        section(0.061, 0.010, 0.060, 0.069, 0.079),
     ]
-    b.loft(head, ['head', 'head', 'head'], caps=('head', 'head'))
-    bill = [
-        [(-0.010, 0.058, 0.060), (0.010, 0.058, 0.060), (0.010, 0.069, 0.060), (-0.010, 0.069, 0.060)],
-        [(-0.008, 0.058, 0.074), (0.008, 0.058, 0.074), (0.008, 0.063, 0.074), (-0.008, 0.063, 0.074)],
-    ]
-    b.loft(bill, ['yellow'], caps=(None, 'yellow'))
+    b.loft(head, ['head'] * 4, caps=('head', 'head'))
+    quad = lambda z, w, y0, y1: [(-w, y0, z), (w, y0, z), (w, y1, z), (-w, y1, z)]
+    b.loft([quad(0.059, 0.008, 0.060, 0.069), quad(0.068, 0.010, 0.060, 0.065), quad(0.074, 0.008, 0.060, 0.063)],
+           ['yellow', 'yellow'], caps=(None, 'yellow'))
     return b
 
 
@@ -518,8 +631,11 @@ MODELS = {
     'pond-edge-a': pond_edge_a,
     'pond-edge-b': pond_edge_b,
     'pond-edge-c': pond_edge_c,
+    'pond-edge-d': pond_edge_d,
     'pond-outer-a': pond_outer_a,
     'pond-outer-b': pond_outer_b,
+    'pond-outer-c': pond_outer_c,
+    'pond-outer-d': pond_outer_d,
     'pond-inner': pond_inner,
     'lily-pads-a': lily_pads_a,
     'lily-pads-b': lily_pads_b,
@@ -531,6 +647,8 @@ MODELS = {
     'bird-house': bird_house,
     'duck': duck,
 }
+SHORE = [name for name in MODELS if name.startswith('pond-')]
+MODELS.update({f'{name}-lawn': lawn(MODELS[name]) for name in SHORE})
 
 
 def atlas_material():

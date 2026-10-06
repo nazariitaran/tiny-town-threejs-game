@@ -119,9 +119,9 @@ test('digit shortcuts: 1–9 pick a tool in the active category, Shift+1–5 swi
   await expect(page.locator(id(UI_TEST_IDS.category('town')))).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('Digit1');
   await expect.poll(async () => (await diag(page)).tool).toBe('tiered-fountain');
-  // Shift+4 = Nature: 7 = pine.
+  // Shift+4 = Nature: 6 = pine.
   await page.keyboard.press('Shift+Digit4');
-  await page.keyboard.press('Digit7');
+  await page.keyboard.press('Digit6');
   await expect.poll(async () => (await diag(page)).tool).toBe('pine');
   // Shift+5 = Garden: 1 = hedge.
   await page.keyboard.press('Shift+Digit5');

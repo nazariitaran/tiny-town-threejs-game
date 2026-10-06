@@ -6,7 +6,7 @@
  * (radians, bill down), a bob height and a pop scale.
  */
 import { CELL_SIZE, cellToWorld, worldToCell } from '../game/config';
-import { findPonds } from '../town/pondTiles';
+import { findPonds, pondQuarter } from '../town/pondTiles';
 import type { Cell, TownStateReader } from '../town/types';
 import { createSeededRandom } from '../utils/random';
 
@@ -21,7 +21,7 @@ export const SWIM_SPEED = 0.09;
 /** Radians per second. */
 const TURN_RATE = 2.4;
 /** A duck keeps this far (half a square, world units) from any land, objects other than lily pads included. */
-export const SHORE_CLEARANCE = 0.09;
+export const SHORE_CLEARANCE = 0.12;
 const REST_S: readonly [number, number] = [2, 7];
 const DABBLE_CHANCE = 0.25;
 const DABBLE_S = 1.6;
@@ -77,6 +77,7 @@ export class DuckSim {
   private night = 0;
   private town: TownStateReader | null = null;
   private readonly scratch: Cell = { x: 0, z: 0 };
+  private readonly scratchCentre = { x: 0, z: 0 };
 
   constructor(seed: number) {
     this.rng = createSeededRandom(seed);
@@ -165,10 +166,18 @@ export class DuckSim {
     }
   }
 
-  /** Open water at (x, z): the four corners of a SHORE_CLEARANCE square round it are pond cells without a standing object (lily pads float). */
+  /**
+   * Open water at (x, z): the four corners of a SHORE_CLEARANCE square round it are pond cells without a
+   * standing object (lily pads float), and the point is not in a quarter cell with an outer corner bank,
+   * whose land may reach well into the quarter.
+   */
   isOpenWater(x: number, z: number): boolean {
     const town = this.town;
     if (!town) return false;
+    const own = worldToCell(x, z, this.scratch);
+    const centre = cellToWorld(own, this.scratchCentre);
+    const q = z < centre.z ? (x < centre.x ? 0 : 1) : x < centre.x ? 3 : 2;
+    if (town.inBounds(own) && town.getGround(own) === 'pond' && pondQuarter(town, own, q).piece === 'outer') return false;
     for (const [dx, dz] of CORNERS) {
       const cell = worldToCell(x + dx * SHORE_CLEARANCE, z + dz * SHORE_CLEARANCE, this.scratch);
       if (!town.inBounds(cell) || town.getGround(cell) !== 'pond') return false;

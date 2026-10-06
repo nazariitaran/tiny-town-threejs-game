@@ -10,7 +10,7 @@ import { CELL_SIZE, PLOT_CONTENT_HEIGHT, ROAD_TILE_SIZE } from '../game/config';
 import { ALTITUDE } from '../life/FlockSim';
 import { CAR_FILES, CAR_SCALE } from '../life/LifeSystem';
 import { MODEL_STYLES } from '../render/modelStyles';
-import { EDGE_MODELS, GROUND_MODELS, MODELS, POND_SHORE_MODELS, ROAD_JOINT_MODELS, ROAD_PIECE_MODELS, ZEBRA_JOINT_MODELS, type ModelId, type ModelSpec } from './models';
+import { EDGE_MODELS, GROUND_MODELS, MODELS, POND_LAWN_SHORE_MODELS, POND_ROOMY_OUTER_MODELS, POND_SHORE_MODELS, ROAD_JOINT_MODELS, ROAD_PIECE_MODELS, ZEBRA_JOINT_MODELS, type ModelId, type ModelSpec } from './models';
 import { footprintOf, heightScale, OBJECT_KINDS, OBJECTS, pickableVariants } from './objects';
 import { RETIRED_TOOLS, TOOL_CATEGORIES, TOOLS, toolsInCategory, variantIcon, type ToolLayer } from './tools';
 import type { GroundKind } from '../town/types';
@@ -111,12 +111,14 @@ describe('catalog', () => {
     ]);
   });
 
-  it('within a category tools run ground → edge → object', () => {
+  it('within a category tools run ground → edge → object; the pond sits with the items that go in it', () => {
     const rank: Record<ToolLayer, number> = { ground: 0, edge: 1, object: 2, move: 3, bulldoze: 4 };
     for (const { id } of TOOL_CATEGORIES) {
-      const ranks = toolsInCategory(id).map((tool) => rank[tool.layer]);
+      const ranks = toolsInCategory(id).filter((tool) => tool.id !== 'pond').map((tool) => rank[tool.layer]);
       expect(ranks, id).toEqual([...ranks].sort((a, b) => a - b));
     }
+    const nature = toolsInCategory('nature').map((tool) => tool.id);
+    expect(nature.slice(nature.indexOf('pond'))).toEqual(['pond', 'lily-pads', 'reeds', 'cattails', 'bird-house']);
   });
 
   it('every ObjectKind has exactly one object tool (none once retired), and every object tool an ObjectDef', () => {
@@ -345,7 +347,7 @@ describe('catalog', () => {
   it('pond shore pieces fill at most their quarter cell around their own origin, low enough to stay a bank', async () => {
     const load = await createGlbLoader();
     const half = CELL_SIZE / 4;
-    for (const id of Object.values(POND_SHORE_MODELS).flat()) {
+    for (const id of [...Object.values(POND_SHORE_MODELS).flat(), ...Object.values(POND_LAWN_SHORE_MODELS)]) {
       expect(MODELS[id].nativeOrigin, id).toBe(true);
       const gltf = await load(MODELS[id].url);
       gltf.scene.updateMatrixWorld(true);
@@ -384,17 +386,20 @@ describe('catalog', () => {
     };
     const profile = await seam('pond-edge-a', 'x', -half);
     expect(profile.length).toBeGreaterThan(1);
-    for (const id of POND_SHORE_MODELS.edge) {
+    const withLawn = (ids: readonly ModelId[]): ModelId[] => ids.flatMap((id) => [id, POND_LAWN_SHORE_MODELS[id]!]);
+    for (const id of Object.values(POND_SHORE_MODELS).flat()) expect(POND_LAWN_SHORE_MODELS[id], `${id} lawn twin`).toBeDefined();
+    for (const id of POND_ROOMY_OUTER_MODELS) expect(POND_SHORE_MODELS.outer, id).toContain(id);
+    for (const id of withLawn(POND_SHORE_MODELS.edge)) {
       expect(await seam(id, 'x', -half), `${id} west end`).toEqual(profile);
       expect(await seam(id, 'x', half), `${id} east end`).toEqual(profile);
     }
     // Outer corners (land north and west) run on as a north edge to the east and a west edge to the south.
-    for (const id of POND_SHORE_MODELS.outer) {
+    for (const id of withLawn(POND_SHORE_MODELS.outer)) {
       expect(await seam(id, 'x', half), `${id} east end`).toEqual(profile);
       expect(await seam(id, 'z', half), `${id} south end`).toEqual(profile);
     }
     // Inner corners (land only at the north-west point) meet a north edge to the west and a west edge to the north.
-    for (const id of POND_SHORE_MODELS.inner) {
+    for (const id of withLawn(POND_SHORE_MODELS.inner)) {
       expect(await seam(id, 'x', -half), `${id} west side`).toEqual(profile);
       expect(await seam(id, 'z', -half), `${id} north side`).toEqual(profile);
     }

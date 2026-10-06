@@ -54,9 +54,11 @@ Liveness holds (no deadlock or stuck car in the harness or in four review rounds
 - **Uninvestigated:** in one capture of a plot packed with car parks the dock's Parking card still looked selected after Esc while diagnostics reported no tool.
 
 ## Ponds
-- **The bank is one look everywhere:** its top and land wall are the field's green, so on a lawn or a meadow the pond has a paler rim, and facing the camera the 0.022-high wall shows as a darker line along the square cell boundary. Against road and pavement a kerb-height stone wall might suit better.
+- **The bank's land wall:** facing the camera the 0.022-high wall shows as a darker line along the square cell boundary, and against road and pavement the bank is still a grass lip (a kerb-height stone wall might suit better). Both go away if the ground is made flush.
+- **Big ponds still read as rectangles from above:** the corner and edge variants soften the shore, but a quarter-cell piece can't round a corner over several cells. A mirrored cove edge and a larger inner notch would add variety.
+- **A corner piece is one colour:** where lawn and field meet at a pond corner, a quarter cell of bank is the wrong green for one of its sides.
+- **Ducks rest on lily pads** (lily cells count as open water), overlapping them.
 - **Hens** are the drake model under a brown instance tint, so they keep a dark olive head and a yellow bill. A real hen needs a second model and one more draw call in `DuckSystem`.
-- **Pond tool icons** (Pond, Lily pads, Reeds, Cattails) are each a small plant on a blue disc and look alike at tray size.
 - **Fireflies** rise over meadows only; a pond at dusk could have them too.
 - **Still water:** no ripple, sparkle or reflection, and no splash sound (ponds use `place-nature`).
 - **Ducks pop in and out** instead of flying or swimming in, and ignore the camera and nearby placements.

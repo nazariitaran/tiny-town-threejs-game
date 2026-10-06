@@ -9,7 +9,7 @@
  *  - Object ids are reused after reset / load, so a remove always frees its visual before the next add.
  */
 import * as THREE from 'three';
-import { EDGE_MODELS, GROUND_MODELS, POND_SHORE_MODELS, ROAD_PIECE_MODELS, type ModelId } from '../catalog/models';
+import { EDGE_MODELS, GROUND_MODELS, POND_LAWN_SHORE_MODELS, POND_ROOMY_OUTER_MODELS, POND_SHORE_MODELS, ROAD_PIECE_MODELS, type ModelId } from '../catalog/models';
 import { objectDef, placedFootprint } from '../catalog/objects';
 import { CELL_SIZE, cellToWorld, ROAD_TILE_SIZE, roadBlockCentreWorld } from '../game/config';
 import type { DebugTools } from '../debug/DebugTools';
@@ -20,7 +20,7 @@ import { InstancePool, type PoolSlot } from './InstancePool';
 import { createLitMaterial, type LitMaterial } from './materials';
 import type { ModelLibrary } from './ModelLibrary';
 import { featureCornerIndex, roadFeatureAt, roadLook, underRoadFeature } from '../town/roadTiles';
-import { POND_QUARTERS, pondQuarter, type PondQuarter } from '../town/pondTiles';
+import { isPond, POND_QUARTERS, pondQuarter, type PondQuarter } from '../town/pondTiles';
 import { MODEL_STYLES } from './modelStyles';
 import { edgeOrigin, objectOrigin, styleMatrix } from './objectPose';
 import { easeOutBack, easeOutBackPeak, easeShrink, hash01, hopArc, hopHeight, moveEase } from './tween';
@@ -66,13 +66,31 @@ export function meadowScatterModel(cell: Cell): ModelId {
 
 const QUARTER_OFFSET = CELL_SIZE / 4;
 
-/** The shore model a pond quarter draws (hashed per quarter, stable across reloads), or null for open water. */
-export function pondShoreModel(cell: Cell, q: number, quarter: PondQuarter): ModelId | null {
+const isLawn = (town: TownStateReader, x: number, z: number): boolean => {
+  const cell = { x, z };
+  if (!town.inBounds(cell)) return false;
+  const ground = town.getGround(cell);
+  return ground === 'grass' || ground === 'meadow';
+};
+
+/**
+ * The shore model a pond quarter draws (hashed per quarter, stable across reloads), or null for open water.
+ * A corner under an object or of a one-cell pond keeps to the roomy models, and a bank beside lawn takes the lawn's green.
+ */
+export function pondShoreModel(town: TownStateReader, cell: Cell, q: number, quarter: PondQuarter): ModelId | null {
   if (quarter.piece === 'open') return null;
-  const models = POND_SHORE_MODELS[quarter.piece];
   const [sx, sz] = POND_QUARTERS[q];
+  // A one-cell pond is all corners: the bigger ones would leave it hardly any water.
+  const tight = quarter.piece === 'outer' && (town.getObjectAt(cell) !== undefined || !NEIGHBOURS.some((n) => isPond(town, cell.x + n.x, cell.z + n.z)));
+  const models = tight ? POND_ROOMY_OUTER_MODELS : POND_SHORE_MODELS[quarter.piece];
   const pick = hash01(cell.x * 2 + (sx > 0 ? 1 : 0), cell.z * 2 + (sz > 0 ? 1 : 0), 7);
-  return models[Math.min(models.length - 1, Math.floor(pick * models.length))];
+  const model = models[Math.min(models.length - 1, Math.floor(pick * models.length))];
+  // The land this bank belongs to: the one dry side of an edge, the diagonal of a notch, most of a corner's three cells.
+  const sideX = isLawn(town, cell.x + sx, cell.z);
+  const sideZ = isLawn(town, cell.x, cell.z + sz);
+  const diagonal = isLawn(town, cell.x + sx, cell.z + sz);
+  const lawn = quarter.piece === 'inner' ? diagonal : quarter.piece === 'outer' ? Number(sideX) + Number(sideZ) + Number(diagonal) >= 2 : sideX || sideZ;
+  return lawn ? POND_LAWN_SHORE_MODELS[model] ?? model : model;
 }
 
 const EDGE_MODEL_IDS: ReadonlySet<string> = new Set(Object.values(EDGE_MODELS));
@@ -521,7 +539,7 @@ export class TownRenderer {
     let sig = 'pond:';
     POND_QUARTERS.forEach(([sx, sz], q) => {
       const quarter = pondQuarter(this.town, cell, q);
-      const model = pondShoreModel(cell, q, quarter);
+      const model = pondShoreModel(this.town, cell, q, quarter);
       sig += model ? `${model}@${quarter.rotation},` : 'open,';
       if (!model) return;
       const local = new THREE.Matrix4().makeRotationY(quarter.rotation * QUARTER).setPosition(sx * QUARTER_OFFSET, 0, sz * QUARTER_OFFSET);

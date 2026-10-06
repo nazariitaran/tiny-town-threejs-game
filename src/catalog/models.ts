@@ -159,14 +159,28 @@ export const MODELS = {
   'cattails-a': M('/assets/models/pond/cattails-a.glb', 1, 0, { sway: true }),
   'cattails-b': M('/assets/models/pond/cattails-b.glb', 1, 0, { sway: true }),
   // The house's door faces +Z natively.
-  'bird-house': M('/assets/models/pond/bird-house.glb', 1, 0),
+  // Scaled so the raft clears the banks of a one-cell-wide pond.
+  'bird-house': M('/assets/models/pond/bird-house.glb', 0.85, 0),
   // Shore pieces (POND_SHORE_MODELS): one quarter cell each, made for the north-west quarter, origin at its centre.
   'pond-edge-a': M('/assets/models/pond/pond-edge-a.glb', 1, 0, { nativeOrigin: true }),
   'pond-edge-b': M('/assets/models/pond/pond-edge-b.glb', 1, 0, { nativeOrigin: true }),
   'pond-edge-c': M('/assets/models/pond/pond-edge-c.glb', 1, 0, { nativeOrigin: true }),
+  'pond-edge-d': M('/assets/models/pond/pond-edge-d.glb', 1, 0, { nativeOrigin: true }),
   'pond-outer-a': M('/assets/models/pond/pond-outer-a.glb', 1, 0, { nativeOrigin: true }),
   'pond-outer-b': M('/assets/models/pond/pond-outer-b.glb', 1, 0, { nativeOrigin: true }),
+  'pond-outer-c': M('/assets/models/pond/pond-outer-c.glb', 1, 0, { nativeOrigin: true }),
+  'pond-outer-d': M('/assets/models/pond/pond-outer-d.glb', 1, 0, { nativeOrigin: true }),
   'pond-inner': M('/assets/models/pond/pond-inner.glb', 1, 0, { nativeOrigin: true }),
+  // The same pieces with the bank in the lawn's green (POND_LAWN_SHORE_MODELS).
+  'pond-edge-a-lawn': M('/assets/models/pond/pond-edge-a-lawn.glb', 1, 0, { nativeOrigin: true }),
+  'pond-edge-b-lawn': M('/assets/models/pond/pond-edge-b-lawn.glb', 1, 0, { nativeOrigin: true }),
+  'pond-edge-c-lawn': M('/assets/models/pond/pond-edge-c-lawn.glb', 1, 0, { nativeOrigin: true }),
+  'pond-edge-d-lawn': M('/assets/models/pond/pond-edge-d-lawn.glb', 1, 0, { nativeOrigin: true }),
+  'pond-outer-a-lawn': M('/assets/models/pond/pond-outer-a-lawn.glb', 1, 0, { nativeOrigin: true }),
+  'pond-outer-b-lawn': M('/assets/models/pond/pond-outer-b-lawn.glb', 1, 0, { nativeOrigin: true }),
+  'pond-outer-c-lawn': M('/assets/models/pond/pond-outer-c-lawn.glb', 1, 0, { nativeOrigin: true }),
+  'pond-outer-d-lawn': M('/assets/models/pond/pond-outer-d-lawn.glb', 1, 0, { nativeOrigin: true }),
+  'pond-inner-lawn': M('/assets/models/pond/pond-inner-lawn.glb', 1, 0, { nativeOrigin: true }),
   // Drawn by life/DuckSystem, not placed; the bill faces +Z natively.
   duck: M('/assets/models/pond/duck.glb', 1, 0),
   planter: M('/assets/models/suburban/planter.glb', 1, 2),
@@ -239,9 +253,25 @@ export const ZEBRA_JOINT_MODELS: Readonly<Partial<Record<RoadPiece, Readonly<Rec
  * its cell, so long banks don't repeat. Every model of a kind meets its neighbours with the same bank profile.
  */
 export const POND_SHORE_MODELS: Readonly<Record<Exclude<PondPiece, 'open'>, readonly ModelId[]>> = {
-  edge: ['pond-edge-a', 'pond-edge-b', 'pond-edge-c'],
-  outer: ['pond-outer-a', 'pond-outer-b'],
+  edge: ['pond-edge-a', 'pond-edge-b', 'pond-edge-c', 'pond-edge-d'],
+  outer: ['pond-outer-a', 'pond-outer-b', 'pond-outer-c', 'pond-outer-d'],
   inner: ['pond-inner'],
+};
+
+/** Outer corners whose land stays near the cell's rim, for a pond cell that holds an object. */
+export const POND_ROOMY_OUTER_MODELS: readonly ModelId[] = ['pond-outer-a', 'pond-outer-b'];
+
+/** Each shore piece's twin with a lawn-green bank, drawn beside grass and meadow. */
+export const POND_LAWN_SHORE_MODELS: Readonly<Partial<Record<ModelId, ModelId>>> = {
+  'pond-edge-a': 'pond-edge-a-lawn',
+  'pond-edge-b': 'pond-edge-b-lawn',
+  'pond-edge-c': 'pond-edge-c-lawn',
+  'pond-edge-d': 'pond-edge-d-lawn',
+  'pond-outer-a': 'pond-outer-a-lawn',
+  'pond-outer-b': 'pond-outer-b-lawn',
+  'pond-outer-c': 'pond-outer-c-lawn',
+  'pond-outer-d': 'pond-outer-d-lawn',
+  'pond-inner': 'pond-inner-lawn',
 };
 
 /** How non-road ground kinds are drawn: a model tile, or a procedural flat tile. */
