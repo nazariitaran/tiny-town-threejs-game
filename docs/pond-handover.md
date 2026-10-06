@@ -93,9 +93,10 @@ All must stay under the cottage eaves and the lamppost (the garden-furniture tes
 
 ## Checks run
 
-- `npm run verify` (local paths, licences, typecheck, unit tests, production build): see the hand-off message for the run.
+- `npm run verify` passes: local paths clean, licences current, typecheck clean, 39 test files / 704 unit tests passed (1 skipped), production build OK.
 - New unit tests: `src/town/pondTiles.test.ts` (piece choice and turns, ponds as 4-connected groups), pond cases in `rules.test.ts` and `serialize.test.ts`, the shore contract in `catalog.test.ts`, `src/life/ducks.test.ts` (count by size, determinism, 4 minutes of swimming on an L-shaped pond never leaving open water, night rest, following town edits).
 - New e2e spec `tests/pond.spec.ts`: dig a pond by drag, plant it, float the bird house, ducks arrive for its size, refusals, ducks leave when it is filled in; the tray arrows at 900 px wide.
+  - In the cloud container (software rendering, 1 worker, `--timeout=300000`) the **tray** test passed. The **pond** test got through digging, the duck count and the "Lily pads must go in a pond" refusal, then stalled on a later canvas click; the untouched `new-items.spec.ts` placing test stalls the same way there, so it is the container's rendering speed, not the change. **Run `tests/pond.spec.ts` locally** (and the full suite with `--workers=6`).
 - Screenshots under `artifacts/pond/` (local only, gitignored).
 
 ## Known gaps and follow-ups
