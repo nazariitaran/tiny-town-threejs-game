@@ -37,10 +37,10 @@ test('dig a pond, plant it, float a bird house, and ducks arrive for its size', 
   await expect.poll(async () => (await diagnostics(page)).objects).toBe(5);
   expect((await diagnostics(page)).render.objects).toBe(5);
 
-  // A building can't go in the water.
-  await selectTool(page, 'oak');
+  // Nothing else goes in the water.
+  await selectTool(page, 'pine');
   await clickCell(page, 30, 29);
-  await expect(byId(page, UI_TEST_IDS.tooltip)).toContainText("Oak can't go in a pond");
+  await expect(byId(page, UI_TEST_IDS.tooltip)).toContainText("Pine can't go in a pond");
 
   // Filling the pond in sends the ducks away.
   await selectTool(page, 'bulldoze');

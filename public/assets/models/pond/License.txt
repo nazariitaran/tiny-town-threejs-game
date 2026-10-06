@@ -3,8 +3,8 @@ Tiny Town - pond
 
 pond-edge-a/-b/-c.glb, pond-outer-a/-b.glb, pond-inner.glb, lily-pads-a/-b/-c.glb, reeds-a/-b.glb,
 cattails-a/-b.glb, bird-house.glb, duck.glb
-  PLACEHOLDERS: original models made for this project by scripts/build-pond-placeholders.mjs
-  (three.js, flat vertex colours, no texture); dedicated to the public domain (CC0 1.0):
-  http://creativecommons.org/publicdomain/zero/1.0/
+  Original models made for this project in Blender by scripts/build-pond.py; dedicated to the
+  public domain (CC0 1.0): http://creativecommons.org/publicdomain/zero/1.0/
 
-  Each file is to be replaced by a Blender model at the same path (docs/pond-handover.md).
+  They sample the colour atlas of the Kenney City Kit (Roads) (../roads/Textures/colormap.png, CC0;
+  see ../roads/License.txt).

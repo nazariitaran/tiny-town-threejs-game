@@ -149,7 +149,7 @@ export const MODELS = {
   'tulips-a': M('/assets/models/composed/tulips-a.glb', 1, 0, { sway: true }),
   'tulips-b': M('/assets/models/composed/tulips-b.glb', 1, 0, { sway: true }),
   'tulips-c': M('/assets/models/composed/tulips-c.glb', 1, 0, { sway: true }),
-  // Pond plants and the bird house: placeholders from scripts/build-pond-placeholders.mjs, to be rebuilt in Blender.
+  // Pond plants and the bird house (scripts/build-pond.py).
   // Lily pads float: the lift puts the pads just above the water (POND_WATER_Y).
   'lily-pads-a': M('/assets/models/pond/lily-pads-a.glb', 1, 0, { offset: [0, 0.009, 0] }),
   'lily-pads-b': M('/assets/models/pond/lily-pads-b.glb', 1, 0, { offset: [0, 0.009, 0] }),
@@ -257,7 +257,7 @@ export const GROUND_MODELS: Readonly<Record<Exclude<GroundKind, 'field' | 'road'
   grass: { type: 'flat', color: '#6cb562', height: 0.016 },
   // Same lawn as grass; only the flower scatter differs.
   meadow: { type: 'flat', color: '#6cb562', height: 0.016 },
-  // The water slab; TownRenderer adds the auto-tiled shore pieces (POND_SHORE_MODELS) on top.
+  // The water sheet (a top face only); TownRenderer adds the auto-tiled shore pieces (POND_SHORE_MODELS) on top.
   pond: { type: 'flat', color: '#5bb3d9', height: 0.008 },
 };
 

@@ -64,8 +64,6 @@ export function meadowScatterModel(cell: Cell): ModelId {
   return pick < 0.45 ? 'meadow-flowers' : pick < 0.72 ? 'meadow-flowers-tall' : 'grass-tuft';
 }
 
-/** Side shade of the water slab (hidden by the banks, except where the pond meets the plot's rim). */
-const POND_LIP_SHADE = 0.8;
 const QUARTER_OFFSET = CELL_SIZE / 4;
 
 /** The shore model a pond quarter draws (hashed per quarter, stable across reloads), or null for open water. */
@@ -514,12 +512,12 @@ export class TownRenderer {
     return { sig: `walkway:${arms}`, rotation: 0, pieces };
   }
 
-  /** The water slab plus one shore piece per quarter that touches land (town/pondTiles.ts). */
+  /** The water sheet plus one shore piece per quarter that touches land (town/pondTiles.ts). */
   private describePond(cell: Cell): { sig: string; rotation: number; pieces: PieceSpec[] } {
     const water = GROUND_MODELS.pond;
     const height = water.type === 'flat' ? water.height : 0.008;
     const color = water.type === 'flat' ? water.color : '#5bb3d9';
-    const pieces: PieceSpec[] = [{ source: this.slabSource('pond-water', color, CELL_SIZE, height, CELL_SIZE, POND_LIP_SHADE), local: new THREE.Matrix4() }];
+    const pieces: PieceSpec[] = [{ source: this.waterSource(color, height), local: new THREE.Matrix4() }];
     let sig = 'pond:';
     POND_QUARTERS.forEach(([sx, sz], q) => {
       const quarter = pondQuarter(this.town, cell, q);
@@ -782,6 +780,23 @@ export class TownRenderer {
       material.name = `slab:${key}`;
       this.ownedMaterials.push(material);
       source = { key, parts: [{ geometry, material }], castShadow: false, triangles: [12] };
+      this.lawnSources.set(key, source);
+    }
+    return source;
+  }
+
+  /** One cell of pond water: a top face only, since a bank wall stands on every side that isn't pond (sides would flicker against it). */
+  private waterSource(color: string, height: number): PieceSource {
+    const key = 'pond-water';
+    let source = this.lawnSources.get(key);
+    if (!source) {
+      const geometry = new THREE.PlaneGeometry(CELL_SIZE, CELL_SIZE).rotateX(-Math.PI / 2).translate(0, height, 0);
+      geometry.name = `slab:${key}`;
+      this.ownedGeometries.push(geometry);
+      const material = createLitMaterial({ color, roughness: 1 }, this.library.materialMode);
+      material.name = `slab:${key}`;
+      this.ownedMaterials.push(material);
+      source = { key, parts: [{ geometry, material }], castShadow: false, triangles: [2] };
       this.lawnSources.set(key, source);
     }
     return source;

@@ -1,5 +1,5 @@
 /**
- * Pond auto-tiling. Every pond cell is drawn as a water slab plus one shore piece per quarter (a
+ * Pond auto-tiling. Every pond cell is drawn as a sheet of water plus one shore piece per quarter (a
  * 0.25 × 0.25 square), chosen from the quarter's two side neighbours and the diagonal between them:
  *
  *   open   both sides and the diagonal are pond: nothing on top of the water

@@ -94,7 +94,7 @@ test('the five category tabs render their tools in catalog order, each with a lo
       .toEqual(expected.map((tool) => `${tool}:true:true`));
     counts[category.id] = expected.length;
   }
-  expect(counts).toEqual({ streets: 6, homes: 7, town: 10, nature: 7, garden: 11 });
+  expect(counts).toEqual({ streets: 6, homes: 7, town: 10, nature: 12, garden: 11 });
   errors.expectNone();
 });
 
@@ -119,9 +119,9 @@ test('digit shortcuts: 1–9 pick a tool in the active category, Shift+1–5 swi
   await expect(page.locator(id(UI_TEST_IDS.category('town')))).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('Digit1');
   await expect.poll(async () => (await diag(page)).tool).toBe('tiered-fountain');
-  // Shift+4 = Nature: 6 = pine.
+  // Shift+4 = Nature: 7 = pine.
   await page.keyboard.press('Shift+Digit4');
-  await page.keyboard.press('Digit6');
+  await page.keyboard.press('Digit7');
   await expect.poll(async () => (await diag(page)).tool).toBe('pine');
   // Shift+5 = Garden: 1 = hedge.
   await page.keyboard.press('Shift+Digit5');

@@ -21,7 +21,7 @@ One flat, colourful look: a 512 px gradient `colormap.png` per kit, the same gre
 | `stadium/` | built in Blender by `scripts/build-stadium.py` (below) | CC0 (original; samples the roads atlas) |
 | `cinema/` | built in Blender by `scripts/build-cinema.py` (below) | CC0 (original; samples the roads atlas) |
 | `postbox/` | built in Blender by `scripts/build-postbox-cyphers.py` (below) from `composed/postbox.glb` | CC0 (original; samples the roads atlas) |
-| `pond/` | **placeholders** built by `scripts/build-pond-placeholders.mjs` (below), to be replaced by Blender models | CC0 (original; flat vertex colours) |
+| `pond/` | built in Blender by `scripts/build-pond.py` (below) | CC0 (original; samples the roads atlas) |
 
 - Every pack folder keeps its `License.txt`; `composed/License.txt` names what each composed GLB is built from.
 - `assets-src/` (gitignored) holds the full source packs, the Nature Kit 2.1, the City Kit (Industrial) and `polypizza/` (the Poly Pizza source GLBs with their own `CREDITS.md`).
@@ -147,22 +147,25 @@ A road block in front of a car park's entrance draws its usual Kenney piece with
 - **Rebuild:** `/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-postbox-cyphers.py` writes the seven GLBs (byte-identical from run to run). It needs the cypher map at `assets-src/owner/royal-cyphers.png` (gitignored, like the rest of `assets-src/`). In an open Blender session, `exec` the script and call `build_all()` and `render_all()` to review the cyphers in a "Postbox cyphers" collection.
 
 ### Pond
-`pond/*.glb` are **placeholders**: `node scripts/build-pond-placeholders.mjs` builds them with three.js (flat-shaded, one vertex-coloured material each, no texture, deterministic). They let the game, the tests and the icons work; each is to be replaced by a Blender model at the same path, against the contract in [`pond-handover.md`](pond-handover.md).
+`scripts/build-pond.py` builds the 15 files in `public/assets/models/pond/` in Blender, procedurally. Each is one mesh, one node and one material on the roads atlas (`../roads/Textures/colormap.png`, nothing embedded), flat-shaded, with no `warmAtlas`.
 
-| Model | What | Frame | Triangles |
-| --- | --- | --- | --- |
-| `pond-edge-a/-b/-c` | straight bank: plain, with pebbles, with a bulge | quarter cell (0.25 × 0.25), origin at its centre, land to −Z, `nativeOrigin` | 8 / 22 / 38 |
-| `pond-outer-a/-b` | rounded convex corner: plain, with a rock | as above, land to −X and −Z | 46 / 52 |
-| `pond-inner` | concave notch round the −X −Z corner point | as above | 20 |
-| `lily-pads-a/-b/-c` | 3, 5 and 3 pads (c with a water lily) | 1 cell, lifted 0.009 by the catalog offset to float on the water | 72 / 120 / 83 |
-| `reeds-a/-b` | a clump of blades; b with plumes | 1 cell, `sway` | 9 / 28 |
-| `cattails-a/-b` | 4 and 7 stems with brown heads, plus blades | 1 cell, `sway` | 173 / 301 |
-| `bird-house` | a nest box on a post on a plank raft; hole towards +Z | 1 cell, 0.28 tall | 102 |
-| `duck` | a mallard drake, 0.14 long, bill towards +Z; `life/DuckSystem` tints hens | not placed | 89 |
+| Model | What | Frame | Size (w × h × d) | Triangles |
+| --- | --- | --- | --- | --- |
+| `pond-edge-a/-b/-c` | straight bank: plain, with three stones at the waterline, with a bulge into the pond | quarter cell (0.25 × 0.25), origin at its centre, base at 0, land to −Z, `nativeOrigin` | 0.25 wide, 0.022 / 0.028 / 0.022 tall | 8 / 35 / 33 |
+| `pond-outer-a/-b` | rounded convex corner (a quarter circle in 8 facets): plain, with a boulder on the bank | as above, land to −X and −Z | 0.25 × 0.25, 0.022 / 0.064 tall | 46 / 59 |
+| `pond-inner` | concave notch round the −X −Z corner point | as above | 0.066 × 0.022 × 0.066 | 20 |
+| `lily-pads-a/-b/-c` | 3, 5 and 3 pads (c with a water lily) | 1 cell; 0.005 thick, lifted 0.009 by the catalog offset to float on the water | about 0.3 across; c 0.033 tall | 84 / 140 / 98 |
+| `reeds-a/-b` | a clump of bent three-sided blades; b with plumed stems | 1 cell, `sway` | 0.30 × 0.267 × 0.30 / 0.30 × 0.294 × 0.28 | 81 / 128 |
+| `cattails-a/-b` | 3 and 5 stems with brown heads, plus blades | 1 cell, `sway` | 0.22 × 0.281 × 0.30 / 0.28 × 0.318 × 0.32 | 138 / 218 |
+| `bird-house` | a cream nest box with a red gable roof on a plank raft with two log floats; hole towards +Z | 1 cell; deck top at 0.030 | 0.25 × 0.235 × 0.256 | 136 |
+| `duck` | a mallard drake, bill towards +Z; `life/DuckSystem` tints hens brown | not placed; base at 0 | 0.072 × 0.088 × 0.142 | 118 |
 
-- **Water:** the pond's water is not a model: `TownRenderer` draws a flat slab per pond cell in `GROUND_MODELS.pond` (`#5bb3d9`, top at 0.008), under the shore pieces.
-- **Bank profile** (every shore piece, where it meets a neighbour): from the land boundary inward, top 0.022 for 0.028, down to 0.013 at 0.042 and to 0 at 0.07, so the waterline is about 0.05 from the boundary; an earth wall from 0 to 0.022 on the cell boundary facing land. The bank top is the field green (`#84c27c`), the slope sand.
-- **Rebuild:** `node scripts/build-pond-placeholders.mjs` (byte-identical from run to run), then `node scripts/render-icons.mjs --only pond,lily-pads,reeds,cattails,bird-house`.
+- **Water:** the pond's water is not a model: `TownRenderer` draws a flat sheet per pond cell in `GROUND_MODELS.pond` (`#5bb3d9`, at 0.008, a top face only), under the shore pieces.
+- **Shore contract** (held by `catalog.test.ts`): a piece is made for the north-west quarter of a cell and stays inside it; the game turns it about its origin in quarter turns. Wherever a piece meets a neighbouring piece its cross-section equals `pond-edge-a`'s, so any variant meets any other: the edges' two ends, the outer corners' east and south ends, the inner piece's west and north sides. Variety (stones, the bulge, the boulder) lives in the middle of a piece. A vertical wall stands on each cell boundary that faces land (edge: north; outer corner: north and west).
+- **Bank profile**, from the land boundary inward: top 0.022 for 0.026 (field green), down to 0.012 at 0.046 and to 0 at 0.066 (sand). It passes under the water about 0.053 in, so the sand rim is about 0.027 wide. The top and the land wall are the field's green (`#84c27c`, `world/Terrain.ts`), so the bank melts into the field; against a lawn it shows as a lighter rim.
+- **Swatches added to the roads atlas:** cell column 4 of the top row (x 128–159, previously black), as four flat 32 × 32 bands from the top: `#84c27c` (field green: bank tops and walls, light pads), `#ead9a6` (sand), `#4fa24e` (leaf green: pads, dark blades), `#a5c95a` (yellow-green: reed and cattail blades). The script checks every swatch it samples against the image and fails if one has moved.
+- **A new shore variant:** add its builder to the script, its file to `MODELS` and its id to `POND_SHORE_MODELS` (`src/catalog/models.ts`); a hash of the quarter picks among a kind's models. Budget: an edge ≤ 40 triangles, a corner ≤ 60 (a 10 × 10 pond draws about 80–100 shore quarters).
+- **Rebuild:** `/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-pond.py` (byte-identical from run to run), then `node scripts/render-icons.mjs --only pond,lily-pads,reeds,cattails,bird-house`. In an open session, `exec` the script with `__file__` set and call `build_pond()` to review the models in a "Pond" collection.
 
 ### Ground colours
 Grass and wildflower ground share one lawn colour, walkways their own; both are flat procedural tiles in `GROUND_MODELS` (`src/catalog/models.ts`), with an instanced tuft or flower scatter on top. Pavement is the kit's `tile-low` with the warm atlas. Pond water is a flat slab too (§Pond).

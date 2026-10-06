@@ -270,6 +270,15 @@ function scenesFor(kind, variant, catalog) {
     return scenes;
   }
 
+  if (allowed.size === 1 && allowed.has('pond')) {
+    const cell = rect('pond', ax, az, ax + fw - 1, az + fd - 1);
+    add('in-pond', 'open water all round it', { ground: [padOf('pond')], objects: [self()] });
+    add('one-cell', 'a pond of its own footprint, banks all round', { ground: [cell], objects: [self()] });
+    add('by-bank', 'against the north bank of a pond', { ground: [rect('pond', ax - MARGIN, az, ax + fw - 1 + MARGIN, az + fd - 1 + MARGIN)], objects: [self()] });
+    add('night', 'open water at night', { ground: [padOf('pond')], objects: [self()] }, pad(), { night: true });
+    return scenes;
+  }
+
   add('alone', def.roadFeature ? 'on the bare field' : 'on the bare field, nothing round it', { objects: [self()] });
   if (!def.roadFeature) {
     for (const tile of TILE_KINDS) {
