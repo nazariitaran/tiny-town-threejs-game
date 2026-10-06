@@ -61,6 +61,6 @@ Liveness holds (no deadlock or stuck car in the harness or in four review rounds
 - **Ducks rest on lily pads** (lily cells count as open water), overlapping them.
 - **Hens** are the drake model under a brown instance tint, so they keep a dark olive head and a yellow bill. A real hen needs a second model and one more draw call in `DuckSystem`.
 - **Fireflies** rise over meadows only; a pond at dusk could have them too.
-- **Still water:** no ripple, sparkle or reflection, and no splash sound (ponds use `place-nature`).
+- **Still water:** no ripple, sparkle or reflection, and no splash sound (ponds use `place-nature`). Quacks are not positional: the same level wherever the duck is in view.
 - **Ducks pop in and out** instead of flying or swimming in, and ignore the camera and nearby placements.
 - **The catalog's 12-tools-per-category cap** (Nature is at 12) predates the tray arrows; decide whether to lift it.

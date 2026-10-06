@@ -75,7 +75,7 @@ The favicon (`public/favicon.svg`, `favicon.ico`, `apple-touch-icon.png`) is the
 
 ## Sound Effects
 
-All sound effects in `public/assets/audio/` except the stadium crowd are derived from **Kenney** audio packs (www.kenney.nl), licensed **CC0 1.0 Universal** (public domain, http://creativecommons.org/publicdomain/zero/1.0/). Attribution is not required; credited with thanks. Files were trimmed, mixed to mono, loudness-matched and transcoded to MP3 (see `docs/assets.md`).
+All sound effects in `public/assets/audio/` except the stadium crowd and the duck quacks are derived from **Kenney** audio packs (www.kenney.nl), licensed **CC0 1.0 Universal** (public domain, http://creativecommons.org/publicdomain/zero/1.0/). Attribution is not required; credited with thanks. Files were trimmed, mixed to mono, loudness-matched and transcoded to MP3 (see `docs/assets.md`).
 
 | Pack | URL | Files used |
 |---|---|---|
@@ -88,6 +88,7 @@ Original License.txt files are kept in `assets-src/<pack>/License.txt`.
 
 | Sound | File | Credit |
 |---|---|---|
+| Duck quacks | `public/assets/audio/duck-quack-1/-2/-3.mp3` | Supplied by the project owner; all rights held by the project owner. Cut into three, mixed to mono, levelled and transcoded to MP3 by `scripts/build-audio.py` (see `docs/assets.md`). |
 | Stadium crowd | `public/assets/audio/stadium-crowd.mp3` | Supplied by the project owner; all rights held by the project owner. Mixed to mono, made loopable and transcoded to MP3 (see `docs/assets.md`). |
 | Cinema posters (4) | `public/assets/posters/cinema-posters.webp` | Supplied by the project owner; all rights held by the project owner. Cropped to 3:4, resized and packed into one atlas by `scripts/build-cinema-posters.py` (see `docs/assets.md`). |
 

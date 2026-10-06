@@ -15,6 +15,7 @@ import { BirdSystem, isBirdSpecies } from '../life/BirdSystem';
 import { DuckSystem } from '../life/DuckSystem';
 import { LifeSystem } from '../life/LifeSystem';
 import { crowdGainAt, MatchSchedule } from '../life/matchSchedule';
+import { ducksInEarshot, QuackTimer } from '../life/quacks';
 import { SaveStore } from '../persistence/SaveStore';
 import { encodeTownFile, TOWN_FILE_MIME, townFileName } from '../persistence/townFile';
 import { CameraController } from '../interaction/CameraController';
@@ -50,6 +51,7 @@ type TestState = (typeof TEST_STATES)[number];
 const BIRD_SEED_SALT = 0xb12d5eed;
 /** Ducks likewise. */
 const DUCK_SEED_SALT = 0xd0c4d0c4;
+const QUACK_SEED_SALT = 0x0cac0cac;
 
 /** `?graphics=low|medium|high`: boot with this preset without saving it. */
 const GRAPHICS_URL_PARAM = 'graphics';
@@ -133,6 +135,7 @@ export class Game {
   private birdsAuto = true;
   /** Ducks on the ponds; they stay put after a test state until a reload. */
   private readonly ducks: DuckSystem;
+  private readonly quacks: QuackTimer;
   /** Day/night: the clock, the sample it writes every frame, the last announced mode/phase. */
   private readonly clock: DayClock;
   private readonly daySample = createDaySample();
@@ -177,6 +180,8 @@ export class Game {
     this.birds = new BirdSystem(this.scene, this.town, this.seedValue ^ BIRD_SEED_SALT, this.debug, boot.material);
     this.installBirdDebug();
     this.ducks = new DuckSystem(this.scene, this.library, this.town, this.bus, this.seedValue ^ DUCK_SEED_SALT, this.debug);
+    // Its own stream, so a quack never shifts the effects' or the town's rolls.
+    this.quacks = new QuackTimer(createSeededRandom(this.seedValue ^ QUACK_SEED_SALT));
     this.clock = new DayClock(this.saves.getSettings().timeMode);
     this.installClockDebug();
     this.audio = new AudioManager(this.bus, fxRand, this.saves);
@@ -346,6 +351,7 @@ export class Game {
       this.birds.setAuto(this.birdsAuto && this.prefersReducedMotion?.matches !== true);
       this.birds.update(animDelta);
       this.ducks.update(animDelta);
+      this.updateQuacks(animDelta);
       // The clock runs only while building (frozen on the title, in the menu, under reduced motion).
       if (this.phase === 'building') {
         this.clock.advance(animDelta);
@@ -573,6 +579,14 @@ export class Game {
     else this.match.advance(this.clock.t, seconds, this.clock.isSweeping);
     this.matchPinned = pinned;
     this.match.tick(nightAt(this.clock.t), seconds);
+  }
+
+  /** Ducks near the middle of a close view quack now and then, by day. */
+  private updateQuacks(delta: number): void {
+    const target = this.cameraController.target;
+    const inEarshot =
+      this.phase === 'building' && ducksInEarshot(this.ducks.sim.ducks, target.x, target.z, this.camera.position.distanceTo(target), this.daySample.night);
+    if (this.quacks.update(delta, inEarshot)) this.audio.play('duck-quack');
   }
 
   /** The crowd is as loud as the match level and the view's distance (the camera's ground target) to the nearest stadium allow. */

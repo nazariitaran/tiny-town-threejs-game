@@ -57,7 +57,7 @@ src/
   life/matchSchedule.ts       match nights at the stadium: schedule, level, crowd distance curve, stadium sites (pure)
   life/FlockSim.ts, BirdSystem.ts
                               birds: schedule and flight (pure), one InstancedMesh
-  life/DuckSim.ts, DuckSystem.ts
+  life/DuckSim.ts, DuckSystem.ts, quacks.ts
                               ducks on ponds: count, wander, rest (pure), one InstancedMesh per duck part
   fx/**                       placement VFX, wind sway
   photo/**                    town photo: capture, Polaroid frame; photoLayout.ts is pure
@@ -236,6 +236,7 @@ Ambient, like the birds: nothing is saved and `TownEditor` never sees a duck.
 - **Following the town** (`DuckSystem` marks itself dirty on `town:changed` and syncs once in its next update): a duck whose spot is no longer open water leaves (shrinks out over 0.35 s); a pond with too many loses its newest; a pond with too few gets ducks at random open spots (pop in). A load or reset puts them on at once.
 - **Open water** (`isOpenWater`): the four corners of a 0.12 square round the duck are pond cells with no object other than lily pads, and the duck is not in a quarter cell with an outer corner bank (the bigger corners' land reaches well into it). Swims go only along straight lines that stay in open water (sampled every 0.04), to targets up to 1.6 away and 0.22 clear of other ducks; a duck turns towards its target at 2.4 rad/s and swims at up to 0.09 /s, slowing while it faces away. Then it rests 2–7 s, or dabbles (tail up, 1.6 s) with a 25 % chance. Above night 0.6 it finishes its swim and rests.
 - **Drawing:** the `duck` model (ModelLibrary), one `InstancedMesh` per part (+1 draw call per part while any duck is on the plot), hens tinted brown by instance colour. No shadow, so ducks never wake the shadow map.
+- **Quacks** (`life/quacks.ts`, pure; `Game.updateQuacks`): while building, by day (night ≤ 0.6), with the camera within 22 of its ground target and a duck within 3 of that target, a `QuackTimer` rolls 2 s after the ducks come into earshot and then every 6 s; each roll plays `duck-quack` with a 30 % chance (one of three files, the SFX cooldown 3 s). The timer has its own seeded stream (`seed ^ QUACK_SEED_SALT`), follows the animation clock (silent under reduced motion) and starts over whenever the ducks go out of earshot.
 - **Tests:** test states put ducks on at once and keep them still (`auto` off) until reload; `setReducedMotion(true)` finishes their pops.
 
 ## Town photo

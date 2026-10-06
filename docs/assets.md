@@ -185,7 +185,7 @@ Grass and wildflower ground share one lawn colour, walkways their own; both are 
 
 ## Sound effects
 
-All SFX come from Kenney CC0 audio packs. MP3 (VBR `-q:a 4`), mono, 44.1 kHz: Safari's Web Audio support for Ogg Vorbis is unreliable, so everything is transcoded. Two groups, `ui` and `sfx`, share one master gain (mute, volume).
+All SFX come from Kenney CC0 audio packs, except the duck quacks, which are cut from a recording the project owner supplied. MP3 (VBR `-q:a 4`), mono, 44.1 kHz: Safari's Web Audio support for Ogg Vorbis is unreliable, so everything is transcoded. Two groups, `ui` and `sfx`, share one master gain (mute, volume).
 
 ### Event → file
 
@@ -203,14 +203,17 @@ All SFX come from Kenney CC0 audio packs. MP3 (VBR `-q:a 4`), mono, 44.1 kHz: Sa
 | `remove` | `remove-1/2` | `footstep_snow_001/002` + `impactPlank_medium_001/002` @ −5 dB |
 | `invalid` | `invalid` | Interface Sounds / `bong_001` |
 | `undo` / `redo` | `undo-redo` (shared) | Interface Sounds / `back_004`, played at 0.89× / 1.12× |
+| `duck-quack` | `duck-quack-1..3` (7.1 / 7.5 / 8.0 kB, 0.72–0.78 s) | the owner's `ducks_quack.mp3` (3.0 s, stereo, 48 kHz, 192 kbps, 73 kB: a run of eight quacks), kept as `assets-src/owner/ducks-quack-source.mp3`; three pairs of quacks cut in the silence between them (from 0.42, 1.25 and 2.07 s), −27 LUFS |
 
-Which tool plays which placement event: `sfx` in `src/catalog/tools.ts`. Bulldozing pitches `remove` by layer: object 0.92×, edge 1×, ground 1.06×.
+Which tool plays which placement event: `sfx` in `src/catalog/tools.ts`. `duck-quack` is ambient: `Game.updateQuacks` plays it (§ Ducks in `architecture.md`). Bulldozing pitches `remove` by layer: object 0.92×, edge 1×, ground 1.06×.
 
 ### Levels
 Loudness is **one-shot LUFS**: the highest EBU R128 momentary (400 ms) loudness, measured with 0.6 s of silence padded on. Targets: UI −29 to −32 (`invalid` −26), placements −21 to −25, `remove` −24, `rotate` −28. Kenney impacts are a single transient and the build allows at most 4 dB of limiting, so several placements land a few LU under target. Per-event runtime gain (`suggestedVolume`): UI 0.35–0.6, SFX 0.6–1.0; a building (1.0) is the loudest thing the player does, the bulldozer (0.75) sits under it. Measured numbers per file: `scripts/data/audio.json`.
 
 ### Rebuilding the SFX
 `scripts/build-audio.py` builds every MP3 and writes `scripts/data/audio.json`; `npm run gen:sfx` turns that JSON into `src/audio/sfxTable.ts` (generated, never edited by hand). Edit the `PLAN` list at the top of the script to change sources, layers, targets or runtime gains. It needs Python 3 with numpy and scipy, plus ffmpeg.
+
+The duck quacks need the owner's recording at `assets-src/owner/ducks-quack-source.mp3` (gitignored, like the rest of `assets-src/`).
 
 ```bash
 # 1. fetch + unpack the packs into the gitignored assets-src/
