@@ -36,8 +36,9 @@ npm run inspect:object -- --kind <kind> [--variant all] [--out artifacts/inspect
 npm run inspect:models # re-measure/verify the GLBs in public/assets/models (prints a report; add --three to load them via GLTFLoader)
 npm run gen:sfx        # regenerate src/audio/sfxTable.ts from scripts/data/audio.json
 npm run gen:licenses   # regenerate public/licenses.txt (runtime dependencies + licence texts; verify fails if stale)
-node scripts/render-icons.mjs [--size 128]   # re-render the tool icons (tool-<id>.png, + tool-<id>-v<n>.png per extra model) from in-game models (needs a dev server on PORT)
+node scripts/render-icons.mjs [--size 128] [--only pond,reeds]   # re-render the tool icons (tool-<id>.png, + tool-<id>-v<n>.png per extra model) from in-game models (needs a dev server on PORT)
 node scripts/compose-models.mjs              # rebuild public/assets/models/composed/*.glb (needs assets-src/, incl. assets-src/polypizza/)
+node scripts/build-pond-placeholders.mjs     # rebuild the PLACEHOLDER pond models in public/assets/models/pond/ (until the Blender ones replace them)
 /Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-parking.py   # rebuild public/assets/models/parking/*.glb
 /Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-stadium.py   # rebuild public/assets/models/stadium/stadium.glb
 /Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-cars.py   # rebuild public/assets/models/cars/*.glb from the Kenney originals in assets-src/car-kit/

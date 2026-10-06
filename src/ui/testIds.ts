@@ -85,6 +85,9 @@ export const UI_TEST_IDS = {
   retry: 'btn-retry',
   dock: 'ui-dock',
   tray: 'ui-tray',
+  /** Scroll arrows at the tray's ends: hidden unless there are more cards that way. */
+  trayPrev: 'btn-tray-prev',
+  trayNext: 'btn-tray-next',
   /** Variant picker strip; its chips are keyed by model index. */
   variants: 'ui-variants',
   variant: (choice: number) => `variant-${choice}`,

@@ -22,7 +22,7 @@ export interface SerializableTown extends TownStateReader {
   readonly nextObjectId: number;
 }
 
-const GROUND_KINDS: readonly GroundKind[] = ['field', 'grass', 'meadow', 'road', 'pavement', 'walkway'];
+const GROUND_KINDS: readonly GroundKind[] = ['field', 'grass', 'meadow', 'road', 'pavement', 'walkway', 'pond'];
 const EDGE_KINDS: readonly EdgeKind[] = ['hedge', 'fence-low', 'fence-tall'];
 /** Guard against absurd dimensions in foreign data (the real plot is 64×64). */
 const MAX_SAVE_DIMENSION = 512;
@@ -208,8 +208,9 @@ function parseSaveUnsafe(input: unknown, options: ParseOptions): SavedTown | Err
     const key = edgeKey(placed.edge);
     if (edgeKeys.has(key)) continue;
     const [a, b] = edgeCells(placed.edge);
-    // groundAt() is 'field' outside the plot, so border edges never count as between roads.
-    if (groundAt(a.x, a.z) === 'road' && groundAt(b.x, b.z) === 'road') continue;
+    // groundAt() is 'field' outside the plot, so border edges never count as between roads or in a pond.
+    const ga = groundAt(a.x, a.z);
+    if ((ga === 'road' || ga === 'pond') && groundAt(b.x, b.z) === ga) continue;
     edgeKeys.add(key);
     edges.push(placed);
   }

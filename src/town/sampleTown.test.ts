@@ -32,7 +32,7 @@ describe('demo towns', () => {
     buildSampleTown(editor);
     const used = new Set(spy.mock.calls.flatMap(([items]) => items.map((item) => item.toolId)));
     const placing = TOOLS.filter((t) => t.category !== 'mode').map((t) => t.id);
-    expect(placing).toHaveLength(41);
+    expect(placing).toHaveLength(46);
     expect(placing.filter((id) => !used.has(id))).toEqual([]);
   });
 
@@ -55,7 +55,7 @@ describe('demo towns', () => {
     expect(buildAssetGallery(editor).rejected).toEqual([]);
     const kinds = new Set([...editor.state.objects()].map((o) => o.kind));
     expect(kinds).toEqual(new Set(OBJECT_KINDS));
-    expect(kinds.size).toBe(35);
+    expect(kinds.size).toBe(39);
     expect(new Set(GALLERY_OBJECTS.map(([kind]) => kind)).size).toBe(OBJECT_KINDS.length);
     // Every style of the car park, each joined to the road in front of it.
     const lots = [...editor.state.objects()].filter((o) => o.kind === 'parking');

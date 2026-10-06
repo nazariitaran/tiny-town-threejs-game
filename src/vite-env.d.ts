@@ -63,6 +63,8 @@ interface ThreeGameDiagnostics {
   /** Ambient cars. */
   life: import('./life/LifeSystem').LifeDiagnostics;
   birds: import('./life/BirdSystem').BirdDiagnostics;
+  /** Ducks on the ponds; optional so older diagnostics readers still type-check. */
+  ducks?: import('./life/DuckSystem').DuckDiagnostics;
   /**
    * t: time of day shown (0..1); pinned: a test hook or test state holds it; night: 0 day .. 1 full night;
    * lightsOn: fraction of lit houses; lamps: lampposts NightLights tracks; drawCalls: main-pass calls it adds;

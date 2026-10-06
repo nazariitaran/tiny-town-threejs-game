@@ -996,6 +996,8 @@ export class ToolController {
     if (visual.type === 'model') return { parts: [{ model: visual.model }] };
     // One clump per cell, like the renderer's meadow scatter.
     if (kind === 'meadow') return { fill: visual.color, parts: [{ model: 'meadow-flowers', y: LAWN_TOP }] };
+    // Water: the fill alone (the shore joins up once it is dug).
+    if (kind === 'pond') return { fill: visual.color, parts: [] };
     return { fill: visual.color, parts: [{ model: 'grass-tuft', y: LAWN_TOP, scale: 0.9 }] };
   }
 

@@ -66,7 +66,7 @@ function roadRect(run: (toolId: ToolId, action: BuildAction) => void, x0: number
  */
 export function buildSampleTown(editor: TownEditor): DemoTownResult {
   const { run, commit } = demoBuilder(editor, (item) => `${item.toolId}@${JSON.stringify(item.action)}`, true);
-  const paint = (kind: 'pavement' | 'walkway' | 'grass' | 'meadow', x0: number, z0: number, x1: number, z1: number) => {
+  const paint = (kind: 'pavement' | 'walkway' | 'grass' | 'meadow' | 'pond', x0: number, z0: number, x1: number, z1: number) => {
     for (let z = z0; z <= z1; z += 1) for (let x = x0; x <= x1; x += 1) run(kind, { type: 'paint-ground', kind, cell: { x, z } });
   };
   const place = (kind: ObjectKind, x: number, z: number, rotation: Rotation = 0, variant?: number) =>
@@ -151,9 +151,32 @@ export function buildSampleTown(editor: TownEditor): DemoTownResult {
   place('oak', 38, 10);
   place('pine', 39, 38);
   edgeRun('fence-tall', 'w', { x: 44, z: 27 }, 8);
+  // A pond north-east of the car park (rows of cells, irregular so every shore piece shows), with plants and a bird house.
+  for (const [z, x0, x1] of SAMPLE_POND_ROWS) paint('pond', x0, z, x1, z);
+  place('lily-pads', 33, 13);
+  place('lily-pads', 35, 12);
+  place('lily-pads', 34, 15);
+  place('reeds', 31, 13);
+  place('reeds', 32, 11);
+  place('cattails', 37, 14);
+  place('cattails', 36, 15);
+  place('bird-house', 35, 14);
 
   return commit();
 }
+
+/** The sample town's pond: [z, first x, last x] per row of cells (32 cells). */
+const SAMPLE_POND_ROWS: ReadonlyArray<readonly [number, number, number]> = [
+  [11, 32, 35],
+  [12, 31, 36],
+  [13, 31, 37],
+  [14, 31, 37],
+  [15, 32, 36],
+  [16, 33, 35],
+];
+
+/** The asset gallery's pond: 7 × 5 cells east of the road masks, with one corner cell left dry (an inner corner). */
+export const GALLERY_POND = { x0: 35, z0: 15, x1: 41, z1: 19, dry: { x: 35, z: 15 } } as const;
 
 /** Asset gallery: centre road block of each of the 16 masks, as a cell (block coords (1 + 4c, 1 + 4r)). */
 export function galleryMaskBlock(mask: number): { x: number; z: number } {
@@ -179,6 +202,8 @@ export const GALLERY_OBJECTS: ReadonlyArray<readonly [ObjectKind, number, number
   ['zebra-crossing', 42, 2],
   // Row 4 (z 34–39): the three car parks, entrances on the road along rows 40–41.
   ['parking', 2, 38, 0], ['parking', 8, 36, 1], ['parking', 14, 34, 2],
+  // In the pond (GALLERY_POND).
+  ['lily-pads', 37, 17], ['reeds', 39, 16], ['cattails', 40, 18], ['bird-house', 38, 18],
   // South-east (x 24–37, z 31–41): the stadium.
   ['stadium', 24, 31],
   // East of the stadium: the cinema.
@@ -210,6 +235,10 @@ export function buildAssetGallery(editor: TownEditor): DemoTownResult {
   road(32, 26);
   road(34, 26);
   for (const x of GALLERY_PARKING_ROAD) road(x, 40);
+  const { x0, z0, x1, z1, dry } = GALLERY_POND;
+  for (let z = z0; z <= z1; z += 1) {
+    for (let x = x0; x <= x1; x += 1) if (x !== dry.x || z !== dry.z) run('pond', { type: 'paint-ground', kind: 'pond', cell: { x, z } });
+  }
   for (const [kind, x, z, variant] of GALLERY_OBJECTS) {
     run(kind, variant === undefined ? { type: 'place-object', kind, cell: { x, z }, rotation: 0 } : { type: 'place-object', kind, cell: { x, z }, rotation: 0, variant });
   }

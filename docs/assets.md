@@ -21,6 +21,7 @@ One flat, colourful look: a 512 px gradient `colormap.png` per kit, the same gre
 | `stadium/` | built in Blender by `scripts/build-stadium.py` (below) | CC0 (original; samples the roads atlas) |
 | `cinema/` | built in Blender by `scripts/build-cinema.py` (below) | CC0 (original; samples the roads atlas) |
 | `postbox/` | built in Blender by `scripts/build-postbox-cyphers.py` (below) from `composed/postbox.glb` | CC0 (original; samples the roads atlas) |
+| `pond/` | **placeholders** built by `scripts/build-pond-placeholders.mjs` (below), to be replaced by Blender models | CC0 (original; flat vertex colours) |
 
 - Every pack folder keeps its `License.txt`; `composed/License.txt` names what each composed GLB is built from.
 - `assets-src/` (gitignored) holds the full source packs, the Nature Kit 2.1, the City Kit (Industrial) and `polypizza/` (the Poly Pizza source GLBs with their own `CREDITS.md`).
@@ -145,12 +146,30 @@ A road block in front of a car park's entrance draws its usual Kenney piece with
 - **Size and look:** the cyphers are 0.04 to 0.07 game units wide (the pillar is 0.24 tall) and 0.0075 high, and follow the pillar's 12 sides, which meet in a ridge at the front. At the default zoom a cypher is 1 to 2 px wide and shows only when zoomed in. The outlines are traced from an owner-supplied cypher map, with Edward VII thinned for legibility.
 - **Rebuild:** `/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-postbox-cyphers.py` writes the seven GLBs (byte-identical from run to run). It needs the cypher map at `assets-src/owner/royal-cyphers.png` (gitignored, like the rest of `assets-src/`). In an open Blender session, `exec` the script and call `build_all()` and `render_all()` to review the cyphers in a "Postbox cyphers" collection.
 
+### Pond
+`pond/*.glb` are **placeholders**: `node scripts/build-pond-placeholders.mjs` builds them with three.js (flat-shaded, one vertex-coloured material each, no texture, deterministic). They let the game, the tests and the icons work; each is to be replaced by a Blender model at the same path, against the contract in [`pond-handover.md`](pond-handover.md).
+
+| Model | What | Frame | Triangles |
+| --- | --- | --- | --- |
+| `pond-edge-a/-b/-c` | straight bank: plain, with pebbles, with a bulge | quarter cell (0.25 × 0.25), origin at its centre, land to −Z, `nativeOrigin` | 8 / 22 / 38 |
+| `pond-outer-a/-b` | rounded convex corner: plain, with a rock | as above, land to −X and −Z | 46 / 52 |
+| `pond-inner` | concave notch round the −X −Z corner point | as above | 20 |
+| `lily-pads-a/-b/-c` | 3, 5 and 3 pads (c with a water lily) | 1 cell, lifted 0.009 by the catalog offset to float on the water | 72 / 120 / 83 |
+| `reeds-a/-b` | a clump of blades; b with plumes | 1 cell, `sway` | 9 / 28 |
+| `cattails-a/-b` | 4 and 7 stems with brown heads, plus blades | 1 cell, `sway` | 173 / 301 |
+| `bird-house` | a nest box on a post on a plank raft; hole towards +Z | 1 cell, 0.28 tall | 102 |
+| `duck` | a mallard drake, 0.14 long, bill towards +Z; `life/DuckSystem` tints hens | not placed | 89 |
+
+- **Water:** the pond's water is not a model: `TownRenderer` draws a flat slab per pond cell in `GROUND_MODELS.pond` (`#5bb3d9`, top at 0.008), under the shore pieces.
+- **Bank profile** (every shore piece, where it meets a neighbour): from the land boundary inward, top 0.022 for 0.028, down to 0.013 at 0.042 and to 0 at 0.07, so the waterline is about 0.05 from the boundary; an earth wall from 0 to 0.022 on the cell boundary facing land. The bank top is the field green (`#84c27c`), the slope sand.
+- **Rebuild:** `node scripts/build-pond-placeholders.mjs` (byte-identical from run to run), then `node scripts/render-icons.mjs --only pond,lily-pads,reeds,cattails,bird-house`.
+
 ### Ground colours
-Grass and wildflower ground share one lawn colour, walkways their own; both are flat procedural tiles in `GROUND_MODELS` (`src/catalog/models.ts`), with an instanced tuft or flower scatter on top. Pavement is the kit's `tile-low` with the warm atlas.
+Grass and wildflower ground share one lawn colour, walkways their own; both are flat procedural tiles in `GROUND_MODELS` (`src/catalog/models.ts`), with an instanced tuft or flower scatter on top. Pavement is the kit's `tile-low` with the warm atlas. Pond water is a flat slab too (§Pond).
 
 ### Icons
 - `public/assets/icons/tool-<id>.png`: one 128 × 128 icon per placing tool, plus `tool-<id>-v<n>.png` for every extra model n ≥ 1 of a multi-model tool (`variantIcon` in `catalog/tools.ts`).
-- Rendered from the in-game models and materials by `node scripts/render-icons.mjs [--size 128]`, which drives `src/render/IconStudio.ts` in Chromium and needs a dev server on `PORT`. It writes only the icons the catalog references; a run nudges unchanged icons by a few pixels.
+- Rendered from the in-game models and materials by `node scripts/render-icons.mjs [--size 128] [--only <tool ids>]`, which drives `src/render/IconStudio.ts` in Chromium and needs a dev server on `PORT`. It writes only the icons the catalog references; a run nudges unchanged icons by a few pixels, so `--only` writes just the listed tools' icons (and their variant icons). A pond tool's icon stands on a one-cell pond.
 - `catalog.test.ts` checks that the folder holds exactly the tool and variant icons.
 - Move and Bulldoze use UI svgs (`/assets/ui/move.svg`, `/assets/ui/bulldoze.svg`).
 - An icon carries its model's licence; the six CC-BY models' icons carry their attribution.

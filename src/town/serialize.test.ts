@@ -276,6 +276,23 @@ describe('parseSave sanitises and clamps', () => {
     expect(save.objects.map((o) => o.id)).toEqual([1]);
   });
 
+  it('keeps pond ground and pond plants, drops edges between two pond cells', () => {
+    const save = ok(
+      parseSave({
+        ...blank(),
+        ground: [['pond', 3], ['field', PLOT_WIDTH * PLOT_DEPTH - 3]],
+        objects: [{ id: 1, kind: 'lily-pads', anchor: { x: 0, z: 0 }, rotation: 0, variant: 2 }, { id: 2, kind: 'reeds', anchor: { x: 5, z: 5 }, rotation: 0, variant: 0 }],
+        edges: [
+          { kind: 'hedge', edge: { x: 1, z: 0, side: 'w' } }, // between pond (0,0) and pond (1,0)
+          { kind: 'hedge', edge: { x: 3, z: 0, side: 'w' } }, // pond (2,0) | field (3,0): fine
+        ],
+      }),
+    );
+    expect(save.ground[0]).toEqual(['pond', 3]);
+    expect(save.objects.map((o) => o.kind)).toEqual(['lily-pads']); // the reeds stood on field
+    expect(save.edges).toEqual([{ kind: 'hedge', edge: { x: 3, z: 0, side: 'w' } }]);
+  });
+
   it('drops invalid, duplicate, out-of-plot and road-crossing edges', () => {
     const save = ok(
       parseSave({

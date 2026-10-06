@@ -10,7 +10,7 @@ import { CELL_SIZE, PLOT_CONTENT_HEIGHT, ROAD_TILE_SIZE } from '../game/config';
 import { ALTITUDE } from '../life/FlockSim';
 import { CAR_FILES, CAR_SCALE } from '../life/LifeSystem';
 import { MODEL_STYLES } from '../render/modelStyles';
-import { EDGE_MODELS, GROUND_MODELS, MODELS, ROAD_JOINT_MODELS, ROAD_PIECE_MODELS, ZEBRA_JOINT_MODELS, type ModelId, type ModelSpec } from './models';
+import { EDGE_MODELS, GROUND_MODELS, MODELS, POND_SHORE_MODELS, ROAD_JOINT_MODELS, ROAD_PIECE_MODELS, ZEBRA_JOINT_MODELS, type ModelId, type ModelSpec } from './models';
 import { footprintOf, heightScale, OBJECT_KINDS, OBJECTS, pickableVariants } from './objects';
 import { RETIRED_TOOLS, TOOL_CATEGORIES, TOOLS, toolsInCategory, variantIcon, type ToolLayer } from './tools';
 import type { GroundKind } from '../town/types';
@@ -194,7 +194,8 @@ describe('catalog', () => {
         // Centred on the footprint then offset: the far side reaches size/2 + |offset| from the centre.
         expect(size.x / 2 + Math.abs(ox), `${id} width`).toBeLessThanOrEqual((fw * CELL_SIZE) / 2 + 0.03);
         expect(size.z / 2 + Math.abs(oz), `${id} depth`).toBeLessThanOrEqual((fd * CELL_SIZE) / 2 + 0.03);
-        expect(size.y, `${id} height`).toBeGreaterThan(0.1);
+        // Lily pads float flat on the water.
+        if (def.kind !== 'lily-pads') expect(size.y, `${id} height`).toBeGreaterThan(0.1);
       });
     }
   });
@@ -207,7 +208,7 @@ describe('catalog', () => {
       cottage: [4, 4], townhouse: [3, 4], bungalow: [4, 4], 'family-home': [4, 4], 'garage-house': [4, 4], 'big-house': [5, 4],
       'corner-shop': [3, 3], 'donut-shop': [3, 3], supermarket: [5, 4], church: [3, 4], stadium: [14, 11], cinema: [6, 4], 'swimming-pool': [4, 3], fountain: [2, 2],
       'tiered-fountain': [3, 3],
-      oak: [2, 2], pine: [1, 1], birch: [1, 1], bush: [1, 1], tulips: [1, 1],
+      oak: [2, 2], pine: [1, 1], birch: [1, 1], bush: [1, 1], tulips: [1, 1], 'lily-pads': [1, 1], reeds: [1, 1], cattails: [1, 1], 'bird-house': [1, 1],
       planter: [1, 1], bench: [1, 1], 'long-bench': [1, 1], 'garden-table': [1, 1], swing: [2, 1], slide: [2, 1], barbecue: [1, 1],
     });
     // Only parking lots differ in size per style: small, medium, large (style 0 is `footprint`).
@@ -339,6 +340,64 @@ describe('catalog', () => {
     }
     // Area (world units²) of upward faces lower than the tallest tile the kind may stand on, plus a clearance.
     expect(hiddenBy).toEqual({});
+  });
+
+  it('pond shore pieces fill at most their quarter cell around their own origin, low enough to stay a bank', async () => {
+    const load = await createGlbLoader();
+    const half = CELL_SIZE / 4;
+    for (const id of Object.values(POND_SHORE_MODELS).flat()) {
+      expect(MODELS[id].nativeOrigin, id).toBe(true);
+      const gltf = await load(MODELS[id].url);
+      gltf.scene.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(gltf.scene);
+      expect(box.min.x, `${id} min x`).toBeGreaterThanOrEqual(-half - 0.002);
+      expect(box.max.x, `${id} max x`).toBeLessThanOrEqual(half + 0.002);
+      expect(box.min.z, `${id} min z`).toBeGreaterThanOrEqual(-half - 0.002);
+      expect(box.max.z, `${id} max z`).toBeLessThanOrEqual(half + 0.002);
+      expect(box.min.y, `${id} base`).toBeGreaterThanOrEqual(-0.001);
+      expect(box.max.y, `${id} height`).toBeLessThan(0.08);
+    }
+  });
+
+  it('pond shore pieces meet their neighbours with one bank profile (every seam matches the plain edge\'s)', async () => {
+    const load = await createGlbLoader();
+    const half = CELL_SIZE / 4;
+    /** Bank vertices on the line `axis` = `at`, as "distance from the land side, height", excluding the wall on the land side. */
+    const seam = async (id: ModelId, axis: 'x' | 'z', at: number): Promise<string[]> => {
+      const gltf = await load(MODELS[id].url);
+      gltf.scene.updateMatrixWorld(true);
+      const points = new Set<string>();
+      const v = new THREE.Vector3();
+      gltf.scene.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        const position = mesh.geometry.getAttribute('position');
+        for (let i = 0; i < position.count; i += 1) {
+          v.fromBufferAttribute(position, i).applyMatrix4(mesh.matrixWorld);
+          const on = axis === 'x' ? v.x : v.z;
+          const along = (axis === 'x' ? v.z : v.x) + half;
+          if (Math.abs(on - at) > 1e-4 || along < 0.001) continue;
+          points.add(`${along.toFixed(3)},${v.y.toFixed(3)}`);
+        }
+      });
+      return [...points].sort();
+    };
+    const profile = await seam('pond-edge-a', 'x', -half);
+    expect(profile.length).toBeGreaterThan(1);
+    for (const id of POND_SHORE_MODELS.edge) {
+      expect(await seam(id, 'x', -half), `${id} west end`).toEqual(profile);
+      expect(await seam(id, 'x', half), `${id} east end`).toEqual(profile);
+    }
+    // Outer corners (land north and west) run on as a north edge to the east and a west edge to the south.
+    for (const id of POND_SHORE_MODELS.outer) {
+      expect(await seam(id, 'x', half), `${id} east end`).toEqual(profile);
+      expect(await seam(id, 'z', half), `${id} south end`).toEqual(profile);
+    }
+    // Inner corners (land only at the north-west point) meet a north edge to the west and a west edge to the north.
+    for (const id of POND_SHORE_MODELS.inner) {
+      expect(await seam(id, 'x', -half), `${id} west side`).toEqual(profile);
+      expect(await seam(id, 'z', -half), `${id} north side`).toEqual(profile);
+    }
   });
 
   it('parking lots lie at road height round their whole rim (only the sign and bushes stand up, inside it)', async () => {

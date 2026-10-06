@@ -9,7 +9,7 @@
  *  - Object ids are reused after reset / load, so a remove always frees its visual before the next add.
  */
 import * as THREE from 'three';
-import { EDGE_MODELS, GROUND_MODELS, ROAD_PIECE_MODELS, type ModelId } from '../catalog/models';
+import { EDGE_MODELS, GROUND_MODELS, POND_SHORE_MODELS, ROAD_PIECE_MODELS, type ModelId } from '../catalog/models';
 import { objectDef, placedFootprint } from '../catalog/objects';
 import { CELL_SIZE, cellToWorld, ROAD_TILE_SIZE, roadBlockCentreWorld } from '../game/config';
 import type { DebugTools } from '../debug/DebugTools';
@@ -20,6 +20,7 @@ import { InstancePool, type PoolSlot } from './InstancePool';
 import { createLitMaterial, type LitMaterial } from './materials';
 import type { ModelLibrary } from './ModelLibrary';
 import { featureCornerIndex, roadFeatureAt, roadLook, underRoadFeature } from '../town/roadTiles';
+import { POND_QUARTERS, pondQuarter, type PondQuarter } from '../town/pondTiles';
 import { MODEL_STYLES } from './modelStyles';
 import { edgeOrigin, objectOrigin, styleMatrix } from './objectPose';
 import { easeOutBack, easeOutBackPeak, easeShrink, hash01, hopArc, hopHeight, moveEase } from './tween';
@@ -61,6 +62,19 @@ const WARM_STONE: readonly [number, number, number] = [1.17, 1.15, 1.1];
 export function meadowScatterModel(cell: Cell): ModelId {
   const pick = hash01(cell.x, cell.z, 1);
   return pick < 0.45 ? 'meadow-flowers' : pick < 0.72 ? 'meadow-flowers-tall' : 'grass-tuft';
+}
+
+/** Side shade of the water slab (hidden by the banks, except where the pond meets the plot's rim). */
+const POND_LIP_SHADE = 0.8;
+const QUARTER_OFFSET = CELL_SIZE / 4;
+
+/** The shore model a pond quarter draws (hashed per quarter, stable across reloads), or null for open water. */
+export function pondShoreModel(cell: Cell, q: number, quarter: PondQuarter): ModelId | null {
+  if (quarter.piece === 'open') return null;
+  const models = POND_SHORE_MODELS[quarter.piece];
+  const [sx, sz] = POND_QUARTERS[q];
+  const pick = hash01(cell.x * 2 + (sx > 0 ? 1 : 0), cell.z * 2 + (sz > 0 ? 1 : 0), 7);
+  return models[Math.min(models.length - 1, Math.floor(pick * models.length))];
 }
 
 const EDGE_MODEL_IDS: ReadonlySet<string> = new Set(Object.values(EDGE_MODELS));
@@ -346,6 +360,11 @@ export class TownRenderer {
         const neighbour = { x: cell.x + offset.x, z: cell.z + offset.z };
         if (this.town.inBounds(neighbour)) touchedCells.set(cellKey(neighbour), neighbour);
       }
+      // Pond shores read the diagonals too.
+      for (const [dx, dz] of POND_QUARTERS) {
+        const diagonal = { x: cell.x + dx, z: cell.z + dz };
+        if (this.town.inBounds(diagonal)) touchedCells.set(cellKey(diagonal), diagonal);
+      }
       // Road tiles belong to block anchors: re-tile this block and the 4 neighbouring blocks.
       const anchor = roadBlockAnchor(cell);
       touchedCells.set(cellKey(anchor), anchor);
@@ -457,6 +476,7 @@ export class TownRenderer {
       };
     }
     if (kind === 'walkway') return this.describeWalkway(cell);
+    if (kind === 'pond') return this.describePond(cell);
     const visual = GROUND_MODELS[kind];
     if (visual.type === 'model') {
       const local = styleMatrix(visual.model, new THREE.Matrix4());
@@ -492,6 +512,24 @@ export class TownRenderer {
       pieces.push({ source: arm, local });
     });
     return { sig: `walkway:${arms}`, rotation: 0, pieces };
+  }
+
+  /** The water slab plus one shore piece per quarter that touches land (town/pondTiles.ts). */
+  private describePond(cell: Cell): { sig: string; rotation: number; pieces: PieceSpec[] } {
+    const water = GROUND_MODELS.pond;
+    const height = water.type === 'flat' ? water.height : 0.008;
+    const color = water.type === 'flat' ? water.color : '#5bb3d9';
+    const pieces: PieceSpec[] = [{ source: this.slabSource('pond-water', color, CELL_SIZE, height, CELL_SIZE, POND_LIP_SHADE), local: new THREE.Matrix4() }];
+    let sig = 'pond:';
+    POND_QUARTERS.forEach(([sx, sz], q) => {
+      const quarter = pondQuarter(this.town, cell, q);
+      const model = pondShoreModel(cell, q, quarter);
+      sig += model ? `${model}@${quarter.rotation},` : 'open,';
+      if (!model) return;
+      const local = new THREE.Matrix4().makeRotationY(quarter.rotation * QUARTER).setPosition(sx * QUARTER_OFFSET, 0, sz * QUARTER_OFFSET);
+      pieces.push({ source: this.modelSource(model, false), local });
+    });
+    return { sig, rotation: 0, pieces };
   }
 
   private meadowScatter(cell: Cell): PieceSpec[] {

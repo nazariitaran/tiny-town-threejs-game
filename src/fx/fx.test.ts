@@ -106,7 +106,7 @@ describe('fx recipes', () => {
     // Mode tools never place anything of their own (a Move drop reports the moved item's tool).
     const classes = Object.fromEntries(TOOLS.filter((t) => t.category !== 'mode').map((t) => [t.id, classify(t.id)]));
     expect(classes).toEqual({
-      road: 'road', pavement: 'path', grass: 'lawn', meadow: 'meadow',
+      road: 'road', pavement: 'path', grass: 'lawn', meadow: 'meadow', pond: 'water',
       // group road → road; street / garden → prop; home / amenity → building; tree / plant → tree.
       roundabout: 'road',
       parking: 'road',
@@ -117,6 +117,7 @@ describe('fx recipes', () => {
       'corner-shop': 'building', 'donut-shop': 'building', supermarket: 'building', church: 'building', stadium: 'building', cinema: 'building', 'swimming-pool': 'building',
       'tiered-fountain': 'building',
       oak: 'tree', pine: 'tree', birch: 'tree', bush: 'tree', tulips: 'tree',
+      'lily-pads': 'tree', reeds: 'tree', cattails: 'tree', 'bird-house': 'prop',
       hedge: 'fence', 'fence-low': 'fence', 'fence-tall': 'fence',
       planter: 'prop', bench: 'prop', 'long-bench': 'prop', 'garden-table': 'prop', swing: 'prop', slide: 'prop', barbecue: 'prop',
     });

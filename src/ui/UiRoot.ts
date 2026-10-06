@@ -37,6 +37,8 @@ const CARRY_HINT_TOUCH_FIXED = 'Tap where it goes';
 const CARRY_HINTS: ReadonlySet<string> = new Set([CARRY_HINT_MOUSE, CARRY_HINT_MOUSE_FIXED, CARRY_HINT_TOUCH, CARRY_HINT_TOUCH_FIXED]);
 /** Appended to a multi-model tool's mouse hint. */
 const VARIANT_HINT = ' · V for style';
+/** Gap between tray cards (ui.css .ui-tray gap). */
+const TRAY_GAP_PX = 6;
 
 function modelCount(tool: ToolDef): number {
   return tool.layer === 'object' ? pickableVariants(objectDef(tool.id as Parameters<typeof objectDef>[0])) : 1;
@@ -104,6 +106,7 @@ export class UiRoot {
   private readonly root: HTMLElement;
   private readonly unsubscribers: Array<() => void> = [];
   private readonly coarse = window.matchMedia('(pointer: coarse)');
+  private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   private phase: GamePhase = 'loading';
   private category: ToolCategory = 'streets';
@@ -161,6 +164,7 @@ export class UiRoot {
     this.el('ui-menu-tabs').addEventListener('keydown', this.onMenuTabKeyDown);
     this.el(UI_TEST_IDS.tray).addEventListener('scroll', this.updateTrayCue, { passive: true });
     this.el(UI_TEST_IDS.tray).addEventListener('scroll', this.placeVariants, { passive: true });
+    this.el(UI_TEST_IDS.tray).addEventListener('wheel', this.onTrayWheel, { passive: false });
     window.addEventListener('resize', this.updateTrayCue);
     window.addEventListener('resize', this.placeVariants);
     // Capture phase on window: runs before ToolController's keydown, so Esc inside an overlay
@@ -316,7 +320,11 @@ export class UiRoot {
       <div class="ui-dock-wrap ui-hud" data-phase="building menu">
         <div class="ui-variants" id="${id.variants}" role="group" aria-label="Styles" hidden></div>
         <nav class="ui-dock" id="${id.dock}" aria-label="Build tools">
-          <div class="ui-tray-frame"><div class="ui-tray" id="${id.tray}" role="group" aria-label="Items"></div></div>
+          <div class="ui-tray-frame">
+            <button type="button" class="ui-tray-arrow ui-tray-prev" id="${id.trayPrev}" aria-label="Show earlier items" aria-controls="${id.tray}" title="Earlier items" hidden>${GLYPHS.chevronLeft}</button>
+            <div class="ui-tray" id="${id.tray}" role="group" aria-label="Items"></div>
+            <button type="button" class="ui-tray-arrow ui-tray-next" id="${id.trayNext}" aria-label="Show more items" aria-controls="${id.tray}" title="More items" hidden>${GLYPHS.chevronRight}</button>
+          </div>
           <div class="ui-tabbar">
             <div class="ui-tabs" role="group" aria-label="Categories">
               ${TOOL_CATEGORIES.map(
@@ -591,6 +599,8 @@ export class UiRoot {
     else if (target.id === id.mute) this.bus.emit('intent:set-muted', { muted: !this.muted });
     else if (target.id === id.menu) this.bus.emit('intent:open-menu');
     else if (target.id === id.rotate) this.bus.emit('intent:rotate', { direction: 1 });
+    else if (target.id === id.trayPrev) this.scrollTray(-1);
+    else if (target.id === id.trayNext) this.scrollTray(1);
     else if (target.id === id.resume) this.bus.emit('intent:close-menu');
     else if (target.id === id.help) this.openModal('help');
     else if (target.id === id.newTown) this.openModal('confirm');
@@ -977,6 +987,8 @@ export class UiRoot {
     }
     if (phase !== 'building') this.hideTransient();
     else this.clearTooltip();
+    // The tray had no width while the dock was hidden.
+    this.updateTrayCue();
     this.renderVariants();
   }
 
@@ -1159,8 +1171,34 @@ export class UiRoot {
     const frame = tray?.parentElement;
     if (!tray || !frame) return;
     const max = tray.scrollWidth - tray.clientWidth;
-    frame.classList.toggle('has-more-left', tray.scrollLeft > 2);
-    frame.classList.toggle('has-more-right', tray.scrollLeft < max - 2);
+    const left = tray.scrollLeft > 2;
+    const right = tray.scrollLeft < max - 2;
+    frame.classList.toggle('has-more-left', left);
+    frame.classList.toggle('has-more-right', right);
+    const prev = this.el(UI_TEST_IDS.trayPrev);
+    const next = this.el(UI_TEST_IDS.trayNext);
+    // A hidden arrow that had focus hands it to the other one, so the keyboard user keeps their place.
+    if (!left && document.activeElement === prev && right) next.focus();
+    if (!right && document.activeElement === next && left) prev.focus();
+    prev.hidden = !left;
+    next.hidden = !right;
+  };
+
+  /** Scrolls the tray by most of its width; scroll-snap lands on a whole card. */
+  private scrollTray(direction: 1 | -1): void {
+    const tray = this.el(UI_TEST_IDS.tray);
+    const card = tray.querySelector<HTMLElement>('.ui-card');
+    const step = card ? card.offsetWidth + TRAY_GAP_PX : 90;
+    const page = Math.max(step, Math.floor((tray.clientWidth - step) / step) * step);
+    tray.scrollBy({ left: direction * page, behavior: this.reducedMotion.matches ? 'auto' : 'smooth' });
+  }
+
+  /** A mouse wheel over an overflowing tray scrolls it sideways instead of doing nothing. */
+  private readonly onTrayWheel = (event: WheelEvent): void => {
+    const tray = event.currentTarget as HTMLElement;
+    if (tray.scrollWidth <= tray.clientWidth + 2 || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
+    event.preventDefault();
+    tray.scrollLeft += event.deltaY;
   };
 
   private onSelectionChanged({ id, rotation, rotatable }: GameEvents['selection:changed']): void {

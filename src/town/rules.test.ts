@@ -1043,3 +1043,55 @@ describe('move-object — the Move tool: the placing checks, ignoring the object
     expectFail(plan(state, move(bench, 8, 8, 1)), 'no-change', '');
   });
 });
+
+describe('ponds', () => {
+  it('valid: pond paints like any ground; a pond swallows the fences between it and neighbouring pond', () => {
+    const state = makeState();
+    expect(expectOk(plan(state, paint('pond', 3, 4)))).toEqual([{ layer: 'ground', cell: { x: 3, z: 4 }, before: 'field', after: 'pond' }]);
+    ground(state, 'pond', [3, 4]);
+    fence(state, 'hedge', { x: 4, z: 4, side: 'w' }); // between (3, 4) and (4, 4)
+    fence(state, 'fence-low', { x: 4, z: 4, side: 'n' }); // towards dry (4, 3): stays
+    const changes = expectOk(plan(state, paint('pond', 4, 4)));
+    expect(changes).toEqual([
+      { layer: 'edge', op: 'remove', placed: { kind: 'hedge', edge: { x: 4, z: 4, side: 'w' } } },
+      { layer: 'ground', cell: { x: 4, z: 4 }, before: 'field', after: 'pond' },
+    ]);
+  });
+
+  it('valid: pond over a road converts the whole block and drops fences towards the pond', () => {
+    const state = makeState();
+    ground(state, 'road', [0, 0], [1, 0], [0, 1], [1, 1]);
+    ground(state, 'pond', [2, 0]);
+    fence(state, 'hedge', { x: 2, z: 0, side: 'w' });
+    const changes = expectOk(plan(state, paint('pond', 1, 1)));
+    expect(changes[0]).toEqual({ layer: 'edge', op: 'remove', placed: { kind: 'hedge', edge: { x: 2, z: 0, side: 'w' } } });
+    expect(changes.filter((c) => c.layer === 'ground')).toHaveLength(4);
+    expect(changes[changes.length - 1]).toMatchObject({ cell: { x: 1, z: 1 }, after: 'pond' });
+  });
+
+  it('pond plants and the bird house go only in a pond; nothing else does', () => {
+    const state = makeState();
+    ground(state, 'pond', [1, 1], [2, 1]);
+    for (const kind of ['lily-pads', 'reeds', 'cattails', 'bird-house'] as const) {
+      expectOk(plan(state, placeObj(kind, 1, 1)));
+      expectFail(plan(state, placeObj(kind, 5, 5)), 'needs-ground', `${OBJECTS[kind].label} must go in a pond`);
+    }
+    expectFail(plan(state, placeObj('oak', 1, 1)), 'needs-ground', "Oak can't go in a pond");
+    expectFail(plan(state, placeObj('bench', 2, 1)), 'needs-ground', "Bench can't go in a pond");
+  });
+
+  it('invalid: a fence between two pond cells; valid on the shore', () => {
+    const state = makeState();
+    ground(state, 'pond', [1, 1], [2, 1]);
+    expectFail(plan(state, placeEdge('fence-low', 2, 1, 'w')), 'needs-ground', RULE_MESSAGES.fenceInPond);
+    expectOk(plan(state, placeEdge('fence-low', 1, 1, 'n')));
+  });
+
+  it('a pond under a lily pad can not be repainted; bulldozing an empty pond cell returns it to field', () => {
+    const state = makeState();
+    ground(state, 'pond', [1, 1], [2, 2]);
+    object(state, 'lily-pads', 1, 1);
+    expectFail(plan(state, paint('grass', 1, 1)), 'occupied', 'Move the Lily pads first');
+    expect(expectOk(plan(state, bulldoze(2, 2)))).toEqual([{ layer: 'ground', cell: { x: 2, z: 2 }, before: 'pond', after: 'field' }]);
+  });
+});

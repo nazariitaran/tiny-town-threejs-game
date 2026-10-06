@@ -63,6 +63,7 @@ function sceneForTool(toolId: string, variant = 0): IconScene | null {
       return { ground: line(toolId), clipToCentre: true };
     case 'pavement':
     case 'grass':
+    case 'pond':
       return { ground: [[C, C, toolId]] };
     case 'meadow': {
       // The clump is hashed per cell: use the first cell from the centre that grows flowers.
@@ -79,10 +80,9 @@ function sceneForTool(toolId: string, variant = 0): IconScene | null {
       if (!Object.prototype.hasOwnProperty.call(OBJECTS, toolId)) return null;
       const kind = toolId as ObjectKind;
       const def = objectDef(kind);
-      // A road feature stands on road: pave its footprint so the fake town is a valid one.
-      const ground = def.roadFeature
-        ? footprintCells({ x: C, z: C }, footprintOf(def, variant), 0).map((c): [number, number, GroundKind] => [c.x, c.z, 'road'])
-        : undefined;
+      // A road feature stands on road and a pond plant in a pond: lay that ground so the fake town is a valid one.
+      const under: GroundKind | null = def.roadFeature ? 'road' : def.allowedGround.includes('field') ? null : def.allowedGround[0];
+      const ground = under ? footprintCells({ x: C, z: C }, footprintOf(def, variant), 0).map((c): [number, number, GroundKind] => [c.x, c.z, under]) : undefined;
       return { object: kind, ground, variant };
     }
   }

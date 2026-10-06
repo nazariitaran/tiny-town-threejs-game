@@ -8,7 +8,7 @@ import { CELL_SIZE } from '../game/config';
 import type { ObjectKind } from '../town/types';
 import { Curve, type ParticlePool, type ParticleSpec } from './particlePool';
 
-export type FxClass = 'path' | 'road' | 'lawn' | 'meadow' | 'tree' | 'building' | 'small-building' | 'prop' | 'fence';
+export type FxClass = 'path' | 'road' | 'lawn' | 'meadow' | 'water' | 'tree' | 'building' | 'small-building' | 'prop' | 'fence';
 
 export interface FxPools {
   dust: ParticlePool;
@@ -42,6 +42,7 @@ export const PALETTES = {
   debrisFence: [hex(0xb98a5a), hex(0xf2efe8), hex(0x8a6a4a)],
   debrisProp: [hex(0x7a7f88), hex(0xc7433a), hex(0x3a3d44)],
   glint: [hex(0xffe27a), hex(0xfff4c2), hex(0xffd04d)],
+  droplets: [hex(0x8fd3f0), hex(0xc8ecfa), hex(0x5bb3d9)],
 } as const satisfies Record<string, readonly Rgb[]>;
 
 interface Burst {
@@ -80,6 +81,7 @@ export function classify(id: string): FxClass {
   if (id === 'pavement' || id === 'walkway') return 'path';
   if (id === 'grass') return 'lawn';
   if (id === 'meadow') return 'meadow';
+  if (id === 'pond') return 'water';
   if (id === 'hedge' || id.startsWith('fence')) return 'fence';
   if (id === 'bus-stop') return 'small-building';
   const def = Object.prototype.hasOwnProperty.call(OBJECTS, id) ? OBJECTS[id as ObjectKind] : undefined;
@@ -189,6 +191,9 @@ export function emitPlaced(pools: FxPools, rng: () => number, id: string, x: num
       emitBurst(pools.dust, rng, x, z, dust(n(3, 1), 0.3, [0.08, 0.1], PALETTES.dustNature));
       emitBurst(pools.solid, rng, x, z, flakes(n(6, 2), [0.08, 0.16], PALETTES.petals, [1.1, 1.6]));
       return;
+    case 'water':
+      emitBurst(pools.solid, rng, x, z, flakes(n(7, 3), [0.02, 0.05], PALETTES.droplets, [1.0, 1.5]));
+      return;
     case 'tree':
       emitBurst(pools.dust, rng, x, z, dust(n(5, 2), 0.28, [0.085, 0.11], PALETTES.dustNature));
       emitBurst(pools.solid, rng, x, z, flakes(n(8, 3), [0.42, 0.6], PALETTES.leaves, [0.3, 0.8]));
@@ -255,6 +260,10 @@ export function emitRemoved(
     case 'meadow':
       emitBurst(pools.dust, rng, x, z, poof(n(3, 1), 0.3, [0.08, 0.1]));
       emitBurst(pools.solid, rng, x, z, flakes(n(6, 2), [0.06, 0.12], PALETTES.petals));
+      return;
+    case 'water':
+      emitBurst(pools.dust, rng, x, z, poof(n(3, 1), 0.3, [0.08, 0.1]));
+      emitBurst(pools.solid, rng, x, z, flakes(n(5, 2), [0.02, 0.05], PALETTES.droplets));
       return;
     case 'road':
     case 'path':

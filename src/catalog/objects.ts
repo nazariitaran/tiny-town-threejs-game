@@ -64,6 +64,7 @@ const OPEN_GROUND: readonly GroundKind[] = ['field', 'grass', 'meadow'];
 const PAVED_OK: readonly GroundKind[] = [...OPEN_GROUND, 'pavement'];
 const PROP_GROUND: readonly GroundKind[] = [...OPEN_GROUND, 'pavement', 'walkway'];
 const ANY_GROUND: readonly GroundKind[] = [...PROP_GROUND, 'road'];
+const POND: readonly GroundKind[] = ['pond'];
 
 /** ×2 in Y only, so the pine keeps its one cell and stays under the church tower (2.33). */
 const PINE_HEIGHT = 2;
@@ -123,6 +124,11 @@ export const OBJECTS: Readonly<Record<ObjectKind, ObjectDef>> = {
   birch: def({ kind: 'birch', label: 'Birch', group: 'tree', footprint: [1, 1], allowedGround: OPEN_GROUND, residents: 0, models: ['birch', 'birch-small'] }),
   bush: def({ kind: 'bush', label: 'Bush', group: 'plant', footprint: [1, 1], allowedGround: OPEN_GROUND, residents: 0, models: ['bush'] }),
   tulips: def({ kind: 'tulips', label: 'Tulips', group: 'plant', footprint: [1, 1], allowedGround: OPEN_GROUND, residents: 0, models: ['tulips-a', 'tulips-b', 'tulips-c'] }),
+  'lily-pads': def({ kind: 'lily-pads', label: 'Lily pads', group: 'plant', footprint: [1, 1], allowedGround: POND, residents: 0, models: ['lily-pads-a', 'lily-pads-b', 'lily-pads-c'] }),
+  reeds: def({ kind: 'reeds', label: 'Reeds', group: 'plant', footprint: [1, 1], allowedGround: POND, residents: 0, models: ['reeds-a', 'reeds-b'] }),
+  cattails: def({ kind: 'cattails', label: 'Cattails', group: 'plant', footprint: [1, 1], allowedGround: POND, residents: 0, models: ['cattails-a', 'cattails-b'] }),
+  // In the Nature dock; counted with the garden furniture (props).
+  'bird-house': def({ kind: 'bird-house', label: 'Floating bird house', group: 'garden', footprint: [1, 1], allowedGround: POND, residents: 0, models: ['bird-house'] }),
   planter: def({ kind: 'planter', label: 'Planter', group: 'garden', footprint: [1, 1], allowedGround: PROP_GROUND, residents: 0, models: ['planter'] }),
   bench: def({ kind: 'bench', label: 'Bench', group: 'garden', footprint: [1, 1], allowedGround: PROP_GROUND, residents: 0, models: ['bench'] }),
   'long-bench': def({ kind: 'long-bench', label: 'Long bench', group: 'garden', footprint: [1, 1], allowedGround: PROP_GROUND, residents: 0, models: ['long-bench'] }),

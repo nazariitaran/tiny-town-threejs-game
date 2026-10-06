@@ -12,6 +12,7 @@ import { createRenderer, resizeRenderer } from '../core/Renderer';
 import { DebugTools, type DebugTuning } from '../debug/DebugTools';
 import { PlacementFx } from '../fx/PlacementFx';
 import { BirdSystem, isBirdSpecies } from '../life/BirdSystem';
+import { DuckSystem } from '../life/DuckSystem';
 import { LifeSystem } from '../life/LifeSystem';
 import { crowdGainAt, MatchSchedule } from '../life/matchSchedule';
 import { SaveStore } from '../persistence/SaveStore';
@@ -47,6 +48,8 @@ type TestState = (typeof TEST_STATES)[number];
 
 /** Birds run on their own stream derived from the seed, never drawing from fxRng. */
 const BIRD_SEED_SALT = 0xb12d5eed;
+/** Ducks likewise. */
+const DUCK_SEED_SALT = 0xd0c4d0c4;
 
 /** `?graphics=low|medium|high`: boot with this preset without saving it. */
 const GRAPHICS_URL_PARAM = 'graphics';
@@ -128,6 +131,8 @@ export class Game {
   private readonly birds: BirdSystem;
   /** Spontaneous flocks stay off after a test state until a reload. */
   private birdsAuto = true;
+  /** Ducks on the ponds; they stay put after a test state until a reload. */
+  private readonly ducks: DuckSystem;
   /** Day/night: the clock, the sample it writes every frame, the last announced mode/phase. */
   private readonly clock: DayClock;
   private readonly daySample = createDaySample();
@@ -170,6 +175,7 @@ export class Game {
     this.nightLights = new NightLights(this.scene, this.library, this.town, this.bus, this.life, this.debug);
     this.birds = new BirdSystem(this.scene, this.town, this.seedValue ^ BIRD_SEED_SALT, this.debug, boot.material);
     this.installBirdDebug();
+    this.ducks = new DuckSystem(this.scene, this.library, this.town, this.bus, this.seedValue ^ DUCK_SEED_SALT, this.debug);
     this.clock = new DayClock(this.saves.getSettings().timeMode);
     this.installClockDebug();
     this.audio = new AudioManager(this.bus, fxRand, this.saves);
@@ -254,6 +260,7 @@ export class Game {
     this.nightLights.dispose();
     this.life.dispose();
     this.birds.dispose();
+    this.ducks.dispose();
     this.audio.dispose();
     this.ui.dispose();
     this.environment.dispose();
@@ -337,6 +344,7 @@ export class Game {
       // No spontaneous flocks under the OS "reduce motion" setting (a test hook's reduced motion stops the clock anyway).
       this.birds.setAuto(this.birdsAuto && this.prefersReducedMotion?.matches !== true);
       this.birds.update(animDelta);
+      this.ducks.update(animDelta);
       // The clock runs only while building (frozen on the title, in the menu, under reduced motion).
       if (this.phase === 'building') {
         this.clock.advance(animDelta);
@@ -551,6 +559,7 @@ export class Game {
     this.nightLights.update(this.daySample, this.matchLevel);
     this.life.setNight(this.daySample.night);
     this.birds.setDaylight(this.daySample.night, this.daySample.phase);
+    this.ducks.setNight(this.daySample.night);
     this.updateCrowd(live);
     this.announceDaytime();
   }
@@ -616,6 +625,9 @@ export class Game {
     this.birdsAuto = false;
     this.birds.setAuto(false);
     this.birds.reset(this.seedValue ^ BIRD_SEED_SALT);
+    // Ducks arrive at once and stay where they are, so captures are stable.
+    this.ducks.setAuto(false);
+    this.ducks.reset(this.seedValue ^ DUCK_SEED_SALT);
   }
 
   private installTestHooks(): void {
@@ -627,6 +639,7 @@ export class Game {
         this.fxRng = createSeededRandom(value ^ 0x9e3779b9);
         this.nameRng = createSeededRandom(value ^ 0x51f15eed);
         this.birds.reset(value ^ BIRD_SEED_SALT);
+        this.ducks.reset(value ^ DUCK_SEED_SALT);
       },
       setState: async (name: string) => {
         if (!(TEST_STATES as readonly string[]).includes(name)) throw new Error(`Unknown test state: ${name}`);
@@ -655,6 +668,7 @@ export class Game {
           this.townRenderer.settle();
           this.life.settle();
           this.birds.settle();
+          this.ducks.settle();
         }
         this.renderNow();
       },
@@ -735,6 +749,7 @@ export class Game {
       fx: this.fx.getDiagnostics(),
       life: this.life.getDiagnostics(),
       birds: this.birds.getDiagnostics(),
+      ducks: this.ducks.getDiagnostics(),
       daytime: {
         mode: this.clock.mode,
         t: this.daySample.t,

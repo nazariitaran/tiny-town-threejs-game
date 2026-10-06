@@ -14,9 +14,11 @@
  *    stand on road: they are block-aligned, paint their footprint to road when placed and back to field
  *    when bulldozed, and the renderer draws them instead of the road tiles underneath.
  *  - A kind whose styles differ in size (ObjectDef.footprints) covers the footprint of its variant.
+ *  - Pond cells join their 8 neighbours into one water surface (town/pondTiles.ts); no hedge or fence
+ *    stands between two pond cells.
  */
 
-export type GroundKind = 'field' | 'grass' | 'meadow' | 'road' | 'pavement' | 'walkway';
+export type GroundKind = 'field' | 'grass' | 'meadow' | 'road' | 'pavement' | 'walkway' | 'pond';
 
 /** Placeable objects, grouped by dock category. Ids name the thing, not a model file. */
 export type ObjectKind =
@@ -52,6 +54,10 @@ export type ObjectKind =
   | 'birch'
   | 'bush'
   | 'tulips'
+  | 'lily-pads'
+  | 'reeds'
+  | 'cattails'
+  | 'bird-house'
   // Garden
   | 'planter'
   | 'bench'

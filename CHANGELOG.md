@@ -4,6 +4,12 @@ Player-facing release notes for Tiny Town. How things behave is in `docs/game-de
 
 ## Unreleased
 
+### Added
+- Ponds, under Nature: paint water a cell at a time and neighbouring cells join into one pond with a rounded, uneven shore.
+- Lily pads, reeds, cattails and a floating bird house, for ponds only.
+- Ducks paddle about on ponds of six cells or more; bigger ponds get more of them, and they rest at night.
+- Arrows at the ends of the item tray scroll it when the cards don't fit; a mouse wheel over the tray scrolls it too.
+
 ### Changed
 - The loading screen says what it is doing in a few plain steps instead of naming every model, and shows from the moment the page opens.
 
