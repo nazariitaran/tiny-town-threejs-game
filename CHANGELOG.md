@@ -4,6 +4,9 @@ Player-facing release notes for Tiny Town. How things behave is in `docs/game-de
 
 ## Unreleased
 
+### Changed
+- The loading screen says what it is doing in a few plain steps instead of naming every model, and shows from the moment the page opens.
+
 ## v0.7.1 — 2026-10-05
 
 ### Added

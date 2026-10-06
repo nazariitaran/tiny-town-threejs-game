@@ -8,6 +8,8 @@ if (!canvas || !uiHost) {
   throw new Error('Missing #game-canvas or #ui-root element.');
 }
 
+// Same task as the loading screen's first render, so nothing paints in between.
+document.querySelector('#boot-splash')?.remove();
 const game = new Game(canvas, uiHost);
 game.start();
 

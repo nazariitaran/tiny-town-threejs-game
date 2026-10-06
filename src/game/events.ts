@@ -54,6 +54,7 @@ export type GameEvents = {
   'intent:reload-graphics': void;
 
   'phase:changed': { phase: GamePhase; previous: GamePhase };
+  /** `label`: the loading screen's line for the current stage (`LOAD_STAGES`), shown as is. */
   'load:progress': { loaded: number; total: number; label: string };
   'load:error': { message: string };
 

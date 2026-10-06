@@ -8,8 +8,9 @@ TypeScript (strict) · Vite 8 · three.js r184 (`three/addons/*`: MapControls, G
 ## Module map
 ```
 src/
-  main.ts                     bootstrap: creates Game, starts the loop
+  main.ts                     bootstrap: drops index.html's boot splash, creates Game, starts the loop
   game/Game.ts                composition root: phases, update order, test hooks, diagnostics
+  game/loadProgress.ts        boot progress in player-facing stages (pure)
   game/events.ts        [C]   typed EventBus + GameEvents
   game/config.ts        [C]   plot size, CELL_SIZE, the cell↔world mapping, assetUrl, storage keys
   game/graphics.ts      [C]   graphics presets (GRAPHICS_PROFILES), effectivePixelRatio, needsReload, menu copy
@@ -92,6 +93,11 @@ Rules:
 4. **One cell↔world mapping** (`game/config.ts`); every runtime asset URL goes through `assetUrl()`.
 5. **RNG streams:** `Game.rng` (gameplay: variants), `Game.fxRng` (audio/fx jitter, cars), a bird stream (`seed ^ BIRD_SEED_SALT`) and `Game.nameRng` (name suggestions only, seeded from `crypto.getRandomValues` at boot so new players get different first names; `seed(n)` pins it). Never `Math.random()`.
 6. **Keyboard:** the UI owns digits 1–9 (the first nine tools of the active category; a category holds up to 12), Shift+1–5 (category), `?` (controls help) and `P` (photo) (`ui/uiKeys.ts`, `UiRoot`). `ToolController` owns R / Shift+R (rotate), B, M, V / Shift+V (variant), T (time mode), Esc, F / Home and undo/redo (Ctrl/Cmd+Z, Shift+Z, Y); `CameraController` owns WASD / arrows, Q / E and + / −.
+
+## Loading
+- **Before the scripts:** `index.html` shows a static splash ("Unpacking the toy box…", inline styles, hidden under `<noscript>`); `main.ts` removes it in the same task that renders the loading screen.
+- **Stages** (`LoadProgress`, `LOAD_STAGES`): `models` (every GLB in `MODELS`, one item each), `townsfolk` (the cars and the town names, one item each) and `scene` (one step: `rebuildAll`, scenery, night lights, daylight). Everything downloads in parallel; `load:progress { loaded, total, label }` counts items over all stages and `label` is the first unfinished stage's line, so it only moves forward. `UiRoot` shows the label as is.
+- The `scene` step blocks the main thread, so `Game.load` waits for a paint first (at most 100 ms, for hidden tabs). The saved town is not built here; it loads on Continue.
 
 ## Frame update order (`Game.update`)
 `resizeRenderer` → `ToolController.update` → `CameraController.update` → `TownRenderer.update` → `LifeSystem.update` → `BirdSystem.update` → `DayClock.advance` and `MatchSchedule.advance` / `tick` (building phase only) → `applyDaylight` (Environment, the match level, NightLights, `LifeSystem.setNight`, `BirdSystem.setDaylight`, the crowd's level, `daytime:changed` on a mode/phase change) → `Environment.update` → `PlacementFx.update` → activity tracking (frame budget) → render (the shadow scheduler decides whether the sun's map is redrawn). Everything after the camera gets `animDelta`, which is 0 under `setReducedMotion(true)`. With `setPausedForScreenshot(true)` nothing updates but rendering continues.

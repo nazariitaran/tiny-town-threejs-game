@@ -136,7 +136,7 @@ Letter and digit keys use `event.code`, so layouts and Shift don't change the ma
 
 | State | Content | Enter / exit |
 | --- | --- | --- |
-| Loading | Title mark + progress bar | App start → assets ready |
+| Loading | Title mark, progress bar and one line for the current step: "Unpacking the toy box…" (also shown before the scripts arrive), "Gathering roads, houses and trees…", "Waking up the townsfolk…", "Setting the scene…" | App start → assets ready |
 | Title | "Tiny Town" logo over the slowly orbiting scene. **Start building** (reads **Continue** when a save exists), **New town** (only with a save), links **Open a town file** and **Credits**. The version (`v0.7.1`) sits in the bottom-right corner | Continue goes straight in; Start building and New town (after its confirm) open Name your town. The click that enters the game unlocks audio and starts the music |
 | Name your town | A text field (≤ 30 characters, "n / 30" counter) pre-filled with a random name from `public/data/default_town_names.json`, or the current name when renaming; a die for another name; Cancel and **Start building** / **Save**. Enter submits, Esc cancels, a blank name can't be submitted. Desktop focuses the field with the text selected; touch focuses the button | New town: nothing is cleared until the name is confirmed. Rename: the name pill (Cancel → building) or Menu → Rename town (Cancel → menu). Renaming is autosaved, not undoable |
 | Building | Top bar, dock, hint line | Main state |

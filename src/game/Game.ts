@@ -4,6 +4,7 @@
  */
 import * as THREE from 'three';
 import { AudioManager } from '../audio/AudioManager';
+import { MODELS } from '../catalog/models';
 import { FpsMeter } from '../core/FpsMeter';
 import { FrameBudget } from '../core/FrameBudget';
 import { Loop } from '../core/Loop';
@@ -36,6 +37,7 @@ import { createDaySample, DAY_LENGTH_S, DayClock, nightAt, sampleDay, T_AFTERNOO
 import { Environment } from '../world/Environment';
 import { assetUrl, PLOT_DEPTH, PLOT_WIDTH } from './config';
 import { createGameBus, type GamePhase } from './events';
+import { LoadProgress } from './loadProgress';
 import { effectivePixelRatio, GRAPHICS_PROFILES, isGraphicsPreset, needsReload, type GraphicsPreset, type GraphicsProfile } from './graphics';
 import { materialFamily } from '../render/materials';
 
@@ -52,6 +54,19 @@ const GRAPHICS_URL_PARAM = 'graphics';
 function graphicsOverride(): GraphicsPreset | null {
   const value = new URLSearchParams(window.location.search).get(GRAPHICS_URL_PARAM);
   return isGraphicsPreset(value) ? value : null;
+}
+
+/** Resolves once the current DOM has been painted; a timeout covers hidden tabs, where frames don't run. */
+function nextPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    const fallback = window.setTimeout(resolve, 100);
+    requestAnimationFrame(() =>
+      window.setTimeout(() => {
+        window.clearTimeout(fallback);
+        resolve();
+      }, 0),
+    );
+  });
 }
 
 export class Game {
@@ -255,17 +270,23 @@ export class Game {
   };
 
   private async load(): Promise<void> {
+    const progress = new LoadProgress({ models: Object.keys(MODELS).length, townsfolk: 2, scene: 1 }, (report) =>
+      this.bus.emit('load:progress', report),
+    );
     try {
       await Promise.all([
-        this.library.loadAll((loaded, total, label) => this.bus.emit('load:progress', { loaded, total, label })),
-        this.life.load(),
-        this.loadTownNames(),
+        this.library.loadAll(() => progress.advance('models')),
+        this.life.load().then(() => progress.advance('townsfolk')),
+        this.loadTownNames().then(() => progress.advance('townsfolk')),
       ]);
+      // The scene setup below blocks the main thread: let "Setting the scene…" reach the screen first.
+      await nextPaint();
       this.townRenderer.rebuildAll();
       this.environment.populate(this.library);
       this.nightLights.populate();
       this.applyDaylight();
       this.measureMaterials();
+      progress.advance('scene');
       this.setPhase('title');
     } catch (error) {
       console.error(error);

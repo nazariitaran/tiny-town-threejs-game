@@ -1037,7 +1037,7 @@ export class UiRoot {
     const bar = this.el('load-progress');
     bar.setAttribute('aria-valuenow', String(pct));
     bar.querySelector<HTMLElement>('.ui-progress-fill')!.style.width = `${pct}%`;
-    this.el('ui-load-label').textContent = label ? `Loading ${label}…` : `Loading… ${pct}%`;
+    this.el('ui-load-label').textContent = label || `Loading… ${pct}%`;
   }
 
   private onToolChanged(toolId: ToolId | null, rotation: Rotation, variant: GameEvents['tool:changed']['variant']): void {

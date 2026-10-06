@@ -39,11 +39,28 @@
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
       }
     </script>
+    <!-- Shown while the game's scripts download; main.ts removes it as the loading screen takes over. -->
+    <style>
+      #boot-splash {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        margin: 0;
+        background:
+          radial-gradient(ellipse at 50% 30%, rgba(255, 255, 255, 0.55), transparent 60%),
+          linear-gradient(#bfe3ff, #d9efd0 70%, #8cc063);
+        color: #6f685c;
+        font: 700 15px/1.35 'Nunito Variable', 'Nunito', ui-rounded, system-ui, -apple-system, 'Segoe UI', sans-serif;
+      }
+    </style>
+    <noscript><style>#boot-splash { display: none; }</style></noscript>
   </head>
   <body>
     <main id="app">
       <canvas id="game-canvas" aria-label="Tiny Town 3D view"></canvas>
       <div id="ui-root"></div>
+      <p id="boot-splash" role="status">Unpacking the toy box…</p>
       <noscript>
         <h1>Tiny Town</h1>
         <p>A cosy city-builder sandbox: lay roads, build homes and shops, plant gardens and watch day turn to night. It needs JavaScript and WebGL to run.</p>
