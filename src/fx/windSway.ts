@@ -80,9 +80,19 @@ export function updateWindSway(elapsed: number): void {
   uniforms.uWindTime.value = elapsed;
 }
 
+let breeze = 1;
+let gust = 1;
+
 /** 0 = rest pose (reduced motion / screenshots), 1 = normal breeze. */
 export function setWindStrength(strength: number): void {
-  uniforms.uWindStrength.value = strength;
+  breeze = strength;
+  uniforms.uWindStrength.value = breeze * gust;
+}
+
+/** Weather's multiplier on the breeze: 1 = calm. */
+export function setWindGust(multiplier: number): void {
+  gust = multiplier;
+  uniforms.uWindStrength.value = breeze * gust;
 }
 
 export function windTime(): number {
@@ -90,5 +100,5 @@ export function windTime(): number {
 }
 
 export function windStrength(): number {
-  return uniforms.uWindStrength.value;
+  return breeze;
 }

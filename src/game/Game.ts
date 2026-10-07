@@ -34,6 +34,9 @@ import { parseSave } from '../town/serialize';
 import type { SavedTown } from '../town/types';
 import { parseTownNames, pickTownName, TOWN_NAMES_PATH } from '../town/townName';
 import { UiRoot } from '../ui/UiRoot';
+import { setWindGust } from '../fx/windSway';
+import { RainLayer } from '../weather/RainLayer';
+import { gloomAt, isRainKind, shadeDaySample, WeatherSchedule } from '../weather/weatherSchedule';
 import { createSeededRandom, entropySeed } from '../utils/random';
 import { createDaySample, DAY_LENGTH_S, DayClock, nightAt, sampleDay, T_AFTERNOON, T_NIGHT, TIME_MODES, type DayPhase, type TimeMode } from '../world/dayCycle';
 import { Environment } from '../world/Environment';
@@ -52,6 +55,9 @@ const BIRD_SEED_SALT = 0xb12d5eed;
 /** Ducks likewise. */
 const DUCK_SEED_SALT = 0xd0c4d0c4;
 const QUACK_SEED_SALT = 0x0cac0cac;
+/** The weather likewise. */
+const WEATHER_SEED_SALT = 0x3a1ad405;
+const RAIN_SEED = 0x5ca77e2;
 
 /** `?graphics=low|medium|high`: boot with this preset without saving it. */
 const GRAPHICS_URL_PARAM = 'graphics';
@@ -136,6 +142,13 @@ export class Game {
   /** Ducks on the ponds; they stay put after a test state until a reload. */
   private readonly ducks: DuckSystem;
   private readonly quacks: QuackTimer;
+  /** Rain showers: ambient, per page session, never saved. */
+  private readonly weather: WeatherSchedule;
+  private readonly rain: RainLayer;
+  /** Weather was showing last frame: one more frame clears what it set. */
+  private weatherShown = false;
+  /** What the town's lights see: the day sample, darkened by a storm. */
+  private readonly lightSample = { night: 0, lightsOn: 0, lightsOff: 0 };
   /** Day/night: the clock, the sample it writes every frame, the last announced mode/phase. */
   private readonly clock: DayClock;
   private readonly daySample = createDaySample();
@@ -182,6 +195,10 @@ export class Game {
     this.ducks = new DuckSystem(this.scene, this.library, this.town, this.bus, this.seedValue ^ DUCK_SEED_SALT, this.debug);
     // Its own stream, so a quack never shifts the effects' or the town's rolls.
     this.quacks = new QuackTimer(createSeededRandom(this.seedValue ^ QUACK_SEED_SALT));
+    // Seeded per page load: showers come at different times every visit; seed() pins it.
+    this.weather = new WeatherSchedule(createSeededRandom(entropySeed() ^ WEATHER_SEED_SALT));
+    this.rain = new RainLayer(this.scene, createSeededRandom(RAIN_SEED));
+    this.installWeatherDebug();
     this.clock = new DayClock(this.saves.getSettings().timeMode);
     this.installClockDebug();
     this.audio = new AudioManager(this.bus, fxRand, this.saves);
@@ -267,6 +284,7 @@ export class Game {
     this.life.dispose();
     this.birds.dispose();
     this.ducks.dispose();
+    this.rain.dispose();
     this.audio.dispose();
     this.ui.dispose();
     this.environment.dispose();
@@ -348,7 +366,7 @@ export class Game {
       this.townRenderer.update(animDelta);
       this.life.update(animDelta);
       // No spontaneous flocks under the OS "reduce motion" setting (a test hook's reduced motion stops the clock anyway).
-      this.birds.setAuto(this.birdsAuto && this.prefersReducedMotion?.matches !== true);
+      this.birds.setAuto(this.birdsAuto && this.prefersReducedMotion?.matches !== true && this.weather.sample.rain < 0.05);
       this.birds.update(animDelta);
       this.ducks.update(animDelta);
       this.updateQuacks(animDelta);
@@ -356,8 +374,10 @@ export class Game {
       if (this.phase === 'building') {
         this.clock.advance(animDelta);
         this.stepMatch(animDelta);
+        this.stepWeather(animDelta);
       }
       this.applyDaylight();
+      this.rain.update(animDelta, this.rainShown(), this.weather.sample.wind, this.daySample.skyHorizon, this.cameraController.target, this.camera.position.distanceTo(this.cameraController.target));
       this.environment.update(animDelta, animElapsed);
       this.fx.update(animDelta);
     }
@@ -561,9 +581,24 @@ export class Game {
     const live = this.clock.isPinned || this.phase === 'building' || this.phase === 'menu';
     if (live) this.clock.sample(this.daySample);
     else sampleDay(T_AFTERNOON, this.daySample);
+    const weather = this.weather.sample;
+    const wet = (this.phase === 'building' || this.phase === 'menu') && (weather.overcast > 0 || weather.rain > 0 || weather.flash > 0);
+    if (wet || this.weatherShown) {
+      const overcast = wet ? weather.overcast : 0;
+      shadeDaySample(this.daySample, overcast, wet ? weather.flash : 0);
+      this.environment.applyWeather(overcast, wet ? weather.rain : 0, wet ? weather.flash : 0, weather.flashX, weather.flashZ);
+      setWindGust(wet ? weather.wind : 1);
+      this.weatherShown = wet;
+    }
     this.environment.applyDaylight(this.daySample);
     this.matchLevel = live ? this.match.level(this.daySample.night) : 0;
-    this.nightLights.update(this.daySample, this.matchLevel);
+    // A storm by day is dark enough for lamps, windows and headlights.
+    const gloom = wet ? gloomAt(weather.overcast) : 0;
+    this.lightSample.night = Math.max(this.daySample.night, gloom);
+    this.lightSample.lightsOn = Math.max(this.daySample.lightsOn, gloom > 0 ? 0.35 + gloom : 0);
+    this.lightSample.lightsOff = this.daySample.lightsOff;
+    this.nightLights.update(this.lightSample, this.matchLevel);
+    this.audio.setRainLevel(wet ? weather.rain : 0);
     this.life.setNight(this.daySample.night);
     this.birds.setDaylight(this.daySample.night, this.daySample.phase);
     this.ducks.setNight(this.daySample.night);
@@ -579,6 +614,51 @@ export class Game {
     else this.match.advance(this.clock.t, seconds, this.clock.isSweeping);
     this.matchPinned = pinned;
     this.match.tick(nightAt(this.clock.t), seconds);
+  }
+
+  /** Showers run on real seconds while building; the title, the menu, reduced motion and a screenshot pause freeze them. */
+  private stepWeather(delta: number): void {
+    this.weather.flashes = this.prefersReducedMotion?.matches !== true;
+    this.weather.advance(delta);
+    const strike = this.weather.takeStrike();
+    if (strike) this.audio.thunder(strike.delay, strike.strength);
+  }
+
+  private rainShown(): number {
+    return this.phase === 'building' || this.phase === 'menu' ? this.weather.sample.rain : 0;
+  }
+
+  /** `?debug&rain=light|rain|storm`: hold that weather; lil-gui `Weather`. */
+  private installWeatherDebug(): void {
+    if (!this.debug.enabled) return;
+    const held = new URLSearchParams(window.location.search).get('rain');
+    if (isRainKind(held)) this.weather.force(held, true);
+    const folder = this.debug.folder('Weather');
+    if (!folder) return;
+    const actions = {
+      hold: held ?? 'schedule',
+      shower: () => this.weather.begin('light'),
+      rain: () => this.weather.begin('rain'),
+      storm: () => this.weather.begin('storm'),
+    };
+    folder
+      .add(actions, 'hold', ['schedule', 'clear', 'light', 'rain', 'storm'])
+      .onChange((value: string) => this.weather.force(value === 'schedule' ? null : value === 'clear' || isRainKind(value) ? value : null));
+    folder.add(actions, 'shower').name('start a light shower');
+    folder.add(actions, 'rain').name('start rain');
+    folder.add(actions, 'storm').name('start a storm');
+    const t = this.rain.tuning;
+    folder.add(this.rain, 'density', 0.1, 1, 0.05);
+    folder.add(t, 'boxWidth', 0.5, 3, 0.05);
+    folder.add(t, 'boxHeight', 0.2, 1.5, 0.02);
+    folder.add(t, 'length', 0.005, 0.1, 0.001);
+    folder.add(t, 'width', 0.0003, 0.004, 0.0001);
+    folder.add(t, 'speed', 0.2, 2, 0.05);
+    folder.add(t, 'slant', 0, 0.5, 0.01);
+    folder.add(t, 'opacity', 0, 1, 0.01);
+    folder.add(t, 'splashSize', 0.01, 0.3, 0.005);
+    folder.add(t, 'splashMinSize', 0, 0.01, 0.0001);
+    folder.add(t, 'splashOpacity', 0, 1, 0.01);
   }
 
   /** Ducks near the middle of a close view quack now and then, by day. */
@@ -633,6 +713,9 @@ export class Game {
     this.clock.pin(t);
     this.match.reset(this.clock.t);
     this.matchPinned = true;
+    // No surprise shower in a test state: setWeather() brings one.
+    this.weather.auto = false;
+    this.weather.reset(createSeededRandom(this.seedValue ^ WEATHER_SEED_SALT));
     this.applyDaylight();
     this.townRenderer.settle();
     this.life.settle();
@@ -655,6 +738,7 @@ export class Game {
         this.nameRng = createSeededRandom(value ^ 0x51f15eed);
         this.birds.reset(value ^ BIRD_SEED_SALT);
         this.ducks.reset(value ^ DUCK_SEED_SALT);
+        this.weather.reset(createSeededRandom(value ^ WEATHER_SEED_SALT));
       },
       setState: async (name: string) => {
         if (!(TEST_STATES as readonly string[]).includes(name)) throw new Error(`Unknown test state: ${name}`);
@@ -703,6 +787,13 @@ export class Game {
         if (t !== null && !Number.isFinite(t)) throw new Error(`setTimeOfDay: not a number: ${t}`);
         this.clock.pin(t);
         this.applyDaylight();
+        this.renderNow();
+      },
+      setWeather: (kind: string | null) => {
+        if (kind !== null && kind !== 'clear' && !isRainKind(kind)) throw new Error(`setWeather: unknown weather: ${String(kind)}`);
+        this.weather.force(kind, true);
+        this.applyDaylight();
+        this.rain.update(0, this.rainShown(), this.weather.sample.wind, this.daySample.skyHorizon, this.cameraController.target, this.camera.position.distanceTo(this.cameraController.target));
         this.renderNow();
       },
       setMatchNight: (on: boolean | null) => {
@@ -780,6 +871,7 @@ export class Game {
         stadiums: this.nightLights.stadiums.count,
         distance: this.nightLights.stadiums.count > 0 ? this.nightLights.stadiums.distanceTo(this.cameraController.target.x, this.cameraController.target.z) : null,
       },
+      weather: { ...this.weather.diagnostics, ...this.rain.getDiagnostics() },
       photo: { ...this.photo },
       perf: { targetFps: this.frameBudget.targetFps, idle: this.frameBudget.idle, shadowRenders: this.shadows.renders },
       renderer: {

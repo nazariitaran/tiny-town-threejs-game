@@ -89,6 +89,11 @@ interface ThreeGameDiagnostics {
    */
   match: import('./life/matchSchedule').MatchDiagnostics & { level: number; stadiums: number; distance: number | null };
   /**
+   * Rain showers. kind: the shower in progress; rain / overcast / flash: 0..1 now; phase and remaining: where
+   * the schedule is; forced: the setWeather override; streaks / splashes / drawCalls: what the rain layer draws.
+   */
+  weather?: import('./weather/weatherSchedule').WeatherDiagnostics & import('./weather/RainLayer').RainDiagnostics;
+  /**
    * taken: photos requested while building; developing: one is being framed/encoded.
    * last: the latest photo's JPEG size in px and bytes, capture pixel ratio, capture + encode ms.
    */
@@ -154,6 +159,11 @@ interface ThreeGameTestHooks {
    * get a match only through this.
    */
   setMatchNight(on: boolean | null): void;
+  /**
+   * Weather override, applied at once: 'light' | 'rain' | 'storm' holds that rain, 'clear' holds dry skies,
+   * null returns to the schedule. Test states switch spontaneous showers off until a reload.
+   */
+  setWeather?(kind: string | null): void;
 }
 
 interface Window {
