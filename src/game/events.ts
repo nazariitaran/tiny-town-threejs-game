@@ -9,6 +9,7 @@ import type { SfxEvent } from '../audio/sfx';
 import type { ToolId } from '../catalog/tools';
 import type { Cell, Edge, ObjectKind, Rotation, SavedTown, TownChange } from '../town/types';
 import type { DayPhase, TimeMode } from '../world/dayCycle';
+import type { RainMode } from '../weather/weatherSchedule';
 
 export type GamePhase = 'loading' | 'title' | 'building' | 'menu' | 'error';
 
@@ -46,6 +47,10 @@ export type GameEvents = {
   'intent:set-time-mode': { mode: TimeMode };
   /** Next mode in TIME_MODES order (auto → day → night → auto). */
   'intent:cycle-time-mode': void;
+  /** Persisted as settings.rainMode. */
+  'intent:set-rain-mode': { mode: RainMode };
+  /** Next mode in RAIN_MODES order (auto → on → off → auto). */
+  'intent:cycle-rain-mode': void;
   /** Building phase only; opens the photo preview. */
   'intent:take-photo': void;
   /** Saved; the live parts apply at once. */
@@ -92,6 +97,8 @@ export type GameEvents = {
   'graphics:changed': { preset: GraphicsPreset; reloadRequired: boolean };
   /** Rendered frames per second, about twice a second while the counter is shown. */
   'fps:measured': { fps: number };
+  /** On a rain mode change and once at boot. */
+  'rain:changed': { mode: RainMode };
   /** On a mode or phase change and once at boot; never per frame. */
   'daytime:changed': { mode: TimeMode; phase: DayPhase };
 

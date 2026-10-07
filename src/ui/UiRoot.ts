@@ -14,6 +14,7 @@ import { downloadBlob } from '../utils/download';
 import { DEFAULT_TOWN_NAME, sanitizeTownName, TOWN_NAME_MAX_LENGTH, townNameLength } from '../town/townName';
 import type { Rotation } from '../town/types';
 import { TIME_MODES, type DayPhase, type TimeMode } from '../world/dayCycle';
+import { RAIN_MODES, type RainMode } from '../weather/weatherSchedule';
 import { GLYPHS } from './glyphs';
 import { MENU_TABS, UI_TEST_IDS, type MenuTab } from './testIds';
 import { digitAction, isPhotoKey } from './uiKeys';
@@ -86,6 +87,12 @@ const PHOTO_DEVELOPING = 'Developing…';
 const MUSIC_GLYPH =
   '<svg class="ui-glyph" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg>';
 
+const RAIN_MODE_UI: Record<RainMode, { label: string; glyph: string }> = {
+  auto: { label: 'Auto', glyph: GLYPHS.rainAuto },
+  on: { label: 'On', glyph: GLYPHS.rainOn },
+  off: { label: 'Off', glyph: GLYPHS.rainOff },
+};
+
 const TIME_MODE_UI: Record<TimeMode, { label: string; glyph: string }> = {
   auto: { label: 'Auto', glyph: GLYPHS.timeAuto },
   day: { label: 'Day', glyph: GLYPHS.timeDay },
@@ -122,6 +129,7 @@ export class UiRoot {
   private muted = false;
   private volume = 0.8;
   private timeMode: TimeMode = 'auto';
+  private rainMode: RainMode = 'auto';
   private dayPhase: DayPhase = 'day';
   private modal: ModalView | null = null;
   /** View to show when the pending `intent:open-menu` lands. */
@@ -223,6 +231,10 @@ export class UiRoot {
         this.dayPhase = phase;
         this.renderTimeMode();
       }),
+      bus.on('rain:changed', ({ mode }) => {
+        this.rainMode = mode;
+        this.renderRainMode();
+      }),
       bus.on('photo:ready', (photo) => this.showPhoto(photo)),
       bus.on('photo:error', () => this.renderPhotoState('error', "The photo didn't come out. Close this and try again.")),
       // Answered in the same click as intent:export-town.
@@ -246,6 +258,7 @@ export class UiRoot {
     this.renderTray();
     this.renderAudio();
     this.renderTimeMode();
+    this.renderRainMode();
     this.renderGraphics();
     this.renderMenuTab();
     this.renderRotation(0);
@@ -310,6 +323,7 @@ export class UiRoot {
           <button id="${id.townFile}" type="button" class="ui-icon-btn ui-town-file-btn" aria-label="Town file: download or open a town" title="Town file: download or open a town">${GLYPHS.folder}</button>
           <button id="${id.photo}" type="button" class="ui-icon-btn" aria-label="Take a photo" aria-keyshortcuts="P" title="Take a photo (P)">${GLYPHS.photo}</button>
           <button id="${id.timeMode}" type="button" class="ui-icon-btn ui-time-btn" aria-keyshortcuts="T"></button>
+          <button id="${id.rainMode}" type="button" class="ui-icon-btn ui-rain-btn"></button>
           <button id="${id.mute}" type="button" class="ui-icon-btn" aria-label="Mute sound" aria-pressed="false"></button>
           <button id="${id.menu}" type="button" class="ui-icon-btn" aria-label="Menu" title="Menu (Esc)">${GLYPHS.menu}</button>
         </div>
@@ -362,6 +376,15 @@ export class UiRoot {
                   ${TIME_MODES.map(
                     (mode) =>
                       `<label class="ui-seg-opt"><input type="radio" name="time-mode" id="${id.timeModeOption(mode)}" value="${mode}"${mode === 'auto' ? ' checked' : ''} /><span>${TIME_MODE_UI[mode].label}</span></label>`,
+                  ).join('')}
+                </div>
+              </div>
+              <div class="ui-field ui-seg-field">
+                <span class="ui-seg-label" id="ui-rain-mode-label">${GLYPHS.rainOn}<span>Rain</span></span>
+                <div class="ui-seg" id="${id.rainModeGroup}" role="radiogroup" aria-labelledby="ui-rain-mode-label">
+                  ${RAIN_MODES.map(
+                    (mode) =>
+                      `<label class="ui-seg-opt"><input type="radio" name="rain-mode" id="${id.rainModeOption(mode)}" value="${mode}"${mode === 'auto' ? ' checked' : ''} /><span>${RAIN_MODE_UI[mode].label}</span></label>`,
                   ).join('')}
                 </div>
               </div>
@@ -594,6 +617,7 @@ export class UiRoot {
     else if (target.id === id.undo) this.bus.emit('intent:undo');
     else if (target.id === id.redo) this.bus.emit('intent:redo');
     else if (target.id === id.timeMode) this.bus.emit('intent:cycle-time-mode');
+    else if (target.id === id.rainMode) this.bus.emit('intent:cycle-rain-mode');
     else if (target.id === id.photo) this.takePhoto();
     else if (target.id === id.photoDownload) this.downloadPhoto();
     else if (target.id === id.mute) this.bus.emit('intent:set-muted', { muted: !this.muted });
@@ -642,6 +666,9 @@ export class UiRoot {
     } else if (target.name === 'time-mode' && event.type === 'change' && target.checked) {
       this.sfx('ui-click');
       this.bus.emit('intent:set-time-mode', { mode: target.value as TimeMode });
+    } else if (target.name === 'rain-mode' && event.type === 'change' && target.checked) {
+      this.sfx('ui-click');
+      this.bus.emit('intent:set-rain-mode', { mode: target.value as RainMode });
     } else if (target.name === 'graphics' && event.type === 'change' && target.checked && isGraphicsPreset(target.value)) {
       this.sfx('ui-click');
       this.bus.emit('intent:set-graphics', { preset: target.value });
@@ -1245,6 +1272,18 @@ export class UiRoot {
     button.setAttribute('aria-description', `Switch to ${next}`);
     button.title = `Time: ${label} (T)`;
     for (const mode of TIME_MODES) this.el<HTMLInputElement>(UI_TEST_IDS.timeModeOption(mode)).checked = mode === this.timeMode;
+  }
+
+  private renderRainMode(): void {
+    const { label, glyph } = RAIN_MODE_UI[this.rainMode];
+    const next = RAIN_MODE_UI[RAIN_MODES[(RAIN_MODES.indexOf(this.rainMode) + 1) % RAIN_MODES.length]].label;
+    const button = this.button(UI_TEST_IDS.rainMode);
+    button.innerHTML = glyph;
+    button.dataset.mode = this.rainMode;
+    button.setAttribute('aria-label', `Rain: ${label}`);
+    button.setAttribute('aria-description', `Switch to ${next}`);
+    button.title = `Rain: ${label}`;
+    for (const mode of RAIN_MODES) this.el<HTMLInputElement>(UI_TEST_IDS.rainModeOption(mode)).checked = mode === this.rainMode;
   }
 
   private renderMenuTab(): void {

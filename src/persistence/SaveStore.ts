@@ -14,6 +14,7 @@ import type { GameBus } from '../game/events';
 import { parseSave, type ParseOptions } from '../town/serialize';
 import type { SavedTown } from '../town/types';
 import { TIME_MODES, type TimeMode } from '../world/dayCycle';
+import { isRainMode, type RainMode } from '../weather/weatherSchedule';
 
 export interface StorageLike {
   getItem(key: string): string | null;
@@ -33,6 +34,7 @@ export interface GameSettings {
   musicVolume: number;
   /** The time of day itself is never saved. */
   timeMode: TimeMode;
+  rainMode: RainMode;
   graphics: GraphicsPreset;
 }
 
@@ -44,6 +46,7 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = {
   music: true,
   musicVolume: 0.5,
   timeMode: 'auto',
+  rainMode: 'auto',
   graphics: DEFAULT_GRAPHICS,
 };
 
@@ -234,6 +237,7 @@ export class SaveStore {
     if (typeof r.music === 'boolean') settings.music = r.music;
     if (typeof r.musicVolume === 'number' && Number.isFinite(r.musicVolume)) settings.musicVolume = Math.min(1, Math.max(0, r.musicVolume));
     if (isTimeMode(r.timeMode)) settings.timeMode = r.timeMode;
+    if (isRainMode(r.rainMode)) settings.rainMode = r.rainMode;
     if (isGraphicsPreset(r.graphics)) settings.graphics = r.graphics;
     return settings;
   }
@@ -247,6 +251,7 @@ export class SaveStore {
     if (typeof patch.music === 'boolean') next.music = patch.music;
     if (typeof patch.musicVolume === 'number' && Number.isFinite(patch.musicVolume)) next.musicVolume = Math.min(1, Math.max(0, patch.musicVolume));
     if (isTimeMode(patch.timeMode)) next.timeMode = patch.timeMode;
+    if (isRainMode(patch.rainMode)) next.rainMode = patch.rainMode;
     if (isGraphicsPreset(patch.graphics)) next.graphics = patch.graphics;
     this.setItem(this.settingsKey, JSON.stringify(next));
     return next;

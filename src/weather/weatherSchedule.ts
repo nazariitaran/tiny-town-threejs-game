@@ -11,6 +11,14 @@ import type { DaySample, Rgb } from '../world/dayCycle';
 export type RainKind = 'light' | 'rain' | 'storm';
 export const RAIN_KINDS: readonly RainKind[] = ['light', 'rain', 'storm'];
 
+/** The player's rain setting: showers on the schedule, steady rain, or never. */
+export type RainMode = 'auto' | 'on' | 'off';
+export const RAIN_MODES: readonly RainMode[] = ['auto', 'on', 'off'];
+
+export function isRainMode(value: unknown): value is RainMode {
+  return (RAIN_MODES as readonly unknown[]).includes(value);
+}
+
 export function isRainKind(value: unknown): value is RainKind {
   return (RAIN_KINDS as readonly unknown[]).includes(value);
 }

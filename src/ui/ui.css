@@ -454,6 +454,14 @@
   color: #45559c;
 }
 
+.ui-rain-btn[data-mode='on'] {
+  color: #3f6fa8;
+}
+
+.ui-rain-btn[data-mode='off'] {
+  color: #8a8f99;
+}
+
 /* Dock */
 
 .ui-dock-wrap {
@@ -1728,8 +1736,9 @@
     font-size: 0.66rem;
   }
 
-  /* A seventh 44 px action doesn't fit one row here; the menu carries Town file instead. */
-  .ui-town-file-btn {
+  /* More than six 44 px actions don't fit one row here; the menu carries Town file and Rain instead. */
+  .ui-town-file-btn,
+  .ui-rain-btn {
     display: none;
   }
 

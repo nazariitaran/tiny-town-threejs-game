@@ -351,16 +351,16 @@ describe('SaveStore autosave', () => {
 describe('SaveStore settings', () => {
   it('defaults when nothing is stored', () => {
     const { store } = setup();
-    expect(store.getSettings()).toEqual({ muted: false, volume: 0.8, grid: true, fps: false, music: true, musicVolume: 0.5, timeMode: 'auto', graphics: 'medium' });
+    expect(store.getSettings()).toEqual({ muted: false, volume: 0.8, grid: true, fps: false, music: true, musicVolume: 0.5, timeMode: 'auto', rainMode: 'auto', graphics: 'medium' });
   });
 
   it('setSettings merges, clamps volume and persists under SETTINGS_STORAGE_KEY', () => {
     const { store, storage } = setup();
-    expect(store.setSettings({ muted: true })).toEqual({ muted: true, volume: 0.8, grid: true, fps: false, music: true, musicVolume: 0.5, timeMode: 'auto', graphics: 'medium' });
-    expect(store.setSettings({ volume: 7 })).toEqual({ muted: true, volume: 1, grid: true, fps: false, music: true, musicVolume: 0.5, timeMode: 'auto', graphics: 'medium' });
-    expect(store.setSettings({ volume: -2, grid: false })).toEqual({ muted: true, volume: 0, grid: false, fps: false, music: true, musicVolume: 0.5, timeMode: 'auto', graphics: 'medium' });
-    expect(JSON.parse((storage as MemoryStorage).data.get(SETTINGS_STORAGE_KEY)!)).toEqual({ muted: true, volume: 0, grid: false, fps: false, music: true, musicVolume: 0.5, timeMode: 'auto', graphics: 'medium' });
-    expect(store.getSettings()).toEqual({ muted: true, volume: 0, grid: false, fps: false, music: true, musicVolume: 0.5, timeMode: 'auto', graphics: 'medium' });
+    expect(store.setSettings({ muted: true })).toEqual({ muted: true, volume: 0.8, grid: true, fps: false, music: true, musicVolume: 0.5, timeMode: 'auto', rainMode: 'auto', graphics: 'medium' });
+    expect(store.setSettings({ volume: 7 })).toEqual({ muted: true, volume: 1, grid: true, fps: false, music: true, musicVolume: 0.5, timeMode: 'auto', rainMode: 'auto', graphics: 'medium' });
+    expect(store.setSettings({ volume: -2, grid: false })).toEqual({ muted: true, volume: 0, grid: false, fps: false, music: true, musicVolume: 0.5, timeMode: 'auto', rainMode: 'auto', graphics: 'medium' });
+    expect(JSON.parse((storage as MemoryStorage).data.get(SETTINGS_STORAGE_KEY)!)).toEqual({ muted: true, volume: 0, grid: false, fps: false, music: true, musicVolume: 0.5, timeMode: 'auto', rainMode: 'auto', graphics: 'medium' });
+    expect(store.getSettings()).toEqual({ muted: true, volume: 0, grid: false, fps: false, music: true, musicVolume: 0.5, timeMode: 'auto', rainMode: 'auto', graphics: 'medium' });
   });
 
   it('round-trips timeMode and falls back to auto for bad values', () => {
@@ -370,7 +370,7 @@ describe('SaveStore settings', () => {
     expect(store.getSettings().timeMode).toBe('night');
     expect(store.setSettings({ timeMode: 'dusk' as unknown as 'day' }).timeMode).toBe('night');
     storage.data.set(SETTINGS_STORAGE_KEY, JSON.stringify({ timeMode: 'noon', grid: false }));
-    expect(store.getSettings()).toEqual({ ...DEFAULT_SETTINGS, grid: false, timeMode: 'auto', graphics: 'medium' });
+    expect(store.getSettings()).toEqual({ ...DEFAULT_SETTINGS, grid: false, timeMode: 'auto', rainMode: 'auto', graphics: 'medium' });
   });
 
   it('round-trips the graphics preset and falls back to medium for bad values', () => {
@@ -388,7 +388,7 @@ describe('SaveStore settings', () => {
     }
     // Settings without a graphics field load as Medium and keep their other fields.
     storage.data.set(SETTINGS_STORAGE_KEY, JSON.stringify({ muted: true, volume: 0.3, grid: false, fps: false, music: true, musicVolume: 0.5, timeMode: 'night' }));
-    expect(store.getSettings()).toEqual({ muted: true, volume: 0.3, grid: false, fps: false, music: true, musicVolume: 0.5, timeMode: 'night', graphics: 'medium' });
+    expect(store.getSettings()).toEqual({ muted: true, volume: 0.3, grid: false, fps: false, music: true, musicVolume: 0.5, timeMode: 'night', rainMode: 'auto', graphics: 'medium' });
   });
 
   it('ignores invalid patch fields', () => {
@@ -411,7 +411,7 @@ describe('SaveStore settings', () => {
     const storage = new MemoryStorage();
     const { store } = setup(storage);
     storage.data.set(SETTINGS_STORAGE_KEY, JSON.stringify({ muted: true, volume: 0.3, grid: false }));
-    expect(store.getSettings()).toEqual({ muted: true, volume: 0.3, grid: false, fps: false, music: true, musicVolume: 0.5, timeMode: 'auto', graphics: 'medium' });
+    expect(store.getSettings()).toEqual({ muted: true, volume: 0.3, grid: false, fps: false, music: true, musicVolume: 0.5, timeMode: 'auto', rainMode: 'auto', graphics: 'medium' });
     expect(store.setSettings({ music: false, musicVolume: 3 })).toMatchObject({ music: false, musicVolume: 1, volume: 0.3 });
     expect(store.setSettings({ musicVolume: 0.25, music: 'no' as unknown as boolean })).toMatchObject({ music: false, musicVolume: 0.25 });
     storage.data.set(SETTINGS_STORAGE_KEY, JSON.stringify({ music: 1, musicVolume: 'x' }));

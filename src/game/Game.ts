@@ -36,7 +36,7 @@ import { parseTownNames, pickTownName, TOWN_NAMES_PATH } from '../town/townName'
 import { UiRoot } from '../ui/UiRoot';
 import { setWindGust } from '../fx/windSway';
 import { RainLayer } from '../weather/RainLayer';
-import { gloomAt, isRainKind, shadeDaySample, WeatherSchedule } from '../weather/weatherSchedule';
+import { gloomAt, isRainKind, isRainMode, RAIN_MODES, shadeDaySample, WeatherSchedule, type RainMode } from '../weather/weatherSchedule';
 import { createSeededRandom, entropySeed } from '../utils/random';
 import { createDaySample, DAY_LENGTH_S, DayClock, nightAt, sampleDay, T_AFTERNOON, T_NIGHT, TIME_MODES, type DayPhase, type TimeMode } from '../world/dayCycle';
 import { Environment } from '../world/Environment';
@@ -147,6 +147,7 @@ export class Game {
   private readonly rain: RainLayer;
   /** Weather was showing last frame: one more frame clears what it set. */
   private weatherShown = false;
+  private rainMode: RainMode = this.saves.getSettings().rainMode;
   /** What the town's lights see: the day sample, darkened by a storm. */
   private readonly lightSample = { night: 0, lightsOn: 0, lightsOff: 0 };
   /** Day/night: the clock, the sample it writes every frame, the last announced mode/phase. */
@@ -198,6 +199,7 @@ export class Game {
     // Seeded per page load: showers come at different times every visit; seed() pins it.
     this.weather = new WeatherSchedule(createSeededRandom(entropySeed() ^ WEATHER_SEED_SALT));
     this.rain = new RainLayer(this.scene, createSeededRandom(RAIN_SEED));
+    this.applyRainMode();
     this.installWeatherDebug();
     this.clock = new DayClock(this.saves.getSettings().timeMode);
     this.installClockDebug();
@@ -226,6 +228,8 @@ export class Game {
     this.bus.on('intent:cycle-time-mode', () => {
       this.setTimeMode(TIME_MODES[(TIME_MODES.indexOf(this.clock.mode) + 1) % TIME_MODES.length]);
     });
+    this.bus.on('intent:set-rain-mode', ({ mode }) => this.setRainMode(mode));
+    this.bus.on('intent:cycle-rain-mode', () => this.setRainMode(RAIN_MODES[(RAIN_MODES.indexOf(this.rainMode) + 1) % RAIN_MODES.length]));
     this.bus.on('intent:new-town', ({ name }) => this.editor.reset(name));
     this.bus.on('intent:rename-town', ({ name }) => this.editor.rename(name));
     this.bus.on('intent:export-town', () => this.exportTown());
@@ -260,6 +264,7 @@ export class Game {
     if (!this.gridPreferred) this.bus.emit('intent:toggle-grid', { visible: false }); // sync the UI switch
     if (this.saves.getSettings().fps) this.bus.emit('intent:toggle-fps', { visible: true }); // sync the UI switch and counter
     this.announceDaytime(); // sync the UI time button with the stored mode
+    this.bus.emit('rain:changed', { mode: this.rainMode }); // sync the UI rain button with the stored mode
     resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr, this.tuning.renderScale);
     this.installTestHooks();
     this.installDiagnostics();
@@ -614,6 +619,20 @@ export class Game {
     else this.match.advance(this.clock.t, seconds, this.clock.isSweeping);
     this.matchPinned = pinned;
     this.match.tick(nightAt(this.clock.t), seconds);
+  }
+
+  /** Persisted; the rain fades in or out at the schedule's rates. */
+  private setRainMode(mode: RainMode): void {
+    if (!isRainMode(mode)) return;
+    this.rainMode = mode;
+    this.saves.setSettings({ rainMode: mode });
+    this.applyRainMode();
+    this.bus.emit('rain:changed', { mode });
+  }
+
+  /** Auto follows the schedule, On holds steady rain, Off holds dry skies. */
+  private applyRainMode(): void {
+    this.weather.force(this.rainMode === 'auto' ? null : this.rainMode === 'on' ? 'rain' : 'clear');
   }
 
   /** Showers run on real seconds while building; the title, the menu, reduced motion and a screenshot pause freeze them. */
