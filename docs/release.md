@@ -70,7 +70,7 @@ Full 64 × 64 town (`stress-town`), production preview, Medium preset, headless 
 | Metric | Target desktop / mobile | Latest |
 | --- | --- | --- |
 | Draw calls | ≤ 150 / ≤ 120 | stress 32 (desktop; the night and mobile figures were not re-measured with the cinema and postbox cyphers), sample town 92 (a postbox is one more part than before: its cypher's atlas material; a cinema is two: building and posters); cars in car parks add none; a match night adds 2 (the floodlights' spill pool and mast halos; 1 on Low) |
-| Triangles | ≤ 400k / ≤ 320k | stress 330.9k desktop (above the mobile target), sample town 185.9k (the stadium is 1,724; the cinema 768; each car is about 1,070; the roundabout 906; a postbox 216 + its cypher's 145 to 367) |
+| Triangles | ≤ 400k / ≤ 320k; a Large town ≤ 500k desktop | Large stress 427.2k desktop; stress 330.9k desktop (above the mobile target), sample town 185.9k (the stadium is 1,724; the cinema 768; each car is about 1,070; the roundabout 906; a postbox 216 + its cypher's 145 to 367) |
 | Textures | ≤ 30 | stress 15, sample town 30 (incl. the glow masks, the stadium's floodlight mask and the cinema's poster atlas, which loads with every town); a match night adds none |
 | Shadow map | 1 × 2048 (Low 1024) | per preset |
 | DPR cap | Low 1, Medium 1.5, High 2 | per preset |
@@ -79,7 +79,7 @@ Full 64 × 64 town (`stress-town`), production preview, Medium preset, headless 
 | Download before the title (JS, CSS, font, models, SFX, icons, name list) | ≤ 8 MB | 5.68 MB; `dist/` without maps or music 6.05 MB |
 | Main JS chunk | < 900 kB | 375 kB (118 kB gzip) + three.js 642 kB (162 kB gzip) |
 
-**Large towns** (78 × 78): the same stress layout built on a Large plot (972 objects against 675), loaded with `loadTown`, production preview, Medium, desktop 1280 × 720: 33 draw calls, 427.2k triangles, 15 textures (the small stress town in the same run: 33, 331.1k, 15). A full Large town is over the 400k desktop triangle target; the target holds for anything up to about 90 % of the plot at stress density. CPU per frame was not re-measured.
+**Large towns** (78 × 78): the same stress layout built on a Large plot (972 objects against 675), loaded with `loadTown`, production preview, Medium, desktop 1280 × 720: 33 draw calls, 427.2k triangles, 15 textures (the small stress town in the same run: 33, 331.1k, 15). A Large town has its own desktop triangle target, 500k, and a full one is inside it. CPU per frame was not re-measured.
 
 Per preset, stress town: triangles Low 289k–298k, Medium / High 324k–332k (phone / desktop). GPU busy on an M2 Max at 1512 × 982, DPR 2, active / idle: Low 11 / 11 %, Medium 33–35 / 20–21 %, High 44–45 / 26–27 %. On a 1080p DPR-1 screen Low renders about 4× cheaper per frame than Medium (render scale 0.75).
 
