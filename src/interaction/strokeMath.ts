@@ -1,6 +1,6 @@
 /**
  * Pure stroke/gesture helpers. "Grid units" are continuous plot coordinates:
- * gx = worldX / CELL_SIZE + PLOT_WIDTH / 2, so cell (x, z) spans [x, x + 1) × [z, z + 1) and edge
+ * gx = worldX / CELL_SIZE + plot.width / 2, so cell (x, z) spans [x, x + 1) × [z, z + 1) and edge
  * lines sit on integer values.
  */
 import type { Cell, Edge } from '../town/types';

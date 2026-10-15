@@ -4,7 +4,7 @@
  * town:changed and build:* per cell but history:changed only at endStroke().
  * Every change list keeps its primary change last; build events derive from it.
  */
-import { cellToWorld, edgeToWorld, footprintCentreWorld, roadBlockCentreWorld } from '../game/config';
+import { cellToWorld, edgeToWorld, footprintCentreWorld, roadBlockCentreWorld, setPlotSize, TOWN_PLOTS, townSizeFor } from '../game/config';
 import { placedFootprint } from '../catalog/objects';
 import type { GameBus } from '../game/events';
 import type { ToolId } from '../catalog/tools';
@@ -13,7 +13,7 @@ import { planAction } from './rules';
 import { decodeGround, serializeTown, type CameraPose } from './serialize';
 import { DEFAULT_TOWN_NAME, sanitizeTownName } from './townName';
 import type { TownState } from './TownState';
-import type { BuildAction, InvalidReason, PlanResult, SavedTown, TownChange } from './types';
+import type { BuildAction, InvalidReason, PlanResult, SavedTown, TownChange, TownSize } from './types';
 
 export interface BatchItem {
   action: BuildAction;
@@ -49,6 +49,11 @@ export class TownEditor {
   /** Always a valid name; DEFAULT_TOWN_NAME until named. */
   get name(): string {
     return this.townName;
+  }
+
+  /** Fixed for the town's life: only reset() and load() change it. */
+  get size(): TownSize {
+    return townSizeFor(this.state.width, this.state.depth);
   }
 
   get inStroke(): boolean {
@@ -130,13 +135,17 @@ export class TownEditor {
     this.publish(changes, 'redo');
   }
 
-  /** Clears the plot and names the new town `name` (blank → the default). Not undoable. */
-  reset(name: string = DEFAULT_TOWN_NAME): void {
+  /**
+   * Clears the plot and names the new town `name` (blank → the default). With a `size`, the plot takes
+   * that size (town:resized after the removals when it changes); without one it keeps its own. Not undoable.
+   */
+  reset(name: string = DEFAULT_TOWN_NAME, size?: TownSize): void {
     this.stroke = null;
     this.strokeCount = 0;
     const changes = this.state.clear();
     this.history.clear();
     this.publish(changes, 'reset');
+    if (size) this.resizeEmpty(TOWN_PLOTS[size].width, TOWN_PLOTS[size].depth);
     this.setName(name, 'reset');
   }
 
@@ -149,16 +158,25 @@ export class TownEditor {
   }
 
   /**
-   * `save` must come from parseSave (validated and clamped to this plot); another plot size throws.
-   * Emits one town:changed (cause 'load') that removes the old town, then adds the new one. Not undoable.
+   * `save` must come from parseSave (validated and fitted to its plot); the plot takes the save's size.
+   * Emits one town:changed (cause 'load') that removes the old town, then adds the new one; on a size
+   * change, the removals, town:resized and the additions instead. Not undoable.
    */
   load(save: SavedTown): void {
-    if (save.width !== this.state.width || save.depth !== this.state.depth) {
-      throw new Error(`TownEditor.load: save is ${save.width}×${save.depth}, plot is ${this.state.width}×${this.state.depth} (run parseSave first)`);
+    const sized = TOWN_PLOTS[save.size];
+    const fits = (w: number, d: number) => save.width === w && save.depth === d;
+    if (!fits(this.state.width, this.state.depth) && !(sized && fits(sized.width, sized.depth))) {
+      throw new Error(`TownEditor.load: save is ${save.width}×${save.depth}, not a ${save.size} plot (run parseSave first)`);
     }
     this.stroke = null;
     this.strokeCount = 0;
-    const changes = this.state.clear();
+    let changes = this.state.clear();
+    this.history.clear();
+    if (save.width !== this.state.width || save.depth !== this.state.depth) {
+      this.publish(changes, 'load');
+      changes = [];
+      this.resizeEmpty(save.width, save.depth);
+    }
     const added: TownChange[] = [];
     const ground = decodeGround(save);
     for (let z = 0; z < save.depth; z += 1) {
@@ -172,7 +190,6 @@ export class TownEditor {
     this.state.applyChanges(added);
     this.state.restoreNextObjectId(save.nextObjectId);
     changes.push(...added);
-    this.history.clear();
     this.publish(changes, 'load');
     this.setName(save.name ?? DEFAULT_TOWN_NAME, 'load');
   }
@@ -180,6 +197,14 @@ export class TownEditor {
   /** The current town as a save (deterministic). */
   serialize(camera?: CameraPose): SavedTown {
     return serializeTown(this.state, camera, this.townName);
+  }
+
+  /** The town must be empty; a no-op when the plot already has these dimensions. Moves the cell↔world mapping with it. */
+  private resizeEmpty(width: number, depth: number): void {
+    if (width === this.state.width && depth === this.state.depth) return;
+    this.state.resize(width, depth);
+    setPlotSize(width, depth);
+    this.bus.emit('town:resized', { size: this.size, width, depth });
   }
 
   private setName(name: string, cause: 'load' | 'reset' | 'rename'): void {

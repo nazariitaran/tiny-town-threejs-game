@@ -1472,6 +1472,11 @@
   height: 44px;
 }
 
+/* A town's size is chosen once, when it is started. */
+.ui-name-panel[data-mode='rename'] .ui-size-field {
+  display: none;
+}
+
 .ui-panel p.ui-name-count {
   margin-top: -6px;
   justify-self: end;

@@ -1,13 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import type * as THREE from 'three';
-import { CELL_SIZE, GROUND_Y, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
+import { CELL_SIZE, GROUND_Y, plot, PLOT_DEPTH, PLOT_WIDTH, setPlotSize } from '../game/config';
 import { createPlotBase, setFieldRaised } from './Terrain';
-import { FIELD_Y, PLOT_HALF_X, PLOT_HALF_Z } from './terrainShape';
+import { FIELD_Y, plotHalfX, plotHalfZ } from './terrainShape';
 
 /** Heights of the six vertices of a cell's field quad, with the quad's XZ bounds. */
 function cellQuad(mesh: THREE.Mesh, x: number, z: number): { ys: number[]; min: [number, number]; max: [number, number] } {
   const position = mesh.geometry.getAttribute('position');
-  const first = (x * PLOT_DEPTH + z) * 6;
+  const first = (x * plot.depth + z) * 6;
   const ys: number[] = [];
   const min: [number, number] = [Infinity, Infinity];
   const max: [number, number] = [-Infinity, -Infinity];
@@ -27,10 +27,10 @@ describe('plot field', () => {
     for (const [x, z] of [[0, 0], [5, 9], [PLOT_WIDTH - 1, PLOT_DEPTH - 1]]) {
       const quad = cellQuad(mesh, x, z);
       expect(quad.ys.every((y) => Math.abs(y - GROUND_Y) < 1e-6), `${x},${z}`).toBe(true);
-      expect(quad.min[0]).toBeCloseTo(-PLOT_HALF_X + x * CELL_SIZE, 5);
-      expect(quad.min[1]).toBeCloseTo(-PLOT_HALF_Z + z * CELL_SIZE, 5);
-      expect(quad.max[0]).toBeCloseTo(-PLOT_HALF_X + (x + 1) * CELL_SIZE, 5);
-      expect(quad.max[1]).toBeCloseTo(-PLOT_HALF_Z + (z + 1) * CELL_SIZE, 5);
+      expect(quad.min[0]).toBeCloseTo(-plotHalfX() + x * CELL_SIZE, 5);
+      expect(quad.min[1]).toBeCloseTo(-plotHalfZ() + z * CELL_SIZE, 5);
+      expect(quad.max[0]).toBeCloseTo(-plotHalfX() + (x + 1) * CELL_SIZE, 5);
+      expect(quad.max[1]).toBeCloseTo(-plotHalfZ() + (z + 1) * CELL_SIZE, 5);
     }
   });
 
@@ -41,5 +41,21 @@ describe('plot field', () => {
     for (const [x, z] of [[4, 9], [6, 9], [5, 8], [5, 10]]) expect(cellQuad(mesh, x, z).ys.every((y) => Math.abs(y - GROUND_Y) < 1e-6), `${x},${z}`).toBe(true);
     setFieldRaised(mesh, 5, 9, true);
     expect(cellQuad(mesh, 5, 9).ys.every((y) => Math.abs(y - GROUND_Y) < 1e-6)).toBe(true);
+  });
+});
+
+describe('plot field on the large plot', () => {
+  afterEach(() => setPlotSize(PLOT_WIDTH, PLOT_DEPTH));
+
+  it('has one quad per large-plot cell, and a cell drops on the slab it was built for', () => {
+    setPlotSize(78, 78);
+    const mesh = createPlotBase();
+    const last = cellQuad(mesh, 77, 77);
+    expect(plotHalfX()).toBe(19.5);
+    expect(last.max[0]).toBeCloseTo(19.5, 5);
+    expect(last.max[1]).toBeCloseTo(19.5, 5);
+    setFieldRaised(mesh, 77, 3, false);
+    expect(cellQuad(mesh, 77, 3).ys.every((y) => Math.abs(y - FIELD_Y) < 1e-6)).toBe(true);
+    expect(cellQuad(mesh, 77, 4).ys.every((y) => Math.abs(y - GROUND_Y) < 1e-6)).toBe(true);
   });
 });

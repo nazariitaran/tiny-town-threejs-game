@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { describe, expect, it } from 'vitest';
-import { CELL_SIZE, cellToWorld, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
+import { afterEach, describe, expect, it } from 'vitest';
+import { CELL_SIZE, cellToWorld, plot, PLOT_DEPTH, PLOT_WIDTH, setPlotSize } from '../game/config';
 import { DEFAULT_POSE, defaultPoseFor, TITLE_POSE, titlePoseFor, type CameraPose } from './CameraController';
 import { CENTRE_ABOVE_DOCK_PX, dockTopPx, SAFE_INSETS } from './framing';
 
@@ -14,8 +14,8 @@ function plotRect(pose: CameraPose, width: number, height: number) {
     const p = new THREE.Vector3(x, 0, z).project(camera);
     return { x: ((p.x + 1) / 2) * width, y: ((1 - p.y) / 2) * height };
   };
-  const hx = (PLOT_WIDTH / 2) * CELL_SIZE;
-  const hz = (PLOT_DEPTH / 2) * CELL_SIZE;
+  const hx = (plot.width / 2) * CELL_SIZE;
+  const hz = (plot.depth / 2) * CELL_SIZE;
   const corners = [toScreen(-hx, -hz), toScreen(hx, -hz), toScreen(-hx, hz), toScreen(hx, hz)];
   const round = (v: number) => Math.round(v);
   return {
@@ -97,5 +97,27 @@ describe('build camera framing (readability first)', () => {
     console.log(`cell pitch (px): desktop ${desktop.toFixed(1)}, phone ${phone.toFixed(1)}`);
     expect(desktop).toBeGreaterThanOrEqual(12);
     expect(phone).toBeGreaterThanOrEqual(9);
+  });
+});
+
+describe('build camera framing on the large plot', () => {
+  afterEach(() => setPlotSize(PLOT_WIDTH, PLOT_DEPTH));
+
+  it('desktop 1280×720: the whole large plot is framed like the small one, from further out', () => {
+    const small = defaultPoseFor(1280, 720);
+    setPlotSize(78, 78);
+    const pose = defaultPoseFor(1280, 720);
+    const rect = plotRect(pose, 1280, 720);
+    expect(pose.distance).toBeGreaterThan(small.distance * 1.1);
+    expect(rect.left).toBeGreaterThanOrEqual(SAFE_INSETS.wide.side - 1);
+    expect(rect.right).toBeLessThanOrEqual(1280 - SAFE_INSETS.wide.side + 1);
+    expect(rect.centreY).toBeLessThanOrEqual(dockTopPx(SAFE_INSETS.wide, 720) - CENTRE_ABOVE_DOCK_PX);
+  });
+
+  it('a near-square 960×760 window still fits the whole large plot', () => {
+    setPlotSize(78, 78);
+    const rect = plotRect(defaultPoseFor(960, 760), 960, 760);
+    expect(rect.left).toBeGreaterThanOrEqual(SAFE_INSETS.wide.side - 1);
+    expect(rect.right).toBeLessThanOrEqual(960 - SAFE_INSETS.wide.side + 1);
   });
 });

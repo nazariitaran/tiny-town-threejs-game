@@ -79,6 +79,8 @@ Full 64 × 64 town (`stress-town`), production preview, Medium preset, headless 
 | Download before the title (JS, CSS, font, models, SFX, icons, name list) | ≤ 8 MB | 5.68 MB; `dist/` without maps or music 6.05 MB |
 | Main JS chunk | < 900 kB | 375 kB (118 kB gzip) + three.js 642 kB (162 kB gzip) |
 
+**Large towns** (78 × 78): the same stress layout built on a Large plot (972 objects against 675), loaded with `loadTown`, production preview, Medium, desktop 1280 × 720: 33 draw calls, 427.2k triangles, 15 textures (the small stress town in the same run: 33, 331.1k, 15). A full Large town is over the 400k desktop triangle target; the target holds for anything up to about 90 % of the plot at stress density. CPU per frame was not re-measured.
+
 Per preset, stress town: triangles Low 289k–298k, Medium / High 324k–332k (phone / desktop). GPU busy on an M2 Max at 1512 × 982, DPR 2, active / idle: Low 11 / 11 %, Medium 33–35 / 20–21 %, High 44–45 / 26–27 %. On a 1080p DPR-1 screen Low renders about 4× cheaper per frame than Medium (render scale 0.75).
 
 Method:

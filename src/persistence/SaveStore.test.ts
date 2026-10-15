@@ -121,10 +121,11 @@ describe('SaveStore basic API', () => {
     const source = setup();
     buildSampleTown(source.editor);
     const storage = new MemoryStorage();
-    storage.data.set(SAVE_STORAGE_KEY, JSON.stringify(serializeTown(source.editor.state)));
+    const { size: _size, ...v5 } = serializeTown(source.editor.state);
+    storage.data.set(SAVE_STORAGE_KEY, JSON.stringify({ ...v5, version: 4 }));
     const { store, editor } = setup(storage);
     const save = store.read()!;
-    expect([save.version, save.width, save.depth]).toEqual([4, PLOT_WIDTH, PLOT_DEPTH]);
+    expect([save.version, save.size, save.width, save.depth]).toEqual([5, 'small', PLOT_WIDTH, PLOT_DEPTH]);
     expect(save).toEqual(serializeTown(source.editor.state));
     editor.load(save);
     expect(editor.state.stats()).toEqual(source.editor.state.stats());

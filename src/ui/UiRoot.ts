@@ -5,14 +5,14 @@
 // Styles are imported from src/styles.css, not here, so this module has no CSS side effects.
 import { objectDef, pickableVariants } from '../catalog/objects';
 import { TOOL_CATEGORIES, toolDef, toolsInCategory, variantIcon, type ToolCategory, type ToolDef, type ToolId } from '../catalog/tools';
-import { assetUrl } from '../game/config';
+import { assetUrl, DEFAULT_TOWN_SIZE, isTownSize, TOWN_SIZES } from '../game/config';
 import type { GameBus, GameEvents, GamePhase } from '../game/events';
 import { DEFAULT_GRAPHICS, GRAPHICS_PRESETS, GRAPHICS_UI, isGraphicsPreset, type GraphicsPreset } from '../game/graphics';
 import { photoFrameLayout } from '../photo/photoLayout';
 import { decodeTownFile, TOWN_FILE_ERRORS, TOWN_FILE_EXTENSION, TOWN_FILE_MAX_BYTES, TOWN_FILE_MIME, type DecodedTownFile } from '../persistence/townFile';
 import { downloadBlob } from '../utils/download';
 import { DEFAULT_TOWN_NAME, sanitizeTownName, TOWN_NAME_MAX_LENGTH, townNameLength } from '../town/townName';
-import type { Rotation } from '../town/types';
+import type { Rotation, TownSize } from '../town/types';
 import { TIME_MODES, type DayPhase, type TimeMode } from '../world/dayCycle';
 import { GLYPHS } from './glyphs';
 import { MENU_TABS, UI_TEST_IDS, type MenuTab } from './testIds';
@@ -85,6 +85,8 @@ const PHOTO_DEVELOPING = 'Developing…';
 /** Music note for the menu's Music row. */
 const MUSIC_GLYPH =
   '<svg class="ui-glyph" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg>';
+
+const TOWN_SIZE_LABELS: Record<TownSize, string> = { small: 'Small', large: 'Large' };
 
 const TIME_MODE_UI: Record<TimeMode, { label: string; glyph: string }> = {
   auto: { label: 'Auto', glyph: GLYPHS.timeAuto },
@@ -427,6 +429,15 @@ export class UiRoot {
               <button type="button" class="ui-icon-btn" id="${id.nameShuffle}" aria-label="Another name" title="Another name">${GLYPHS.dice}</button>
             </div>
             <p class="ui-name-count" id="ui-name-count" aria-hidden="true"></p>
+            <div class="ui-field ui-seg-field ui-size-field">
+              <span class="ui-seg-label" id="ui-town-size-label">${GLYPHS.grid}<span>Town size</span></span>
+              <div class="ui-seg" id="${id.townSizeGroup}" role="radiogroup" aria-labelledby="ui-town-size-label">
+                ${TOWN_SIZES.map(
+                  (size) =>
+                    `<label class="ui-seg-opt"><input type="radio" name="town-size" id="${id.townSizeOption(size)}" value="${size}"${size === DEFAULT_TOWN_SIZE ? ' checked' : ''} /><span>${TOWN_SIZE_LABELS[size]}</span></label>`,
+                ).join('')}
+              </div>
+            </div>
             <div class="ui-row">
               <button type="button" class="ui-btn" id="${id.nameCancel}" data-back>Cancel</button>
               <button type="submit" class="ui-btn ui-btn-primary" id="${id.nameSubmit}"><span class="ui-name-submit">Start building</span></button>
@@ -639,6 +650,8 @@ export class UiRoot {
     } else if (target.id === UI_TEST_IDS.fps && event.type === 'change') {
       this.sfx('ui-click');
       this.bus.emit('intent:toggle-fps', { visible: target.checked });
+    } else if (target.name === 'town-size' && event.type === 'change' && target.checked) {
+      this.sfx('ui-click');
     } else if (target.name === 'time-mode' && event.type === 'change' && target.checked) {
       this.sfx('ui-click');
       this.bus.emit('intent:set-time-mode', { mode: target.value as TimeMode });
@@ -778,6 +791,7 @@ export class UiRoot {
     this.el('ui-name-h').textContent = mode === 'new' ? 'Name your town' : 'Rename your town';
     panel.querySelector('.ui-name-submit')!.textContent = mode === 'new' ? 'Start building' : 'Save';
     this.el<HTMLInputElement>(UI_TEST_IDS.nameInput).value = mode === 'new' ? this.suggestTownName() : this.townName;
+    if (mode === 'new') this.el<HTMLInputElement>(UI_TEST_IDS.townSizeOption(DEFAULT_TOWN_SIZE)).checked = true;
     this.renderNameCount();
   }
 
@@ -805,12 +819,18 @@ export class UiRoot {
       this.bus.emit('intent:rename-town', { name });
       this.back();
     } else if (from === 'title') {
+      const size = this.chosenTownSize();
       this.closeModal();
-      this.bus.emit('intent:start', { mode: 'new', name });
+      this.bus.emit('intent:start', { mode: 'new', name, size });
     } else {
-      this.bus.emit('intent:new-town', { name });
+      this.bus.emit('intent:new-town', { name, size: this.chosenTownSize() });
       this.bus.emit('intent:close-menu');
     }
+  }
+
+  private chosenTownSize(): TownSize {
+    const checked = this.root.querySelector<HTMLInputElement>('input[name="town-size"]:checked');
+    return isTownSize(checked?.value) ? checked.value : DEFAULT_TOWN_SIZE;
   }
 
   private openFilePanel(from: 'menu' | 'building'): void {

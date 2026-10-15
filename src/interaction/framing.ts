@@ -6,7 +6,7 @@
  * SAFE_INSETS mirror the HUD layout (desktop dock ≤ 150 px + gap; mobile dock ≈ bottom 32 %).
  */
 import * as THREE from 'three';
-import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
+import { CELL_SIZE, plot } from '../game/config';
 import type { CameraPose } from './CameraController';
 
 export interface ScreenInsets {
@@ -64,14 +64,7 @@ const scratchCamera = new THREE.PerspectiveCamera();
 const scratchTarget = new THREE.Vector3();
 const scratchOffset = new THREE.Vector3();
 const scratchPoint = new THREE.Vector3();
-const HALF_X = (PLOT_WIDTH / 2) * CELL_SIZE;
-const HALF_Z = (PLOT_DEPTH / 2) * CELL_SIZE;
-const CORNERS: readonly THREE.Vector3[] = [
-  new THREE.Vector3(-HALF_X, 0, -HALF_Z),
-  new THREE.Vector3(HALF_X, 0, -HALF_Z),
-  new THREE.Vector3(-HALF_X, 0, HALF_Z),
-  new THREE.Vector3(HALF_X, 0, HALF_Z),
-];
+const CORNERS: readonly THREE.Vector3[] = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
 const ORIGIN = new THREE.Vector3();
 
 function place(pose: CameraPose, fov: number, aspect: number): THREE.PerspectiveCamera {
@@ -89,7 +82,7 @@ function place(pose: CameraPose, fov: number, aspect: number): THREE.Perspective
 }
 
 /**
- * Closest pose (azimuth of `base`, polar `options.polar`) whose plot fits the screen width inside
+ * Closest pose (azimuth of `base`, polar `options.polar`) whose live plot fits the screen width inside
  * `side`, with the plot centre at `centreY`. The target slides along the view's ground-forward
  * direction to place the centre. Falls back to maxDistance when nothing fits.
  */
@@ -99,6 +92,9 @@ export function fitPlotPose(base: CameraPose, options: FitOptions): CameraPose {
   const centreY = options.centreY;
   const wantNdcY = centreY === undefined ? 0 : 1 - (2 * centreY) / height;
   const safeSide = 1 - (2 * options.side) / width;
+  const halfX = (plot.width / 2) * CELL_SIZE;
+  const halfZ = (plot.depth / 2) * CELL_SIZE;
+  CORNERS.forEach((corner, i) => corner.set(i & 1 ? halfX : -halfX, 0, i & 2 ? halfZ : -halfZ));
   const forwardX = -Math.sin(base.azimuth);
   const forwardZ = -Math.cos(base.azimuth);
   const poseAt = (distance: number, shift: number): CameraPose => ({
@@ -112,8 +108,8 @@ export function fitPlotPose(base: CameraPose, options: FitOptions): CameraPose {
   /** Target shift putting the plot centre at centreY (bisection: the centre rises on screen as the target comes nearer). */
   const shiftFor = (distance: number): number => {
     if (centreY === undefined) return 0;
-    let lo = -PLOT_DEPTH * CELL_SIZE;
-    let hi = PLOT_DEPTH * CELL_SIZE;
+    let lo = -plot.depth * CELL_SIZE;
+    let hi = plot.depth * CELL_SIZE;
     for (let i = 0; i < 40; i += 1) {
       const mid = (lo + hi) / 2;
       scratchPoint.copy(ORIGIN).project(place(poseAt(distance, mid), fov, aspect));

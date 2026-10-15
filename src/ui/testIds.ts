@@ -1,6 +1,7 @@
 /** Stable DOM ids for tests and bots. Side-effect free so Playwright specs can import it in Node. */
 import type { ToolCategory, ToolId } from '../catalog/tools';
 import type { GraphicsPreset } from '../game/graphics';
+import type { TownSize } from '../town/types';
 import type { TimeMode } from '../world/dayCycle';
 
 /** In display order. */
@@ -54,6 +55,9 @@ export const UI_TEST_IDS = {
   nameShuffle: 'btn-town-name-shuffle',
   nameCancel: 'btn-town-name-cancel',
   nameSubmit: 'btn-town-name-ok',
+  /** Town size radios: shown only while naming a new town. */
+  townSizeGroup: 'ui-town-size',
+  townSizeOption: (size: TownSize) => `radio-town-size-${size}`,
   /** Top-bar button, hidden ≤ 440 px; townFileMenu is its menu twin, shown only ≤ 440 px. */
   townFile: 'btn-town-file',
   townFileMenu: 'btn-town-file-menu',

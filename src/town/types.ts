@@ -159,9 +159,15 @@ export interface TownStateReader {
   stats(): TownStats;
 }
 
+/** A town's plot, chosen when the town is started and fixed for its life (cells per size: `TOWN_PLOTS`, game/config.ts). */
+export type TownSize = 'small' | 'large';
+
 /** Versioned save format. A format change bumps `version` and needs a SAVE_MIGRATIONS step in serialize.ts. */
-export interface SavedTownV4 {
-  version: 4;
+export interface SavedTownV5 {
+  version: 5;
+  /** The town's size; the plot is `TOWN_PLOTS[size]`. Missing or unknown → 'small'. */
+  size: TownSize;
+  /** Dimensions of the ground grid below; parseSave always returns the size's plot. */
   width: number;
   depth: number;
   /** Row-major (z * width + x) ground codes, run-length encoded: [[kind, count], ...]. */
@@ -174,4 +180,4 @@ export interface SavedTownV4 {
   name?: string;
 }
 
-export type SavedTown = SavedTownV4;
+export type SavedTown = SavedTownV5;

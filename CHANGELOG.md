@@ -4,6 +4,9 @@ Player-facing release notes for Tiny Town. How things behave is in `docs/game-de
 
 ## Unreleased
 
+### Added
+- New towns come in two sizes: pick Small or Large next to the town's name when you start one. A Large town has room for about half as much again. The size stays with the town, in its save and in its town file.
+
 ## v0.8.0 — 2026-10-06
 
 ### Added

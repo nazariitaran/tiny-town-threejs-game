@@ -3,11 +3,16 @@
  * field and the plot/border dimensions. Shared by the terrain mesh and the decor ring so trees sit
  * exactly on the ground.
  */
-import { CELL_SIZE, GROUND_Y, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
+import { CELL_SIZE, GROUND_Y, plot } from '../game/config';
 
-/** Half extents of the buildable plot in world units. */
-export const PLOT_HALF_X = (PLOT_WIDTH * CELL_SIZE) / 2;
-export const PLOT_HALF_Z = (PLOT_DEPTH * CELL_SIZE) / 2;
+/** Half extents of the live plot in world units. */
+export function plotHalfX(): number {
+  return (plot.width * CELL_SIZE) / 2;
+}
+
+export function plotHalfZ(): number {
+  return (plot.depth * CELL_SIZE) / 2;
+}
 
 /** Diorama border around the plot: a cream kerb on top of a soil slab. */
 export const KERB_WIDTH = 0.24;
@@ -68,8 +73,8 @@ export function smoothstep(edge0: number, edge1: number, x: number): number {
 
 /** Distance from (x, z) to the plot rectangle (0 inside it). */
 export function distanceToPlot(x: number, z: number): number {
-  const dx = Math.max(Math.abs(x) - PLOT_HALF_X, 0);
-  const dz = Math.max(Math.abs(z) - PLOT_HALF_Z, 0);
+  const dx = Math.max(Math.abs(x) - plotHalfX(), 0);
+  const dz = Math.max(Math.abs(z) - plotHalfZ(), 0);
   return Math.hypot(dx, dz);
 }
 

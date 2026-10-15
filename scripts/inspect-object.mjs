@@ -539,7 +539,7 @@ async function readCatalog(page) {
       objects: JSON.parse(JSON.stringify(objects.OBJECTS)),
       models: JSON.parse(JSON.stringify(models.MODELS)),
       styles: JSON.parse(JSON.stringify(styles.MODEL_STYLES)),
-      plot: { width: config.PLOT_WIDTH, depth: config.PLOT_DEPTH, cell: config.CELL_SIZE },
+      plot: { width: config.plot.width, depth: config.plot.depth, cell: config.CELL_SIZE },
     };
   });
   return new Catalog(data);

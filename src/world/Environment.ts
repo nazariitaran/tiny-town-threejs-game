@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import type { DebugTools } from '../debug/DebugTools';
-import { PLOT_CONTENT_HEIGHT } from '../game/config';
+import { plot, PLOT_CONTENT_HEIGHT } from '../game/config';
 import type { GraphicsProfile } from '../game/graphics';
 import type { MaterialMode } from '../render/materials';
 import type { ModelLibrary } from '../render/ModelLibrary';
@@ -15,7 +15,7 @@ import { DecorRing } from './DecorRing';
 import { GRID_NIGHT, GridOverlay } from './GridOverlay';
 import { Sky, type SkyPalette } from './Sky';
 import { createOuterTerrain, createPlotBase, setFieldRaised } from './Terrain';
-import { KERB_WIDTH, PLOT_HALF_X, PLOT_HALF_Z, SLAB_BOTTOM_Y } from './terrainShape';
+import { KERB_WIDTH, plotHalfX, plotHalfZ, SLAB_BOTTOM_Y } from './terrainShape';
 
 export const SKY_PALETTE: SkyPalette = {
   top: '#4f9fe3',
@@ -55,8 +55,14 @@ export class Environment {
   private readonly root = new THREE.Group();
   private readonly hemi: THREE.HemisphereLight;
   private readonly sky: Sky;
-  private readonly plotBase: THREE.Mesh;
-  private readonly terrain: THREE.Mesh;
+  private plotBase: THREE.Mesh;
+  private terrain: THREE.Mesh;
+  /** The plot the terrain, grid, decor and shadow are built for. */
+  private plotWidth = plot.width;
+  private plotDepth = plot.depth;
+  private readonly materialMode: MaterialMode;
+  /** Set by populate(); the decor ring is re-planned with it on a plot resize. */
+  private library: ModelLibrary | null = null;
   private readonly grid: GridOverlay;
   private readonly decor = new DecorRing();
   private readonly fog: THREE.Fog;
@@ -83,6 +89,7 @@ export class Environment {
     materialMode: MaterialMode = 'standard',
   ) {
     this.root.name = 'environment';
+    this.materialMode = materialMode;
     scene.add(this.root);
 
     this.sky = new Sky(SKY_PALETTE, SUN_DIRECTION);
@@ -121,8 +128,28 @@ export class Environment {
 
   /** Called once after models load. */
   populate(library: ModelLibrary): void {
+    this.library = library;
     this.decor.populate(library);
     this.decor.setFraction(this.decorFraction);
+  }
+
+  /** Rebuilds the plot slab, the terrain around it, the grid, the decor ring and the shadow fit for the live plot (`plot`). */
+  setPlotSize(): void {
+    if (plot.width === this.plotWidth && plot.depth === this.plotDepth) return;
+    this.plotWidth = plot.width;
+    this.plotDepth = plot.depth;
+    const old = [this.terrain, this.plotBase];
+    this.terrain = createOuterTerrain(this.materialMode);
+    this.plotBase = createPlotBase(this.materialMode);
+    for (const mesh of old) {
+      this.root.remove(mesh);
+      mesh.geometry.dispose();
+      (mesh.material as THREE.Material).dispose();
+    }
+    this.root.add(this.terrain, this.plotBase);
+    this.grid.setPlotSize();
+    if (this.library) this.populate(this.library);
+    this.fitSunShadow();
   }
 
   /** The live parts of a graphics preset; a cloud-octave change recompiles the sky once. */
@@ -224,8 +251,8 @@ export class Environment {
     view.updateMatrixWorld(true);
     const toLight = this.fitToLight.copy(view.matrixWorld).invert();
 
-    const hx = PLOT_HALF_X + KERB_WIDTH + 0.3;
-    const hz = PLOT_HALF_Z + KERB_WIDTH + 0.3;
+    const hx = plotHalfX() + KERB_WIDTH + 0.3;
+    const hz = plotHalfZ() + KERB_WIDTH + 0.3;
     const box = this.fitBox.makeEmpty();
     const p = this.fitPoint;
     for (let i = 0; i < 8; i++) {

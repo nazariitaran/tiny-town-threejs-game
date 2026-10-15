@@ -37,7 +37,7 @@ import { UiRoot } from '../ui/UiRoot';
 import { createSeededRandom, entropySeed } from '../utils/random';
 import { createDaySample, DAY_LENGTH_S, DayClock, nightAt, sampleDay, T_AFTERNOON, T_NIGHT, TIME_MODES, type DayPhase, type TimeMode } from '../world/dayCycle';
 import { Environment } from '../world/Environment';
-import { assetUrl, PLOT_DEPTH, PLOT_WIDTH } from './config';
+import { assetUrl, DEFAULT_TOWN_SIZE, plot, PLOT_DEPTH, PLOT_WIDTH } from './config';
 import { createGameBus, type GamePhase } from './events';
 import { LoadProgress } from './loadProgress';
 import { effectivePixelRatio, GRAPHICS_PROFILES, isGraphicsPreset, needsReload, type GraphicsPreset, type GraphicsProfile } from './graphics';
@@ -194,11 +194,13 @@ export class Game {
     window.addEventListener('pagehide', this.onPageHide);
     this.gridPreferred = this.saves.getSettings().grid;
 
-    this.bus.on('intent:start', ({ mode, name }) => {
+    // Registered before the intents that reset or load, so the world follows every resize.
+    this.bus.on('town:resized', () => this.resizeWorld());
+    this.bus.on('intent:start', ({ mode, name, size }) => {
       void this.audio.unlock(); // must stay inside the click's call stack
       const save = mode === 'continue' ? this.saves.read() : null;
       if (save) this.editor.load(save);
-      else this.editor.reset(name); // 'new': cause 'reset' also clears the stored save
+      else this.editor.reset(name, size ?? DEFAULT_TOWN_SIZE); // 'new': cause 'reset' also clears the stored save
       this.setPhase('building');
       if (save?.camera) this.cameraController.setPose(save.camera);
       this.clock.startDay(); // Auto starts in the morning; the time of day is never saved
@@ -209,7 +211,7 @@ export class Game {
     this.bus.on('intent:cycle-time-mode', () => {
       this.setTimeMode(TIME_MODES[(TIME_MODES.indexOf(this.clock.mode) + 1) % TIME_MODES.length]);
     });
-    this.bus.on('intent:new-town', ({ name }) => this.editor.reset(name));
+    this.bus.on('intent:new-town', ({ name, size }) => this.editor.reset(name, size ?? DEFAULT_TOWN_SIZE));
     this.bus.on('intent:rename-town', ({ name }) => this.editor.rename(name));
     this.bus.on('intent:export-town', () => this.exportTown());
     this.bus.on('intent:open-town', ({ save }) => this.openTown(save));
@@ -499,6 +501,17 @@ export class Game {
       }, fail);
   }
 
+  /**
+   * `town:resized`, between the old town's removals and the new town's additions (the mapping has
+   * already moved): finishes the old town's tweens, then rebuilds the world for the new plot.
+   */
+  private resizeWorld(): void {
+    this.townRenderer.settle();
+    this.environment.setPlotSize();
+    this.cameraController.refit();
+    this.shadows.invalidate();
+  }
+
   /** Serialises the live town synchronously, not the stored autosave (which trails by 1 s). */
   private exportTown(): void {
     if (this.phase !== 'building' && this.phase !== 'menu') return;
@@ -624,7 +637,7 @@ export class Game {
     // Reseed so a state is identical no matter what happened before it.
     this.rng = createSeededRandom(this.seedValue);
     this.fxRng = createSeededRandom(this.seedValue ^ 0x9e3779b9);
-    this.editor.reset();
+    this.editor.reset(undefined, DEFAULT_TOWN_SIZE);
     if (this.tools.activeTool) this.tools.selectTool(null);
     build();
     this.setPhase(phase);
@@ -735,6 +748,7 @@ export class Game {
       variant: this.tools.variant,
       town: this.town.stats(),
       townName: this.editor.name,
+      plot: { size: this.editor.size, width: plot.width, depth: plot.depth },
       objects: [...this.town.objects()].length,
       render: this.townRenderer.getDiagnostics(),
       history: {
