@@ -190,7 +190,7 @@ export class NightLights {
   }
 
   /** Per frame and from test hooks: drive every light source from the day sample and the stadium's match level (0..1). */
-  update(sample: Readonly<DaySample>, match = 0): void {
+  update(sample: Readonly<Pick<DaySample, 'night' | 'lightsOn' | 'lightsOff'>>, match = 0): void {
     this.library.glow.update(sample, match);
     this.night = this.library.glow.levels.night;
     this.lampLevel = this.library.glow.levels.lamps;

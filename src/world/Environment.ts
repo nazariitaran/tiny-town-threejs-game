@@ -46,6 +46,12 @@ const DAYLIGHT_TUNING = {
   /** Fog pulled in at night: the navy horizon washes over the plot, turning green grass into "blue hour". */
   nightFogNear: 13,
   nightFogFar: 225,
+  /** Fog pulled in by rain: the far side of the plot greys out behind the rain. */
+  rainFogNear: 16,
+  rainFogFar: 150,
+  /** Cloud threshold of a clear and of a fully overcast sky (lower = more cloud). */
+  clearCloudCover: 0.5,
+  overcastCloudCover: 0.2,
 };
 
 export class Environment {
@@ -66,6 +72,7 @@ export class Environment {
 
   private appliedT = Number.NaN;
   private daylightDirty = false;
+  private rain = 0;
   /** Direction the key light and its shadow frustum are currently fitted to. */
   private readonly fittedDir = SUN_DIRECTION.clone();
   private readonly keyDir = new THREE.Vector3();
@@ -173,6 +180,10 @@ export class Environment {
     const n = s.night;
     this.fog.near = n > 0 ? LIGHTING.fogNear + (DAYLIGHT_TUNING.nightFogNear - LIGHTING.fogNear) * n : LIGHTING.fogNear;
     this.fog.far = n > 0 ? LIGHTING.fogFar + (DAYLIGHT_TUNING.nightFogFar - LIGHTING.fogFar) * n : LIGHTING.fogFar;
+    if (this.rain > 0) {
+      this.fog.near += (Math.min(this.fog.near, DAYLIGHT_TUNING.rainFogNear) - this.fog.near) * this.rain;
+      this.fog.far += (Math.min(this.fog.far, DAYLIGHT_TUNING.rainFogFar) - this.fog.far) * this.rain;
+    }
     this.hemi.intensity = s.hemiIntensity;
     this.scene.environmentIntensity = s.envIntensity;
 
@@ -185,6 +196,17 @@ export class Environment {
       this.fittedDir.copy(this.keyDir);
       this.fitSunShadow();
     }
+  }
+
+  /**
+   * Weather's part of the look, before applyDaylight: cloud cover and rain haze (both 0..1) and the
+   * lightning flash with its heading. The day sample already carries the weather's light and colours.
+   */
+  applyWeather(overcast: number, rain: number, flash: number, flashX: number, flashZ: number): void {
+    this.sky.cloudCover = DAYLIGHT_TUNING.clearCloudCover + (DAYLIGHT_TUNING.overcastCloudCover - DAYLIGHT_TUNING.clearCloudCover) * overcast;
+    this.sky.setFlash(flash, flashX, flashZ);
+    this.rain = rain;
+    this.daylightDirty = true;
   }
 
   /** Ambient animation (clouds drift). `elapsed` is frozen under reduced motion. */

@@ -41,6 +41,9 @@ export const GLYPHS = {
   timeDay: svg(
     '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2"/><path d="M12 19.5v2"/><path d="m5.3 5.3 1.4 1.4"/><path d="m17.3 17.3 1.4 1.4"/><path d="M2.5 12h2"/><path d="M19.5 12h2"/><path d="m5.3 18.7 1.4-1.4"/><path d="m17.3 6.7 1.4-1.4"/>',
   ),
+  rainAuto: svg('<path d="M7 13a3.8 3.8 0 0 1 .4-7.6 5.3 5.3 0 0 1 10.2 1.3 3.2 3.2 0 0 1-.1 6.3z"/><path d="M12 16.5v1.5"/><path d="M12 20.5v.5"/>'),
+  rainOn: svg('<path d="M7 13a3.8 3.8 0 0 1 .4-7.6 5.3 5.3 0 0 1 10.2 1.3 3.2 3.2 0 0 1-.1 6.3z"/><path d="m8.5 16.5-1 3.5"/><path d="m12.5 16.5-1 3.5"/><path d="m16.5 16.5-1 3.5"/>'),
+  rainOff: svg('<path d="M7 15.5a3.8 3.8 0 0 1 .4-7.6 5.3 5.3 0 0 1 10.2 1.3 3.2 3.2 0 0 1-.1 6.3z"/><path d="m4 20 16-16"/>'),
   timeNight: svg('<path d="M12.5 3.5a6.5 6.5 0 0 0 8 8 8.6 8.6 0 1 1-8-8z"/>'),
   // Keyed by ToolCategory id.
   streets: svg('<path d="M8 3 5 21"/><path d="m16 3 3 18"/><path d="M12 4v2.5"/><path d="M12 10.5v3"/><path d="M12 17.5V20"/>'),

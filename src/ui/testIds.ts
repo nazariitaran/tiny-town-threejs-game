@@ -2,6 +2,7 @@
 import type { ToolCategory, ToolId } from '../catalog/tools';
 import type { GraphicsPreset } from '../game/graphics';
 import type { TimeMode } from '../world/dayCycle';
+import type { RainMode } from '../weather/weatherSchedule';
 
 /** In display order. */
 export const MENU_TABS = ['town', 'graphics', 'sound', 'help'] as const;
@@ -40,6 +41,9 @@ export const UI_TEST_IDS = {
   timeMode: 'time-mode',
   timeModeGroup: 'ui-time-mode',
   timeModeOption: (mode: TimeMode) => `radio-time-${mode}`,
+  rainMode: 'rain-mode',
+  rainModeGroup: 'ui-rain-mode',
+  rainModeOption: (mode: RainMode) => `radio-rain-${mode}`,
   photo: 'btn-photo',
   photoPanel: 'ui-photo',
   /** src is set once the photo is ready; data-state is on its figure. */
