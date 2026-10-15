@@ -90,7 +90,8 @@ interface ThreeGameDiagnostics {
   match: import('./life/matchSchedule').MatchDiagnostics & { level: number; stadiums: number; distance: number | null };
   /**
    * Rain showers. kind: the shower in progress; rain / overcast / flash: 0..1 now; phase and remaining: where
-   * the schedule is; forced: the setWeather override; streaks / splashes / drawCalls: what the rain layer draws.
+   * the schedule is; forced: the setWeather override; streaks / splashes: drops drawn; instances: submitted to the GPU;
+   * octave / octaveMix: the lower octave drawn and the upper one's weight, as of the last render; drawCalls: the rain's.
    */
   weather?: import('./weather/weatherSchedule').WeatherDiagnostics & import('./weather/RainLayer').RainDiagnostics;
   /**

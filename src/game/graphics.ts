@@ -33,12 +33,14 @@ export interface GraphicsProfile {
   idleFps: number;
   /** Camera-facing glow halos on street lamps at night (live). */
   lampHalos: boolean;
+  /** Share of the rain's streaks and splashes drawn (live). */
+  rainDensity: number;
 }
 
 export const GRAPHICS_PROFILES: Readonly<Record<GraphicsPreset, Readonly<GraphicsProfile>>> = {
-  high: { maxDpr: 2, renderScale: 1, antialias: true, material: 'standard', shadowMapSize: 2048, decorFraction: 1, skyOctaves: 5, activeFps: 60, idleFps: 30, lampHalos: true },
-  medium: { maxDpr: 1.5, renderScale: 1, antialias: true, material: 'standard', shadowMapSize: 2048, decorFraction: 1, skyOctaves: 5, activeFps: 60, idleFps: 30, lampHalos: true },
-  low: { maxDpr: 1, renderScale: 0.75, antialias: false, material: 'lambert', shadowMapSize: 1024, decorFraction: 0.6, skyOctaves: 3, activeFps: 30, idleFps: 30, lampHalos: false },
+  high: { maxDpr: 2, renderScale: 1, antialias: true, material: 'standard', shadowMapSize: 2048, decorFraction: 1, skyOctaves: 5, activeFps: 60, idleFps: 30, lampHalos: true, rainDensity: 1 },
+  medium: { maxDpr: 1.5, renderScale: 1, antialias: true, material: 'standard', shadowMapSize: 2048, decorFraction: 1, skyOctaves: 5, activeFps: 60, idleFps: 30, lampHalos: true, rainDensity: 1 },
+  low: { maxDpr: 1, renderScale: 0.75, antialias: false, material: 'lambert', shadowMapSize: 1024, decorFraction: 0.6, skyOctaves: 3, activeFps: 30, idleFps: 30, lampHalos: false, rainDensity: 0.5 },
 };
 
 /** Canvas pixel ratio: `deviceRatio` (window.devicePixelRatio) × renderScale, capped at maxDpr. */

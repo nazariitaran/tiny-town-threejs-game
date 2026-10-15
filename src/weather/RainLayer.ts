@@ -1,56 +1,37 @@
 /**
  * Falling rain and its splashes: two instanced meshes, animated wholly in the vertex shader.
  *
- * Streaks live in a box centred on the view's ground target and sized by the camera's distance, so the
- * rain looks the same at every zoom. Their positions wrap on the box, anchored to the world, so panning
- * slides the view through the rain; zooming scales it. Splashes are rings on the ground under the same box.
- * Hidden, and no draw call, while it is dry.
+ * The rain is drawn at two fixed world scales (octaves, see `rainField.ts`), interleaved in one draw call
+ * per mesh: even instances draw the even octave, odd ones the odd. Within an octave the box, the drop size
+ * and the fall speed are fixed and the wrap is anchored to the world, so panning and zooming move the camera
+ * through the rain; as the zoom crosses octaves, one thins out while the other fills in.
+ * Camera-dependent uniforms are set just before the meshes draw, so every render (test hooks, photos,
+ * paused frames) sees rain fitted to its own camera. Hidden, and no draw call, while it is dry.
  */
 import * as THREE from 'three';
 import { GROUND_Y } from '../game/config';
-
-export interface RainTuning {
-  /** Streaks at full strength; the preset's share of them is drawn. */
-  maxStreaks: number;
-  maxSplashes: number;
-  /** Box width and height in camera distances. */
-  boxWidth: number;
-  boxHeight: number;
-  /** Streak length and width, and fall speed per second, in camera distances. */
-  length: number;
-  width: number;
-  speed: number;
-  /** Sideways drift per unit of fall at wind 1. */
-  slant: number;
-  opacity: number;
-  /** Splash radius in world units, and the least it may be, in camera distances. */
-  splashSize: number;
-  splashMinSize: number;
-  splashOpacity: number;
-}
-
-export const RAIN_TUNING: RainTuning = {
-  maxStreaks: 2600,
-  maxSplashes: 900,
-  boxWidth: 1.5,
-  boxHeight: 0.62,
-  length: 0.03,
-  width: 0.0011,
-  speed: 0.85,
-  slant: 0.1,
-  opacity: 0.55,
-  splashSize: 0.07,
-  splashMinSize: 0.0022,
-  splashOpacity: 0.5,
-};
-
-/** World heading (xz) the rain leans towards: the foliage's wind heading. */
-const WIND_X = 0.86;
-const WIND_Z = 0.51;
+import {
+  advanceFall,
+  fallDirection,
+  octaveSlots,
+  RAIN_TUNING,
+  rainCuts,
+  rainOctave,
+  SPLASH_CLOCK_WRAP,
+  type OctaveSlots,
+  type RainCuts,
+  type RainOctave,
+} from './rainField';
 
 export interface RainDiagnostics {
+  /** Drops drawn (both octaves, by their cuts). */
   streaks: number;
   splashes: number;
+  /** Instances submitted to the GPU, streaks and splashes together. */
+  instances: number;
+  /** Lower octave index and the upper one's weight, as of the last render. */
+  octave: number;
+  octaveMix: number;
   drawCalls: number;
 }
 
@@ -61,18 +42,33 @@ export class RainLayer {
   private readonly group = new THREE.Group();
   private readonly streaks: THREE.Mesh<THREE.InstancedBufferGeometry, THREE.ShaderMaterial>;
   private readonly splashes: THREE.Mesh<THREE.InstancedBufferGeometry, THREE.ShaderMaterial>;
-  private time = 0;
+  private rain = 0;
+  private splashClock = 0;
+  private preparedFrame = -1;
+  private readonly octave: RainOctave = { k: 0, mix: 0 };
+  private readonly slots: OctaveSlots = { evenScale: 1, oddScale: 2, evenWeight: 1 };
+  private readonly streakCuts: RainCuts = { even: 0, odd: 0, band: 1, instances: 0 };
+  private readonly splashCuts: RainCuts = { even: 0, odd: 0, band: 1, instances: 0 };
+  private readonly phase = new THREE.Vector3();
+  private readonly look = new THREE.Vector3();
   private readonly uniforms = {
     uTime: { value: 0 },
     uCentre: { value: new THREE.Vector3() },
-    uBox: { value: new THREE.Vector3(1, 1, 1) },
+    uScale: { value: new THREE.Vector2(1, 2) },
+    uBoxShape: { value: new THREE.Vector3(1, 1, 1) },
+    uPhase: { value: new THREE.Vector3() },
     uFall: { value: new THREE.Vector3(0, -1, 0) },
+    uCut: { value: new THREE.Vector3() },
+    uSplashCut: { value: new THREE.Vector3() },
     uLength: { value: 1 },
     uWidth: { value: 1 },
-    uSpeed: { value: 1 },
+    uPx: { value: 0.001 },
+    uNear: { value: new THREE.Vector2() },
+    uFog: { value: new THREE.Vector3(1, 2, 0) },
     uColor: { value: new THREE.Color() },
     uOpacity: { value: 0 },
-    uSplashSize: { value: 1 },
+    uSplashSize: { value: new THREE.Vector2(1, 0) },
+    uSplashFar: { value: new THREE.Vector2(1, 2) },
     uSplashOpacity: { value: 0 },
     uGround: { value: GROUND_Y + 0.006 },
   };
@@ -80,7 +76,7 @@ export class RainLayer {
   constructor(scene: THREE.Scene, seed: () => number) {
     this.group.name = 'weather:rain';
     this.streaks = new THREE.Mesh(
-      seededQuads(this.tuning.maxStreaks, seed, false),
+      seededQuads(2 * this.tuning.maxStreaks, seed, false),
       new THREE.ShaderMaterial({
         name: 'weather:streaks',
         uniforms: this.uniforms,
@@ -94,7 +90,7 @@ export class RainLayer {
       }),
     );
     this.splashes = new THREE.Mesh(
-      seededQuads(this.tuning.maxSplashes, seed, true),
+      seededQuads(2 * this.tuning.maxSplashes, seed, true),
       new THREE.ShaderMaterial({
         name: 'weather:splashes',
         uniforms: this.uniforms,
@@ -106,12 +102,15 @@ export class RainLayer {
         fog: false,
       }),
     );
+    // Whichever draws first fits the shared uniforms to the camera; the other finds them done.
+    const prepare = (renderer: THREE.WebGLRenderer, renderScene: THREE.Scene, camera: THREE.Camera) => this.prepare(renderer, renderScene, camera);
     for (const mesh of [this.streaks, this.splashes]) {
       mesh.frustumCulled = false;
       mesh.castShadow = false;
       mesh.receiveShadow = false;
       mesh.matrixAutoUpdate = false;
       mesh.visible = false;
+      mesh.onBeforeRender = prepare;
       this.group.add(mesh);
     }
     this.streaks.name = 'weather:streaks';
@@ -123,40 +122,76 @@ export class RainLayer {
 
   /**
    * Per frame. `rain` 0..1, `wind` the breeze multiplier, `light` the display-space colour the rain takes
-   * (the horizon colour), `target` the view's ground point, `distance` the camera's distance to it.
+   * (the horizon colour). A `delta` of 0 holds the rain still.
    */
-  update(delta: number, rain: number, wind: number, light: Readonly<{ r: number; g: number; b: number }>, target: Readonly<THREE.Vector3>, distance: number): void {
+  update(delta: number, rain: number, wind: number, light: Readonly<{ r: number; g: number; b: number }>): void {
     const shown = rain > 0.005;
     this.streaks.visible = shown;
     this.splashes.visible = shown;
+    this.rain = shown ? rain : 0;
     if (!shown) return;
     const t = this.tuning;
     const u = this.uniforms;
-    this.time += delta;
-    u.uTime.value = this.time;
-    const d = Math.max(4, distance);
-    u.uBox.value.set(d * t.boxWidth, d * t.boxHeight, d * t.boxWidth);
-    u.uCentre.value.set(target.x, 0, target.z);
-    const lean = t.slant * wind;
-    u.uFall.value.set(WIND_X * lean, -1, WIND_Z * lean).normalize();
-    // Heavier rain falls faster and draws longer.
-    u.uLength.value = d * t.length * (0.7 + 0.6 * rain);
-    u.uWidth.value = d * t.width;
-    u.uSpeed.value = d * t.speed * (0.8 + 0.4 * rain);
+    fallDirection(wind, t, u.uFall.value);
+    advanceFall(this.phase, delta, rain, u.uFall.value, t);
+    u.uPhase.value.copy(this.phase);
+    this.splashClock = (this.splashClock + delta) % SPLASH_CLOCK_WRAP;
+    u.uTime.value = this.splashClock;
+    u.uBoxShape.value.set(t.boxWidth, t.boxHeight, t.boxWidth);
+    // Heavier rain draws longer streaks.
+    u.uLength.value = t.length * (0.7 + 0.6 * rain);
+    u.uWidth.value = t.width;
+    u.uNear.value.set(t.nearFrom, t.nearTo);
     // A little brighter than the sky behind it, so the rain reads against grey cloud and dark ground alike.
     u.uColor.value.setRGB(0.25 + 0.75 * light.r, 0.27 + 0.75 * light.g, 0.3 + 0.75 * light.b, THREE.LinearSRGBColorSpace);
     u.uOpacity.value = t.opacity * (0.55 + 0.45 * rain);
-    u.uSplashSize.value = Math.max(t.splashSize, d * t.splashMinSize);
+    u.uSplashSize.value.set(t.splashSize, t.splashMinSize);
+    u.uSplashFar.value.set(t.splashFarFrom, t.splashFarTo);
     u.uSplashOpacity.value = t.splashOpacity * (0.5 + 0.5 * rain);
-    this.streaks.geometry.instanceCount = Math.max(1, Math.round(t.maxStreaks * this.density * rain));
-    this.splashes.geometry.instanceCount = Math.max(1, Math.round(t.maxSplashes * this.density * rain));
+  }
+
+  /** Fits the rain to the camera about to render; once per render call. */
+  private prepare(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera): void {
+    const frame = renderer.info.render.frame;
+    if (frame === this.preparedFrame) return;
+    this.preparedFrame = frame;
+    const t = this.tuning;
+    const u = this.uniforms;
+    // The camera distance to where its look ray meets y = 0, the orbit target's plane: the controller's distance.
+    const look = camera.getWorldDirection(this.look);
+    const origin = camera.position;
+    const down = Math.min(look.y, -0.05);
+    const distance = Math.max(1, origin.y / -down);
+    // Past the ground point along the view's heading, the more so the flatter the view: the frame's far side reaches further.
+    const reach = distance * (1 + t.ahead);
+    u.uCentre.value.set(origin.x + look.x * reach, 0, origin.z + look.z * reach);
+    rainOctave(distance, this.octave);
+    const slots = octaveSlots(this.octave, this.slots);
+    u.uScale.value.set(slots.evenScale, slots.oddScale);
+    // View-space size of one pixel at depth 1: the floor for a streak's width.
+    const height = renderer.getContext().drawingBufferHeight;
+    u.uPx.value = 2 / (camera.projectionMatrix.elements[5] * Math.max(1, height));
+    const fog = scene.fog;
+    if (fog instanceof THREE.Fog) u.uFog.value.set(fog.near, Math.max(fog.near + 1, fog.far), t.fogFade);
+    else u.uFog.value.set(1, 2, 0);
+    const strength = this.rain * this.density;
+    rainCuts(t.maxStreaks, strength, slots.evenWeight, this.streakCuts);
+    rainCuts(t.maxSplashes, strength, slots.evenWeight, this.splashCuts);
+    u.uCut.value.set(this.streakCuts.even, this.streakCuts.odd, this.streakCuts.band);
+    u.uSplashCut.value.set(this.splashCuts.even, this.splashCuts.odd, this.splashCuts.band);
+    this.streaks.geometry.instanceCount = this.streakCuts.instances;
+    this.splashes.geometry.instanceCount = this.splashCuts.instances;
   }
 
   getDiagnostics(): RainDiagnostics {
     const shown = this.streaks.visible;
+    const drops = (cuts: RainCuts) => (shown ? Math.round(cuts.even + cuts.odd) : 0);
     return {
-      streaks: shown ? this.streaks.geometry.instanceCount : 0,
-      splashes: shown ? this.splashes.geometry.instanceCount : 0,
+      streaks: drops(this.streakCuts),
+      splashes: drops(this.splashCuts),
+      instances: shown ? this.streaks.geometry.instanceCount + this.splashes.geometry.instanceCount : 0,
+      octave: this.octave.k,
+      octaveMix: this.octave.mix,
       drawCalls: shown ? 2 : 0,
     };
   }
@@ -183,32 +218,68 @@ function seededQuads(count: number, seed: () => number, flat: boolean): THREE.In
   return geometry;
 }
 
+/** Instance → its half (even or odd), that half's scale S, and the drop's thinning under the half's cut. */
+const OCTAVE_GLSL = /* glsl */ `
+float octaveScale(vec2 scales) {
+  return (gl_InstanceID & 1) == 0 ? scales.x : scales.y;
+}
+float thinning(vec3 cut) {
+  float rank = float(gl_InstanceID >> 1);
+  float shown = (gl_InstanceID & 1) == 0 ? cut.x : cut.y;
+  return clamp((shown - rank) / cut.z + 0.5, 0.0, 1.0);
+}
+`;
+
+/** Outside clip space: nothing is rasterised and the rest of the shader is skipped. */
+const COLLAPSE = 'gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return;';
+
 const STREAK_VERTEX = /* glsl */ `
-uniform float uTime;
 uniform vec3 uCentre;
-uniform vec3 uBox;
+uniform vec2 uScale;
+uniform vec3 uBoxShape;
+uniform vec3 uPhase;
 uniform vec3 uFall;
+uniform vec3 uCut;
 uniform float uLength;
 uniform float uWidth;
-uniform float uSpeed;
+uniform float uPx;
+uniform vec2 uNear;
+uniform vec3 uFog;
 attribute vec4 aSeed;
 varying vec2 vUv;
 varying float vFade;
+${OCTAVE_GLSL}
 void main() {
   vUv = position.xy + vec2(0.5, 0.0);
-  float speed = uSpeed * (0.8 + 0.4 * aSeed.w);
-  // World-anchored wrap on a box that follows the view; in box units, so a zoom scales the rain instead of reshuffling it.
-  vec3 n = fract(aSeed.xyz + (uFall * (uTime * speed) - uCentre) / uBox);
-  vec3 p = (n - vec3(0.5, 0.0, 0.5)) * uBox + uCentre;
-  vec3 tail = p - uFall * uLength * (0.6 + 0.8 * aSeed.w);
+  float thin = thinning(uCut);
+  if (thin <= 0.0) { ${COLLAPSE} }
+  float S = octaveScale(uScale);
+  vec3 box = uBoxShape * S;
+  // Speeds are j/8 (j = 6..10), so the phase's wrap at 8 boxes moves every drop a whole number of boxes.
+  float speed = (6.0 + min(4.0, floor(aSeed.w * 5.0))) / 8.0;
+  // World-anchored wrap on a fixed box that follows the view.
+  vec3 n = fract(aSeed.xyz + uPhase * speed - uCentre / box);
+  vec3 p = (n - vec3(0.5, 0.0, 0.5)) * box + uCentre;
+  vec3 tail = p - uFall * (uLength * S * (0.6 + 0.8 * aSeed.w));
   vec4 a = viewMatrix * vec4(p, 1.0);
   vec4 b = viewMatrix * vec4(tail, 1.0);
+  float depth = -a.z;
+  // Fade out towards the box's sides and top (so the wrap never pops), near the lens, and into the fog.
+  vec2 q = abs(n.xz * 2.0 - 1.0);
+  float fade = thin * (1.0 - smoothstep(0.75, 1.0, max(q.x, q.y))) * (1.0 - smoothstep(0.8, 1.0, n.y)) * (0.45 + 0.55 * aSeed.w);
+  fade *= smoothstep(uNear.x * S, uNear.y * S, depth) * (1.0 - uFog.z * smoothstep(uFog.x, uFog.y, depth));
+  if (fade < 0.004) { ${COLLAPSE} }
+  // At least ~1 px wide, fainter instead of thinner, so far streaks don't shimmer.
+  float width = uWidth * S;
+  float least = 0.9 * uPx * depth;
+  if (width < least) {
+    fade *= width / least;
+    width = least;
+  }
   vec2 along = normalize(b.xy - a.xy + vec2(1e-5));
   vec4 mv = mix(a, b, position.y);
-  mv.xy += vec2(-along.y, along.x) * position.x * uWidth;
-  // Fade out towards the box's sides and top, so the wrap never pops.
-  vec2 q = abs(n.xz * 2.0 - 1.0);
-  vFade = (1.0 - smoothstep(0.75, 1.0, max(q.x, q.y))) * (1.0 - smoothstep(0.8, 1.0, n.y)) * (0.45 + 0.55 * aSeed.w);
+  mv.xy += vec2(-along.y, along.x) * position.x * width;
+  vFade = fade;
   gl_Position = projectionMatrix * mv;
 }`;
 
@@ -227,13 +298,18 @@ void main() {
 const SPLASH_VERTEX = /* glsl */ `
 uniform float uTime;
 uniform vec3 uCentre;
-uniform vec3 uBox;
-uniform float uSplashSize;
+uniform vec2 uScale;
+uniform vec3 uBoxShape;
+uniform vec3 uSplashCut;
+uniform vec2 uSplashSize;
+uniform vec2 uSplashFar;
+uniform vec3 uFog;
 uniform float uGround;
 attribute vec4 aSeed;
 varying vec2 vUv;
 varying float vLife;
 varying float vFade;
+${OCTAVE_GLSL}
 float hash(vec2 p) {
   p = fract(p * vec2(123.34, 456.21));
   p += dot(p, p + 45.32);
@@ -241,16 +317,24 @@ float hash(vec2 p) {
 }
 void main() {
   vUv = position.xz;
-  // Each splash lives 0.35-0.6 s, then lands somewhere else.
+  float thin = thinning(uSplashCut);
+  if (thin <= 0.0) { ${COLLAPSE} }
+  float S = octaveScale(uScale);
+  vec2 box = uBoxShape.xz * S;
+  // Each splash lives 0.35-0.6 s, then lands somewhere else; the cycle wraps so the hash keeps its precision.
   float t = uTime / (0.35 + 0.25 * aSeed.w) + aSeed.z * 7.0;
-  float cycle = floor(t);
+  float cycle = mod(floor(t), 251.0);
   vLife = fract(t);
   vec2 cell = vec2(hash(aSeed.xy + cycle * 0.37), hash(aSeed.yx + cycle * 0.73 + 3.1));
-  vec2 n = fract(cell - uCentre.xz / uBox.xz);
-  vec2 xz = (n - 0.5) * uBox.xz + uCentre.xz;
+  vec2 n = fract(cell - uCentre.xz / box);
+  vec2 xz = (n - 0.5) * box + uCentre.xz;
   vec2 q = abs(n * 2.0 - 1.0);
-  vFade = 1.0 - smoothstep(0.75, 1.0, max(q.x, q.y));
-  float size = uSplashSize * (0.5 + 0.9 * vLife) * (0.7 + 0.6 * aSeed.w);
+  vec4 centre = viewMatrix * vec4(xz.x, uGround, xz.y, 1.0);
+  float depth = -centre.z;
+  vFade = thin * (1.0 - smoothstep(0.75, 1.0, max(q.x, q.y)));
+  vFade *= (1.0 - smoothstep(uSplashFar.x, uSplashFar.y, depth)) * (1.0 - uFog.z * smoothstep(uFog.x, uFog.y, depth));
+  if (vFade < 0.004 || depth <= 0.0) { ${COLLAPSE} }
+  float size = max(uSplashSize.x, S * uSplashSize.y) * (0.5 + 0.9 * vLife) * (0.7 + 0.6 * aSeed.w);
   vec3 p = vec3(xz.x + position.x * size, uGround, xz.y + position.z * size);
   gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
 }`;

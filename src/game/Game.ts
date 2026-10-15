@@ -382,7 +382,7 @@ export class Game {
         this.stepWeather(animDelta);
       }
       this.applyDaylight();
-      this.rain.update(animDelta, this.rainShown(), this.weather.sample.wind, this.daySample.skyHorizon, this.cameraController.target, this.camera.position.distanceTo(this.cameraController.target));
+      this.rain.update(animDelta, this.rainShown(), this.weather.sample.wind, this.daySample.skyHorizon);
       this.environment.update(animDelta, animElapsed);
       this.fx.update(animDelta);
     }
@@ -435,6 +435,7 @@ export class Game {
     this.frameBudget.tuning.activeFps = profile.activeFps;
     this.frameBudget.tuning.idleFps = profile.idleFps;
     this.nightLights.setLampHalos(profile.lampHalos);
+    this.rain.density = profile.rainDensity;
     for (const controller of this.perfDebug?.parent?.controllersRecursive() ?? []) controller.updateDisplay();
   }
 
@@ -670,11 +671,15 @@ export class Game {
     folder.add(this.rain, 'density', 0.1, 1, 0.05);
     folder.add(t, 'boxWidth', 0.5, 3, 0.05);
     folder.add(t, 'boxHeight', 0.2, 1.5, 0.02);
+    folder.add(t, 'ahead', 0, 1, 0.05);
     folder.add(t, 'length', 0.005, 0.1, 0.001);
     folder.add(t, 'width', 0.0003, 0.004, 0.0001);
     folder.add(t, 'speed', 0.2, 2, 0.05);
     folder.add(t, 'slant', 0, 0.5, 0.01);
     folder.add(t, 'opacity', 0, 1, 0.01);
+    folder.add(t, 'nearFrom', 0, 1, 0.01);
+    folder.add(t, 'nearTo', 0, 1, 0.01);
+    folder.add(t, 'fogFade', 0, 1, 0.05);
     folder.add(t, 'splashSize', 0.01, 0.3, 0.005);
     folder.add(t, 'splashMinSize', 0, 0.01, 0.0001);
     folder.add(t, 'splashOpacity', 0, 1, 0.01);
@@ -812,7 +817,7 @@ export class Game {
         if (kind !== null && kind !== 'clear' && !isRainKind(kind)) throw new Error(`setWeather: unknown weather: ${String(kind)}`);
         this.weather.force(kind, true);
         this.applyDaylight();
-        this.rain.update(0, this.rainShown(), this.weather.sample.wind, this.daySample.skyHorizon, this.cameraController.target, this.camera.position.distanceTo(this.cameraController.target));
+        this.rain.update(0, this.rainShown(), this.weather.sample.wind, this.daySample.skyHorizon);
         this.renderNow();
       },
       setMatchNight: (on: boolean | null) => {
