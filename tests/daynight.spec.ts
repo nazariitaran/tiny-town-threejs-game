@@ -58,10 +58,10 @@ test.describe('time button (top bar)', () => {
     await startBuilding(page);
     const layout = await topBarLayout(page);
     expect(layout.parent).toBe(true);
-    expect(layout.next).toBe(UI_TEST_IDS.mute);
-    // The Town file button shows on screens wider than 440 px only (phones reach it through the menu).
-    const file = info.project.name === 'mobile-chrome' ? [] : [UI_TEST_IDS.townFile];
-    expect(layout.order).toEqual([UI_TEST_IDS.undo, UI_TEST_IDS.redo, ...file, UI_TEST_IDS.photo, UI_TEST_IDS.timeMode, UI_TEST_IDS.mute, UI_TEST_IDS.menu]);
+    expect(layout.next).toBe(UI_TEST_IDS.rainMode);
+    // The Town file and Rain buttons show on screens wider than 440 px only (phones reach them through the menu).
+    const wide = info.project.name !== 'mobile-chrome';
+    expect(layout.order).toEqual([UI_TEST_IDS.undo, UI_TEST_IDS.redo, ...(wide ? [UI_TEST_IDS.townFile] : []), UI_TEST_IDS.photo, UI_TEST_IDS.timeMode, ...(wide ? [UI_TEST_IDS.rainMode] : []), UI_TEST_IDS.mute, UI_TEST_IDS.menu]);
     expect(layout.oneRow, 'top bar is one row').toBe(true);
     expect(layout.inViewport).toBe(true);
     expect(layout.overlap, 'brand × actions').toBe(false);

@@ -9,6 +9,7 @@ import type { GameBus } from '../game/events';
 import type { SfxEvent } from './sfx';
 import { SFX_TABLE } from './sfxTable';
 import { CrowdLoop, type CrowdState } from './CrowdLoop';
+import { RainSound, type RainSoundState } from './RainSound';
 import { MusicPlayer, type MusicPositionPort, type MusicState } from './MusicPlayer';
 import type { ToolId } from '../catalog/tools';
 import { toolDef } from '../catalog/tools';
@@ -66,6 +67,7 @@ export class AudioManager {
   private loading: Promise<void> | null = null;
   private readonly music: MusicPlayer;
   private readonly crowd = new CrowdLoop();
+  private readonly rain = new RainSound();
 
   constructor(
     private readonly bus: GameBus,
@@ -101,6 +103,7 @@ export class AudioManager {
       on('phase:changed', ({ phase }) => {
         this.music.setDucked(phase === 'menu');
         this.crowd.setDucked(phase === 'menu');
+        this.rain.setDucked(phase === 'menu');
       }),
     );
     document.addEventListener('visibilitychange', this.onVisibilityChange);
@@ -128,6 +131,7 @@ export class AudioManager {
       this.loading = this.loadAll();
       this.music.attach(this.context, this.master);
       this.crowd.attach(this.context, this.master);
+      this.rain.attach(this.context, this.master);
     }
     // Still inside the gesture, so play() is allowed.
     this.syncMusic();
@@ -196,7 +200,17 @@ export class AudioManager {
     this.crowd.setLevel(level);
   }
 
-  get state(): { muted: boolean; volume: number; unlocked: boolean; loaded: number; starts: number; music: MusicState; crowd: CrowdState } {
+  /** Per frame: how hard it rains, 0..1; 0 = silent. */
+  setRainLevel(level: number): void {
+    this.rain.setLevel(level);
+  }
+
+  /** A thunderclap `delay` seconds from now; `strength` 0..1. */
+  thunder(delay: number, strength: number): void {
+    this.rain.thunder(delay, strength);
+  }
+
+  get state(): { muted: boolean; volume: number; unlocked: boolean; loaded: number; starts: number; music: MusicState; crowd: CrowdState; rain: RainSoundState } {
     return {
       muted: this.muted,
       volume: this.volume,
@@ -205,6 +219,7 @@ export class AudioManager {
       starts: this.starts,
       music: this.music.state,
       crowd: this.crowd.state,
+      rain: this.rain.state,
     };
   }
 
@@ -220,6 +235,7 @@ export class AudioManager {
     window.removeEventListener('pagehide', this.onPageHide);
     this.music.dispose();
     this.crowd.dispose();
+    this.rain.dispose();
     void this.context?.close().catch(() => undefined);
     this.context = null;
     this.master = null;
@@ -249,6 +265,7 @@ export class AudioManager {
     if (!this.context) return;
     this.music.setActive(!this.muted && !document.hidden);
     this.crowd.setActive(!this.muted && !document.hidden);
+    this.rain.setActive(!this.muted && !document.hidden);
   }
 
   private applyVolume(immediate = false): void {

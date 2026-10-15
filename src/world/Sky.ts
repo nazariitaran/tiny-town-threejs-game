@@ -48,6 +48,8 @@ uniform float uStars;
 uniform float uSunVisible;
 uniform vec3 uMoonDir;
 uniform float uMoonVisible;
+uniform float uFlash;
+uniform vec2 uFlashDir;
 varying vec3 vDir;
 
 float hash(vec2 p) {
@@ -143,6 +145,9 @@ void main() {
   cloudCol += vec3(0.5, 0.56, 0.7) * moonHalo * uMoonVisible;
   float cloudMask = cover * smoothstep(0.015, 0.14, y) * (1.0 - smoothstep(0.75, 0.98, y));
   col = mix(col, cloudCol, cloudMask * 0.92);
+  // Lightning: the sky lights up from the strike's side, the clouds most. A sum, so uFlash = 0 changes nothing.
+  float flashSide = 0.35 + 0.65 * pow(max(dot(dirH, uFlashDir), 0.0), 2.0);
+  col += vec3(0.78, 0.84, 1.0) * uFlash * flashSide * (0.3 + 0.5 * cloudMask) * smoothstep(-0.02, 0.1, y);
 
   // Sun disc sits in front of thin cloud edges only.
   col = mix(col, uSunColor * 1.15, disc * (1.0 - cover * 0.8) * uSunVisible);
@@ -170,6 +175,8 @@ export class Sky {
     uSunVisible: THREE.IUniform<number>;
     uMoonDir: THREE.IUniform<THREE.Vector3>;
     uMoonVisible: THREE.IUniform<number>;
+    uFlash: THREE.IUniform<number>;
+    uFlashDir: THREE.IUniform<THREE.Vector2>;
   };
 
   constructor(palette: SkyPalette, sunDir: THREE.Vector3) {
@@ -186,6 +193,8 @@ export class Sky {
       uSunVisible: { value: 1 },
       uMoonDir: { value: new THREE.Vector3(0, 1, 0) },
       uMoonVisible: { value: 0 },
+      uFlash: { value: 0 },
+      uFlashDir: { value: new THREE.Vector2(1, 0) },
     };
     const material = new THREE.ShaderMaterial({
       name: 'sky-dome',
@@ -223,6 +232,12 @@ export class Sky {
     if (material.defines.SKY_OCTAVES === octaves) return;
     material.defines.SKY_OCTAVES = octaves;
     material.needsUpdate = true;
+  }
+
+  /** Lightning brightness 0..1 and the unit heading (xz) it comes from. */
+  setFlash(level: number, x: number, z: number): void {
+    this.uniforms.uFlash.value = level;
+    this.uniforms.uFlashDir.value.set(x, z);
   }
 
   setTime(seconds: number): void {

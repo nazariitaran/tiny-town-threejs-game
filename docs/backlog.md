@@ -48,6 +48,20 @@ Liveness holds (no deadlock or stuck car in the harness or in four review rounds
 - **Two cars can chase each other round a 2 × 2 loop of road blocks** in near contact for seconds (a two-block-wide road makes such loops).
 - **`TrafficSim.stats` and `LifeSystem.publish` allocate every frame** (a stats object; the `carCells` callback), about 50 kB/s of short-lived garbage at 30 fps. Reuse one object and an indexed loop.
 
+## Rain
+- **Nobody has watched it move or listened to it** at length. Fall speed, the cross-fade while zooming, flicker at the 30 fps idle cap and on Low, and all of the sound need a person at `?debug&rain=storm` (and a long session in Auto).
+- **Light rain is nearly invisible from a camera distance of about 20 up**, and a storm seen from nearly straight above (polar 30°, distance 20–48) reads weakly: few, short streaks and splashes too small to see. Tune per kind (`RAIN_TUNING`, the kinds' rain levels) by eye.
+- **Sound is a placeholder:** synthesised noise passes for a hiss; the thunder does not convince. Either tune it by ear or use CC0 recordings (one rain loop, a few thunderclaps, about 300–400 kB, fetched on first use like the crowd); someone has to pick them.
+- **The flash washes the picture out:** it lifts the fog with the horizon, so the plot goes pale and the streaks vanish. Lighting the hemisphere and sky only would give contrast. There is no visible bolt.
+- **Night rain is dark** (clouds take the moonlight, most of the night's light), and the grid overlay reads stronger under gloom; it should dim with the cloud.
+- **Rain falls through roofs:** streaks hide behind buildings but pass through them, so any future canopy would have rain under it. Splashes are drawn at ground level only: none on roofs, rings float 0.018 above pond water and on pool water, and show faintly on the pond bird house's deck.
+- **Reduced motion freezes the streaks mid-air** (`setReducedMotion(true)` stops their clock); they should be hidden then. The OS setting only removes the flashes.
+- **Fireflies keep flying in a storm at night.** Other choices are open: whether lamps and windows should wake at midday in a storm (they do), whether ducks, the stadium crowd and cars react (they don't), whether the time-of-day button or the photo shows the weather (the Polaroid still stamps a sun or moon). The title is always dry.
+- **How often:** a dry spell of 6–16 minutes (an Auto day is 9), about four showers an hour and a storm about every 75 minutes. Rarer is one constant (`DRY_MIN_S`, `DRY_MAX_S`).
+- **Photos** take the rain as it is; not checked at the photo's raised pixel ratio, where the 1 px streak floor is thinner relative to the picture.
+- **`Game.ts` wiring is inline:** the weather's shading, the lights' darker sample and the rain update sit in `applyDaylight` and `update`. A `WeatherSystem` owning the schedule and the layer would shrink `Game` to a few calls.
+- **Tests:** no rain spec checks the picture. A storm screenshot baseline needs the rain clock pinned under a screenshot pause; the zoom check (rain-only pixels expanding with the town under a zoom, not pinned to the screen) was run by hand with tuning overrides, not as a spec. The CPU and GPU cost of a storm on the stress town (Low and Medium, `release.md` method) is unmeasured.
+
 ## Visual inspection
 - **The object inspector only sees a settled town.** `scripts/inspect-object.mjs` and the `town-visual-inspector` agent photograph stills, so nothing covers the ghost preview, the pop-in, a move in flight or a bulldoze. One known case: when a `coversGround` building is bulldozed, the tiles under it come back at once while the building is still shrinking, so pavement may flicker against its slab for that moment. A script mode that plays a short action sequence through real input and captures frames mid-animation would cover these.
 - **Two short diagonal patches on the stadium's rim change under the inspector's sub-pixel pan** (`--kind stadium`, the `top` view, about 40 pixels). Not checked: a real coplanar pair at the bowl's corners, or aliasing.

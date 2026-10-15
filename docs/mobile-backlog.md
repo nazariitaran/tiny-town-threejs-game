@@ -15,3 +15,6 @@ Full phone support is not a priority; the existing phone infrastructure is left 
 - **Tray arrows** (`.ui-tray-arrow`): they show on phones too, over the swipeable tray, 44 × 44 px in the touch layout, so they cover part of the end cards. Decide whether phones keep them or hide them under a coarse pointer and rely on the swipe.
 - **Town size**: the Small / Large control sits in the name dialog under the name field, which on a phone shares the screen with the keyboard; check it stays reachable. A Large town is fitted like a Small one (`SAFE_INSETS.narrow`), so at the phone start pose it is about 3.8 × the screen width and its cells about 8.7 px; decide whether phones should start closer in or on Small only.
 - **Ponds and ducks**: pond plants are 1 × 1 and small; at the phone start pose (a cell ≈ 10.6 px) lily pads and ducks are a few pixels and need a pinch-zoom. Check the pond ghost and shore read at that size.
+
+## Rain
+- **The top bar's Rain button is hidden at phone width** (≤ 440 px, like Town file); the menu's Town tab carries the Auto / On / Off control. Rain's cost on a phone GPU is unmeasured.
