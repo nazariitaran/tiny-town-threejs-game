@@ -3,7 +3,7 @@
 Known gaps and follow-ups. An item stays until it is fixed or dropped; when it is fixed, delete it (history lives in git). Rules and mechanisms: [`architecture.md`](architecture.md). Budgets: [`release.md`](release.md).
 
 ## Town size
-- **A full Large town is over its triangle target**: 528.9k at stress-town density against 500k (`release.md` §Budgets). Raise the target or make the dense kinds cheaper. Its CPU per frame and GPU load are not measured.
+- **A Large town's CPU per frame and GPU load are not measured** (its triangles are: 528.9k against its 600k target, `release.md` §Budgets).
 - **An empty new town is not kept across a reload**: starting a new town clears the save (cause `reset`), so its size and name are only stored with the first edit; reload before that and the title offers no Continue. Writing the empty town's save on a named start would keep both.
 
 ## Failing or flaky tests
