@@ -2,6 +2,10 @@
 
 Known gaps and follow-ups. An item stays until it is fixed or dropped; when it is fixed, delete it (history lives in git). Rules and mechanisms: [`architecture.md`](architecture.md). Budgets: [`release.md`](release.md).
 
+## Town size
+- **A Large town's CPU per frame and GPU load are not measured** (its triangles are: 528.9k against its 600k target, `release.md` §Budgets).
+- **An empty new town is not kept across a reload**: starting a new town clears the save (cause `reset`), so its size and name are only stored with the first edit; reload before that and the title offers no Continue. Writing the empty town's save on a named start would keep both.
+
 ## Failing or flaky tests
 - **`tests/life.spec.ts` and the car-park spec read `life` diagnostics one frame late.** `town` / `objects` are current at once, `life` is rewritten in the next `LifeSystem.sync`; specs wait a few frames before reading it. A diagnostics read that syncs first would remove the trap.
 - **`ui.spec.ts` "stress-town screenshots" can lose its hint on a slow machine.** The refusal hint hides after 3.5 s of wall time (`HINT_MS`) and the test's steps can take longer than that without a GPU. Running the `cellAboveDock` scan before the tool click would keep the 3.5 s window to the taps.

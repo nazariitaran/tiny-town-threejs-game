@@ -8,13 +8,13 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
 import type { DebugTools } from '../debug/DebugTools';
-import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
+import { CELL_SIZE, plot, PLOT_WIDTH } from '../game/config';
 import { isEditableTarget } from './keyboard';
 import { CENTRE_ABOVE_DOCK_PX, dockTopPx, fitPlotPose, insetsFor } from './framing';
 import { easeInOutCubic, easeOutCubic, shortestAngle } from './strokeMath';
 
 const DEG = Math.PI / 180;
-/** defaultPoseFor(1280, 720), rounded. */
+/** defaultPoseFor(1280, 720) on the small plot, rounded. */
 const DESKTOP_TARGET = 1.829;
 const DESKTOP_DISTANCE = 35.843;
 
@@ -34,7 +34,7 @@ const BUILD_ANGLE: CameraPose = {
   distance: 30,
 };
 
-/** Build start pose on the reference desktop viewport (1280×720, FOV 35); equals defaultPoseFor(1280, 720). */
+/** Build start pose on the reference desktop viewport (1280×720, FOV 35); equals defaultPoseFor(1280, 720) on the small plot. */
 export const DEFAULT_POSE: CameraPose = {
   targetX: DESKTOP_TARGET,
   targetZ: DESKTOP_TARGET,
@@ -61,7 +61,8 @@ export function defaultPoseFor(width: number, height: number, fov = 35): CameraP
     centreY,
     polar: portrait ? 58 * DEG : BUILD_ANGLE.polar,
     minDistance: 6,
-    maxDistance: portrait ? 80 : 60,
+    // Caps for the small plot; a bigger plot needs room to fit too.
+    maxDistance: (portrait ? 80 : 60) * Math.max(1, plot.width / PLOT_WIDTH),
   });
 }
 
@@ -239,6 +240,11 @@ export class CameraController {
     this.applyClamps(home.distance);
     const to: CameraPose = { ...home, azimuth: from.azimuth + shortestAngle(from.azimuth, home.azimuth) };
     this.poseTween = { from, to, elapsed: 0, duration: this.tuning.resetDuration };
+  }
+
+  /** The plot changed size: jump to the start pose for the new plot (the title pose on the title). */
+  refit(): void {
+    this.setMode(this.mode);
   }
 
   /** Q / E: animated orbit step. direction 1 = world turns clockwise seen from above. */
@@ -442,8 +448,8 @@ export class CameraController {
   }
 
   private clampTarget(): void {
-    const limitX = (PLOT_WIDTH / 2 + 2) * CELL_SIZE;
-    const limitZ = (PLOT_DEPTH / 2 + 2) * CELL_SIZE;
+    const limitX = (plot.width / 2 + 2) * CELL_SIZE;
+    const limitZ = (plot.depth / 2 + 2) * CELL_SIZE;
     const target = this.controls.target;
     const clampedX = THREE.MathUtils.clamp(target.x, -limitX, limitX);
     const clampedZ = THREE.MathUtils.clamp(target.z, -limitZ, limitZ);

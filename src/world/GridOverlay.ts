@@ -5,7 +5,7 @@
  * dim moonlit blue and take the scene fog, so they don't read as a harsh overlay on the dark ground.
  */
 import * as THREE from 'three';
-import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
+import { CELL_SIZE, plot, PLOT_WIDTH } from '../game/config';
 import { ROAD_BLOCK } from '../town/grid';
 
 /** Minor (single-cell) line strength relative to the major road-lattice lines. */
@@ -13,6 +13,8 @@ export const GRID_MINOR_STRENGTH = 0.45;
 
 export const GRID_Y = 0.028;
 export const GRID_MAX_OPACITY = 0.14;
+/** Camera distance where the lines start to fade and where they are gone, on the small plot; scaled with the plot's width. */
+const GRID_FADE: readonly [number, number] = [30, 75];
 /**
  * At night the lines are (1 + boost · night)× stronger, the only case above GRID_MAX_OPACITY,
  * and blend from white to `color` (display sRGB).
@@ -49,7 +51,8 @@ float gridLine(vec2 p, float widthPx) {
 }
 
 void main() {
-  vec2 p = vWorld.xz / uCell;
+  // Counted from the plot's corner, so block lines fall on road blocks on either plot size.
+  vec2 p = (vWorld.xz + uHalf) / uCell;
   vec2 q = p / uMajor;
   // Thin each line set out where its cells get tiny on screen (distant / grazing) to avoid moire.
   float minorFade = 1.0 - smoothstep(0.18, 0.45, max(fwidth(p.x), fwidth(p.y)));
@@ -78,10 +81,8 @@ export class GridOverlay {
   private readonly nightColor = new THREE.Color();
 
   constructor() {
-    const w = PLOT_WIDTH * CELL_SIZE;
-    const d = PLOT_DEPTH * CELL_SIZE;
-    const geometry = new THREE.PlaneGeometry(w, d);
-    geometry.rotateX(-Math.PI / 2);
+    const w = plot.width * CELL_SIZE;
+    const d = plot.depth * CELL_SIZE;
     const material = new THREE.ShaderMaterial({
       name: 'grid-overlay',
       uniforms: {
@@ -92,7 +93,7 @@ export class GridOverlay {
         uCell: { value: CELL_SIZE },
         uMajor: { value: ROAD_BLOCK },
         uMinorStrength: { value: GRID_MINOR_STRENGTH },
-        uFade: { value: new THREE.Vector2(30, 75) },
+        uFade: { value: GridOverlay.fade(new THREE.Vector2()) },
       },
       vertexShader,
       fragmentShader,
@@ -104,7 +105,7 @@ export class GridOverlay {
       polygonOffsetUnits: -2,
       toneMapped: false,
     });
-    this.mesh = new THREE.Mesh(geometry, material);
+    this.mesh = new THREE.Mesh(GridOverlay.plane(w, d), material);
     this.mesh.position.y = GRID_Y;
     this.mesh.name = 'grid-overlay';
     this.mesh.renderOrder = 1;
@@ -117,6 +118,27 @@ export class GridOverlay {
   set opacity(value: number) {
     this.baseOpacity = Math.min(GRID_MAX_OPACITY, Math.max(0, value));
     this.updateOpacity();
+  }
+
+  /** Fits the overlay to the live plot. */
+  setPlotSize(): void {
+    const w = plot.width * CELL_SIZE;
+    const d = plot.depth * CELL_SIZE;
+    this.mesh.geometry.dispose();
+    this.mesh.geometry = GridOverlay.plane(w, d);
+    this.mesh.material.uniforms.uHalf.value.set(w / 2, d / 2);
+    GridOverlay.fade(this.mesh.material.uniforms.uFade.value);
+  }
+
+  private static fade(out: THREE.Vector2): THREE.Vector2 {
+    const scale = plot.width / PLOT_WIDTH;
+    return out.set(GRID_FADE[0] * scale, GRID_FADE[1] * scale);
+  }
+
+  private static plane(w: number, d: number): THREE.PlaneGeometry {
+    const geometry = new THREE.PlaneGeometry(w, d);
+    geometry.rotateX(-Math.PI / 2);
+    return geometry;
   }
 
   /** 0 day .. 1 night; exactly the day look at 0. */

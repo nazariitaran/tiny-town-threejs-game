@@ -7,15 +7,15 @@
 import type { GraphicsPreset } from './graphics';
 import type { SfxEvent } from '../audio/sfx';
 import type { ToolId } from '../catalog/tools';
-import type { Cell, Edge, ObjectKind, Rotation, SavedTown, TownChange } from '../town/types';
+import type { Cell, Edge, ObjectKind, Rotation, SavedTown, TownChange, TownSize } from '../town/types';
 import type { DayPhase, TimeMode } from '../world/dayCycle';
 import type { RainMode } from '../weather/weatherSchedule';
 
 export type GamePhase = 'loading' | 'title' | 'building' | 'menu' | 'error';
 
 export type GameEvents = {
-  /** `name` names a 'new' town; 'continue' takes the name from the save. */
-  'intent:start': { mode: 'continue' | 'new'; name?: string };
+  /** `name` and `size` (default small) start a 'new' town; 'continue' takes both from the save. */
+  'intent:start': { mode: 'continue' | 'new'; name?: string; size?: TownSize };
   'intent:select-tool': { toolId: ToolId | null };
   /** direction 1 = clockwise seen from above (the R key), -1 = counter-clockwise (Shift+R). */
   'intent:rotate': { direction: 1 | -1 };
@@ -23,8 +23,8 @@ export type GameEvents = {
   'intent:select-variant': { choice: number };
   'intent:undo': void;
   'intent:redo': void;
-  /** Clears the plot and starts a town called `name`. */
-  'intent:new-town': { name: string };
+  /** Clears the plot and starts a town called `name` on a plot of `size` (default small). */
+  'intent:new-town': { name: string; size?: TownSize };
   /** Saved, not undoable. */
   'intent:rename-town': { name: string };
   /** Answered synchronously by `town-file:ready`. */
@@ -71,6 +71,12 @@ export type GameEvents = {
   'hover:changed': { cell: Cell | null; edge: Edge | null; valid: boolean; reason: string | null };
 
   'town:changed': { changes: readonly TownChange[]; cause: 'edit' | 'undo' | 'redo' | 'load' | 'reset' };
+  /**
+   * The plot changed size (the cell↔world mapping has already moved): emitted by a reset or load to
+   * another size, after the old town's removals and before the new town's additions, so listeners can
+   * redraw the world around the new plot. Such a load arrives as two `town:changed` (cause 'load').
+   */
+  'town:resized': { size: TownSize; width: number; depth: number };
   /** On 'load': the save's name or the default. SaveStore autosaves on 'rename'. */
   'town:named': { name: string; cause: 'load' | 'reset' | 'rename' };
 

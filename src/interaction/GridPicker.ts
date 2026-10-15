@@ -1,6 +1,6 @@
 /** Pointer → grid cell / nearest edge, by intersecting the y = 0 plane. */
 import * as THREE from 'three';
-import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH, cellToWorld, worldToCell, worldToNearestEdge } from '../game/config';
+import { CELL_SIZE, cellToWorld, plot, worldToCell, worldToNearestEdge } from '../game/config';
 import type { Cell, Edge } from '../town/types';
 import type { GridPoint } from './strokeMath';
 
@@ -37,7 +37,7 @@ export class GridPicker {
       cell: worldToCell(this.hit.x, this.hit.z),
       edge: worldToNearestEdge(this.hit.x, this.hit.z),
       world: this.hit.clone(),
-      grid: { x: this.hit.x / CELL_SIZE + PLOT_WIDTH / 2, z: this.hit.z / CELL_SIZE + PLOT_DEPTH / 2 },
+      grid: { x: this.hit.x / CELL_SIZE + plot.width / 2, z: this.hit.z / CELL_SIZE + plot.depth / 2 },
     };
   }
 

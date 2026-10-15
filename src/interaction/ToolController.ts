@@ -21,8 +21,7 @@ import {
   edgeToWorld,
   footprintCentreWorld,
   GROUND_Y,
-  PLOT_DEPTH,
-  PLOT_WIDTH,
+  plot,
   roadBlockCentreWorld,
   worldToNearestEdge,
 } from '../game/config';
@@ -1010,7 +1009,7 @@ export class ToolController {
   }
 
   private nearestEdge(point: GridPoint): Edge {
-    return worldToNearestEdge((point.x - PLOT_WIDTH / 2) * CELL_SIZE, (point.z - PLOT_DEPTH / 2) * CELL_SIZE);
+    return worldToNearestEdge((point.x - plot.width / 2) * CELL_SIZE, (point.z - plot.depth / 2) * CELL_SIZE);
   }
 
   private publishHover(next: HoverState): void {

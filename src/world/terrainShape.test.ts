@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   MEADOW_BASE_Y,
-  PLOT_HALF_X,
-  PLOT_HALF_Z,
   distanceToPlot,
   fbm,
+  plotHalfX,
+  plotHalfZ,
   terrainHeight,
   valueNoise,
 } from './terrainShape';
@@ -24,8 +24,8 @@ describe('terrainShape', () => {
   });
 
   it('never undulates inside or right next to the plot', () => {
-    for (let x = -PLOT_HALF_X - 1.5; x <= PLOT_HALF_X + 1.5; x += 0.5) {
-      for (let z = -PLOT_HALF_Z - 1.5; z <= PLOT_HALF_Z + 1.5; z += 0.5) {
+    for (let x = -plotHalfX() - 1.5; x <= plotHalfX() + 1.5; x += 0.5) {
+      for (let z = -plotHalfZ() - 1.5; z <= plotHalfZ() + 1.5; z += 0.5) {
         if (distanceToPlot(x, z) <= 1.5) expect(terrainHeight(x, z)).toBeCloseTo(MEADOW_BASE_Y, 6);
       }
     }
@@ -44,7 +44,7 @@ describe('terrainShape', () => {
 
   it('measures distance to the plot rectangle', () => {
     expect(distanceToPlot(0, 0)).toBe(0);
-    expect(distanceToPlot(PLOT_HALF_X + 3, 0)).toBeCloseTo(3);
-    expect(distanceToPlot(PLOT_HALF_X + 3, PLOT_HALF_Z + 4)).toBeCloseTo(5);
+    expect(distanceToPlot(plotHalfX() + 3, 0)).toBeCloseTo(3);
+    expect(distanceToPlot(plotHalfX() + 3, plotHalfZ() + 4)).toBeCloseTo(5);
   });
 });

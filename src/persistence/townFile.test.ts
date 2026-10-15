@@ -57,7 +57,7 @@ describe('town files', () => {
 
   it('tell newer and older versions apart', () => {
     const file = JSON.parse(encodeTownFile(sampleSave(), new Date()));
-    expect(message(decodeTownFile(JSON.stringify({ ...file, town: { ...file.town, version: 5 } })))).toBe(TOWN_FILE_ERRORS.newer);
+    expect(message(decodeTownFile(JSON.stringify({ ...file, town: { ...file.town, version: 6 } })))).toBe(TOWN_FILE_ERRORS.newer);
     expect(message(decodeTownFile(JSON.stringify({ ...file, format: 2 })))).toBe(TOWN_FILE_ERRORS.newer);
     expect(message(decodeTownFile(JSON.stringify({ ...file, town: { ...file.town, version: 3 } })))).toBe(TOWN_FILE_ERRORS.older);
   });
@@ -67,7 +67,7 @@ describe('town files', () => {
   });
 
   it('centre a town from a smaller plot, like the autosave does', () => {
-    const small: SavedTown = { version: 4, width: 48, depth: 48, ground: [['field', 48 * 48]], objects: [], edges: [], nextObjectId: 1, name: 'Little' };
+    const small: SavedTown = { version: 5, size: 'small', width: 48, depth: 48, ground: [['field', 48 * 48]], objects: [], edges: [], nextObjectId: 1, name: 'Little' };
     const decoded = ok(decodeTownFile(JSON.stringify(small)));
     expect([decoded.town.width, decoded.town.depth]).toEqual([PLOT_WIDTH, PLOT_DEPTH]);
     expect(decoded.town.name).toBe('Little');

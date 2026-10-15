@@ -10,7 +10,7 @@ export const TOWN_FILE_APP = 'tiny-town';
 export const TOWN_FILE_KIND = 'town';
 /** Wrapper version; the town inside carries its own save version. */
 export const TOWN_FILE_FORMAT = 1;
-/** A full 64 × 64 town is tens of KB; anything this big is not a town file. */
+/** A full large town is tens of KB; anything this big is not a town file. */
 export const TOWN_FILE_MAX_BYTES = 2_000_000;
 export const TOWN_FILE_EXTENSION = '.tinytown.json';
 export const TOWN_FILE_MIME = 'application/json';

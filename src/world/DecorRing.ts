@@ -7,10 +7,10 @@
  */
 import * as THREE from 'three';
 import { MODELS, type ModelId } from '../catalog/models';
-import { DEFAULT_POSE, type CameraPose } from '../interaction/CameraController';
+import { defaultPoseFor, type CameraPose } from '../interaction/CameraController';
 import type { ModelLibrary } from '../render/ModelLibrary';
 import { createSeededRandom } from '../utils/random';
-import { KERB_WIDTH, PLOT_HALF_X, PLOT_HALF_Z, distanceToPlot, fbm, terrainHeight } from './terrainShape';
+import { KERB_WIDTH, distanceToPlot, fbm, plotHalfX, plotHalfZ, terrainHeight } from './terrainShape';
 
 type DecorId = Extract<ModelId, 'oak' | 'pine' | 'decor-rocks'>;
 
@@ -66,9 +66,10 @@ export function cameraForPose(pose: CameraPose, aspect: number): THREE.Perspecti
   return camera;
 }
 
-/** True when any part of a vertical segment would show in the top-bar band at the default pose. */
+/** True when any part of a vertical segment would show in the top-bar band at the live plot's reference desktop start pose. */
 function makeTopBandTest(): (x: number, y0: number, y1: number, z: number) => boolean {
-  const cams = TOP_BAND_VIEWPORTS.map(([w, h]) => ({ cam: cameraForPose(DEFAULT_POSE, w / h), limit: 1 - (2 * TOP_BAR_BAND_PX) / h }));
+  const pose = defaultPoseFor(1280, 720); // DEFAULT_POSE on the small plot
+  const cams = TOP_BAND_VIEWPORTS.map(([w, h]) => ({ cam: cameraForPose(pose, w / h), limit: 1 - (2 * TOP_BAR_BAND_PX) / h }));
   const p = new THREE.Vector3();
   return (x, y0, y1, z) => {
     for (const { cam, limit } of cams) {
@@ -92,9 +93,11 @@ export const TEMPLATE_RESCALE: Readonly<Record<DecorId, number>> = {
 /** Approximate model height at ring scale 1, for the top-band test. */
 const MODEL_HEIGHT: Readonly<Record<DecorId, number>> = { 'oak': 0.72, 'pine': 0.72, 'decor-rocks': 0.2 };
 
-/** Deterministic placement, sorted nearest first. */
+/** Deterministic placement around the live plot, sorted nearest first. */
 export function planDecor(): DecorInstance[] {
   const rng = createSeededRandom(DECOR_SEED);
+  const halfX = plotHalfX();
+  const halfZ = plotHalfZ();
   const out: DecorInstance[] = [];
   const remaining: Record<DecorId, number> = { ...DECOR_BUDGET };
   const inTopBand = makeTopBandTest();
@@ -133,10 +136,10 @@ export function planDecor(): DecorInstance[] {
 
   // 1. Hedgerow frame. Walk each side's centre line (u = along, v = outward normal).
   const sides = [
-    { half: PLOT_HALF_X, depth: PLOT_HALF_Z, map: (u: number, v: number) => [u, PLOT_HALF_Z + v] as const },
-    { half: PLOT_HALF_X, depth: PLOT_HALF_Z, map: (u: number, v: number) => [u, -PLOT_HALF_Z - v] as const },
-    { half: PLOT_HALF_Z, depth: PLOT_HALF_X, map: (u: number, v: number) => [PLOT_HALF_X + v, u] as const },
-    { half: PLOT_HALF_Z, depth: PLOT_HALF_X, map: (u: number, v: number) => [-PLOT_HALF_X - v, u] as const },
+    { half: halfX, depth: halfZ, map: (u: number, v: number) => [u, halfZ + v] as const },
+    { half: halfX, depth: halfZ, map: (u: number, v: number) => [u, -halfZ - v] as const },
+    { half: halfZ, depth: halfX, map: (u: number, v: number) => [halfX + v, u] as const },
+    { half: halfZ, depth: halfX, map: (u: number, v: number) => [-halfX - v, u] as const },
   ];
   sides.forEach((side, s) => {
     const step = 0.66;
@@ -176,8 +179,8 @@ export function planDecor(): DecorInstance[] {
     [-1, 1],
     [-1, -1],
   ] as const) {
-    const cx = sx * (PLOT_HALF_X + HEDGE_OFFSET + 0.2);
-    const cz = sz * (PLOT_HALF_Z + HEDGE_OFFSET + 0.2);
+    const cx = sx * (halfX + HEDGE_OFFSET + 0.2);
+    const cz = sz * (halfZ + HEDGE_OFFSET + 0.2);
     for (let k = 0; k < 4; k += 1) {
       const a = rng() * Math.PI * 2;
       const r = k === 0 ? 0 : 0.9 + rng() * 0.9;

@@ -4,18 +4,18 @@
  * sibling of the ground-tile greens so painted lawns and meadows still read against it.
  */
 import * as THREE from 'three';
-import { CELL_SIZE, PLOT_DEPTH, PLOT_WIDTH } from '../game/config';
+import { CELL_SIZE, plot } from '../game/config';
 import { createLitMaterial, type MaterialMode } from '../render/materials';
 import {
   FIELD_Y,
   GROUND_Y,
   KERB_TOP_Y,
   KERB_WIDTH,
-  PLOT_HALF_X,
-  PLOT_HALF_Z,
   SLAB_BOTTOM_Y,
   TERRAIN_RADIUS,
   fbm,
+  plotHalfX,
+  plotHalfZ,
   smoothstep,
   terrainHeight,
 } from './terrainShape';
@@ -91,15 +91,16 @@ export function fieldTint(x: number, z: number, out = new THREE.Color()): THREE.
   return out;
 }
 
+/** The slab for the live plot (`plot`, game/config.ts). */
 export function createPlotBase(mode: MaterialMode = 'standard'): THREE.Mesh {
   const g = new GeometryBuilder();
 
-  // Field top: one quad per cell (the first PLOT_WIDTH × PLOT_DEPTH quads, see setFieldRaised) so the
+  // Field top: one quad per cell (the first plot.width × plot.depth quads, see setFieldRaised) so the
   // mottling is smooth and deterministic.
-  const w = PLOT_WIDTH * CELL_SIZE;
-  const dpt = PLOT_DEPTH * CELL_SIZE;
-  for (let i = 0; i < PLOT_WIDTH; i += 1) {
-    for (let j = 0; j < PLOT_DEPTH; j += 1) {
+  const w = plot.width * CELL_SIZE;
+  const dpt = plot.depth * CELL_SIZE;
+  for (let i = 0; i < plot.width; i += 1) {
+    for (let j = 0; j < plot.depth; j += 1) {
       const x0 = -w / 2 + i * CELL_SIZE;
       const z0 = -dpt / 2 + j * CELL_SIZE;
       const x1 = x0 + CELL_SIZE;
@@ -121,10 +122,10 @@ export function createPlotBase(mode: MaterialMode = 'standard'): THREE.Mesh {
   const kerbSide = new THREE.Color(TERRAIN_PALETTE.kerbSide);
   const soilTop = new THREE.Color(TERRAIN_PALETTE.soilTop);
   const soilBottom = new THREE.Color(TERRAIN_PALETTE.soilBottom);
-  const ix = PLOT_HALF_X;
-  const iz = PLOT_HALF_Z;
-  const ox = PLOT_HALF_X + KERB_WIDTH;
-  const oz = PLOT_HALF_Z + KERB_WIDTH;
+  const ix = plotHalfX();
+  const iz = plotHalfZ();
+  const ox = ix + KERB_WIDTH;
+  const oz = iz + KERB_WIDTH;
   const kerbBottom = KERB_TOP_Y - 0.13;
 
   // Walk the four sides; each side is described in its own local frame by corner points.
@@ -159,13 +160,14 @@ export function createPlotBase(mode: MaterialMode = 'standard'): THREE.Mesh {
   const mesh = new THREE.Mesh(geometry, createLitMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 }, mode));
   mesh.name = 'plot-field';
   mesh.receiveShadow = true;
+  mesh.userData.plotDepth = plot.depth; // setFieldRaised indexes the quads by the slab's own plot
   return mesh;
 }
 
 /** Lifts a cell of the plot field to ground level (bare field) or drops it to the bed (a painted cell, whose tile fills the hole). */
 export function setFieldRaised(plotBase: THREE.Mesh, x: number, z: number, raised: boolean): void {
   const position = plotBase.geometry.getAttribute('position') as THREE.BufferAttribute;
-  const first = (x * PLOT_DEPTH + z) * 6;
+  const first = (x * (plotBase.userData.plotDepth as number) + z) * 6;
   const y = raised ? GROUND_Y : FIELD_Y;
   if (position.getY(first) === y) return;
   for (let i = 0; i < 6; i += 1) position.setY(first + i, y);

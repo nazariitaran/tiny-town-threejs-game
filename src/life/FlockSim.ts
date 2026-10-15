@@ -50,7 +50,7 @@ export const NIGHT_CUTOFF = 0.5;
 /** A flock due at night (or while the sky is full) is re-tried after this long. */
 const RETRY_S: readonly [number, number] = [3, 12];
 
-/** Entry/exit distance from the plot centre (the plot is 32 × 32 units). */
+/** Entry/exit distance from the plot centre (the large plot's corners are 29.7 units out). */
 export const ENTRY_RADIUS = 34;
 /** The Bézier control point lies within this distance of the centre: the flock passes over the town. */
 export const CENTRE_JITTER = 6;

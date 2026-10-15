@@ -22,11 +22,30 @@ export class TownState implements TownStateReader {
   private readonly occupancy = new Map<string, number>();
   private readonly edgesByKey = new Map<string, PlacedEdge>();
   private nextId = 1;
+  private plotWidth: number;
+  private plotDepth: number;
 
-  constructor(
-    readonly width: number,
-    readonly depth: number,
-  ) {
+  constructor(width: number, depth: number) {
+    this.plotWidth = width;
+    this.plotDepth = depth;
+    this.ground = new Array<GroundKind>(width * depth).fill('field');
+  }
+
+  get width(): number {
+    return this.plotWidth;
+  }
+
+  get depth(): number {
+    return this.plotDepth;
+  }
+
+  /** Changes the plot of an empty town (clear() first). Throws if anything is still on it. */
+  resize(width: number, depth: number): void {
+    if (this.objectsById.size > 0 || this.edgesByKey.size > 0 || this.ground.some((kind) => kind !== 'field')) {
+      throw new Error('TownState.resize: the town is not empty');
+    }
+    this.plotWidth = width;
+    this.plotDepth = depth;
     this.ground = new Array<GroundKind>(width * depth).fill('field');
   }
 

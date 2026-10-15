@@ -27,7 +27,7 @@ interface IconScene {
   frame?: THREE.Box3;
 }
 
-const C = PLOT_WIDTH / 2; // centre cell (x and z); even, so it is also a road-block anchor
+const C = PLOT_WIDTH / 2; // centre cell (x and z) of the small plot, which the page's live mapping keeps; even, so also a road-block anchor
 const line = (kind: GroundKind): Array<[number, number, GroundKind]> => [
   [C - 1, C, kind],
   [C, C, kind],

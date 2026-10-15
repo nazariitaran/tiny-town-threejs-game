@@ -17,6 +17,8 @@ interface ThreeGameDiagnostics {
   variant: { choice: number; count: number } | null;
   town: import('./town/types').TownStats;
   townName: string;
+  /** The town's size and its plot in cells (what the world is drawn for). */
+  plot: { size: import('./town/types').TownSize; width: number; depth: number };
   /** Objects in TownState; render.objects is what TownRenderer draws. */
   objects: number;
   render: { objects: number; groundTiles: number; edges: number } & Record<string, number>;

@@ -28,13 +28,13 @@ A perspective camera (FOV 35°) orbits a target on the ground through three.js `
 | Zoom | Wheel (to the cursor) · + / − | Pinch |
 | Reset view | F / Home | — |
 
-- Polar angle 30°–70° from vertical; distance 6–60 (at least 1.2 × the fitted start distance); the target stays over the plot; damping 0.12. Tunable under `?debug`.
-- **Start / reset pose** (`defaultPoseFor`): 45° yaw, 52° polar (58° in portrait), fitted so the plot's width fills the screen with its centre between the top bar and the dock. On desktop the plot is slightly wider than the screen (a cell ≈ 12.5 px); on phones it is ~3 × the screen width (a cell ≈ 10.6 px), so small props need a pinch-zoom.
+- Polar angle 30°–70° from vertical; distance 6–60 (at least 1.2 × the fitted start distance, which is about 47 for a Large town on a 1280 × 720 window); the target stays over the plot; damping 0.12. Tunable under `?debug`.
+- **Start / reset pose** (`defaultPoseFor`): 45° yaw, 52° polar (58° in portrait), fitted so the plot's width fills the screen with its centre between the top bar and the dock. A Large town is fitted the same way, so it starts further out and its cells look about a quarter smaller. On desktop the plot is slightly wider than the screen (a cell ≈ 12.5 px); on phones it is ~3 × the screen width (a cell ≈ 10.6 px), so small props need a pinch-zoom.
 - **Title pose:** a low 78° hero angle that shows the horizon, sky and sun, with a slow auto-orbit and no input.
 
 ## Pointer → grid
 - The pointer is raycast against the ground plane on pointer move and camera change only, never per idle frame. Outside the plot there is no hover and no ghost.
-- The hit becomes a **cell** (64 × 64 half-unit cells); for edge tools the **nearest cell edge**; for multi-cell objects a footprint **anchor** centred on the pointer (odd sizes on the hovered cell, even sizes on the nearest corner, clamped into the plot).
+- The hit becomes a **cell** (64 × 64 half-unit cells in a Small town, 84 × 84 in a Large one); for edge tools the **nearest cell edge**; for multi-cell objects a footprint **anchor** centred on the pointer (odd sizes on the hovered cell, even sizes on the nearest corner, clamped into the plot).
 - Roads, and bulldozing a road, work on the aligned 2 × 2 **road block** under the pointer. The roundabout, car parks and the zebra crossing snap to the road-block grid.
 
 ## Tools
@@ -142,7 +142,7 @@ Letter and digit keys use `event.code`, so layouts and Shift don't change the ma
 | --- | --- | --- |
 | Loading | Title mark, progress bar and one line for the current step: "Unpacking the toy box…" (also shown before the scripts arrive), "Gathering roads, houses and trees…", "Waking up the townsfolk…", "Setting the scene…" | App start → assets ready |
 | Title | "Tiny Town" logo over the slowly orbiting scene. **Start building** (reads **Continue** when a save exists), **New town** (only with a save), links **Open a town file** and **Credits**. The version (`v0.8`) sits in the bottom-right corner | Continue goes straight in; Start building and New town (after its confirm) open Name your town. The click that enters the game unlocks audio and starts the music |
-| Name your town | A text field (≤ 30 characters, "n / 30" counter) pre-filled with a random name from `public/data/default_town_names.json`, or the current name when renaming; a die for another name; Cancel and **Start building** / **Save**. Enter submits, Esc cancels, a blank name can't be submitted. Desktop focuses the field with the text selected; touch focuses the button | New town: nothing is cleared until the name is confirmed. Rename: the name pill (Cancel → building) or Menu → Rename town (Cancel → menu). Renaming is autosaved, not undoable |
+| Name your town | A text field (≤ 30 characters, "n / 30" counter) pre-filled with a random name from `public/data/default_town_names.json`, or the current name when renaming; a die for another name; for a new town only, **Town size**: Small / Large (Small selected each time; no cell counts shown); Cancel and **Start building** / **Save**. Enter submits, Esc cancels, a blank name can't be submitted. Desktop focuses the field with the text selected; touch focuses the button | New town: nothing is cleared until the name is confirmed. The size can't be changed afterwards: renaming doesn't offer it. Rename: the name pill (Cancel → building) or Menu → Rename town (Cancel → menu). Renaming is autosaved, not undoable |
 | Building | Top bar, dock, hint line | Main state |
 | Menu | Headed by the town's name; **Resume**; tabs Town · Graphics · Sound · Help. The scene keeps rendering, the music ducks −3 dB, the day clock pauses | ☰, or Esc with no tool |
 | Photo | A white flash (none under reduced motion), then a tilted Polaroid with washi tape: "Developing…" on a warm grey print, then the picture fades up from pale sepia. **Download** and **Back to town** | Camera button or `P` while building; Esc / Back returns with the tool still selected |

@@ -18,7 +18,7 @@ function ok(result: SavedTown | Error): SavedTown {
 
 /** A minimal valid current save for a w×d plot with all-field ground. */
 function blank(w = PLOT_WIDTH, d = PLOT_DEPTH): SavedTown {
-  return { version: 4, width: w, depth: d, ground: [['field', w * d]], objects: [], edges: [], nextObjectId: 1 };
+  return { version: 5, size: 'small', width: w, depth: d, ground: [['field', w * d]], objects: [], edges: [], nextObjectId: 1 };
 }
 
 /** Ground with the 2 × 2 road block at (0, 0)..(1, 1) and field elsewhere. */
@@ -43,9 +43,10 @@ function groundWithRoad(x0: number, z0: number, w: number, d: number): Array<[st
 const roundabout = (id: number, x: number, z: number) => ({ id, kind: 'roundabout', anchor: { x, z }, rotation: 0, variant: 0 });
 
 describe('serializeTown', () => {
-  it('writes save version 4', () => {
-    expect(CURRENT_SAVE_VERSION).toBe(4);
-    expect(serializeTown(new TownState(PLOT_WIDTH, PLOT_DEPTH)).version).toBe(4);
+  it('writes save version 5 with the town size', () => {
+    expect(CURRENT_SAVE_VERSION).toBe(5);
+    expect(serializeTown(new TownState(PLOT_WIDTH, PLOT_DEPTH))).toMatchObject({ version: 5, size: 'small' });
+    expect(serializeTown(new TownState(84, 84))).toMatchObject({ version: 5, size: 'large', width: 84, depth: 84 });
   });
 
   it('encodes an empty plot as one RLE run', () => {
@@ -187,8 +188,8 @@ describe('parseSave rejects corrupted / foreign data without throwing', () => {
       { id: 1, kind: 'big-house', anchor: { x: 2, z: 2 }, rotation: 1, variant: 1 },
       { id: 2, kind: 'church', anchor: { x: 6, z: 2 }, rotation: 2, variant: 0 },
     ];
-    const save = ok(parseSave(JSON.stringify({ ...blank(), objects, nextObjectId: 3 })));
-    expect(save.version).toBe(4);
+    const save = ok(parseSave(JSON.stringify({ ...blank(), version: 4, size: undefined, objects, nextObjectId: 3 })));
+    expect(save.version).toBe(5);
     expect(save.objects).toEqual(objects);
   });
 
@@ -315,7 +316,8 @@ describe('parseSave sanitises and clamps', () => {
     ]);
   });
 
-  it('clamps a bigger save to the plot (drops what lies outside)', () => {
+  it('centres a bigger save on the plot by whole road blocks and drops what lies outside', () => {
+    // 6 cells too big each way: the middle is kept, shifted by −2 (one road block; 3 rounds towards 0).
     const w = PLOT_WIDTH + 6;
     const d = PLOT_DEPTH + 6;
     const ground = Array.from({ length: d }, () => [['grass', w]] as Array<[string, number]>).flat();
@@ -326,20 +328,30 @@ describe('parseSave sanitises and clamps', () => {
         depth: d,
         ground,
         objects: [
-          { id: 1, kind: 'oak', anchor: { x: 1, z: 1 }, rotation: 0, variant: 0 },
-          { id: 2, kind: 'oak', anchor: { x: PLOT_WIDTH + 2, z: 1 }, rotation: 0, variant: 0 },
+          { id: 1, kind: 'oak', anchor: { x: 1, z: 1 }, rotation: 0, variant: 0 }, // → (−1, −1): out
+          { id: 2, kind: 'oak', anchor: { x: 2, z: 2 }, rotation: 0, variant: 0 }, // → (0, 0)
+          { id: 3, kind: 'oak', anchor: { x: PLOT_WIDTH, z: 3 }, rotation: 0, variant: 0 }, // 2 × 2 → (62, 1)
+          { id: 4, kind: 'oak', anchor: { x: PLOT_WIDTH + 1, z: 3 }, rotation: 0, variant: 0 }, // → (63, 1): sticks out
         ],
         edges: [
-          { kind: 'fence-low', edge: { x: 3, z: PLOT_DEPTH, side: 'n' } },
-          { kind: 'fence-low', edge: { x: 3, z: PLOT_DEPTH + 2, side: 'n' } },
+          { kind: 'fence-low', edge: { x: 3, z: PLOT_DEPTH, side: 'n' } }, // → (1, 62)
+          { kind: 'fence-low', edge: { x: 3, z: PLOT_DEPTH + 2, side: 'n' } }, // → (1, 64): the south border
+          { kind: 'fence-low', edge: { x: 3, z: PLOT_DEPTH + 3, side: 'n' } }, // → (1, 65): out
+          { kind: 'fence-low', edge: { x: 1, z: 5, side: 'w' } }, // → (−1, 3): out
         ],
-        nextObjectId: 3,
+        nextObjectId: 5,
       }),
     );
-    expect([save.width, save.depth]).toEqual([PLOT_WIDTH, PLOT_DEPTH]);
+    expect([save.size, save.width, save.depth]).toEqual(['small', PLOT_WIDTH, PLOT_DEPTH]);
     expect(save.ground).toEqual([['grass', PLOT_WIDTH * PLOT_DEPTH]]);
-    expect(save.objects.map((o) => o.id)).toEqual([1]);
-    expect(save.edges).toHaveLength(1);
+    expect(save.objects.map((o) => [o.id, o.anchor.x, o.anchor.z])).toEqual([
+      [2, 0, 0],
+      [3, 62, 1],
+    ]);
+    expect(save.edges.map((e) => [e.edge.x, e.edge.z])).toEqual([
+      [1, 62],
+      [1, 64],
+    ]);
     makeEditor().load(save); // loadable
   });
 
@@ -425,7 +437,7 @@ describe('parseSave and road features', () => {
     const editor = makeEditor();
     expect(editor.apply({ type: 'place-object', kind: 'roundabout', cell: { x: 10, z: 10 }, rotation: 0 }, 'roundabout').ok).toBe(true);
     const saved = serializeTown(editor.state, camera);
-    expect(saved.version).toBe(4);
+    expect(saved.version).toBe(5);
     expect(saved.objects.map((o) => o.kind)).toEqual(['roundabout']);
     const parsed = ok(parseSave(JSON.stringify(saved)));
     expect(parsed).toEqual(saved);
@@ -500,14 +512,17 @@ describe('parseSave and road features', () => {
 });
 
 describe('migration hook', () => {
-  it('has no built-in migrations', () => {
-    expect(SAVE_MIGRATIONS).toEqual({});
+  it('has one built-in migration: version 4 towns become small towns', () => {
+    expect(Object.keys(SAVE_MIGRATIONS)).toEqual(['4']);
+    const v4 = { ...blank(), version: 4, size: undefined };
+    expect(SAVE_MIGRATIONS[4]({ ...v4 })).toEqual({ ...v4, version: 5, size: 'small' });
   });
 
   it('runs migrations keyed on the version they upgrade from', () => {
     // Pretend version 0 stored ground as a flat list of kinds.
     const legacy = { version: 0, width: 2, depth: 1, cells: ['road', 'grass'], things: [] };
     const migrations = {
+      4: (raw: Record<string, unknown>) => ({ ...raw, version: 5 }),
       3: (raw: Record<string, unknown>) => ({ ...raw, version: 4 }),
       2: (raw: Record<string, unknown>) => ({ ...raw, version: 3 }),
       1: (raw: Record<string, unknown>) => ({ ...raw, version: 2 }),
@@ -554,7 +569,7 @@ describe('parseSave and catalog changes without a version bump', () => {
       nextObjectId: 4,
     };
     const parsed = ok(parseSave(JSON.stringify(save)));
-    expect(parsed.version).toBe(4);
+    expect(parsed.version).toBe(5);
     expect(parsed.objects.map((o) => o.kind)).toEqual(['cottage', 'bench']);
     expect(parsed.edges).toHaveLength(1);
     const editor = makeEditor();
@@ -574,5 +589,72 @@ describe('parseSave and catalog changes without a version bump', () => {
     expect(saved.objects.map((o) => o.kind).sort()).toEqual(['donut-shop', 'slide', 'tulips']);
     const parsed = ok(parseSave(JSON.stringify(saved)));
     expect(parsed).toEqual(saved);
+  });
+});
+
+describe('parseSave and the town size', () => {
+  /** A save on a w × d ground grid with a 2 × 2 road block at (rx, rz) and an oak beside it. */
+  function sized(size: unknown, w: number, d: number, rx: number, rz: number): Record<string, unknown> {
+    const ground: Array<[string, number]> = [];
+    for (let z = 0; z < d; z += 1) {
+      for (let x = 0; x < w; x += 1) {
+        const kind = x >= rx && x < rx + 2 && z >= rz && z < rz + 2 ? 'road' : 'field';
+        const last = ground[ground.length - 1];
+        if (last && last[0] === kind) last[1] += 1;
+        else ground.push([kind, 1]);
+      }
+    }
+    return {
+      version: 5,
+      size,
+      width: w,
+      depth: d,
+      ground,
+      objects: [{ id: 1, kind: 'oak', anchor: { x: rx + 2, z: rz }, rotation: 0, variant: 0 }],
+      edges: [],
+      nextObjectId: 2,
+    };
+  }
+  const roadCells = (save: SavedTown) =>
+    decodeGround(save)
+      .map((kind, i) => (kind === 'road' ? [i % save.width, Math.floor(i / save.width)] : null))
+      .filter((c) => c !== null);
+
+  it('a large save keeps its size, plot and contents, up to its far corner', () => {
+    const save = ok(parseSave(sized('large', 84, 84, 80, 82)));
+    expect([save.size, save.width, save.depth]).toEqual(['large', 84, 84]);
+    expect(roadCells(save)).toEqual([[80, 82], [81, 82], [80, 83], [81, 83]]);
+    expect(save.objects.map((o) => o.anchor)).toEqual([{ x: 82, z: 82 }]);
+  });
+
+  it('a missing, unknown or non-string size reads as small', () => {
+    for (const size of [undefined, null, '', 'huge', 'LARGE', 2, { large: true }]) {
+      expect(ok(parseSave(sized(size, 64, 64, 0, 0))).size, String(size)).toBe('small');
+    }
+  });
+
+  it('a large town whose size is lost reads as small: its middle is kept, cell for cell, and the rest is dropped', () => {
+    // Shifted by −10: save x 10 is plot x 0.
+    const middle = ok(parseSave(sized('huge', 84, 84, 10, 12)));
+    expect([middle.size, middle.width, middle.depth]).toEqual(['small', 64, 64]);
+    expect(roadCells(middle)).toEqual([[0, 2], [1, 2], [0, 3], [1, 3]]);
+    expect(middle.objects.map((o) => o.anchor)).toEqual([{ x: 2, z: 2 }]);
+    // A road and oak in the outer ring are gone, ground and all.
+    const outer = ok(parseSave(sized('huge', 84, 84, 80, 82)));
+    expect(roadCells(outer)).toEqual([]);
+    expect(outer.objects).toEqual([]);
+  });
+
+  it('a small town tagged large is centred on the large plot, and comes back where it was', () => {
+    const grown = ok(parseSave(sized('large', 64, 64, 0, 0)));
+    expect([grown.size, grown.width, grown.depth]).toEqual(['large', 84, 84]);
+    expect(roadCells(grown)).toEqual([[10, 10], [11, 10], [10, 11], [11, 11]]);
+    const back = ok(parseSave({ ...grown, size: 'small' }));
+    expect(roadCells(back)).toEqual([[0, 0], [1, 0], [0, 1], [1, 1]]);
+    expect(back.objects.map((o) => o.anchor)).toEqual([{ x: 2, z: 0 }]);
+  });
+
+  it('the size follows the plot a test fits the save to', () => {
+    expect(ok(parseSave(sized('large', 84, 84, 0, 0), { width: 64, depth: 64 })).size).toBe('small');
   });
 });
