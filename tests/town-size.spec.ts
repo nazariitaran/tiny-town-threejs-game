@@ -15,20 +15,20 @@ import { applyState, byId, canvasPoint, diagnostics, gotoTitle, openMenuTab, rel
 
 const OUT = 'artifacts/town-size';
 const SMALL = { size: 'small', width: 64, depth: 64 };
-const LARGE = { size: 'large', width: 78, depth: 78 };
+const LARGE = { size: 'large', width: 84, depth: 84 };
 
 const plotOf = async (page: Page) => (await diagnostics(page)).plot;
 const phase = async (page: Page) => (await diagnostics(page)).phase;
 const sizeRadio = (page: Page, size: 'small' | 'large') => byId(page, UI_TEST_IDS.townSizeOption(size));
 
 /**
- * A large town made in Node: a road block in the middle ring (6, 6), one in the outer ring (74, 74),
+ * A large town made in Node: a road block in the middle 64 × 64 (12, 12), one in the outer ring (80, 80),
  * and an oak in each ring. Its save goes through the real editor, so only `size` is tampered with.
  */
 function largeTownSave(): Record<string, unknown> {
   const editor = new TownEditor(new TownState(64, 64), createGameBus(), createSeededRandom(3));
   editor.reset('Broadmeadow', 'large');
-  for (const cell of [{ x: 6, z: 6 }, { x: 74, z: 74 }]) editor.apply({ type: 'paint-ground', kind: 'road', cell }, 'road');
+  for (const cell of [{ x: 12, z: 12 }, { x: 80, z: 80 }]) editor.apply({ type: 'paint-ground', kind: 'road', cell }, 'road');
   editor.apply({ type: 'place-object', kind: 'oak', cell: { x: 40, z: 40 }, rotation: 0 }, 'oak');
   editor.apply({ type: 'place-object', kind: 'oak', cell: { x: 2, z: 40 }, rotation: 0 }, 'oak');
   const save = editor.serialize() as unknown as Record<string, unknown>;
@@ -41,7 +41,7 @@ const asUpload = (text: string) => ({ name: 'broadmeadow.tinytown.json', mimeTyp
 /** Look straight at a cell from close by, so a real click can reach it anywhere on the plot. */
 async function lookAt(page: Page, x: number, z: number): Promise<void> {
   await page.evaluate(
-    ([cx, cz]) => window.__THREE_GAME_TEST_HOOKS__!.setCameraPose({ targetX: (cx + 0.5 - 39) * 0.5, targetZ: (cz + 0.5 - 39) * 0.5, azimuth: Math.PI / 4, polar: 0.9, distance: 14 }),
+    ([cx, cz]) => window.__THREE_GAME_TEST_HOOKS__!.setCameraPose({ targetX: (cx + 0.5 - 42) * 0.5, targetZ: (cz + 0.5 - 42) * 0.5, azimuth: Math.PI / 4, polar: 0.9, distance: 14 }),
     [x, z] as const,
   );
 }
@@ -65,10 +65,10 @@ test.describe('town size', () => {
     await page.screenshot({ path: `${OUT}/e2e-large-home.png` });
 
     // The far corner is in the plot: a real click paints its road block; the camera can get there.
-    await lookAt(page, 77, 77);
-    expect((await diagnostics(page)).camera).toMatchObject({ targetX: 19.25, targetZ: 19.25 });
+    await lookAt(page, 83, 83);
+    expect((await diagnostics(page)).camera).toMatchObject({ targetX: 20.75, targetZ: 20.75 });
     await selectTool(page, 'road');
-    const corner = await canvasPoint(page, 77, 77);
+    const corner = await canvasPoint(page, 83, 83);
     await page.mouse.click(corner.x, corner.y);
     await expect.poll(async () => (await diagnostics(page)).town.roadTiles).toBe(1);
     await page.screenshot({ path: `${OUT}/e2e-large-corner.png` });
@@ -142,7 +142,7 @@ test.describe('town size', () => {
     const diag = await diagnostics(page);
     expect(diag.townName).toBe('Broadmeadow');
     expect(diag.objects, 'the oak at x 2 lies outside the middle 64 × 64').toBe(1);
-    expect(diag.town.roadTiles, 'the road block at (74, 74) lies outside it').toBe(1);
+    expect(diag.town.roadTiles, 'the road block at (80, 80) lies outside it').toBe(1);
 
     // The same file, size intact, opened from the menu over the small town: large again.
     await byId(page, UI_TEST_IDS.townFile).click();

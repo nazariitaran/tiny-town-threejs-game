@@ -105,7 +105,7 @@ describe('build camera framing on the large plot', () => {
 
   it('desktop 1280×720: the whole large plot is framed like the small one, from further out', () => {
     const small = defaultPoseFor(1280, 720);
-    setPlotSize(78, 78);
+    setPlotSize(84, 84);
     const pose = defaultPoseFor(1280, 720);
     const rect = plotRect(pose, 1280, 720);
     expect(pose.distance).toBeGreaterThan(small.distance * 1.1);
@@ -115,7 +115,7 @@ describe('build camera framing on the large plot', () => {
   });
 
   it('a near-square 960×760 window still fits the whole large plot', () => {
-    setPlotSize(78, 78);
+    setPlotSize(84, 84);
     const rect = plotRect(defaultPoseFor(960, 760), 960, 760);
     expect(rect.left).toBeGreaterThanOrEqual(SAFE_INSETS.wide.side - 1);
     expect(rect.right).toBeLessThanOrEqual(960 - SAFE_INSETS.wide.side + 1);

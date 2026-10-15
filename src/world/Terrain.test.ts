@@ -48,14 +48,14 @@ describe('plot field on the large plot', () => {
   afterEach(() => setPlotSize(PLOT_WIDTH, PLOT_DEPTH));
 
   it('has one quad per large-plot cell, and a cell drops on the slab it was built for', () => {
-    setPlotSize(78, 78);
+    setPlotSize(84, 84);
     const mesh = createPlotBase();
-    const last = cellQuad(mesh, 77, 77);
-    expect(plotHalfX()).toBe(19.5);
-    expect(last.max[0]).toBeCloseTo(19.5, 5);
-    expect(last.max[1]).toBeCloseTo(19.5, 5);
-    setFieldRaised(mesh, 77, 3, false);
-    expect(cellQuad(mesh, 77, 3).ys.every((y) => Math.abs(y - FIELD_Y) < 1e-6)).toBe(true);
-    expect(cellQuad(mesh, 77, 4).ys.every((y) => Math.abs(y - GROUND_Y) < 1e-6)).toBe(true);
+    const last = cellQuad(mesh, 83, 83);
+    expect(plotHalfX()).toBe(21);
+    expect(last.max[0]).toBeCloseTo(21, 5);
+    expect(last.max[1]).toBeCloseTo(21, 5);
+    setFieldRaised(mesh, 83, 3, false);
+    expect(cellQuad(mesh, 83, 3).ys.every((y) => Math.abs(y - FIELD_Y) < 1e-6)).toBe(true);
+    expect(cellQuad(mesh, 83, 4).ys.every((y) => Math.abs(y - GROUND_Y) < 1e-6)).toBe(true);
   });
 });

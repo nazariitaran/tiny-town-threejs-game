@@ -46,7 +46,7 @@ describe('serializeTown', () => {
   it('writes save version 5 with the town size', () => {
     expect(CURRENT_SAVE_VERSION).toBe(5);
     expect(serializeTown(new TownState(PLOT_WIDTH, PLOT_DEPTH))).toMatchObject({ version: 5, size: 'small' });
-    expect(serializeTown(new TownState(78, 78))).toMatchObject({ version: 5, size: 'large', width: 78, depth: 78 });
+    expect(serializeTown(new TownState(84, 84))).toMatchObject({ version: 5, size: 'large', width: 84, depth: 84 });
   });
 
   it('encodes an empty plot as one RLE run', () => {
@@ -621,10 +621,10 @@ describe('parseSave and the town size', () => {
       .filter((c) => c !== null);
 
   it('a large save keeps its size, plot and contents, up to its far corner', () => {
-    const save = ok(parseSave(sized('large', 78, 78, 74, 76)));
-    expect([save.size, save.width, save.depth]).toEqual(['large', 78, 78]);
-    expect(roadCells(save)).toEqual([[74, 76], [75, 76], [74, 77], [75, 77]]);
-    expect(save.objects.map((o) => o.anchor)).toEqual([{ x: 76, z: 76 }]);
+    const save = ok(parseSave(sized('large', 84, 84, 80, 82)));
+    expect([save.size, save.width, save.depth]).toEqual(['large', 84, 84]);
+    expect(roadCells(save)).toEqual([[80, 82], [81, 82], [80, 83], [81, 83]]);
+    expect(save.objects.map((o) => o.anchor)).toEqual([{ x: 82, z: 82 }]);
   });
 
   it('a missing, unknown or non-string size reads as small', () => {
@@ -634,27 +634,27 @@ describe('parseSave and the town size', () => {
   });
 
   it('a large town whose size is lost reads as small: its middle is kept, cell for cell, and the rest is dropped', () => {
-    // Shifted by −6: save x 6 is plot x 0.
-    const middle = ok(parseSave(sized('huge', 78, 78, 6, 8)));
+    // Shifted by −10: save x 10 is plot x 0.
+    const middle = ok(parseSave(sized('huge', 84, 84, 10, 12)));
     expect([middle.size, middle.width, middle.depth]).toEqual(['small', 64, 64]);
     expect(roadCells(middle)).toEqual([[0, 2], [1, 2], [0, 3], [1, 3]]);
     expect(middle.objects.map((o) => o.anchor)).toEqual([{ x: 2, z: 2 }]);
     // A road and oak in the outer ring are gone, ground and all.
-    const outer = ok(parseSave(sized('huge', 78, 78, 74, 76)));
+    const outer = ok(parseSave(sized('huge', 84, 84, 80, 82)));
     expect(roadCells(outer)).toEqual([]);
     expect(outer.objects).toEqual([]);
   });
 
   it('a small town tagged large is centred on the large plot, and comes back where it was', () => {
     const grown = ok(parseSave(sized('large', 64, 64, 0, 0)));
-    expect([grown.size, grown.width, grown.depth]).toEqual(['large', 78, 78]);
-    expect(roadCells(grown)).toEqual([[6, 6], [7, 6], [6, 7], [7, 7]]);
+    expect([grown.size, grown.width, grown.depth]).toEqual(['large', 84, 84]);
+    expect(roadCells(grown)).toEqual([[10, 10], [11, 10], [10, 11], [11, 11]]);
     const back = ok(parseSave({ ...grown, size: 'small' }));
     expect(roadCells(back)).toEqual([[0, 0], [1, 0], [0, 1], [1, 1]]);
     expect(back.objects.map((o) => o.anchor)).toEqual([{ x: 2, z: 0 }]);
   });
 
   it('the size follows the plot a test fits the save to', () => {
-    expect(ok(parseSave(sized('large', 78, 78, 0, 0), { width: 64, depth: 64 })).size).toBe('small');
+    expect(ok(parseSave(sized('large', 84, 84, 0, 0), { width: 64, depth: 64 })).size).toBe('small');
   });
 });

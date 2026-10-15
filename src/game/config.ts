@@ -3,10 +3,10 @@ import { ROAD_BLOCK, rotatedFootprint } from '../town/grid';
 import type { Cell, Edge, Rotation, TownSize } from '../town/types';
 
 export const TOWN_SIZES: readonly TownSize[] = ['small', 'large'];
-/** Plot in cells per town size; even, so road blocks tile it from its corner. The large plot's centre is a cell corner, not a block corner. */
+/** Plot in cells per town size; multiples of 4, so road blocks tile it from its corner and its centre is a block corner. */
 export const TOWN_PLOTS: Readonly<Record<TownSize, Readonly<{ width: number; depth: number }>>> = {
   small: { width: 64, depth: 64 },
-  large: { width: 78, depth: 78 },
+  large: { width: 84, depth: 84 },
 };
 export const DEFAULT_TOWN_SIZE: TownSize = 'small';
 

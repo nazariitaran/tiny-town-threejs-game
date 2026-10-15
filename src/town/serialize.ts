@@ -24,7 +24,7 @@ export interface SerializableTown extends TownStateReader {
 
 const GROUND_KINDS: readonly GroundKind[] = ['field', 'grass', 'meadow', 'road', 'pavement', 'walkway', 'pond'];
 const EDGE_KINDS: readonly EdgeKind[] = ['hedge', 'fence-low', 'fence-tall'];
-/** Guard against absurd dimensions in foreign data (the real plots are 64 × 64 and 78 × 78). */
+/** Guard against absurd dimensions in foreign data (the real plots are 64 × 64 and 84 × 84). */
 const MAX_SAVE_DIMENSION = 512;
 
 /**

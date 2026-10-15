@@ -28,13 +28,13 @@ A perspective camera (FOV 35°) orbits a target on the ground through three.js `
 | Zoom | Wheel (to the cursor) · + / − | Pinch |
 | Reset view | F / Home | — |
 
-- Polar angle 30°–70° from vertical; distance 6–60 (at least 1.2 × the fitted start distance, which may reach 73 for a Large town); the target stays over the plot; damping 0.12. Tunable under `?debug`.
-- **Start / reset pose** (`defaultPoseFor`): 45° yaw, 52° polar (58° in portrait), fitted so the plot's width fills the screen with its centre between the top bar and the dock. A Large town is fitted the same way, so it starts further out and its cells look about a fifth smaller. On desktop the plot is slightly wider than the screen (a cell ≈ 12.5 px); on phones it is ~3 × the screen width (a cell ≈ 10.6 px), so small props need a pinch-zoom.
+- Polar angle 30°–70° from vertical; distance 6–60 (at least 1.2 × the fitted start distance, which is about 47 for a Large town on a 1280 × 720 window); the target stays over the plot; damping 0.12. Tunable under `?debug`.
+- **Start / reset pose** (`defaultPoseFor`): 45° yaw, 52° polar (58° in portrait), fitted so the plot's width fills the screen with its centre between the top bar and the dock. A Large town is fitted the same way, so it starts further out and its cells look about a quarter smaller. On desktop the plot is slightly wider than the screen (a cell ≈ 12.5 px); on phones it is ~3 × the screen width (a cell ≈ 10.6 px), so small props need a pinch-zoom.
 - **Title pose:** a low 78° hero angle that shows the horizon, sky and sun, with a slow auto-orbit and no input.
 
 ## Pointer → grid
 - The pointer is raycast against the ground plane on pointer move and camera change only, never per idle frame. Outside the plot there is no hover and no ghost.
-- The hit becomes a **cell** (64 × 64 half-unit cells in a Small town, 78 × 78 in a Large one); for edge tools the **nearest cell edge**; for multi-cell objects a footprint **anchor** centred on the pointer (odd sizes on the hovered cell, even sizes on the nearest corner, clamped into the plot).
+- The hit becomes a **cell** (64 × 64 half-unit cells in a Small town, 84 × 84 in a Large one); for edge tools the **nearest cell edge**; for multi-cell objects a footprint **anchor** centred on the pointer (odd sizes on the hovered cell, even sizes on the nearest corner, clamped into the plot).
 - Roads, and bulldozing a road, work on the aligned 2 × 2 **road block** under the pointer. The roundabout, car parks and the zebra crossing snap to the road-block grid.
 
 ## Tools

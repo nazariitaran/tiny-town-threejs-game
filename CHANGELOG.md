@@ -7,7 +7,7 @@ Player-facing release notes for Tiny Town. How things behave is in `docs/game-de
 ### Added
 - Rain. Now and then clouds gather and it rains for a minute or two: light rain, rain or a storm. The sky turns grey, trees sway harder and rain patters on the ground; in a storm the street lamps, windows and headlights come on by day, and lightning flashes with thunder after it.
 - A Rain button in the top bar and a Rain setting in Menu → Town: Auto (showers now and then), On (steady rain) or Off. It is remembered.
-- New towns come in two sizes: pick Small or Large next to the town's name when you start one. A Large town has room for about half as much again. The size stays with the town, in its save and in its town file.
+- New towns come in two sizes: pick Small or Large next to the town's name when you start one. A Large town has about three quarters more room. The size stays with the town, in its save and in its town file.
 
 ## v0.8.0 — 2026-10-06
 

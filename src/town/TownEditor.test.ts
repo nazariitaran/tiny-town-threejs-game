@@ -462,10 +462,10 @@ describe('TownEditor town size', () => {
   it('moves the cell↔world mapping with the plot, so build events land on the large plot', () => {
     const { editor, events } = setup();
     editor.reset('Bigton', 'large');
-    expect([plot.width, plot.depth]).toEqual([78, 78]);
-    expect(cellToWorld({ x: 0, z: 0 })).toEqual({ x: -19.25, z: -19.25 });
-    editor.apply({ type: 'place-object', kind: 'lamppost', cell: { x: 77, z: 77 }, rotation: 0 }, 'lamppost');
-    expect(events.of('build:placed').at(-1)).toMatchObject({ worldX: 19.25, worldZ: 19.25 });
+    expect([plot.width, plot.depth]).toEqual([84, 84]);
+    expect(cellToWorld({ x: 0, z: 0 })).toEqual({ x: -20.75, z: -20.75 });
+    editor.apply({ type: 'place-object', kind: 'lamppost', cell: { x: 83, z: 83 }, rotation: 0 }, 'lamppost');
+    expect(events.of('build:placed').at(-1)).toMatchObject({ worldX: 20.75, worldZ: 20.75 });
     editor.reset('Small again', 'small');
     expect([plot.width, plot.depth]).toEqual([PLOT_WIDTH, PLOT_DEPTH]);
   });
@@ -475,11 +475,11 @@ describe('TownEditor town size', () => {
     editor.apply(road(0, 0), 'road');
     events.clear();
     editor.reset('Bigton', 'large');
-    expect([editor.size, editor.state.width, editor.state.depth]).toEqual(['large', 78, 78]);
+    expect([editor.size, editor.state.width, editor.state.depth]).toEqual(['large', 84, 84]);
     expect(events.log.map((e) => e.type)).toEqual(['town:changed', 'history:changed', 'town:resized', 'town:named']);
     expect(events.of('town:changed')[0]).toMatchObject({ cause: 'reset' });
-    expect(events.of('town:resized')).toEqual([{ size: 'large', width: 78, depth: 78 }]);
-    expect(snapshot(editor)).toMatchObject({ size: 'large', width: 78, depth: 78, ground: [['field', 78 * 78]], objects: [] });
+    expect(events.of('town:resized')).toEqual([{ size: 'large', width: 84, depth: 84 }]);
+    expect(snapshot(editor)).toMatchObject({ size: 'large', width: 84, depth: 84, ground: [['field', 84 * 84]], objects: [] });
   });
 
   it('reset to the same size, or with no size, keeps the plot and emits no town:resized', () => {
@@ -497,9 +497,9 @@ describe('TownEditor town size', () => {
   it('a large town can be built out to its far corner and round-trips through a save', () => {
     const { editor } = setup();
     editor.reset('Bigton', 'large');
-    expect(editor.apply(road(76, 76), 'road').ok).toBe(true);
+    expect(editor.apply(road(82, 82), 'road').ok).toBe(true);
     expect(editor.apply({ type: 'place-object', kind: 'oak', cell: { x: 70, z: 2 }, rotation: 0 }, 'oak').ok).toBe(true);
-    expect(editor.apply(road(78, 0), 'road').ok).toBe(false);
+    expect(editor.apply(road(84, 0), 'road').ok).toBe(false);
     const save = ok(parseSave(JSON.stringify(snapshot(editor))));
     expect(save).toEqual(snapshot(editor));
   });
@@ -507,7 +507,7 @@ describe('TownEditor town size', () => {
   it('load of another size: removals, town:resized, then the additions, each under its own plot', () => {
     const source = setup().editor;
     source.reset('Bigton', 'large');
-    source.apply(road(76, 76), 'road');
+    source.apply(road(82, 82), 'road');
     const large = snapshot(source);
 
     const { editor, events } = setup();
@@ -533,9 +533,9 @@ describe('TownEditor town size', () => {
   it('the town state only resizes when empty', () => {
     const state = new TownState(PLOT_WIDTH, PLOT_DEPTH);
     state.applyChanges([{ layer: 'ground', cell: { x: 1, z: 1 }, before: 'field', after: 'grass' }]);
-    expect(() => state.resize(78, 78)).toThrow(/not empty/);
+    expect(() => state.resize(84, 84)).toThrow(/not empty/);
     state.clear();
-    state.resize(78, 78);
-    expect([state.width, state.depth, state.inBounds({ x: 77, z: 77 }), state.getGround({ x: 77, z: 77 })]).toEqual([78, 78, true, 'field']);
+    state.resize(84, 84);
+    expect([state.width, state.depth, state.inBounds({ x: 83, z: 83 }), state.getGround({ x: 83, z: 83 })]).toEqual([84, 84, true, 'field']);
   });
 });
