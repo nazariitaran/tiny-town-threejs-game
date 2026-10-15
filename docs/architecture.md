@@ -48,6 +48,7 @@ src/
   ui/UiRoot.ts                all DOM UI; testIds.ts (UI_TEST_IDS), uiKeys.ts (digits, P), glyphs.ts
   audio/AudioManager.ts       Web Audio SFX, master mute / volume; owns MusicPlayer (streamed music) and CrowdLoop
   audio/CrowdLoop.ts          the stadium crowd: one looping buffer, gain set per frame, loaded on first use
+  audio/RainSound.ts          rain hiss and thunder, synthesised (filtered noise, no files)
   audio/musicPosition.ts      music resume rules (pure)
   audio/sfx.ts          [C]   SFX event ids
   audio/sfxTable.ts           generated from scripts/data/audio.json (npm run gen:sfx)
@@ -59,7 +60,10 @@ src/
                               birds: schedule and flight (pure), one InstancedMesh
   life/DuckSim.ts, DuckSystem.ts, quacks.ts
                               ducks on ponds: count, wander, rest (pure), one InstancedMesh per duck part
-  fx/**                       placement VFX, wind sway
+  weather/weatherSchedule.ts  rain showers: schedule, lightning, the weather's light (shadeDaySample, gloomAt) (pure)
+  weather/rainField.ts        the rain's octaves, fall phase, drop counts, CPU copy of the drop position (pure)
+  weather/RainLayer.ts        streaks and splashes: two InstancedBufferGeometry meshes, animated in the vertex shader
+  fx/**                       placement VFX, wind sway (and the weather's gust)
   photo/**                    town photo: capture, Polaroid frame; photoLayout.ts is pure
   debug/DebugTools.ts         lil-gui panels (?debug)
   utils/random.ts, download.ts   seeded RNG + entropy seed; file download
@@ -95,7 +99,7 @@ Rules:
 2. **UI emits intents and renders facts**; it never calls game objects directly.
 3. **Pure logic stays pure:** `src/town/**` and `src/catalog/**` import no three.js and no DOM.
 4. **One cell↔world mapping** (`game/config.ts`); every runtime asset URL goes through `assetUrl()`.
-5. **RNG streams:** `Game.rng` (gameplay: variants), `Game.fxRng` (audio/fx jitter, cars), a bird stream (`seed ^ BIRD_SEED_SALT`) and `Game.nameRng` (name suggestions only, seeded from `crypto.getRandomValues` at boot so new players get different first names; `seed(n)` pins it). Never `Math.random()`.
+5. **RNG streams:** `Game.rng` (gameplay: variants), `Game.fxRng` (audio/fx jitter, cars), a bird stream (`seed ^ BIRD_SEED_SALT`), a weather stream (entropy at boot so showers differ per visit, `seed ^ WEATHER_SEED_SALT` after `seed(n)`) and `Game.nameRng` (name suggestions only, seeded from `crypto.getRandomValues` at boot so new players get different first names; `seed(n)` pins it). Never `Math.random()`.
 6. **Keyboard:** the UI owns digits 1–9 (the first nine tools of the active category; a category holds up to 12), Shift+1–5 (category), `?` (controls help) and `P` (photo) (`ui/uiKeys.ts`, `UiRoot`). `ToolController` owns R / Shift+R (rotate), B, M, V / Shift+V (variant), T (time mode), Esc, F / Home and undo/redo (Ctrl/Cmd+Z, Shift+Z, Y); `CameraController` owns WASD / arrows, Q / E and + / −.
 
 ## Loading
@@ -104,7 +108,7 @@ Rules:
 - The `scene` step blocks the main thread, so `Game.load` waits for a paint first (at most 100 ms, for hidden tabs). The saved town is not built here; it loads on Continue.
 
 ## Frame update order (`Game.update`)
-`resizeRenderer` → `ToolController.update` → `CameraController.update` → `TownRenderer.update` → `LifeSystem.update` → `BirdSystem.update` → `DuckSystem.update` → `DayClock.advance` and `MatchSchedule.advance` / `tick` (building phase only) → `applyDaylight` (Environment, the match level, NightLights, `LifeSystem.setNight`, `BirdSystem.setDaylight`, the crowd's level, `daytime:changed` on a mode/phase change) → `Environment.update` → `PlacementFx.update` → activity tracking (frame budget) → render (the shadow scheduler decides whether the sun's map is redrawn). Everything after the camera gets `animDelta`, which is 0 under `setReducedMotion(true)`. With `setPausedForScreenshot(true)` nothing updates but rendering continues.
+`resizeRenderer` → `ToolController.update` → `CameraController.update` → `TownRenderer.update` → `LifeSystem.update` → `BirdSystem.update` → `DuckSystem.update` → `DayClock.advance`, `MatchSchedule.advance` / `tick` and `stepWeather` (building phase only) → `applyDaylight` (the weather's shading of the day sample, Environment, the match level, NightLights, `LifeSystem.setNight`, `BirdSystem.setDaylight`, the crowd's level, `daytime:changed` on a mode/phase change) → `RainLayer.update` → `Environment.update` → `PlacementFx.update` → activity tracking (frame budget) → render (the shadow scheduler decides whether the sun's map is redrawn). Everything after the camera gets `animDelta`, which is 0 under `setReducedMotion(true)`. With `setPausedForScreenshot(true)` nothing updates but rendering continues.
 
 ## Grid
 - Plot `64 × 64` cells (`PLOT_WIDTH/DEPTH`), `CELL_SIZE = 0.5`, centred on the origin: 32 × 32 world units. Toy scale: 1 unit ≈ 8 m, a cell ≈ 4 m. `cellToWorld`, `footprintCentreWorld`, `worldToGridPoint` (fractional), `worldToCell`, `edgeToWorld` in `config.ts`.
@@ -186,11 +190,12 @@ Menu → Graphics: **Low / Medium / High**, saved in the settings; every device 
 | Sky cloud octaves | 3 | 5 | 5 | live (one sky recompile) |
 | Frame cap active / idle | 30 / 30 | 60 / 30 | 60 / 30 | live |
 | Lamp halos | off | on | on | live |
+| Rain density (`rainDensity`) | 50 % | 100 % | 100 % | live |
 
 - Canvas pixel ratio = `min(devicePixelRatio × renderScale, maxDpr)` (`effectivePixelRatio`), so Low also renders at 0.75 density on DPR-1 screens, where the cap alone changes nothing.
 - Environment lighting (RoomEnvironment PMREM) and shadows are on at every level, so the presets share one palette.
 - **Boot preset:** `?graphics=low|medium|high` (not saved; invalid ignored), else the saved setting, else `medium`. It fixes MSAA (`createRenderer`) and the material family (`new ModelLibrary(material)`).
-- **Live parts** (`Game.applyGraphics`): DPR and render scale + resize; `Environment.applyGraphics` (shadow-map size, decor share, sky octaves); `FrameBudget.tuning` fps; `NightLights.setLampHalos`.
+- **Live parts** (`Game.applyGraphics`): DPR and render scale + resize; `Environment.applyGraphics` (shadow-map size, decor share, sky octaves); `FrameBudget.tuning` fps; `NightLights.setLampHalos`; `RainLayer.density`.
 - **Lambert** (`toLambert`): every lit `MeshStandardMaterial` is converted at creation (models, ghost, lawns, terrain, cars, birds); shader patches (wind, window stagger, wing flap) apply after the conversion. `scene.environment` still lights Lambert.
 - **Decor share** (`DecorRing.setFraction`): a deterministic, evenly strided subset of each mesh.
 - **Reload:** `needsReload(booted, next)` is true when MSAA or the material differs from the boot preset (anything ↔ Low). The menu then offers **Reload now**.
@@ -239,6 +244,17 @@ Ambient, like the birds: nothing is saved and `TownEditor` never sees a duck.
 - **Quacks** (`life/quacks.ts`, pure; `Game.updateQuacks`): while building, by day (night ≤ 0.6), with the camera within 22 of its ground target and a duck within 3 of that target, a `QuackTimer` rolls 2 s after the ducks come into earshot and then every 6 s; each roll plays `duck-quack` with a 30 % chance (one of three files, the SFX cooldown 3 s). The timer has its own seeded stream (`seed ^ QUACK_SEED_SALT`), follows the animation clock (silent under reduced motion) and starts over whenever the ducks go out of earshot.
 - **Tests:** test states put ducks on at once and keep them still (`auto` off) until reload; `setReducedMotion(true)` finishes their pops.
 
+## Weather
+Ambient, like match nights and birds: nothing is saved but the player's setting, `TownEditor` never sees the weather, and it never blocks or punishes.
+- **Schedule** (`weather/weatherSchedule.ts` `WeatherSchedule`, pure, owned by `Game`): dry → `gather` (clouds, 22 s) → `rain` → `clear`. A dry spell lasts `DRY_MIN_S`–`DRY_MAX_S` (6–16 min) of building time; a shower is light rain (45 %, rain 0.28, overcast 0.5, 60–120 s), rain (35 %, 0.6 / 0.78, 75–150 s) or a storm (20 %, plain rain that builds to a heavy peak of 1 / 1 between 25 % and 80 % of its 100–160 s). The schedule only sets targets: overcast moves at `OVERCAST_FADE_S` (24 s for 0 → 1) and rain at `RAIN_FADE_S` (9 s), so nothing snaps. Lightning strikes every 5–15 s while rain ≥ `LIGHTNING_FROM` (0.85): a double flash over 0.46 s from a random heading, its thunder 0.25–2.8 s later (later and quieter the further away). `wind` = 1 + 0.5·overcast + 0.9·rain². `stepWeather` advances it with `animDelta` in the building phase only, so the title, the menu, the photo view, reduced motion and a screenshot pause freeze it; rain shows in the building and menu phases, and the title is always dry. Test states switch spontaneous showers off until a reload and reset it with the seed.
+- **Setting:** `settings.rainMode` `auto | on | off` (`SaveStore`; settings are not the save format). Auto follows the schedule, On holds steady rain (`force('rain')`), Off holds clear skies; a change fades at the schedule's rates. Intents `intent:set-rain-mode { mode }` (menu) and `intent:cycle-rain-mode` (top-bar button); fact `rain:changed { mode }`, also once at boot.
+- **Light** (`applyDaylight`): `shadeDaySample(sample, overcast, flash)` rewrites the frame's `DaySample` in place before any consumer reads it: the key light falls to 15 % and greys (so shadows fade without a redraw), the hemisphere greys and dims, sky colours go grey at their own brightness (a wet dusk or night keeps its mood), the sun, moon and stars hide; a flash adds hemisphere light and lifts the sky. With overcast 0 and flash 0 it changes nothing (unit-tested). `Environment.applyWeather` sets the sky's cloud cover (threshold 0.5 → 0.2), the rain haze (fog pulled in to 16–150 by rain) and the sky shader's flash (`Sky.setFlash`, a sum, so 0 is a no-op). The town's lights get `night = max(night, gloomAt(overcast))`: a storm by day (overcast > 0.7) switches lamps, windows and headlights on. `setWindGust(wind)` multiplies the foliage breeze. No spontaneous flocks while rain ≥ 0.05.
+- **Rain** (`weather/RainLayer.ts`, maths in `weather/rainField.ts`): two meshes, streaks and splashes, one draw call each, hidden while rain ≤ 0.005. The rain is drawn at two fixed world scales at once, S = 6 · 2^k for the octave below the camera distance and the one above, cross-faded by thinning as the zoom moves (`rainOctave`: k = ⌊log₂(d / 6)⌋, the upper weight its fraction). Within an octave the box (2S wide, 0.5S tall, centred 0.3 camera distances past the view's ground point), the streak size and the fall speed are fixed, so the wrap `fract(seed + phase · speed − centre / box)` is anchored to the world: panning and zooming move the camera through the rain. Even instances always draw even octaves and odd ones odd octaves, so a drop keeps its scale across an octave boundary. A drop of rank r shows while r < its half's cut (soft over 8 % of the drops), and `instanceCount` stops at the last drop that can show. The fall phase is integrated on the CPU in box units (`advanceFall`), wrapped at 8, with drop speeds in whole eighths (0.75–1.25), so a change of rain or wind changes the drops' speed, never their place. Streaks fade near the lens (view depth 0.2–0.4 S) and into the fog (`fogFade` 0.7 at the fog's far distance), are at least ~1 px wide (fainter instead of thinner), and anything faded or thinned to nothing is moved outside clip space so it is never rasterised. Splashes are rings at `GROUND_Y` + 0.006 that live 0.35–0.6 s and land somewhere else (their clock wraps at 1000 s and their hash cycle at 251, for float precision), fading out at view depth 80–110. Per octave: 4000 streaks and 1400 splashes × strength × the preset's `rainDensity`. The camera-dependent uniforms (centre, octaves, cuts, pixel size, fog) are set in `onBeforeRender`, once per `renderer.render`, so test-hook, paused and photo renders fit their own camera; `update(delta, rain, wind, light)` advances the fall and sets the rest. The rain's colour is the horizon colour, lifted a little, in display space (`toneMapped: false`).
+- **Sound** (`audio/RainSound.ts` through `AudioManager.setRainLevel` / `thunder`): a high-passed noise hiss for light rain, a band-passed roar coming in as it gets heavy, and a low-passed noise-burst thunderclap per strike; `RAIN_TRIM` 0.2, ducked −3 dB in menus, silent while muted or hidden; the sources run only while rain is audible.
+- **Motion:** under the OS "reduce motion" setting there are no flashes (thunder still rolls). `setReducedMotion(true)` stops the weather and the rain's clock (the streaks hold still).
+- **Debug:** `?debug&rain=light|rain|storm` holds that kind from boot; lil-gui → Weather holds a kind, starts a shower as the schedule would and tunes the rain.
+- **Cost:** +2 draw calls and 15–20k submitted triangles in a storm, about the pixel cost of the first prototype; by day a storm also switches on the night-light layers (+3 calls). No textures, no shadow passes, no per-frame allocations.
+
 ## Town photo
 - **Flow:** the top-bar camera or `P` (no modifiers, building only) → `intent:take-photo` → `Game.takePhoto()`:
   1. enters the **menu** phase (the UI shows the photo view): tools off (no ghost or hover), grid hidden, clock stopped, music ducked −3 dB;
@@ -262,7 +278,8 @@ Targets and the latest measurements: `docs/release.md` §Budgets. The `stress-to
 - `setCameraPose({ targetX, targetZ, azimuth, polar, distance })`: moves the camera at once and renders;
 - `setTimeOfDay(t | null)`: pins the time of day and applies it at once, even while paused; `null` releases;
 - `spawnFlock(species?)`: launches a flock now; returns its bird count (0 when the sky is full);
-- `setMatchNight(on | null)`: `true` holds a stadium match at full level (lights and crowd, once it is dark), `false` holds none, `null` returns to the schedule. Applies at once, even while paused.
+- `setMatchNight(on | null)`: `true` holds a stadium match at full level (lights and crowd, once it is dark), `false` holds none, `null` returns to the schedule. Applies at once, even while paused;
+- `setWeather(kind | null)`: `'light' | 'rain' | 'storm'` holds that rain, `'clear'` holds dry skies, `null` returns to the schedule (and the player's setting no longer applies until it is changed). Applies at once with no fade, even while paused. Unknown kinds throw.
 
 Demo towns (`sampleTown.ts`, zero rejections, tested):
 - `sample-town` uses every placing tool (46; Move and Bulldoze are modes): homes 8, residents 25, amenities 9 (incl. the stadium south of the shops, its gate on the side street, and the cinema east of it), trees 5, roadTiles 46 (incl. the large car park facing the side street), props 31 (incl. the pond plants and bird house in the 32-cell pond north-east of the car park, 3 ducks), fences 28.
@@ -277,7 +294,7 @@ Demo towns (`sampleTown.ts`, zero rejections, tested):
 - `render`: what TownRenderer draws (objects, ground tiles, edges, instances, pools, call and triangle estimates, animating, dying, materials, `roadJoints`: road tiles drawn as a car-park joint);
 - `quality` (the preset) and `graphics` `{preset, booted, reloadRequired, antialias, material, maxDpr, renderScale, shadowMapSize, decorFraction, decorInstances, skyOctaves, activeFps, idleFps, lampHalos}`; `antialias` is read from the context, `material` measured over the scene after load and every test state (`standard | lambert | mixed | none`);
 - `ducks` `{auto, ponds, ducks, wanted, drawCalls, positions}`;
-- `audio` (incl. `music` and `crowd` `{level, gain, requested, loaded, playing, ducked, starts}`), `match` `{night, matchNight, playing, forced, level, stadiums, distance}`, `save` `{available, pending, lastError}`, `fx`, `life` (cars, target, `parked`, `manoeuvring`, per car `carCells` with its cell, position, `phase`, `lot`, `stall`), `birds`, `daytime` `{mode, t, phase, pinned, night, lightsOn, lamps, drawCalls, stadiums, floodlights}`, `photo` `{taken, developing, last}`, `perf` `{targetFps, idle, shadowRenders}`;
+- `audio` (incl. `music` and `crowd` `{level, gain, requested, loaded, playing, ducked, starts}`), `match` `{night, matchNight, playing, forced, level, stadiums, distance}`, `weather` `{kind, rain, overcast, flash, flashX, flashZ, wind, phase, remaining, forced, showers, strikes, streaks, splashes, instances, octave, octaveMix, drawCalls}` (audio carries `rain` `{level, gain, playing, thunders}`), `save` `{available, pending, lastError}`, `fx`, `life` (cars, target, `parked`, `manoeuvring`, per car `carCells` with its cell, position, `phase`, `lot`, `stall`), `birds`, `daytime` `{mode, t, phase, pinned, night, lightsOn, lamps, drawCalls, stadiums, floodlights}`, `photo` `{taken, developing, last}`, `perf` `{targetFps, idle, shadowRenders}`;
 - `renderer` (three.js calls, triangles, geometries, textures) and `canvas` (sizes, effective DPR); the canvas inspector reads these.
 
 There are no other diagnostics globals.

@@ -10,7 +10,7 @@ What Tiny Town is, and how it behaves. Rules, numbers and modules: [`architectur
 
 **Core loop:** pick a tool → place or drag-paint it on the grid → watch it pop in. Placement rules (roads block buildings, fences sit on edges, footprints can't overlap, some items need a road next to them) make light spatial puzzles. A valid placement lands with a springy pop, a dust puff, a sound and auto-joining roads. A blocked one shows a red ghost, a soft "nope" and a tooltip naming the reason. Undo makes every mistake free.
 
-**The town answers back:** cars drive on connected roads and round roundabouts, now and then pull into a car park, sit in a stall for a while and drive off again, trees and meadows sway, flocks of birds cross the sky now and then (more often over a leafy town, never at night), and at night windows, lamps, traffic lights and headlights glow, and fireflies rise over the wildflower meadows. Ducks paddle about on the ponds, more on a bigger pond, now and then tipping up to feed, and rest at night. Shops and the church stay dark at night; the stadium switches its floodlights and scoreboard on with the street lamps, and its pitch glows under them.
+**The town answers back:** cars drive on connected roads and round roundabouts, now and then pull into a car park, sit in a stall for a while and drive off again, trees and meadows sway, flocks of birds cross the sky now and then (more often over a leafy town, never at night), and at night windows, lamps, traffic lights and headlights glow, and fireflies rise over the wildflower meadows. Ducks paddle about on the ponds, more on a bigger pond, now and then tipping up to feed, and rest at night. Now and then it rains: clouds gather, rain falls for a minute or two and the sky clears. A shower is light rain, rain or a storm; a storm darkens the sky until lamps, windows and headlights come on by day, with lightning and thunder. Rain is never saved and never in the way: building, the tools and the camera work as in the dry. Shops and the church stay dark at night; the stadium switches its floodlights and scoreboard on with the street lamps, and its pitch glows under them.
 
 **Target feeling:** calm, tactile, cute. Nothing ever punishes the player.
 
@@ -122,7 +122,7 @@ Letter and digit keys use `event.code`, so layouts and Shift don't change the ma
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Top bar:** one row, 48 px (52 px on phones). Left: the **town name pill** (house badge + name, ellipsised; a button that renames). Right: Undo, Redo, **Town file**, **Photo**, **Time of day** (sun + moon / sun / moon glyph, rendered from `daytime:changed`), mute and Menu. Volume and music live in the menu.
+- **Top bar:** one row, 48 px (52 px on phones). Left: the **town name pill** (house badge + name, ellipsised; a button that renames). Right: Undo, Redo, **Town file**, **Photo**, **Time of day** (sun + moon / sun / moon glyph, rendered from `daytime:changed`), **Rain** (cloud glyph for Auto / On / Off, rendered from `rain:changed`; a click moves to the next mode), mute and Menu. Volume and music live in the menu.
 - **Dock** (bottom centre, ≤ 150 px tall on desktop): the active category's item tray above one centred row of category tabs and mode buttons. The build starts on Streets. An item card is a 44 px icon, a short label and a digit badge; the selected card is raised with an accent outline. A multi-model card has one dot per model and shows the chosen model's icon. The style strip floats above the dock with a caret at its card, outside the scrolling tray.
 - **Mode buttons:** Rotate (touch only, shows the current rotation), Move (sky blue when active), Bulldoze (brick when active).
 - **Hint line:** a one-liner for the active tool's gesture, 10 px under the top bar. It fades after 3.5 s and stops after a tool's third use. While carrying: "Click where it goes · R to rotate · Esc to cancel" / "Tap where it goes · tap Rotate to turn it".
@@ -133,7 +133,7 @@ Letter and digit keys use `event.code`, so layouts and Shift don't change the ma
 ### Phones (≤ 760 px wide or a coarse pointer)
 - The dock is full width (safe-area padded); the tray scrolls sideways with scroll-snap. Cards are 80 × 78 px with 50 px icons; at ≤ 380 px they shrink to 64 px and lose their labels.
 - Tabs and modes fit one row from 390 px up; below that the categories take one row and the modes a second. Every target is ≥ 44 px.
-- At ≤ 440 px the Town file button leaves the top bar (Menu → Town tab has a Town file row instead) and the name gets smaller; below 400 px the pill is the icon-only badge. The menu heading always shows the full name.
+- At ≤ 440 px the Town file and Rain buttons leave the top bar (Menu → Town tab has a Town file row instead) and the name gets smaller; below 400 px the pill is the icon-only badge. The menu heading always shows the full name.
 - One finger builds; two fingers move the camera. With no tool, one finger pans.
 
 ## UI states
@@ -154,7 +154,7 @@ Letter and digit keys use `event.code`, so layouts and Shift don't change the ma
 | Error | A friendly message with Try again | WebGL or asset load failure |
 
 ### Menu tabs
-- **Town:** Time of day (Auto / Day / Night); Town file (phones ≤ 440 px); Rename town · New town.
+- **Town:** Time of day (Auto / Day / Night); Rain (Auto: showers now and then / On: steady rain / Off: never; remembered); Town file (phones ≤ 440 px); Rename town · New town.
 - **Graphics:** Quality (Low / Medium / High) with the preset's one-line description; "Some changes apply after a reload" with **Reload now** when the choice changes MSAA or the material from what the page booted with; Show grid; Show FPS (off by default): a small frame-rate pill under the town name, top left, while building and in the menu. It never takes pointer input and is not in photos. The game caps its own frame rate (60 while you interact, 30 when idle on Medium and High; 30 on Low), so the counter reads the cap on a machine that keeps up.
 - **Sound:** Volume, Music on/off, Music volume.
 - **Help:** Controls, Credits, and the version (`Tiny Town v0.8`).
@@ -172,4 +172,4 @@ Letter and digit keys use `event.code`, so layouts and Shift don't change the ma
 - Every control has hover, pressed, focus-visible and disabled states, a sensible tab order and an `aria-label` where it has no text.
 
 ## State wiring
-The UI never mutates town or game state. It **emits intents** on the event bus and **renders facts** it receives (`src/game/events.ts`). One owner per concern: `TownEditor` (town and history), `ToolController` (active tool, rotation, hover, carry), `AudioManager` (mute, volume, music; persisted through `SaveStore` settings), `UiRoot` (active dock category, menu tab), `Game` (phase, graphics preset, time-of-day mode).
+The UI never mutates town or game state. It **emits intents** on the event bus and **renders facts** it receives (`src/game/events.ts`). One owner per concern: `TownEditor` (town and history), `ToolController` (active tool, rotation, hover, carry), `AudioManager` (mute, volume, music; persisted through `SaveStore` settings), `UiRoot` (active dock category, menu tab), `Game` (phase, graphics preset, time-of-day mode, rain mode).
