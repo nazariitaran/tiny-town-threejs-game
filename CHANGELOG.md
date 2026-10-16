@@ -4,6 +4,8 @@ Player-facing release notes for Tiny Town. How things behave is in `docs/game-de
 
 ## Unreleased
 
+## v0.9.1 — 2026-10-16
+
 ### Changed
 - Rain ripples on ponds, the pool and the fountains: thin rings spread across the water instead of splashes floating above it. Splashes now land on the roads, the pool's terrace and the stadium's pitch too.
 
