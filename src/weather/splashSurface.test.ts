@@ -243,6 +243,24 @@ describe('rasterSplashSurface', () => {
     expect(rasterSplashSurface(town, map, S)).toBe(0);
   });
 
+  it('keeps road rings on the roundabout asphalt only: its island, kerbs and corners take ground rings', () => {
+    for (const rotation of ROTATIONS) {
+      const town = new TownState(64, 64);
+      paint(town, 'road', 20, 22, 25, 27);
+      const roundabout = place(town, 'roundabout', 20, 22, rotation);
+      const map = raster(town);
+      const label = `r${rotation}`;
+      for (const [x, z] of [[0.05, 0.05], [-0.1, 0.2], [0.3, -0.05]]) expect(idAt(map, roundabout, x, z), `${label} island (${x}, ${z})`).toBe(SPLASH_GROUND);
+      for (const [x, z] of [[0.75, 0.75], [-0.6, 0.6], [0, -0.5], [1, 0]]) expect(idAt(map, roundabout, x, z), `${label} ring (${x}, ${z})`).toBe(SPLASH_ROAD);
+      for (const [x, z] of [[1.3, 1.3], [-1.4, 1.1], [-1.1, -1.4], [0.95, -0.95]]) expect(idAt(map, roundabout, x, z), `${label} corner (${x}, ${z})`).toBe(SPLASH_GROUND);
+      for (const [x, z] of [[0.05, 1.45], [-0.3, -1.45], [1.45, 0.3], [-1.45, -0.05]]) expect(idAt(map, roundabout, x, z), `${label} arm (${x}, ${z})`).toBe(SPLASH_ROAD);
+      for (const [x, z] of [[0.45, 1.45], [-1.45, 0.45]]) expect(idAt(map, roundabout, x, z), `${label} arm kerb (${x}, ${z})`).toBe(SPLASH_GROUND);
+      // Nothing past its footprint changes.
+      expect(at(map, 20 * T - 1, 22 * T)).toBe(SPLASH_GROUND);
+      expect(rasterSplashSurface(town, map, S)).toBe(0);
+    }
+  });
+
   it('lets water win over the land of its own object, and the lower water win over the higher', () => {
     const town = new TownState(64, 64);
     place(town, 'swimming-pool', 4, 4);
@@ -329,7 +347,7 @@ describe('affectsSplashSurface', () => {
   });
 
   it('is true for objects with a surface shape, and only those', () => {
-    for (const kind of ['swimming-pool', 'fountain', 'tiered-fountain', 'stadium'] as const) expect(affectsSplashSurface([object(kind)], 'edit'), kind).toBe(true);
+    for (const kind of ['swimming-pool', 'fountain', 'tiered-fountain', 'stadium', 'roundabout'] as const) expect(affectsSplashSurface([object(kind)], 'edit'), kind).toBe(true);
     for (const kind of ['cottage', 'lily-pads', 'bird-house', 'bench'] as const) expect(affectsSplashSurface([object(kind)], 'edit'), kind).toBe(false);
     expect(affectsSplashSurface([{ layer: 'edge', op: 'add', placed: { kind: 'hedge', edge: { x: 1, z: 1, side: 'n' } } }], 'edit')).toBe(false);
     expect(affectsSplashSurface([object('bench'), ground('field', 'road')], 'edit')).toBe(true);

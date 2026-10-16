@@ -4,7 +4,8 @@
  *
  * Ground cells give the ground, road and pond surfaces; a few models add their own (SURFACE_SHAPES):
  * a land shape claims the texels whose centre it covers, a water shape every texel it touches, since the
- * rim around water stands higher and hides a ring that spills onto it. Where two waters meet, the lower wins.
+ * rim around water stands higher and hides a ring that spills onto it. An object draws its land shapes in
+ * list order, each over the last, then its water; where two waters meet, the lower wins.
  * Texel (tx, tz) covers grid x ∈ [tx / 4, (tx + 1) / 4), z likewise; the map is indexed `tz · stride + tx`.
  */
 import type { ModelId } from '../catalog/models';
@@ -58,6 +59,15 @@ export const SURFACE_SHAPES: Readonly<Partial<Record<ModelId, readonly SurfaceSh
   fountain: [{ id: SPLASH_FOUNTAIN, circle: [0, 0, 0.315] }],
   'tiered-fountain': [{ id: SPLASH_TIERED_FOUNTAIN, circle: [0, 0, 0.568] }],
   stadium: [{ id: SPLASH_PITCH, rect: [-2.03, -1.34, 2.03, 1.22] }],
+  // Stands on road, but only the ring's asphalt and the arms lie at road height; the kerbs, the island
+  // and the corner wedges stand at ground level.
+  roundabout: [
+    { id: SPLASH_GROUND, rect: [-1.5, -1.5, 1.5, 1.5] },
+    { id: SPLASH_ROAD, circle: [0, 0, 1.155] },
+    { id: SPLASH_ROAD, rect: [-0.4, -1.5, 0.4, 1.5] },
+    { id: SPLASH_ROAD, rect: [-1.5, -0.4, 1.5, 0.4] },
+    { id: SPLASH_GROUND, circle: [0, 0, 0.34] },
+  ],
 };
 
 export const SPLASH_TEXELS_PER_CELL = 4;

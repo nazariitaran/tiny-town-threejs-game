@@ -1,20 +1,25 @@
-/** The surface table against the real GLBs, normalised as ModelLibrary does (scale, quarter turns, centred, base on y = 0). */
+/** The surface table against the real GLBs, normalised as ModelLibrary does (scale, quarter turns, then centred with the base on y = 0 unless the model keeps its native origin). */
 import * as THREE from 'three';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { MODELS, type ModelId } from '../catalog/models';
+import { MODELS, ROUNDABOUT_ISLAND_MODEL, type ModelId } from '../catalog/models';
 import { OBJECT_KINDS, OBJECTS } from '../catalog/objects';
 import { CELL_SIZE } from '../game/config';
 import { MODEL_STYLES } from '../render/modelStyles';
 import { hasJitter } from '../render/objectPose';
 import { createGlbLoader } from '../testing/gltfNode';
-import { SPLASH_ROAD, SPLASH_SURFACES, SURFACE_SHAPES, type SurfaceShape } from './splashSurface';
+import { TownState } from '../town/TownState';
+import type { TownChange } from '../town/types';
+import { rasterSplashSurface, SPLASH_GROUND, SPLASH_ROAD, SPLASH_SURFACE_STRIDE, SPLASH_SURFACES, SPLASH_TEXELS_PER_CELL, SURFACE_SHAPES, type SurfaceShape } from './splashSurface';
 
 const SHAPED = Object.keys(SURFACE_SHAPES) as ModelId[];
+/** Overlapping land shapes, each drawn over the last: checked as a whole, not shape by shape. */
+const LAYERED: readonly ModelId[] = ['roundabout'];
+const FLAT = SHAPED.filter((model) => !LAYERED.includes(model));
 const roots = new Map<ModelId, THREE.Object3D>();
 
 beforeAll(async () => {
   const load = await createGlbLoader();
-  for (const id of [...SHAPED, 'road-straight'] as ModelId[]) {
+  for (const id of [...SHAPED, 'road-straight', ROUNDABOUT_ISLAND_MODEL, 'roundabout-corner-grass'] as ModelId[]) {
     const spec = MODELS[id];
     const scene = (await load(spec.url)).scene;
     const root = new THREE.Group();
@@ -22,10 +27,12 @@ beforeAll(async () => {
     scene.scale.setScalar(spec.scale);
     scene.rotation.y = (spec.rotationOffset * Math.PI) / 2;
     root.updateMatrixWorld(true);
-    const bounds = new THREE.Box3().setFromObject(root);
-    const centre = bounds.getCenter(new THREE.Vector3());
-    scene.position.set(-centre.x, -bounds.min.y, -centre.z);
-    root.updateMatrixWorld(true);
+    if (!spec.nativeOrigin) {
+      const bounds = new THREE.Box3().setFromObject(root);
+      const centre = bounds.getCenter(new THREE.Vector3());
+      scene.position.set(-centre.x, -bounds.min.y, -centre.z);
+      root.updateMatrixWorld(true);
+    }
     roots.set(id, root);
   }
 }, 60_000);
@@ -92,7 +99,7 @@ describe('splash surface shapes', () => {
   });
 
   it('match a flat surface of the model at their height, covering it and no more', () => {
-    for (const model of SHAPED) {
+    for (const model of FLAT) {
       for (const shape of SURFACE_SHAPES[model]!) {
         const label = `${model} ${JSON.stringify(shape)}`;
         const vertices = flatVertices(roots.get(model)!, SPLASH_SURFACES[shape.id].top);
@@ -115,7 +122,7 @@ describe('splash surface shapes', () => {
     const ray = new THREE.Raycaster();
     const down = new THREE.Vector3(0, -1, 0);
     const from = new THREE.Vector3();
-    for (const model of SHAPED) {
+    for (const model of FLAT) {
       const root = roots.get(model)!;
       for (const shape of SURFACE_SHAPES[model]!) {
         const [x0, z0, x1, z1] = 'rect' in shape ? shape.rect : [shape.circle[0] - shape.circle[2], shape.circle[1] - shape.circle[2], shape.circle[0] + shape.circle[2], shape.circle[1] + shape.circle[2]];
@@ -135,6 +142,63 @@ describe('splash surface shapes', () => {
         expect(hits / samples, `${model} ${JSON.stringify(shape)}`).toBeGreaterThan(0.4);
       }
     }
+  });
+
+  it('give the roundabout road rings on its asphalt and ground rings on its kerbs, island and corners', () => {
+    // As TownRenderer draws it: the island at its centre and a grass wedge (the north-west one, turned) in each corner block.
+    const whole = new THREE.Group();
+    whole.add(roots.get('roundabout')!.clone(), roots.get(ROUNDABOUT_ISLAND_MODEL)!.clone());
+    for (let k = 0; k < 4; k += 1) {
+      const turn = new THREE.Group();
+      turn.rotation.y = (k * Math.PI) / 2;
+      const wedge = roots.get('roundabout-corner-grass')!.clone();
+      wedge.position.set(-CELL_SIZE * 2, 0, -CELL_SIZE * 2);
+      turn.add(wedge);
+      whole.add(turn);
+    }
+    whole.updateMatrixWorld(true);
+
+    const town = new TownState(64, 64);
+    const anchor = { x: 20, z: 22 };
+    const [w, d] = OBJECTS.roundabout.footprint;
+    const changes: TownChange[] = [];
+    for (let z = anchor.z; z < anchor.z + d; z += 1) {
+      for (let x = anchor.x; x < anchor.x + w; x += 1) changes.push({ layer: 'ground', cell: { x, z }, before: 'field', after: 'road' });
+    }
+    changes.push({ layer: 'object', op: 'add', object: { id: 1, kind: 'roundabout', anchor, rotation: 0, variant: 0 } });
+    town.applyChanges(changes);
+    const stride = SPLASH_SURFACE_STRIDE;
+    const map = new Uint8Array(stride * stride);
+    rasterSplashSurface(town, map, stride);
+
+    const T = SPLASH_TEXELS_PER_CELL;
+    const unit = CELL_SIZE / T;
+    const ray = new THREE.Raycaster();
+    const down = new THREE.Vector3(0, -1, 0);
+    const from = new THREE.Vector3();
+    const tally = { road: 0, roadAgrees: 0, ground: 0, groundAgrees: 0 };
+    for (let tz = anchor.z * T; tz < (anchor.z + d) * T; tz += 1) {
+      for (let tx = anchor.x * T; tx < (anchor.x + w) * T; tx += 1) {
+        // Texel centre in model space; the footprint's centre is a texel corner.
+        const x = (tx + 0.5 - (anchor.x + w / 2) * T) * unit;
+        const z = (tz + 0.5 - (anchor.z + d / 2) * T) * unit;
+        ray.set(from.set(x, 10, z), down);
+        const hit = ray.intersectObject(whole, true)[0];
+        expect(hit, `(${x}, ${z})`).toBeDefined();
+        const id = map[tz * stride + tx];
+        if (Math.abs(hit.point.y - SPLASH_SURFACES[SPLASH_ROAD].top) < 1e-3) {
+          tally.road += 1;
+          if (id === SPLASH_ROAD) tally.roadAgrees += 1;
+        } else {
+          expect(hit.point.y, `(${x}, ${z})`).toBeCloseTo(SPLASH_SURFACES[SPLASH_GROUND].top, 3);
+          tally.ground += 1;
+          if (id === SPLASH_GROUND) tally.groundAgrees += 1;
+        }
+      }
+    }
+    expect(tally.road + tally.ground).toBe(w * d * T * T);
+    expect(tally.roadAgrees / tally.road, JSON.stringify(tally)).toBeGreaterThanOrEqual(0.9);
+    expect(tally.groundAgrees / tally.ground, JSON.stringify(tally)).toBeGreaterThanOrEqual(0.9);
   });
 
   it('puts road rings over the asphalt', () => {
