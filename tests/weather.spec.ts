@@ -4,10 +4,13 @@
  */
 import { expect, test, type Page } from '@playwright/test';
 import { RAIN_TUNING } from '../src/weather/rainField';
-import { applyState, gotoTitle, startBuilding, trackErrors, waitFrames } from './helpers';
+import { applyState, clickCell, diagnostics, gotoTitle, selectTool, startBuilding, trackErrors, waitFrames } from './helpers';
 
 /** Both meshes hold two octaves' worth of instances. */
 const MAX_INSTANCES = 2 * (RAIN_TUNING.maxStreaks + RAIN_TUNING.maxSplashes);
+
+/** Water texels in the sample town's splash surface map: the pond's 32 cells at 16 texels each, then the pool's and both fountains' basins. */
+const WATER_TEXELS = 32 * 16 + 192;
 
 const weather = (page: Page) => page.evaluate(() => JSON.parse(JSON.stringify(window.__THREE_GAME_DIAGNOSTICS__!.weather!)) as NonNullable<ThreeGameDiagnostics['weather']>);
 
@@ -72,5 +75,48 @@ test('the Low preset draws half the rain', async ({ page }) => {
   await setWeather(page, 'storm');
   await pose(page, 20);
   expect((await weather(page)).streaks).toBe(RAIN_TUNING.maxStreaks / 2);
+  errors.expectNone();
+});
+
+/** A field cell on the east shore of the sample town's pond. */
+const SHORE = { x: 46, z: 21 };
+
+test('the splash surface follows the town', async ({ page }) => {
+  const errors = trackErrors(page);
+  await sampleTown(page);
+  await page.evaluate(() =>
+    window.__THREE_GAME_TEST_HOOKS__!.setCameraPose({ targetX: 6, targetZ: -5, azimuth: Math.PI / 4, polar: (52 * Math.PI) / 180, distance: 12 }),
+  );
+  await waitFrames(page, 2);
+  // Dry: no map is built and none is on the GPU.
+  const dryTextures = (await diagnostics(page)).renderer.textures;
+  expect((await weather(page)).surfaceVersion).toBe(0);
+
+  await setWeather(page, 'storm');
+  await waitFrames(page, 2);
+  const storm = await weather(page);
+  expect(storm.drawCalls).toBe(2);
+  expect(storm.surfaceVersion).toBeGreaterThanOrEqual(1);
+  expect(storm.surfaceWaterTexels).toBe(WATER_TEXELS);
+
+  // Objects without a surface of their own leave the map alone.
+  const objects = (await diagnostics(page)).objects;
+  await selectTool(page, 'bush');
+  await clickCell(page, SHORE.x, SHORE.z);
+  await expect.poll(async () => (await diagnostics(page)).objects).toBe(objects + 1);
+  await selectTool(page, 'bulldoze');
+  await clickCell(page, SHORE.x, SHORE.z);
+  await expect.poll(async () => (await diagnostics(page)).objects).toBe(objects);
+  await waitFrames(page, 2);
+  expect((await weather(page)).surfaceVersion).toBe(storm.surfaceVersion);
+
+  // One more pond cell is 16 more water texels.
+  await selectTool(page, 'pond');
+  await clickCell(page, SHORE.x, SHORE.z);
+  await expect.poll(async () => (await weather(page)).surfaceWaterTexels).toBe(storm.surfaceWaterTexels + 16);
+  expect((await weather(page)).surfaceVersion).toBe(storm.surfaceVersion + 1);
+
+  await setWeather(page, 'clear');
+  expect((await diagnostics(page)).renderer.textures).toBe(dryTextures);
   errors.expectNone();
 });
