@@ -93,7 +93,8 @@ interface ThreeGameDiagnostics {
   /**
    * Rain showers. kind: the shower in progress; rain / overcast / flash: 0..1 now; phase and remaining: where
    * the schedule is; forced: the setWeather override; streaks / splashes: drops drawn; instances: submitted to the GPU;
-   * octave / octaveMix: the lower octave drawn and the upper one's weight, as of the last render; drawCalls: the rain's.
+   * octave / octaveMix: the lower octave drawn and the upper one's weight, as of the last render; drawCalls: the rain's;
+   * surfaceVersion: rebuilds of the splash surface map (where rings land); surfaceWaterTexels: water texels in the last one.
    */
   weather?: import('./weather/weatherSchedule').WeatherDiagnostics & import('./weather/RainLayer').RainDiagnostics;
   /**

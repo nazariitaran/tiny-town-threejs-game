@@ -71,7 +71,7 @@ Full 64 × 64 town (`stress-town`), production preview, Medium preset, headless 
 | --- | --- | --- |
 | Draw calls | ≤ 150 / ≤ 120 | stress 32 (desktop; the night and mobile figures were not re-measured with the cinema and postbox cyphers), sample town 92 (a postbox is one more part than before: its cypher's atlas material; a cinema is two: building and posters); cars in car parks add none; a match night adds 2 (the floodlights' spill pool and mast halos; 1 on Low); a storm adds 2 for the rain, plus 3 by day for the night-light layers it switches on |
 | Triangles | ≤ 400k / ≤ 320k; a Large town ≤ 600k desktop | Large stress 528.9k desktop;  stress 330.9k desktop (above the mobile target), sample town 185.9k (the stadium is 1,724; the cinema 768; each car is about 1,070; the roundabout 906; a postbox 216 + its cypher's 145 to 367); rain submits 15–20k in a storm (sample town at distance 20: 199.7k), half on Low |
-| Textures | ≤ 30 | stress 15, sample town 30 (incl. the glow masks, the stadium's floodlight mask and the cinema's poster atlas, which loads with every town); a match night adds none |
+| Textures | ≤ 30 | stress 15, sample town 30 (incl. the glow masks, the stadium's floodlight mask and the cinema's poster atlas, which loads with every town); a match night adds none; rain adds 1 while it falls (the splash surface map) |
 | Shadow map | 1 × 2048 (Low 1024) | per preset |
 | DPR cap | Low 1, Medium 1.5, High 2 | per preset |
 | CPU per rendered frame | ≤ 8 ms | stress 1.39 ms building / 1.94 ms idle; sample town 1.68 / 2.88 ms |
