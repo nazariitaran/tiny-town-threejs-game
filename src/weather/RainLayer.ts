@@ -93,8 +93,8 @@ export class RainLayer {
     uSurfaceMapping: { value: new THREE.Vector3() },
     /** The live plot in texels. */
     uSurfacePlot: { value: new THREE.Vector2() },
-    /** Per surface id: ring height, ring size, water (1) or not (0). */
-    uSurface: { value: SPLASH_SURFACES.map((s) => new THREE.Vector3(s.y, s.size, s.water ? 1 : 0)) },
+    /** Per surface id: ring height, ring size, water (1) or not (0), opacity gain. */
+    uSurface: { value: SPLASH_SURFACES.map((s) => new THREE.Vector4(s.y, s.size, s.water ? 1 : 0, s.strength)) },
   };
 
   constructor(
@@ -375,7 +375,7 @@ uniform float uGround;
 uniform sampler2D uSurfaceMap;
 uniform vec3 uSurfaceMapping;
 uniform vec2 uSurfacePlot;
-uniform vec3 uSurface[${SPLASH_SURFACES.length}];
+uniform vec4 uSurface[${SPLASH_SURFACES.length}];
 attribute vec4 aSeed;
 varying vec2 vUv;
 varying float vLife;
@@ -412,8 +412,9 @@ void main() {
   if (all(greaterThanEqual(texel, vec2(0.0))) && all(lessThan(texel, uSurfacePlot))) {
     id = int(texelFetch(uSurfaceMap, ivec2(texel), 0).r * 255.0 + 0.5);
   }
-  vec3 surface = uSurface[id];
+  vec4 surface = uSurface[id];
   vWater = surface.z;
+  vFade *= surface.w;
   // On water a ripple spreads fast, then slows.
   float ease = 1.0 - (1.0 - vLife) * (1.0 - vLife);
   float grow = surface.z > 0.5 ? 0.35 + 0.75 * ease : 0.5 + 0.9 * vLife;
@@ -444,7 +445,7 @@ void main() {
     float dot0 = (1.0 - smoothstep(0.0, 0.35, r)) * (1.0 - smoothstep(0.0, 0.3, vLife));
     a = ring * (1.0 - vLife) + dot0;
   }
-  a *= vFade * uSplashOpacity;
+  a = min(a * vFade * uSplashOpacity, 1.0);
   if (a < 0.004) discard;
   gl_FragColor = vec4(uColor, a);
 }`;

@@ -22,6 +22,8 @@ export interface SplashSurface {
   /** Ring size, relative to a ring on the ground. */
   size: number;
   water: boolean;
+  /** Ring opacity gain, relative to a ring on the ground. */
+  strength: number;
 }
 
 export const SPLASH_GROUND = 0;
@@ -35,14 +37,14 @@ export const SPLASH_PITCH = 7;
 
 /** Indexed by surface id. */
 export const SPLASH_SURFACES: readonly SplashSurface[] = [
-  { top: GROUND_Y, y: GROUND_Y + 0.006, size: 1, water: false },
-  { top: 0.01, y: 0.015, size: 1, water: false },
-  { top: 0.008, y: 0.012, size: 1.25, water: true },
-  { top: 0.028, y: 0.033, size: 1.25, water: true },
-  { top: 0.056, y: 0.062, size: 1, water: false },
-  { top: 0.063, y: 0.068, size: 0.7, water: true },
-  { top: 0.085, y: 0.09, size: 0.7, water: true },
-  { top: 0.03, y: 0.035, size: 1, water: false },
+  { top: GROUND_Y, y: GROUND_Y + 0.006, size: 1, water: false, strength: 1 },
+  { top: 0.01, y: 0.015, size: 1, water: false, strength: 1 },
+  { top: 0.008, y: 0.012, size: 1.25, water: true, strength: 1.3 },
+  { top: 0.028, y: 0.033, size: 1.25, water: true, strength: 1.8 },
+  { top: 0.056, y: 0.062, size: 1, water: false, strength: 1 },
+  { top: 0.063, y: 0.068, size: 0.9, water: true, strength: 1.8 },
+  { top: 0.085, y: 0.09, size: 0.7, water: true, strength: 1.8 },
+  { top: 0.03, y: 0.035, size: 1, water: false, strength: 1 },
 ];
 
 /** In normalised model space at rotation 0 (world units, front towards +z): `rect` [x0, z0, x1, z1], `circle` [cx, cz, r]. */

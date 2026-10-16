@@ -99,8 +99,11 @@ describe('splash surfaces', () => {
       expect(surface.y - surface.top).toBeGreaterThanOrEqual(0.004 - 1e-9);
       expect(surface.y - surface.top).toBeLessThanOrEqual(0.0065);
       expect(surface.size).toBeGreaterThan(0);
+      // Ripples on water read fainter than splashes on land, so water rings are drawn stronger.
+      if (surface.water) expect(surface.strength).toBeGreaterThan(1);
+      else expect(surface.strength).toBe(1);
     }
-    expect(SPLASH_SURFACES[SPLASH_GROUND]).toMatchObject({ top: GROUND_Y, y: GROUND_Y + 0.006 });
+    expect(SPLASH_SURFACES[SPLASH_GROUND]).toMatchObject({ top: GROUND_Y, y: GROUND_Y + 0.006, size: 1, strength: 1 });
     const pond = GROUND_MODELS.pond;
     expect(pond.type === 'flat' && pond.height).toBe(SPLASH_SURFACES[SPLASH_POND].top);
   });
