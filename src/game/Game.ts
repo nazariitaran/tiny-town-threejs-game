@@ -36,6 +36,7 @@ import { parseTownNames, pickTownName, TOWN_NAMES_PATH } from '../town/townName'
 import { UiRoot } from '../ui/UiRoot';
 import { setWindGust } from '../fx/windSway';
 import { RainLayer } from '../weather/RainLayer';
+import { affectsSplashSurface } from '../weather/splashSurface';
 import { gloomAt, isRainKind, isRainMode, RAIN_MODES, shadeDaySample, WeatherSchedule, type RainMode } from '../weather/weatherSchedule';
 import { createSeededRandom, entropySeed } from '../utils/random';
 import { createDaySample, DAY_LENGTH_S, DayClock, nightAt, sampleDay, T_AFTERNOON, T_NIGHT, TIME_MODES, type DayPhase, type TimeMode } from '../world/dayCycle';
@@ -198,7 +199,7 @@ export class Game {
     this.quacks = new QuackTimer(createSeededRandom(this.seedValue ^ QUACK_SEED_SALT));
     // Seeded per page load: showers come at different times every visit; seed() pins it.
     this.weather = new WeatherSchedule(createSeededRandom(entropySeed() ^ WEATHER_SEED_SALT));
-    this.rain = new RainLayer(this.scene, createSeededRandom(RAIN_SEED));
+    this.rain = new RainLayer(this.scene, createSeededRandom(RAIN_SEED), this.town);
     this.applyRainMode();
     this.installWeatherDebug();
     this.clock = new DayClock(this.saves.getSettings().timeMode);
@@ -257,7 +258,10 @@ export class Game {
     this.bus.on('build:invalid', () => {
       this.invalidCount += 1;
     });
-    this.bus.on('town:changed', () => this.shadows.invalidate());
+    this.bus.on('town:changed', ({ changes, cause }) => {
+      this.shadows.invalidate();
+      if (affectsSplashSurface(changes, cause)) this.rain.markSurfaceDirty();
+    });
     this.frameBudget.attach(window);
     this.installPerfDebug();
     this.applyGraphics(GRAPHICS_PROFILES[this.graphics]);
@@ -536,6 +540,7 @@ export class Game {
     this.environment.setPlotSize();
     this.cameraController.refit();
     this.shadows.invalidate();
+    this.rain.markSurfaceDirty();
   }
 
   /** Serialises the live town synchronously, not the stored autosave (which trails by 1 s). */

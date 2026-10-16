@@ -7,9 +7,14 @@
  * through the rain; as the zoom crosses octaves, one thins out while the other fills in.
  * Camera-dependent uniforms are set just before the meshes draw, so every render (test hooks, photos,
  * paused frames) sees rain fitted to its own camera. Hidden, and no draw call, while it is dry.
+ *
+ * Each splash looks up the surface under it in a map of the plot (`splashSurface.ts`, an R8 texture,
+ * 4 × 4 texels a cell) and lies at that surface's height; on water it draws ripples instead of a splash. The map
+ * is rebuilt before a render after the town changes, and leaves the GPU while it is dry.
  */
 import * as THREE from 'three';
-import { GROUND_Y } from '../game/config';
+import { CELL_SIZE, plot, worldToGridPoint } from '../game/config';
+import type { TownStateReader } from '../town/types';
 import {
   advanceFall,
   fallDirection,
@@ -22,6 +27,7 @@ import {
   type RainCuts,
   type RainOctave,
 } from './rainField';
+import { rasterSplashSurface, SPLASH_GROUND, SPLASH_SURFACE_STRIDE, SPLASH_SURFACES, SPLASH_TEXELS_PER_CELL } from './splashSurface';
 
 export interface RainDiagnostics {
   /** Drops drawn (both octaves, by their cuts). */
@@ -33,6 +39,9 @@ export interface RainDiagnostics {
   octave: number;
   octaveMix: number;
   drawCalls: number;
+  /** Rebuilds of the splash surface map so far, and the water texels in the last one. */
+  surfaceVersion: number;
+  surfaceWaterTexels: number;
 }
 
 export class RainLayer {
@@ -51,6 +60,13 @@ export class RainLayer {
   private readonly splashCuts: RainCuts = { even: 0, odd: 0, band: 1, instances: 0 };
   private readonly phase = new THREE.Vector3();
   private readonly look = new THREE.Vector3();
+  private readonly gridOrigin = { x: 0, z: 0 };
+  /** The splash surface map; made on the first rain. */
+  private surfaceData: Uint8Array | null = null;
+  private surfaceTexture: THREE.DataTexture | null = null;
+  private surfaceDirty = true;
+  private surfaceVersion = 0;
+  private surfaceWaterTexels = 0;
   private readonly uniforms = {
     uTime: { value: 0 },
     uCentre: { value: new THREE.Vector3() },
@@ -70,10 +86,22 @@ export class RainLayer {
     uSplashSize: { value: new THREE.Vector2(1, 0) },
     uSplashFar: { value: new THREE.Vector2(1, 2) },
     uSplashOpacity: { value: 0 },
-    uGround: { value: GROUND_Y + 0.006 },
+    /** Height the splashes fade by distance at. */
+    uGround: { value: SPLASH_SURFACES[SPLASH_GROUND].y },
+    uSurfaceMap: { value: null as THREE.DataTexture | null },
+    /** Texels per world unit, then the world origin in texels. */
+    uSurfaceMapping: { value: new THREE.Vector3() },
+    /** The live plot in texels. */
+    uSurfacePlot: { value: new THREE.Vector2() },
+    /** Per surface id: ring height, ring size, water (1) or not (0). */
+    uSurface: { value: SPLASH_SURFACES.map((s) => new THREE.Vector3(s.y, s.size, s.water ? 1 : 0)) },
   };
 
-  constructor(scene: THREE.Scene, seed: () => number) {
+  constructor(
+    scene: THREE.Scene,
+    seed: () => number,
+    private readonly town: TownStateReader,
+  ) {
     this.group.name = 'weather:rain';
     this.streaks = new THREE.Mesh(
       seededQuads(2 * this.tuning.maxStreaks, seed, false),
@@ -126,6 +154,7 @@ export class RainLayer {
    */
   update(delta: number, rain: number, wind: number, light: Readonly<{ r: number; g: number; b: number }>): void {
     const shown = rain > 0.005;
+    if (!shown && this.streaks.visible) this.releaseSurface();
     this.streaks.visible = shown;
     this.splashes.visible = shown;
     this.rain = shown ? rain : 0;
@@ -181,6 +210,41 @@ export class RainLayer {
     u.uSplashCut.value.set(this.splashCuts.even, this.splashCuts.odd, this.splashCuts.band);
     this.streaks.geometry.instanceCount = this.streakCuts.instances;
     this.splashes.geometry.instanceCount = this.splashCuts.instances;
+    if (this.surfaceDirty) this.rebuildSurface();
+    const gridOrigin = worldToGridPoint(0, 0, this.gridOrigin);
+    u.uSurfaceMapping.value.set(SPLASH_TEXELS_PER_CELL / CELL_SIZE, gridOrigin.x * SPLASH_TEXELS_PER_CELL, gridOrigin.z * SPLASH_TEXELS_PER_CELL);
+    u.uSurfacePlot.value.set(plot.width * SPLASH_TEXELS_PER_CELL, plot.depth * SPLASH_TEXELS_PER_CELL);
+  }
+
+  /** The town changed where rings land: the map is rebuilt before the next render that draws rain. */
+  markSurfaceDirty(): void {
+    this.surfaceDirty = true;
+  }
+
+  private rebuildSurface(): void {
+    if (!this.surfaceData || !this.surfaceTexture) {
+      const stride = SPLASH_SURFACE_STRIDE;
+      this.surfaceData = new Uint8Array(stride * stride);
+      const texture = new THREE.DataTexture(this.surfaceData, stride, stride, THREE.RedFormat, THREE.UnsignedByteType);
+      texture.name = 'weather:splash-surface';
+      texture.magFilter = THREE.NearestFilter;
+      texture.minFilter = THREE.NearestFilter;
+      texture.generateMipmaps = false;
+      texture.flipY = false;
+      texture.unpackAlignment = 1;
+      this.surfaceTexture = texture;
+      this.uniforms.uSurfaceMap.value = texture;
+    }
+    this.surfaceWaterTexels = rasterSplashSurface(this.town, this.surfaceData, SPLASH_SURFACE_STRIDE);
+    this.surfaceTexture.needsUpdate = true;
+    this.surfaceVersion += 1;
+    this.surfaceDirty = false;
+  }
+
+  /** Frees the map's GPU copy; the next rain rebuilds and uploads it. */
+  private releaseSurface(): void {
+    this.surfaceTexture?.dispose();
+    this.surfaceDirty = true;
   }
 
   getDiagnostics(): RainDiagnostics {
@@ -193,11 +257,14 @@ export class RainLayer {
       octave: this.octave.k,
       octaveMix: this.octave.mix,
       drawCalls: shown ? 2 : 0,
+      surfaceVersion: this.surfaceVersion,
+      surfaceWaterTexels: this.surfaceWaterTexels,
     };
   }
 
   dispose(): void {
     this.group.removeFromParent();
+    this.surfaceTexture?.dispose();
     for (const mesh of [this.streaks, this.splashes]) {
       mesh.geometry.dispose();
       mesh.material.dispose();
@@ -305,10 +372,15 @@ uniform vec2 uSplashSize;
 uniform vec2 uSplashFar;
 uniform vec3 uFog;
 uniform float uGround;
+uniform sampler2D uSurfaceMap;
+uniform vec3 uSurfaceMapping;
+uniform vec2 uSurfacePlot;
+uniform vec3 uSurface[${SPLASH_SURFACES.length}];
 attribute vec4 aSeed;
 varying vec2 vUv;
 varying float vLife;
 varying float vFade;
+flat varying float vWater;
 ${OCTAVE_GLSL}
 float hash(vec2 p) {
   p = fract(p * vec2(123.34, 456.21));
@@ -334,8 +406,19 @@ void main() {
   vFade = thin * (1.0 - smoothstep(0.75, 1.0, max(q.x, q.y)));
   vFade *= (1.0 - smoothstep(uSplashFar.x, uSplashFar.y, depth)) * (1.0 - uFog.z * smoothstep(uFog.x, uFog.y, depth));
   if (vFade < 0.004 || depth <= 0.0) { ${COLLAPSE} }
-  float size = max(uSplashSize.x, S * uSplashSize.y) * (0.5 + 0.9 * vLife) * (0.7 + 0.6 * aSeed.w);
-  vec3 p = vec3(xz.x + position.x * size, uGround, xz.y + position.z * size);
+  // The surface under the splash; off the plot, the ground.
+  vec2 texel = floor(xz * uSurfaceMapping.x + uSurfaceMapping.yz);
+  int id = 0;
+  if (all(greaterThanEqual(texel, vec2(0.0))) && all(lessThan(texel, uSurfacePlot))) {
+    id = int(texelFetch(uSurfaceMap, ivec2(texel), 0).r * 255.0 + 0.5);
+  }
+  vec3 surface = uSurface[id];
+  vWater = surface.z;
+  // On water a ripple spreads fast, then slows.
+  float ease = 1.0 - (1.0 - vLife) * (1.0 - vLife);
+  float grow = surface.z > 0.5 ? 0.35 + 0.75 * ease : 0.5 + 0.9 * vLife;
+  float size = max(uSplashSize.x, S * uSplashSize.y) * grow * (0.7 + 0.6 * aSeed.w) * surface.y;
+  vec3 p = vec3(xz.x + position.x * size, surface.x, xz.y + position.z * size);
   gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
 }`;
 
@@ -345,11 +428,23 @@ uniform float uSplashOpacity;
 varying vec2 vUv;
 varying float vLife;
 varying float vFade;
+flat varying float vWater;
+float ripple(float r) {
+  return smoothstep(0.72, 0.86, r) * (1.0 - smoothstep(0.86, 1.0, r));
+}
 void main() {
   float r = length(vUv);
-  float ring = smoothstep(0.55, 0.8, r) * (1.0 - smoothstep(0.8, 1.0, r));
-  float dot0 = (1.0 - smoothstep(0.0, 0.35, r)) * (1.0 - smoothstep(0.0, 0.3, vLife));
-  float a = (ring * (1.0 - vLife) + dot0) * vFade * uSplashOpacity;
+  float a;
+  if (vWater > 0.5) {
+    // A thin ring and, a moment later, a fainter one inside it; no droplet.
+    float inner = 0.5 * smoothstep(0.2, 0.28, vLife) * ripple(r / 0.6);
+    a = (ripple(r) + inner) * pow(1.0 - vLife, 1.5);
+  } else {
+    float ring = smoothstep(0.55, 0.8, r) * (1.0 - smoothstep(0.8, 1.0, r));
+    float dot0 = (1.0 - smoothstep(0.0, 0.35, r)) * (1.0 - smoothstep(0.0, 0.3, vLife));
+    a = ring * (1.0 - vLife) + dot0;
+  }
+  a *= vFade * uSplashOpacity;
   if (a < 0.004) discard;
   gl_FragColor = vec4(uColor, a);
 }`;
