@@ -9,7 +9,7 @@ A cosy browser city-builder sandbox: three.js + TypeScript + Vite. The game live
 - `docs/release.md`: build, deploy, debug and test-hook policy, budgets.
 - `docs/backlog.md`: known gaps and follow-ups, open until fixed or dropped.
 - `docs/mobile-backlog.md`: what a new feature would need if full phone support comes back.
-- `CHANGELOG.md`: player-facing notes; "Unreleased" is what's merged on `main` since the last tag.
+- `CHANGELOG.md`: player-facing notes; "Unreleased" is what's merged on `dev` since the last tag.
 - History lives in git, not in docs.
 
 Agents live in `.claude/agents/`: `town-modeller` designs and builds models in Blender; `town-visual-inspector` stages objects in the running game and reports visual defects (gaps, flicker, sunk or clipping parts). Run the inspector after adding or changing a model, ground kind or anything in how the town is drawn.
@@ -70,11 +70,11 @@ node scripts/compose-models.mjs              # rebuild public/assets/models/comp
 - **Code comments** are rare, short and in the present tense: a non-obvious why, a unit or convention, a gotcha. Public JSDoc is one line unless there is a real gotcha. Never reference tickets, versions, plans, owners or dates in code (comments or test titles), and never narrate what the code used to do.
 
 ## Workflow
-- One branch per change, off `main`. Agree a plan with the owner before a non-trivial change.
-- Merge to `main` only after the owner approves. The owner sets version numbers and tags.
+- One branch per change, off `dev`. Agree a plan with the owner before a non-trivial change.
+- Merge to `dev` only after the owner approves. The owner sets version numbers and tags, and releases by fast-forwarding `main` to the tag; Cloudflare deploys every push to `main`.
 - Before hand-off: `npm run verify`, plus the e2e specs that cover the change (the full `npm run test:e2e` for wide changes). Re-capture visual baselines only for an approved look change.
 - With the change: update `CHANGELOG.md` (Unreleased) and whichever of `docs/architecture.md`, `docs/game-design.md`, `docs/assets.md` it makes stale.
-- Multi-agent work runs on an integration branch with one worktree per worker, merged into `main` only after the owner approves the whole.
+- Multi-agent work runs on an integration branch with one worktree per worker, merged into `dev` only after the owner approves the whole.
 
 ## Hand-off checklist (final message / PR description)
 - What changed, and the checks you ran with their output: tests, screenshot paths under `artifacts/<topic>/` (local only, gitignored), diagnostics numbers.

@@ -71,7 +71,7 @@ Export only when the request asks for it. Then:
 - The file must look like the rest of the game's models: the swatch image referenced by a relative path (for example `../roads/Textures/colormap.png`) with nothing embedded, one plain material (metalness 0, double-sided), one mesh and one node named after the model, +Y up. Blender's exporter embeds the image, so have the script rewrite the exported file: drop the embedded image and its data, and point the image at the relative path. Open an existing model's GLB to see the exact shape to match.
 - Rebuild headless and confirm the file is identical, then run `npm run inspect:models -- --three`: it must load with no problems, at the size and triangle count you expect.
 - Assets carry paperwork: a `License.txt` beside the model, a row in `CREDITS.md`, and an entry in `docs/assets.md` (source, size, footprint, triangles, how to rebuild it). Models you design are original work for the project; the swatch image has its own source and licence, already recorded there.
-- Commit on a branch, never on `main`, and don't merge or push.
+- Commit on a branch, never on `main` or `dev`, and don't merge or push.
 
 That is where your job ends. Registering the model in the game is someone else's task and needs the owner's explicit request.
 
