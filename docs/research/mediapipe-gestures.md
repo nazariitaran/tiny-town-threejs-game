@@ -227,7 +227,7 @@ In the game here, the worker shares the 4 cores with the game rendering through 
    - reduced-motion behaviour;
    - quieter MediaPipe logs.
 7. **Tests:**
-   - a deterministic e2e for the virtual pointer (drive `intent:virtual-pointer` through a test-only path, or replay recorded landmark streams into the interpreters);
+   - a deterministic e2e for the virtual pointer (drive `intent:virtual-pointer` through a test-only path); *done for the interpreters:* replay recorded landmark streams (`replayHead` / `replayHands`);
    - keep `gesture-smoke.mjs` as a manual pre-release check, since it needs network, ffmpeg and about 3 minutes.
 8. **Custom gestures** (Model Maker) only if the canned 7 and the pinch prove too few.
 9. **Phones:** see `docs/mobile-backlog.md`.
@@ -255,6 +255,8 @@ npx playwright test tests/gestures.spec.ts --workers=1
 node scripts/gesture-smoke.mjs     # needs ffmpeg; writes artifacts/gesture-smoke/ (screenshots, report.json)
 node scripts/gesture-bench.mjs     # inference time per model and delegate
 ```
+
+To tune on a real session, record one: start the camera, press **Record 30 s**, do the gesture, then **Stop and save** (or wait for the 120 s cap). Attach the `tiny-town-track-*.json` to the issue or the thread. It holds tracking numbers only (landmarks, face points, blendshapes, gesture names), never pictures. Check it with `parseTrack` and replay it into an interpreter in a unit test.
 
 ## Sources
 
