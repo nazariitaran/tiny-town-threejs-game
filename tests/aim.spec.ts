@@ -4,9 +4,8 @@
  * from the autosave.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { SAVE_STORAGE_KEY } from '../src/game/config';
-import type { Cell, Edge, GroundKind, ObjectKind, SavedTown } from '../src/town/types';
-import { canvasPoint, diagnostics, expectDiagnostics, gotoTitle, selectTool, startBuilding, trackErrors } from './helpers';
+import type { Cell, Edge, ObjectKind } from '../src/town/types';
+import { canvasPoint, diagnostics, expectDiagnostics, gotoTitle, groundAt, savedTown, selectTool, startBuilding, trackErrors } from './helpers';
 
 /** The camera looking north (azimuth 0): screen right is +x, screen up is −z. */
 const NORTH = { targetX: 0, targetZ: 0, azimuth: 0, polar: (52 * Math.PI) / 180, distance: 30 };
@@ -34,20 +33,6 @@ async function pointThenLeave(page: Page, cell: Cell): Promise<void> {
   await expect.poll(() => hovered(page)).toEqual(cell);
   await emit(page, 'intent:virtual-pointer', { phase: 'leave', clientX: p.x, clientY: p.y });
   await expect.poll(() => hovered(page)).toBeNull();
-}
-
-async function savedTown(page: Page): Promise<SavedTown> {
-  await expect.poll(async () => (await diagnostics(page)).save.pending, { timeout: 5_000 }).toBe(false);
-  return page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null'), SAVE_STORAGE_KEY);
-}
-
-function groundAt(town: SavedTown, cell: Cell): GroundKind {
-  let index = cell.z * town.width + cell.x;
-  for (const [kind, count] of town.ground) {
-    if (index < count) return kind;
-    index -= count;
-  }
-  return 'field';
 }
 
 async function objectsOf(page: Page, kind: ObjectKind): Promise<Array<{ id: number; anchor: Cell; rotation: number }>> {
