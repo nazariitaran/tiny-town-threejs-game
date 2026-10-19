@@ -31,7 +31,13 @@ function hand(i: number): HandObservation {
 
 /** A synthetic result `i` at 30 results a second, starting at page time `start`. */
 function trackFrame(i: number, start = 100): TrackFrame {
-  return { t: start + i * DT, hands: i % 3 === 0 ? [] : [hand(i)], face: i % 5 === 0 ? null : face(i % 2 ? 0.9 : 0), inferMs: 12 };
+  const observed = i % 5 === 0 ? null : face(i % 2 ? 0.9 : 0);
+  // Some faces carry head angles (the transformation matrix), some don't.
+  if (observed && i % 4 === 1) {
+    observed.yaw = 0.0625 * (i % 3);
+    observed.pitch = -0.03125;
+  }
+  return { t: start + i * DT, hands: i % 3 === 0 ? [] : [hand(i)], face: observed, inferMs: 12 };
 }
 
 /** The recorder's stored form of `trackFrame(i)`: time from the first frame, no worker timing. */

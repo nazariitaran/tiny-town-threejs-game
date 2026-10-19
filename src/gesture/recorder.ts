@@ -27,7 +27,7 @@ function copyPoint(point: Point3): Point3 {
 function copyFace(face: FaceObservation): FaceObservation {
   const blendshapes: Record<string, number> = {};
   for (const key of Object.keys(face.blendshapes)) blendshapes[key] = face.blendshapes[key];
-  return {
+  const copy: FaceObservation = {
     nose: copyPoint(face.nose),
     cheekRight: copyPoint(face.cheekRight),
     cheekLeft: copyPoint(face.cheekLeft),
@@ -35,6 +35,11 @@ function copyFace(face: FaceObservation): FaceObservation {
     chin: copyPoint(face.chin),
     blendshapes,
   };
+  if (face.yaw !== undefined && face.pitch !== undefined) {
+    copy.yaw = face.yaw;
+    copy.pitch = face.pitch;
+  }
+  return copy;
 }
 
 function copyHand(hand: HandObservation): HandObservation {
@@ -157,7 +162,7 @@ function face(value: unknown, path: string): FaceObservation {
   const shapes = object(o.blendshapes, `${path}.blendshapes`);
   const blendshapes: Record<string, number> = {};
   for (const key of Object.keys(shapes)) blendshapes[key] = finite(shapes[key], `${path}.blendshapes.${key}`);
-  return {
+  const result: FaceObservation = {
     nose: point(o.nose, `${path}.nose`),
     cheekRight: point(o.cheekRight, `${path}.cheekRight`),
     cheekLeft: point(o.cheekLeft, `${path}.cheekLeft`),
@@ -165,6 +170,12 @@ function face(value: unknown, path: string): FaceObservation {
     chin: point(o.chin, `${path}.chin`),
     blendshapes,
   };
+  // Head angles are optional: older files and faces without the transformation matrix have none.
+  if (o.yaw !== undefined || o.pitch !== undefined) {
+    result.yaw = finite(o.yaw, `${path}.yaw`);
+    result.pitch = finite(o.pitch, `${path}.pitch`);
+  }
+  return result;
 }
 
 function frame(value: unknown, path: string, previousT: number): RecordedFrame {
