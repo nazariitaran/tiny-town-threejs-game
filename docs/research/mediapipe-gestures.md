@@ -7,7 +7,8 @@ Can a player choose and place things in Tiny Town with their hands or their head
 - **It works end to end.** MediaPipe runs in a Web Worker, and its output drives the game through the same code paths as the mouse. In an automated run with real MediaPipe tracking (MediaPipe's own hand photos played as a fake camera), a pinch on the Road card picks the tool, a pinch-drag lays a road of 9 blocks, ✌ rotates, 👎 acts as Esc and a fist drags the map. Every check passed, and pinch presses landed within 3 px of their targets.
 - **Three modes:** *Hand* (point with the hand, pinch to click and drag, fist to move the map), *Head* (the nose points; face triggers bound in the panel: by default a slow blink clicks, a left wink toggles a drag, a long blink pauses, resting on a button presses it) and *Head + hand* (the head points, a pinch with either hand clicks).
 - **Cost to everyone else: almost nothing.** The main JS chunk grows by 2.0 kB (0.6 kB gzip), for the three new intent handlers. Everything else (a 27 kB panel chunk, the 156 kB worker, the 11.8 MB WASM runtime at 3.5 MB gzip, and 8.4 MB + 3.8 MB of models) loads only after the flag *and* a click on **Start camera**.
-- **Recommendation:** worth taking further as an **accessibility and "party trick" input mode**, not as a replacement for the mouse. Hand mode is the most promising. Head mode is the most valuable for accessibility but needs testing with real people. Before it ships beyond a flag, the owner needs to decide on model hosting and licensing (§Decisions). Some interactions also need hands-free counterparts: file dialogs, sliders, and rotate in head mode.
+- **Recommendation:** worth taking further as an **accessibility and "party trick" input mode**, not as a replacement for the mouse. Hand mode is the most promising. Head mode is the most valuable for accessibility but needs testing with real people. Before it ships beyond a flag, the owner needs to decide on model hosting and licensing (§Decisions). Some interactions still need hands-free counterparts: file dialogs and sliders outside the panel.
+- **Head-only play.** The head modes now aim at someone who can move only their head and face (§Playing with the head only). That brought on-screen camera controls and an Aim pad into the game itself, plus low-effort face triggers (blinks, winks after an eye test, pause, a switch key) and a pointer that fits a small or uneven range of movement.
 - **Not yet tried with a real person on a real webcam.** All tracking so far ran on photos through Chromium's fake camera: first in a cloud container (4 slow CPU cores, software WebGL, about 4 results a second), then on an M2 Max laptop, where it keeps up with the camera at 30 results a second in game (§Validation). Comfort and threshold tuning with real people is the first follow-up (§How to try it).
 
 ## What MediaPipe offers for this
@@ -30,6 +31,37 @@ All tasks run in a WASM runtime (SIMD; about 11.8 MB) with a **CPU** (XNNPACK) o
 - **Apple Vision Pro:** look to point, pinch to click. Head + hand mode is the webcam version.
 - **Ultraleap and Meta Quest hand tracking:** a stable "pinch point" between thumb and index, and pinch-and-hold to drag.
 - **The One Euro filter** (Casiez et al., CHI 2012): the standard smoother for jittery pointing, lagging little when fast and steady when slow.
+
+## Playing with the head only
+
+### Who it is for
+The work started from players with Duchenne and Becker muscular dystrophy, then widened to **anyone who can use only their head and face**: the owner will narrow the scope once real players have tried it. The assumptions below come from general knowledge of these conditions and of assistive input, not from testing with players or therapists, so they need checking with real users:
+
+- **Head movement can be small, uneven and tiring.** Neck weakness can limit how far someone turns and for how long. A player resting on a headrest has an off-centre neutral pose and moves further one way than the other.
+- **Mouth gestures may be hard or impossible.** Opening the mouth wide can be limited, and holding it open for a drag is tiring. A daytime ventilation mouthpiece rules mouth gestures out, and a nasal mask can cover the nose, the point the original pointer follows. Talking also opens the mouth, so an open-mouth click misfires in conversation.
+- **Eyelids and eyebrows usually keep working,** so blinks are a good low-effort trigger.
+- **Many players already use OS-level assistive pointers** (eye trackers, head mice, mini joysticks, switches). These can click, but they can't middle-drag, scroll a wheel or hold a button down for long. Anything that helps them should live in the game, not only in `?gestures`.
+
+### What follows for the design
+- **Aiming is the main hurdle.** Unfitted, the nose pointer crosses the whole screen when the nose moves about 0.2 of the face's width. A default cell is about 12.5 px, roughly 1 % of a 1280 px screen, so hitting one cell needs about 0.002 of the face's width: around half a camera pixel. Hence **Aim and Place**: point roughly, nudge one cell (or road block) at a time with screen-relative arrows, then Place, which does exactly what a click does (`docs/game-design.md` §Aim, `docs/architecture.md` §Aim). Zooming in with the camera pad makes cells bigger too.
+- **The camera without drag, wheel or keys.** The **on-screen camera controls** (rotate, pan, zoom, reset, at the right edge, 64 px targets, hold or rest to repeat) are a normal game setting (Menu → Graphics, off by default). The head modes show them on their own, without changing the setting.
+- **Low-effort, explicit triggers.** By default a slow blink clicks, and only on re-opening, at the point where the eyes started to close. Eyes shut 1.5 s pause, so talking or resting does nothing. Winks are opt-in after an eye test, because many people can't wink cleanly. You can't see with your eyes shut, so a blink never holds a drag: a wink toggles the drag on and off instead. A switch box that sends a key can click or hold. Resting on a button presses it, and on step buttons it repeats. Details in §Head-mode triggers.
+- **A pointer that fits the player.** Fit to my movement maps each direction's comfortable range on its own. The head-angle source is meant for a covered nose, and Joystick style suits very small ranges (§The head pointer for a small or uneven range).
+
+### How the plan was checked
+Before building, the plan went to a model from another family (DeepSeek, through the `second-opinion` skill) for objections. Each claim was checked against the code. It changed the plan in these ways:
+
+- **Aiming moved from last to first.** It is the precision problem worked out above.
+- **The drag toggle became a nice-to-have.** Paint tools already place a block on press and a fence click places one edge, so single clicks already build; Aim and Place covers the rest.
+- **Three code traps were fixed first.**
+  - Any gesture command other than rotate was sent as Esc, so it became an exhaustive switch.
+  - The worker posted only 4 blendshapes, so the eye ones were added.
+  - At 4 results a second, one missed detection dropped a held drag, so the loss timeout now follows the result rate.
+- **Existing events were reused.** Pan, zoom and reset already had intents, so only `intent:camera-step` was added, for eased steps.
+- **Speed was measured before blinks were built.** On an M2 Max, in game, tracking runs at 30 results a second (§Validation), fast enough to time blinks.
+
+### Still to learn
+Every default (blink length, thresholds, the 0.6 smile gate, head-angle gains, joystick speed) was tuned only on painted photos and synthetic series. The next step is real players, ideally people who use only their head, with **Record** saving their sessions as numbers for replay tests. Open questions are in `docs/backlog.md` §Hands-free controls.
 
 ## Interaction design
 
