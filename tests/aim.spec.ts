@@ -195,11 +195,13 @@ test('a pointer moving over the map, Esc and a tool change end the aim', async (
   await pointThenLeave(page, { x: 30, z: 30 });
   await nudge(page, 1, 0);
   await expect.poll(() => hovered(page)).toEqual({ x: 31, z: 30 });
+  expect((await diagnostics(page)).aim).toEqual({ x: 31, z: 30 });
 
   // A real mouse over the canvas takes over.
   const p = await canvasPoint(page, 20, 22);
   await page.mouse.move(p.x, p.y, { steps: 2 });
   await expect.poll(() => hovered(page)).toEqual({ x: 20, z: 22 });
+  expect((await diagnostics(page)).aim).toBeNull();
   // Place then starts from that hovered cell.
   await place(page);
   await expectDiagnostics(page, { history: { undoDepth: 1 } }, 'pavement under the mouse cell');
@@ -225,6 +227,7 @@ test('a pointer moving over the map, Esc and a tool change end the aim', async (
   await expect.poll(() => hovered(page)).not.toBeNull();
   await page.keyboard.press('Escape');
   await expect.poll(() => hovered(page)).toBeNull();
+  expect((await diagnostics(page)).aim).toBeNull();
   expect((await diagnostics(page)).tool).toBeNull();
   errors.expectNone();
 });

@@ -876,6 +876,7 @@ export class Game {
       tool: this.tools.activeTool,
       rotation: this.tools.activeRotation,
       hover: this.tools.hovered,
+      aim: this.tools.aimed ? { x: this.tools.aimed.x, z: this.tools.aimed.z } : null,
       selection: this.tools.selection,
       variant: this.tools.variant,
       town: this.town.stats(),

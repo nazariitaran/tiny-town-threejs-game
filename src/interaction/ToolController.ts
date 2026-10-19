@@ -261,6 +261,11 @@ export class ToolController {
     return this.hoverInfo;
   }
 
+  /** The aimed cell (aim-nudge / aim-place), or null. */
+  get aimed(): Cell | null {
+    return this.aim;
+  }
+
   /** Input is only live in the 'building' phase. */
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;

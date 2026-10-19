@@ -11,6 +11,8 @@ interface ThreeGameDiagnostics {
   rotation: number;
   /** valid/reason mirror hover:changed; a just-placed cell reports valid. */
   hover: { x: number; z: number; valid: boolean; reason: string | null } | null;
+  /** The aimed cell (intent:aim-nudge / aim-place), or null. */
+  aim?: { x: number; z: number } | null;
   /** Move tool: the carried object and the rotation it would be put down with. */
   selection: { id: number; kind: import('./town/types').ObjectKind; rotation: number } | null;
   /** The active object tool's chosen model and its model count; null for one-model tools. */
