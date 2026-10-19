@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_HAND_TUNING, HandInterpreter, imageToScreen, INDEX_MCP, INDEX_TIP, MIDDLE_MCP, pinchPoint, pinchRatio, THUMB_TIP, WRIST } from './handInterpreter';
-import { DEFAULT_HEAD_TUNING, HeadInterpreter, noseOffset } from './headInterpreter';
+import { HeadInterpreter, noseOffset } from './headInterpreter';
+import { SOURCE_TUNING } from './headPointer';
 import { OneEuroFilter } from './oneEuro';
 import { PointerSmoother } from './pointerSmoother';
 import type { FaceObservation, HandObservation, Point3 } from './protocol';
@@ -279,7 +280,7 @@ describe('HeadInterpreter', () => {
     expect(interp.frame.x).toBeCloseTo(0.5, 3);
     expect(interp.frame.y).toBeCloseTo(0.5, 3);
     runHead(interp, repeat(face({ turn: 0.03, tilt: -0.01 }), 60), t);
-    expect(interp.frame.x).toBeCloseTo(0.5 + (0.02 / 0.3) * DEFAULT_HEAD_TUNING.gainX, 2);
+    expect(interp.frame.x).toBeCloseTo(0.5 + (0.02 / 0.3) * SOURCE_TUNING.nose.gainX, 2);
     expect(interp.frame.y).toBeLessThan(0.5); // tilting up points up
   });
 

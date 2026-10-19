@@ -64,6 +64,11 @@ export class PointerSmoother {
     this.holdAt(at, Infinity);
   }
 
+  /** The pointer is held (a press's hold or a pin) at time t. */
+  isHolding(t: number): boolean {
+    return t < this.holdUntil;
+  }
+
   unpin(): void {
     if (this.holdUntil === Infinity) this.holdUntil = -Infinity;
   }

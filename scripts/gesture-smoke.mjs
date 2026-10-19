@@ -8,8 +8,11 @@
 // the nose inside the face, not the face in the frame), and a held smile rotates (Classic bindings).
 // Then blinks and winks (Low effort bindings) on the same portrait with its eyelids painted shut: the eye
 // test, a slow blink clicks, wink left drags, wink right is Esc, a long blink pauses and resumes.
+// Then the pointer sources: the portrait warped in perspective (one side nearer, as a turned or tilted
+// head) moves the pointer the same way with the nose and with the head angle; and the Fit wizard
+// completes on the warped portraits (nose source).
 // Needs a dev server on PORT and ffmpeg. Writes videos, screenshots and report.json to --out.
-// Run: node scripts/gesture-smoke.mjs [--out artifacts/gesture-smoke] [--graphics low] [--headed] [--only hands|head|eyes]
+// Run: node scripts/gesture-smoke.mjs [--out artifacts/gesture-smoke] [--graphics low] [--headed] [--only hands|head|eyes|pointer]
 import { chromium } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -96,7 +99,7 @@ function placeFor(offset, sx, sy) {
 }
 
 // --- Browser --------------------------------------------------------------------------------------
-async function open(video, mode = '') {
+async function open(video, mode = '', before = null) {
   const browser = await chromium.launch({
     executablePath,
     headless: !args.includes('--headed'),
@@ -108,6 +111,7 @@ async function open(video, mode = '') {
   await page.goto(`http://127.0.0.1:${port}/?graphics=${graphics}&gestures${mode ? `=${mode}` : ''}`);
   await page.waitForFunction(() => window.__THREE_GAME_TEST_HOOKS__ && document.querySelector('#hf-start'));
   await page.evaluate(() => window.__THREE_GAME_TEST_HOOKS__.setState('empty-build'));
+  if (before) await before(page);
   await page.click('#hf-start');
   await page.waitForFunction(() => ['tracking', 'error'].includes(document.querySelector('#hf-root').dataset.status), null, { timeout: 120_000 });
   const status = await page.evaluate(() => document.querySelector('#hf-root').dataset.status);
@@ -320,10 +324,88 @@ async function eyePass() {
   return { results, stats, errors: run.errors };
 }
 
+// --- Pass 5: pointer sources and the fit ---------------------------------------------------------
+// A planar photo warped in perspective reads to the Face Landmarker as a turned head: the side made
+// nearer (taller) is the side the face turns away from. Image-right nearer = a turn to the subject's
+// right = towards screen right in the mirror; top nearer = a tilt down.
+async function pointerPass() {
+  const k = 60;
+  const warp = (name, filter) => {
+    const path = join(imageDir, `warp-${name}.png`);
+    ffmpeg('-i', join(imageDir, 'portrait.jpg'), '-vf', ['crop=560:560:130:0,scale=400:400', filter].filter(Boolean).join(','), path);
+    return path;
+  };
+  const W = {
+    centre: warp('centre', ''),
+    right: warp('right', `perspective=0:${k}:400:0:0:${400 - k}:400:400:sense=destination`),
+    left: warp('left', `perspective=0:0:400:${k}:0:400:400:${400 - k}:sense=destination`),
+    down: warp('down', `perspective=0:0:400:0:${k}:400:${400 - k}:400:sense=destination`),
+    up: warp('up', `perspective=${k}:0:${400 - k}:0:0:400:400:400:sense=destination`),
+  };
+  const at = [120, 40];
+  const STEPS = [
+    { name: 'lead-in', image: null, seconds: LEAD_IN },
+    { name: 'centre (calibrates)', image: 'centre', seconds: 3 },
+    { name: 'turned right', image: 'right', seconds: 3, sample: 'right' },
+    { name: 'turned left', image: 'left', seconds: 3, sample: 'left' },
+    { name: 'tilted down', image: 'down', seconds: 3, sample: 'down' },
+    { name: 'tilted up', image: 'up', seconds: 3, sample: 'up' },
+    { name: 'fit: centre', image: 'centre', seconds: 3, fit: true },
+    { name: 'fit: left', image: 'left', seconds: 3 },
+    { name: 'fit: right', image: 'right', seconds: 3 },
+    { name: 'fit: up', image: 'up', seconds: 3 },
+    { name: 'fit: down', image: 'down', seconds: 3 },
+    { name: 'fit done', image: 'centre', seconds: 2, fitCheck: true },
+  ];
+  const video = buildVideo('pointer', STEPS.map((step) => (step.image ? { pose: W[step.image], from: at, seconds: step.seconds } : { pose: null, seconds: step.seconds })));
+  const results = [];
+  const errors = [];
+  const positions = {};
+  let stats = null;
+  for (const source of ['nose', 'angle']) {
+    // Fresh settings each run: the nose run fits, the angle run must start unfitted.
+    const run = await open(video, 'head', async (page) => {
+      await page.click('#hf-pointer summary');
+      if (source === 'angle') await page.click('#hf-pointer-source');
+    });
+    const { page } = run;
+    const label = await page.textContent('#hf-pointer-source');
+    positions[source] = {};
+    let t = 0;
+    for (const step of STEPS) {
+      if (step.fit && source === 'nose') await page.click('#hf-fit-start');
+      t += step.seconds;
+      await videoAt(page, t - 0.2);
+      const p = await panel(page);
+      if (step.sample) positions[source][step.sample] = { x: Number(p.x), y: Number(p.y), unit: p.unit };
+      if (step.fitCheck && source === 'nose') {
+        const text = await page.textContent('#hf-fit-text');
+        const ok = p.fitted === 'true' && p.fit === 'idle';
+        results.push({ step: 'fit wizard completes (nose)', ok, text, summary: await page.textContent('#hf-fit-summary') });
+        console.log(`${ok ? '✓' : '✗'} pointer: fit wizard completes (nose)  ${text} · ${await page.textContent('#hf-fit-summary')}`);
+      }
+      if (step.sample || step.fitCheck) console.log(`· pointer (${label}): ${step.name.padEnd(20)} cursor=${p.x},${p.y} unit=${p.unit} fit=${p.fit} ${p.label}`);
+    }
+    if (source === 'nose') await page.screenshot({ path: join(out, 'pointer-fit.png') });
+    stats = await panel(page);
+    errors.push(...run.errors);
+    await run.browser.close();
+  }
+  for (const source of ['nose', 'angle']) {
+    const q = positions[source];
+    const okX = q.right.x > q.left.x;
+    const okY = q.down.y > q.up.y;
+    results.push({ step: `${source}: right of left, down below up`, ok: okX && okY, positions: q });
+    console.log(`${okX && okY ? '✓' : '✗'} pointer (${source}): turned right x=${q.right.x} > left x=${q.left.x} · tilted down y=${q.down.y} > up y=${q.up.y}`);
+  }
+  return { results, stats, positions, errors };
+}
+
 const only = option('only', null);
 const hands = !only || only === 'hands' ? await handPasses() : null;
 const head = !only || only === 'head' ? await headPass() : null;
 const eyes = !only || only === 'eyes' ? await eyePass() : null;
+const pointer = !only || only === 'pointer' ? await pointerPass() : null;
 
 const tracking = (stats) => stats && { delegate: stats.delegate, loadMs: Number(stats.loadMs), inferMs: Number(stats.inferMs), fps: Number(stats.fps), frames: Number(stats.frames), dropped: Number(stats.dropped), models: stats.models };
 const report = {
@@ -337,11 +419,12 @@ const report = {
   counts: hands && { domClicks: Number(hands.stats.domClicks), canvasPresses: Number(hands.stats.canvasPresses), commands: Number(hands.stats.commands) },
   head: head && { steps: head.results, tracking: tracking(head.stats) },
   eyes: eyes && { steps: eyes.results, tracking: tracking(eyes.stats) },
-  pageErrors: [...(hands?.errors ?? []), ...(head?.errors ?? []), ...(eyes?.errors ?? [])],
+  pointer: pointer && { steps: pointer.results, positions: pointer.positions, tracking: tracking(pointer.stats) },
+  pageErrors: [...(hands?.errors ?? []), ...(head?.errors ?? []), ...(eyes?.errors ?? []), ...(pointer?.errors ?? [])],
 };
 writeFileSync(join(out, 'report.json'), JSON.stringify(report, null, 2));
-const failed = [...(hands?.results ?? []), ...(head?.results ?? []), ...(eyes?.results ?? [])].filter((r) => r.ok === false);
+const failed = [...(hands?.results ?? []), ...(head?.results ?? []), ...(eyes?.results ?? []), ...(pointer?.results ?? [])].filter((r) => r.ok === false);
 const rate = (name, stats) => (stats ? `(${name}): ${stats.delegate}, ${stats.inferMs} ms a frame, ${stats.fps} results/s` : null);
-console.log(`tracking ${[rate('hands', hands?.stats), rate('head', head?.stats), rate('eyes', eyes?.stats)].filter(Boolean).join(' · ')} · page errors: ${report.pageErrors.length}`);
+console.log(`tracking ${[rate('hands', hands?.stats), rate('head', head?.stats), rate('eyes', eyes?.stats), rate('pointer', pointer?.stats)].filter(Boolean).join(' · ')} · page errors: ${report.pageErrors.length}`);
 console.log(failed.length ? `FAILED: ${failed.map((r) => r.step).join(', ')}` : 'all checks passed');
 process.exit(failed.length || report.pageErrors.length ? 1 : 0);
