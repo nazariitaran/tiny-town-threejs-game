@@ -5,7 +5,22 @@
  */
 import { expect, test, type Page } from '@playwright/test';
 import type { CameraStep } from '../src/game/events';
-import { byId, diagnostics, gotoTitle, openMenuTab, selectTool, startBuilding, trackErrors, UI_TEST_IDS, waitFrames } from './helpers';
+import type { Cell } from '../src/town/types';
+import {
+  byId,
+  canvasPoint,
+  diagnostics,
+  expectDiagnostics,
+  gotoTitle,
+  groundAt,
+  openMenuTab,
+  savedTown,
+  selectTool,
+  startBuilding,
+  trackErrors,
+  UI_TEST_IDS,
+  waitFrames,
+} from './helpers';
 
 // Chromium's fake camera for the head-tracking test (a test pattern, no face).
 test.use({ launchOptions: { args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] } });
@@ -13,6 +28,8 @@ test.use({ launchOptions: { args: ['--use-fake-ui-for-media-stream', '--use-fake
 const ids = UI_TEST_IDS;
 const FOV = (35 * Math.PI) / 180;
 const DEG = Math.PI / 180;
+/** Looking north (azimuth 0): screen right is +x, screen up is −z. */
+const NORTH = { targetX: 0, targetZ: 0, azimuth: 0, polar: 52 * DEG, distance: 30 };
 
 const camera = async (page: Page) => (await diagnostics(page)).camera;
 const pad = (page: Page) => byId(page, ids.cameraPad);
@@ -233,4 +250,56 @@ test.describe('head tracking', () => {
     await expect(root).toHaveAttribute('data-status', 'off');
     await expect(pad(page)).toBeHidden();
   });
+});
+
+test('the Aim buttons nudge and place with real clicks', async ({ page }) => {
+  const errors = trackErrors(page);
+  await gotoTitle(page);
+  await startBuilding(page);
+  await turnPadOn(page);
+  await page.evaluate((pose) => window.__THREE_GAME_TEST_HOOKS__!.setCameraPose(pose), NORTH);
+  await settledCamera(page);
+  await selectTool(page, 'pavement');
+
+  const clickCenter = async (locator: ReturnType<Page['locator']>) => {
+    const box = (await locator.boundingBox())!;
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  };
+
+  // Rest the real mouse on (30, 30), then jump straight onto the pad: one move, so no other cell is crossed.
+  const start: Cell = { x: 30, z: 30 };
+  const point = await canvasPoint(page, start.x, start.z);
+  await page.mouse.move(point.x, point.y);
+  await expect.poll(async () => (await diagnostics(page)).hover).toMatchObject({ x: start.x, z: start.z });
+  const right = byId(page, ids.aimNudge('right'));
+  const box = (await right.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await expect.poll(async () => (await diagnostics(page)).hover).toBeNull();
+
+  // Screen right twice, screen down once: +2 in x, +1 in z.
+  await clickCenter(right);
+  await clickCenter(right);
+  await clickCenter(byId(page, ids.aimNudge('down')));
+  const aimed: Cell = { x: start.x + 2, z: start.z + 1 };
+  await expect.poll(async () => (await diagnostics(page)).aim).toEqual(aimed);
+  await expect(byId(page, ids.aimGroup)).toHaveAttribute('data-aimed', 'true');
+
+  await clickCenter(byId(page, ids.aimPlace));
+  await expectDiagnostics(page, { history: { undoDepth: 1 } }, 'one pavement stroke');
+  expect(groundAt(await savedTown(page), aimed)).toBe('pavement');
+  expect(groundAt(await savedTown(page), start)).toBe('field');
+
+  // Placing again on the same cell changes nothing: no new undo step.
+  await clickCenter(byId(page, ids.aimPlace));
+  await page.waitForTimeout(100);
+  expect((await diagnostics(page)).history.undoDepth).toBe(1);
+  expect((await diagnostics(page)).aim).toEqual(aimed);
+
+  // A camera button keeps the aim.
+  const before = await settledCamera(page);
+  await clickCenter(stepButton(page, 'orbit-left'));
+  const after = await settledCamera(page);
+  expect(after.azimuth - before.azimuth).toBeCloseTo(-45 * DEG, 3);
+  expect((await diagnostics(page)).aim).toEqual(aimed);
+  errors.expectNone();
 });
