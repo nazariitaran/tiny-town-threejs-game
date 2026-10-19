@@ -273,6 +273,13 @@ Ambient, like match nights and birds: nothing is saved but the player's setting,
 - **Closing:** Esc or "Back to town" → `intent:close-menu`, tool still selected. A second photo is ignored while one develops.
 - **Cost:** 60–90 ms per photo on an M-series laptop; 0.2–0.4 MB JPEG.
 
+## Aim (point, nudge, Place)
+`ToolController` handles `intent:aim-nudge { dx, dy }` and `intent:aim-place` (the Aim buttons, head tracking) and emits `aim:changed { cell | null }` on every nudge, place and clear.
+- **State:** the aimed cell and a `PickResult` synthesised for it (cell centre; the edge from the aimed side). While it is set, `refreshHover` uses it instead of the pointer's pick, so the ghost, hover frame, `hover:changed` and diagnostics `hover` follow the aim; a DOM `pointerleave` or a virtual-pointer `leave` doesn't touch it.
+- **Maths** (`interaction/aimMath.ts`, pure, unit-tested): `screenToGridSide` quantises a screen direction to the nearest grid direction for the camera azimuth (a tiny bias breaks the tie on an exact diagonal, so the four arrows always give four directions); `stepCell` (one cell, or `ROAD_BLOCK` from a block anchor, inside the plot); `stepEdge` (fence aim: along the edge's line or across to the next parallel edge).
+- **Place** synthesises a press and release with that pick (`beginStrokeAt` + `releaseStroke`, stroke id −3, no pointer capture), so every tool kind does exactly what a click does. Bulldoze's pick sits 0.15 cells inside the last nudged side, so a fence there is in range. Move: after a pick-up the aim moves to `anchor + floor((size − 1) / 2)`, the cell whose centre puts the carry ghost home.
+- **End:** `trackAt` (a pointer that really moved over the canvas), a press on the canvas, Esc, `selectTool` and `setEnabled(false)`. Camera moves keep it (the synthesised pick is in grid space, not re-picked).
+
 ## Hands-free controls (experimental)
 Behind `?gestures` (`=head`, `=head-hand`; `,cpu` skips the GPU delegate): `main.ts` imports `gesture/HandsFree` only then, and MediaPipe (`@mediapipe/tasks-vision`) loads only on **Start camera**. Research, measurements and open decisions: `docs/research/mediapipe-gestures.md`.
 - **Pipeline:** `Tracker` opens the camera and sends each new video frame (`requestVideoFrameCallback`) to `tracker.worker.ts` as a transferred `ImageBitmap`, one in flight, newer frames dropped while busy. The worker runs the Gesture Recognizer (2 hands, landmarks + canned gesture) and / or the Face Landmarker (5 points, 4 blendshapes) and posts only those. `HandInterpreter` / `HeadInterpreter` (pure, time-based, unit-tested) turn them into a `GestureFrame` (pointer, press, grab, zoom, command); `GestureRouter` sends it on.

@@ -86,6 +86,18 @@ A perspective camera (FOV 35°) orbits a target on the ground through three.js `
 - **Deselect:** Esc, clicking the active card again, pressing its digit again, or a right-click without a drag (a right drag still pans). Esc with no tool opens the menu. A right-click never places.
 - **Feedback:** placing pops in (easeOutBack, ~220 ms) with a dust puff and the item's sound; removing shrinks out (~150 ms) with a poof and a crunch. An invalid click shakes the ghost (150 ms), plays a soft "nope" and shows the reason by the pointer for ~1.5 s.
 
+### Aim: point roughly, nudge, Place
+For players who can't hit one cell (a head pointer, a head mouse or an eye tracker): the Aim buttons' ←↑→↓ move an **aimed cell** one step at a time and **Place** clicks the active tool there.
+- **Start:** the first nudge starts from the cell under the pointer; once the pointer has left the map, from the last hovered (or aimed) cell; with no hover yet, from the cell in the middle of the screen. Place with no aim acts on that same cell and starts an aim there.
+- **Direction:** a nudge moves up, down, left or right **on the screen**, to the grid direction closest to it for the camera's turn, so ↑ still goes up the screen after the camera orbits.
+- **Step:** one cell; one road block for the road tool and the block-snapped objects (roundabout, car park, zebra crossing). The aim never leaves the plot.
+- **Showing it:** the hover frame, ghost and invalid tooltip behave exactly as for a pointer on the aimed cell. Objects centre their footprint on it as on a hovered cell.
+- **Place** is one click of the tool on the aimed cell, with its sounds, dust and invalid feedback, and one undo step. The aim stays, so the next nudge and Place carry on (a road block by block).
+- **Fences and hedges** aim an edge, first the aimed cell's side up the screen. A nudge moves the edge one step: along its own line, or across to the next parallel edge. R turns it to the next side of the cell.
+- **Bulldoze** removes the object on the aimed cell, else a fence on the side last nudged toward, else the ground: nudge toward a fence from the cell beside it to take it down.
+- **Move:** Place picks up the object on the aimed cell and the aim jumps to the cell that puts it back where it stands; the nudges move the carried ghost and Place puts it down.
+- **End:** a pointer moving over the map takes over again; Esc, a tool change and leaving the building phase end the aim too. The camera (pad, keys, gestures) can move freely: the aim stays on its cell.
+
 ### Keyboard
 Letter and digit keys use `event.code`, so layouts and Shift don't change the mapping. No game key fires while a text field has focus.
 
