@@ -141,3 +141,27 @@ export function fitPlotPose(base: CameraPose, options: FitOptions): CameraPose {
   }
   return poseAt(distance, shiftFor(distance));
 }
+
+/**
+ * Ground move (world units, written to `out`) for a camera pan step: `right` / `forward` are in
+ * screen directions (−1..1, forward = up the screen, like W), each worth `fraction` of the visible
+ * height at the target. A forward step covers more ground than a sideways one (the view is tilted).
+ */
+export function panStepDelta(
+  azimuth: number,
+  polar: number,
+  distance: number,
+  fovRadians: number,
+  right: number,
+  forward: number,
+  fraction: number,
+  out: { x: number; z: number },
+): { x: number; z: number } {
+  const step = fraction * 2 * distance * Math.tan(fovRadians / 2);
+  const r = right * step;
+  const f = (forward * step) / Math.max(0.2, Math.cos(polar));
+  // Screen-right on the ground is (cosθ, −sinθ); the view looks along (−sinθ, −cosθ).
+  out.x = Math.cos(azimuth) * r - Math.sin(azimuth) * f;
+  out.z = -Math.sin(azimuth) * r - Math.cos(azimuth) * f;
+  return out;
+}

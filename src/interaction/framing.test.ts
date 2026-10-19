@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { afterEach, describe, expect, it } from 'vitest';
 import { CELL_SIZE, cellToWorld, plot, PLOT_DEPTH, PLOT_WIDTH, setPlotSize } from '../game/config';
 import { DEFAULT_POSE, defaultPoseFor, TITLE_POSE, titlePoseFor, type CameraPose } from './CameraController';
-import { CENTRE_ABOVE_DOCK_PX, dockTopPx, SAFE_INSETS } from './framing';
+import { CENTRE_ABOVE_DOCK_PX, dockTopPx, panStepDelta, SAFE_INSETS } from './framing';
 
 /** Screen-space (CSS px) bounds of the plot corners and its centre at a pose. */
 function plotRect(pose: CameraPose, width: number, height: number) {
@@ -119,5 +119,45 @@ describe('build camera framing on the large plot', () => {
     const rect = plotRect(defaultPoseFor(960, 760), 960, 760);
     expect(rect.left).toBeGreaterThanOrEqual(SAFE_INSETS.wide.side - 1);
     expect(rect.right).toBeLessThanOrEqual(960 - SAFE_INSETS.wide.side + 1);
+  });
+});
+
+describe('panStepDelta (on-screen camera pan steps)', () => {
+  const fov = THREE.MathUtils.degToRad(35);
+  const polar = THREE.MathUtils.degToRad(52);
+  const aspect = 16 / 9;
+
+  /** NDC of the old target after the camera and target move by one step. */
+  function oldTargetAfter(azimuth: number, right: number, forward: number): THREE.Vector3 {
+    const delta = panStepDelta(azimuth, polar, 30, fov, right, forward, 0.25, { x: 0, z: 0 });
+    const camera = new THREE.PerspectiveCamera(35, aspect, 0.1, 2000);
+    const target = new THREE.Vector3(delta.x, 0, delta.z);
+    camera.position.setFromSphericalCoords(30, polar, azimuth).add(target);
+    camera.lookAt(target);
+    camera.updateMatrixWorld();
+    return new THREE.Vector3(0, 0, 0).project(camera);
+  }
+
+  it('moves the view a quarter of the screen height in the screen direction asked, at any azimuth', () => {
+    for (const azimuth of [0, Math.PI / 4, 2]) {
+      // Up (W): the old centre drops to about a quarter height below the middle (NDC −0.5; the tilt stretches the near half).
+      const up = oldTargetAfter(azimuth, 0, 1);
+      expect(up.x).toBeCloseTo(0, 5);
+      expect(up.y).toBeGreaterThan(-0.7);
+      expect(up.y).toBeLessThan(-0.4);
+      // Right (D): the same distance on screen, sideways.
+      const right = oldTargetAfter(azimuth, 1, 0);
+      expect(right.y).toBeCloseTo(0, 5);
+      expect(right.x * aspect).toBeCloseTo(-0.5, 1);
+    }
+  });
+
+  it('is zero for no direction and opposite for opposite directions', () => {
+    const out = { x: 0, z: 0 };
+    expect(Math.hypot(panStepDelta(1, polar, 30, fov, 0, 0, 0.25, out).x, out.z)).toBe(0);
+    const a = { ...panStepDelta(1, polar, 30, fov, 1, -1, 0.25, out) };
+    const b = panStepDelta(1, polar, 30, fov, -1, 1, 0.25, out);
+    expect(b.x).toBeCloseTo(-a.x, 9);
+    expect(b.z).toBeCloseTo(-a.z, 9);
   });
 });

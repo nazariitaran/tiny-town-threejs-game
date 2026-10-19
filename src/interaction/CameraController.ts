@@ -1,7 +1,7 @@
 /**
  * Builder camera: MapControls remapped so the left button / one finger stay free for building.
  *
- *  Pan    right-drag · WASD / arrows · left-drag with no tool · two-finger drag
+ *  Pan    right-drag · WASD / arrows · left-drag with no tool · two-finger drag · pad steps
  *  Orbit  middle-drag · Alt+left-drag (also tilts) · Q / E 45° steps · two-finger twist
  *  Zoom   wheel (zoom-to-cursor) · + / − · pinch
  */
@@ -10,7 +10,7 @@ import { MapControls } from 'three/addons/controls/MapControls.js';
 import type { DebugTools } from '../debug/DebugTools';
 import { CELL_SIZE, plot, PLOT_WIDTH } from '../game/config';
 import { isEditableTarget } from './keyboard';
-import { CENTRE_ABOVE_DOCK_PX, dockTopPx, fitPlotPose, insetsFor } from './framing';
+import { CENTRE_ABOVE_DOCK_PX, dockTopPx, fitPlotPose, insetsFor, panStepDelta } from './framing';
 import { easeInOutCubic, easeOutCubic, shortestAngle } from './strokeMath';
 
 const DEG = Math.PI / 180;
@@ -105,6 +105,16 @@ interface ScalarTween {
   duration: number;
 }
 
+/** A ground move eased over `duration`; `done` is the eased share already applied. */
+interface PanTween {
+  active: boolean;
+  x: number;
+  z: number;
+  done: number;
+  elapsed: number;
+  duration: number;
+}
+
 interface PoseTween {
   from: CameraPose;
   to: CameraPose;
@@ -136,6 +146,9 @@ export class CameraController {
     orbitDuration: 0.28,
     zoomStep: 1.25,
     zoomDuration: 0.2,
+    /** One pan step (on-screen camera controls), as a share of the visible height. */
+    panStepFraction: 0.25,
+    panStepDuration: 0.3,
     resetDuration: 0.55,
     /** Title-screen auto-orbit, radians per second. */
     titleOrbitSpeed: 0.06,
@@ -157,6 +170,8 @@ export class CameraController {
   private orbitTween: ScalarTween | null = null;
   private zoomTween: ScalarTween | null = null;
   private poseTween: PoseTween | null = null;
+  private readonly panTween: PanTween = { active: false, x: 0, z: 0, done: 0, elapsed: 0, duration: 0 };
+  private readonly panDelta = { x: 0, z: 0 };
 
   private readonly touchPoints = new Map<number, { x: number; y: number }>();
   private twistAngle: number | null = null;
@@ -266,6 +281,26 @@ export class CameraController {
     const factor = direction === 1 ? 1 / this.tuning.zoomStep : this.tuning.zoomStep;
     const to = THREE.MathUtils.clamp(base * factor, this.controls.minDistance, this.controls.maxDistance);
     this.zoomTween = { from: current, to, elapsed: 0, duration: this.tuning.zoomDuration };
+  }
+
+  /**
+   * Animated pan by a share of the view, in screen directions: x 1 = right (D), y 1 = up the screen (W).
+   * Steps given while one is running add to what is left of it.
+   */
+  panStep(x: -1 | 0 | 1, y: -1 | 0 | 1): void {
+    if (this.mode !== 'build' || (x === 0 && y === 0)) return;
+    this.poseTween = null;
+    const spherical = this.readSpherical();
+    const fov = THREE.MathUtils.degToRad(this.camera.fov);
+    const delta = panStepDelta(spherical.theta, spherical.phi, spherical.radius, fov, x, y, this.tuning.panStepFraction, this.panDelta);
+    const tween = this.panTween;
+    const left = tween.active ? 1 - tween.done : 0;
+    tween.x = tween.x * left + delta.x;
+    tween.z = tween.z * left + delta.z;
+    tween.done = 0;
+    tween.elapsed = 0;
+    tween.duration = this.tuning.panStepDuration;
+    tween.active = true;
   }
 
   /**
@@ -471,6 +506,19 @@ export class CameraController {
       this.setDistance(this.stepScalar(zoomTween, delta));
       if (zoomTween.elapsed >= zoomTween.duration) this.zoomTween = null;
     }
+    const pan = this.panTween;
+    if (pan.active) {
+      pan.elapsed = Math.min(pan.duration, pan.elapsed + delta);
+      const k = easeOutCubic(pan.duration > 0 ? pan.elapsed / pan.duration : 1);
+      // Moves by increments, so keys, drags and clamps during the step add to it instead of being undone.
+      const share = k - pan.done;
+      pan.done = k;
+      this.controls.target.x += pan.x * share;
+      this.controls.target.z += pan.z * share;
+      this.camera.position.x += pan.x * share;
+      this.camera.position.z += pan.z * share;
+      if (pan.elapsed >= pan.duration) pan.active = false;
+    }
   }
 
   private stepScalar(tween: ScalarTween, delta: number): number {
@@ -496,6 +544,7 @@ export class CameraController {
     this.poseTween = null;
     this.orbitTween = null;
     this.zoomTween = null;
+    this.panTween.active = false;
   };
 
   private clearHeldInput(): void {
@@ -604,6 +653,8 @@ export class CameraController {
     folder.add(t, 'orbitDuration', 0.05, 1, 0.01);
     folder.add(t, 'zoomStep', 1.05, 2, 0.05);
     folder.add(t, 'zoomDuration', 0.05, 1, 0.01);
+    folder.add(t, 'panStepFraction', 0.05, 0.5, 0.05);
+    folder.add(t, 'panStepDuration', 0.05, 1, 0.01);
     folder.add(t, 'resetDuration', 0.1, 1.5, 0.05);
     folder.add(t, 'titleOrbitSpeed', 0, 0.5, 0.01);
     folder.add(t, 'twistDeadzoneDegrees', 0, 30, 1);

@@ -15,6 +15,7 @@ import { DEFAULT_TOWN_NAME, sanitizeTownName, TOWN_NAME_MAX_LENGTH, townNameLeng
 import type { Rotation, TownSize } from '../town/types';
 import { TIME_MODES, type DayPhase, type TimeMode } from '../world/dayCycle';
 import { RAIN_MODES, type RainMode } from '../weather/weatherSchedule';
+import { CameraPad } from './CameraPad';
 import { GLYPHS } from './glyphs';
 import { MENU_TABS, UI_TEST_IDS, type MenuTab } from './testIds';
 import { digitAction, isPhotoKey } from './uiKeys';
@@ -113,6 +114,7 @@ const escapeHtml = (text: string): string =>
 
 export class UiRoot {
   private readonly root: HTMLElement;
+  private readonly cameraPad: CameraPad;
   private readonly unsubscribers: Array<() => void> = [];
   private readonly coarse = window.matchMedia('(pointer: coarse)');
   private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -165,6 +167,7 @@ export class UiRoot {
   ) {
     this.root = host;
     this.root.innerHTML = this.template();
+    this.cameraPad = new CameraPad(this.root, bus);
 
     this.root.addEventListener('click', this.onClick);
     this.root.addEventListener('submit', this.onSubmit);
@@ -232,6 +235,9 @@ export class UiRoot {
         counter.classList.toggle('is-on', visible);
         counter.textContent = FPS_PENDING;
       }),
+      bus.on('camera-pad:changed', ({ visible }) => {
+        this.el<HTMLInputElement>(UI_TEST_IDS.cameraPadSwitch).checked = visible;
+      }),
       bus.on('fps:measured', ({ fps }) => {
         this.el(UI_TEST_IDS.fpsCounter).textContent = `${fps} FPS`;
       }),
@@ -288,6 +294,7 @@ export class UiRoot {
     window.clearTimeout(this.hintTimer);
     window.clearTimeout(this.tooltipTimer);
     if (this.photo) URL.revokeObjectURL(this.photo.url);
+    this.cameraPad.dispose();
     for (const off of this.unsubscribers) off();
     this.root.innerHTML = '';
     delete this.root.dataset.phase;
@@ -428,6 +435,10 @@ export class UiRoot {
                 ${GLYPHS.fps}<span>Show FPS</span>
                 <input type="checkbox" id="${id.fps}" role="switch" />
               </label>
+              <label class="ui-field ui-check" for="${id.cameraPadSwitch}">
+                ${GLYPHS.orbitRight}<span>On-screen camera controls</span>
+                <input type="checkbox" id="${id.cameraPadSwitch}" role="switch" />
+              </label>
             </div>
             <div class="ui-menu-page" role="tabpanel" id="${id.menuTabPanel('sound')}" aria-labelledby="${id.menuTab('sound')}" hidden>
               <div class="ui-field">
@@ -506,6 +517,7 @@ export class UiRoot {
                 <dt>P</dt><dd>Take a photo</dd>
                 <dt>Esc</dt><dd>Put the tool away · menu</dd>
                 <dt>?</dt><dd>This help</dd>
+                <dt>Camera buttons</dt><dd>Menu → Graphics → On-screen camera controls: turn, zoom, move and aim with clicks only</dd>
               </dl>
             </div>
             <div>
@@ -681,6 +693,9 @@ export class UiRoot {
     } else if (target.id === UI_TEST_IDS.fps && event.type === 'change') {
       this.sfx('ui-click');
       this.bus.emit('intent:toggle-fps', { visible: target.checked });
+    } else if (target.id === UI_TEST_IDS.cameraPadSwitch && event.type === 'change') {
+      this.sfx('ui-click');
+      this.bus.emit('intent:set-camera-pad', { visible: target.checked });
     } else if (target.name === 'town-size' && event.type === 'change' && target.checked) {
       this.sfx('ui-click');
     } else if (target.name === 'time-mode' && event.type === 'change' && target.checked) {

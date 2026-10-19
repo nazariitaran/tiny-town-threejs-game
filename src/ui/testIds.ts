@@ -1,5 +1,6 @@
 /** Stable DOM ids for tests and bots. Side-effect free so Playwright specs can import it in Node. */
 import type { ToolCategory, ToolId } from '../catalog/tools';
+import type { CameraStep } from '../game/events';
 import type { GraphicsPreset } from '../game/graphics';
 import type { TownSize } from '../town/types';
 import type { TimeMode } from '../world/dayCycle';
@@ -8,6 +9,8 @@ import type { RainMode } from '../weather/weatherSchedule';
 /** In display order. */
 export const MENU_TABS = ['town', 'graphics', 'sound', 'help'] as const;
 export type MenuTab = (typeof MENU_TABS)[number];
+
+export type AimDirection = 'up' | 'down' | 'left' | 'right';
 
 /**
  * `tool-<id>` buttons also carry data-tool="<id>".
@@ -101,4 +104,14 @@ export const UI_TEST_IDS = {
   variant: (choice: number) => `variant-${choice}`,
   hint: 'ui-hint',
   tooltip: 'ui-tooltip',
+  /** On-screen camera controls: hidden unless the setting or head tracking shows them (building only). */
+  cameraPad: 'ui-camera-pad',
+  cameraPadSwitch: 'chk-camera-pad',
+  /** Step buttons carry data-repeat (held, they repeat). */
+  cameraStep: (step: CameraStep) => `btn-cam-${step}`,
+  cameraReset: 'btn-cam-reset',
+  /** Shown only while a tool is active; data-aimed is "true" while a cell is aimed. */
+  aimGroup: 'ui-aim',
+  aimNudge: (direction: AimDirection) => `btn-aim-${direction}`,
+  aimPlace: 'btn-aim-place',
 } as const;
