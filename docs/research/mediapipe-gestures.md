@@ -256,7 +256,7 @@ node scripts/gesture-smoke.mjs     # needs ffmpeg; writes artifacts/gesture-smok
 node scripts/gesture-bench.mjs     # inference time per model and delegate
 ```
 
-To tune on a real session, record one: start the camera, press **Record 30 s**, do the gesture, then **Stop and save** (or wait for the 120 s cap). Attach the `tiny-town-track-*.json` to the issue or the thread. It holds tracking numbers only (landmarks, face points, blendshapes, gesture names), never pictures. Check it with `parseTrack` and replay it into an interpreter in a unit test.
+To tune on a real session, record one: start the camera, press **Record**, do the gesture, then **Stop and save** (or wait for the 120 s cap). Attach the `tiny-town-track-*.json` to the issue or the thread. It holds tracking numbers only (landmarks, face points, blendshapes, gesture names), never pictures. Check it with `parseTrack` and replay it into an interpreter in a unit test.
 
 ## Sources
 

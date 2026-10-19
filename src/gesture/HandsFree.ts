@@ -286,7 +286,7 @@ export class HandsFree {
             <button type="button" class="hf-btn" id="${HF_IDS.winkTest('right')}" data-wink="right">Right wink</button>
           </div>
         </details>
-        <div class="hf-pair"><button type="button" class="hf-btn" id="${HF_IDS.record}" disabled>Record 30 s</button><span class="hf-small" id="${HF_IDS.recordStatus}" aria-live="polite"></span></div>
+        <div class="hf-pair"><button type="button" class="hf-btn" id="${HF_IDS.record}" disabled>Record</button><span class="hf-small" id="${HF_IDS.recordStatus}" aria-live="polite"></span></div>
         <p class="hf-note">Runs on this device with Google MediaPipe. The camera picture never leaves your browser. A recording holds only tracking numbers, never pictures, and stays on the device unless you share it.</p>
       </section>
       <div class="hf-cursor" id="${HF_IDS.cursor}" hidden><i class="hf-ring"></i><i class="hf-dot"></i></div>
@@ -739,7 +739,7 @@ export class HandsFree {
 
   private renderRecord(): void {
     const recorder = this.recorder;
-    const label = recorder?.recording ? 'Stop and save' : 'Record 30 s';
+    const label = recorder?.recording ? 'Stop and save' : 'Record';
     const button = this.el<HTMLButtonElement>(HF_IDS.record);
     if (button.textContent !== label) button.textContent = label;
     const text = recorder?.recording ? `● Recording ${Math.floor(recorder.elapsed)} s` : '';
