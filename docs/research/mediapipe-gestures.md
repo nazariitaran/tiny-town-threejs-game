@@ -5,7 +5,7 @@ Can a player choose and place things in Tiny Town with their hands or their head
 ## Summary
 
 - **It works end to end.** MediaPipe runs in a Web Worker, and its output drives the game through the same code paths as the mouse. In an automated run with real MediaPipe tracking (MediaPipe's own hand photos played as a fake camera), a pinch on the Road card picks the tool, a pinch-drag lays a road of 9 blocks, ✌ rotates, 👎 acts as Esc and a fist drags the map. Every check passed, and pinch presses landed within 3 px of their targets.
-- **Three modes:** *Hand* (point with the hand, pinch to click and drag, fist to move the map), *Head* (the nose points, an open mouth clicks and drags, resting on a button presses it) and *Head + hand* (the head points, a pinch with either hand clicks).
+- **Three modes:** *Hand* (point with the hand, pinch to click and drag, fist to move the map), *Head* (the nose points; face triggers bound in the panel: by default a slow blink clicks, a left wink toggles a drag, a long blink pauses, resting on a button presses it) and *Head + hand* (the head points, a pinch with either hand clicks).
 - **Cost to everyone else: almost nothing.** The main JS chunk grows by 2.0 kB (0.6 kB gzip), for the three new intent handlers. Everything else (a 27 kB panel chunk, the 156 kB worker, the 11.8 MB WASM runtime at 3.5 MB gzip, and 8.4 MB + 3.8 MB of models) loads only after the flag *and* a click on **Start camera**.
 - **Recommendation:** worth taking further as an **accessibility and "party trick" input mode**, not as a replacement for the mouse. Hand mode is the most promising. Head mode is the most valuable for accessibility but needs testing with real people. Before it ships beyond a flag, the owner needs to decide on model hosting and licensing (§Decisions). Some interactions also need hands-free counterparts: file dialogs, sliders, and rotate in head mode.
 - **Not yet tried with a real person on a real webcam.** This container has no camera or GPU. All tracking here ran on photos through Chromium's fake camera, on 4 slow CPU cores with software WebGL. Latency and comfort numbers from a real laptop are the first follow-up (§How to try it).
@@ -38,11 +38,38 @@ All tasks run in a WASM runtime (SIMD; about 11.8 MB) with a **CPU** (XNNPACK) o
 | | Hand | Head | Head + hand |
 | --- | --- | --- | --- |
 | Point | the pinch point (between thumb and index tips, steadied by the index knuckle), mirrored | the nose's position inside the face outline, relative to a neutral pose taken in the first 0.6 s | head |
-| Click / drag | pinch thumb and index; hold to drag (roads, fences, scatter) | open the mouth; keep it open to drag | pinch with either hand |
+| Click | pinch thumb and index | Low effort: close both eyes 0.35–1.5 s (a slow blink); Classic: open the mouth; or a switch / key | pinch with either hand (face triggers as Head) |
+| Drag | hold the pinch (roads, fences, scatter) | Low effort: wink left to start, again to end; Classic: keep the mouth open; or hold the key | hold the pinch |
 | Move the map | fist and move; two fists apart / together to zoom | (none) | fist and move |
-| Rotate (R) | hold ✌ 0.35 s | hold a broad smile 0.9 s | hold ✌ |
-| Esc (put back, put tool away, close) | hold 👎 0.35 s | raise the eyebrows 0.4 s | hold 👎 |
-| DOM buttons | point + pinch | point + open mouth, or rest on it 1 s (dwell) | point + pinch |
+| Rotate (R) | hold ✌ 0.35 s | bindable (Classic: hold a broad smile 0.9 s) | hold ✌ |
+| Esc (put back, put tool away, close) | hold 👎 0.35 s | wink right, or raise the eyebrows 0.4 s | hold 👎 |
+| Pause hands-free | (none) | Low effort: keep the eyes closed 1.5 s (again to resume) | as Head |
+| DOM buttons | point + pinch | point + any click trigger, or rest on it 1 s (dwell) | point + pinch, or dwell |
+
+### Head-mode triggers (face only)
+
+The head modes aim at a player who can move only their head and face. Every face trigger can be bound to an action in the panel; two presets cover the common cases.
+
+| Trigger | Signal | Fires | Low effort | Classic | Can be bound to |
+| --- | --- | --- | --- | --- | --- |
+| Slow blink | both `eyeBlink*` shut 0.35 s (0.2–1) to 1.5 s | on re-opening | click | off | one-shot actions |
+| Long blink | both shut ≥ 1.5 s (1–3) | while still shut | pause / resume | off | pause, re-centre, Esc, rotate |
+| Wink left / right | one eye shut ≥ 0.2 s, the other clearly open | on re-opening | drag on / off · Esc | off | one-shot actions, once the eye test has seen that wink |
+| Open mouth | `jawOpen` ≥ 0.4, off < 0.2 | on opening | off | hold (click, drag) | anything, including hold |
+| Eyebrows up | `browInnerUp` ≥ 0.55 held 0.4 s | once per hold | Esc | Esc | one-shot actions |
+| Smile | mean `mouthSmile*` ≥ 0.7 held 0.9 s | once per hold | off | rotate | one-shot actions |
+| Key / switch | a chosen key (Enter by default) | keydown / keyup | hold (click, drag) | hold | anything, including hold |
+
+One-shot actions: click (a tap), drag on / off, rotate, Esc, pause, re-centre. Hold is offered only for the mouth and the key: you can't see where you drag with your eyes shut.
+
+- **Blinks are classed by length.** An ordinary blink lasts 0.1–0.3 s, so anything under `blinkMinS` is ignored; a deliberate slow blink clicks on re-opening; holding the eyes shut fires pause at `pauseS` while still shut (the ring fills to show it), so it never also clicks.
+- **Clicks with the eyes shut land where the eyes began to close.** The head drifts while the eyes are closed, so the pointer holds still once a closure is clearly deliberate, and the click is back-dated to the last frame with both eyes open (the pointer keeps ~3 s of history).
+- **Left and right are the player's own eyes.** MediaPipe's `eyeBlinkLeft` is the subject's left eye: covering the eye on image-left (the subject's right, landmarks 33 / 133 / 159 / 145) raises `eyeBlinkRight` (0.29 → 0.64 on the portrait), and the smoke run's painted winks agree. The wink test also catches the wrong eye ("That looked like your right eye").
+- **Winks are opt-in.** Many people can't close one eye cleanly, and a half-closed other eye is a misfire waiting to happen, so a wink binding stays off ("Needs eye test") until the one-eye test passes: 60 % of the samples must show the asked eye ≥ 60 % shut and the other ≤ 35 %.
+- **The eye test** measures each eye open (1 s) and shut (1 s after closure is seen; a soft sound says when to open), and sets each eye's thresholds at 60 % (shut) and 40 % (open again) of that range. Without it the defaults are 0.5 / 0.35.
+- **Gates:** eye triggers are off during a broad smile (the cheeks close the eyes; above `max(0.6, resting smile + 0.25)`, so a face that smiles at rest isn't gated forever), during the eye test, until the eyes have been seen open after any of these, while the face is lost, and while tracking runs under 15 results a second (blink timing needs it; the panel says so). A face counts as lost only after `max(0.3 s, 2.5 result intervals)`, so a 4-results-a-second machine doesn't drop a held drag on one missed detection.
+- **Pause** releases any press, stops dwell and dims the cursor; only the trigger bound to pause does anything until it resumes.
+- **The panel is hands-free too:** buttons only (presets, a cycle button per binding, − / + steppers for sensitivity and timings), one section open at a time; settings and calibration persist per browser in `localStorage`.
 
 ### Why these choices
 
@@ -59,7 +86,7 @@ All tasks run in a WASM runtime (SIMD; about 11.8 MB) with a **CPU** (XNNPACK) o
 
 ```
 camera ─► <video> ─rVFC─► createImageBitmap ─transfer─► tracker.worker.ts (MediaPipe, GPU or CPU)
-                                                              │ landmarks, gestures, 4 blendshapes
+                                                              │ landmarks, gestures, 6 blendshapes
                                   HandsFree ◄────────────────┘
                                      │  HandInterpreter / HeadInterpreter   (pure: filters, thresholds, holds)
                                      ▼  GestureFrame { x, y, pressed, grab, zoom, command… }
@@ -173,7 +200,7 @@ In the game here, the worker shares the 4 cores with the game rendering through 
    Opt-in only, never on by default: it asks for the camera.
 3. **The panel's home.** It currently lives outside `UiRoot`. Moving it into the menu brings it under the UI rules and the menu's keyboard and focus handling.
 4. **Whether to remember the mode.** It is not saved now, and nothing reopens the camera by itself. Saving the mode (not the camera) in settings would be fine.
-5. **Head mode commands.** Smile-to-rotate is the riskiest binding. Gameface's answer is user-configurable bindings and thresholds; a simple version would be a choice of "smile / raise eyebrows / off" per command.
+5. **Head mode commands.** *Done:* every face trigger is bindable (§Head-mode triggers), with Low effort and Classic presets; smile-to-rotate is Classic only.
 
 ## Roadmap if it goes ahead
 
@@ -185,18 +212,18 @@ In the game here, the worker shares the 4 cores with the game rendering through 
    The smoke and bench scripts make the numbers reproducible.
 2. **Delegate choice from measurement.** Run both delegates for a few frames at start and keep the faster. Today: GPU unless the renderer is software, with a watchdog.
 3. **Calibration UX:**
-   - a short guided step ("hold your hand in the box", "look at the centre");
+   - a short guided step ("hold your hand in the box", "look at the centre"); *done for the eyes:* the eye test;
    - a region the player can resize;
-   - per-player sensitivity, saved.
+   - per-player sensitivity, saved (*done*, with bindings, timings and the eye calibration).
 4. **Hands-free gaps:**
-   - a Rotate button in the dock for head mode (the existing touch-only button);
-   - a stepper for sliders;
+   - rotate in head mode: *done*, any face trigger or the key can be bound to it;
+   - a stepper for sliders: *done in the panel*; the game's volume sliders still can't be dragged;
    - a message on **Open a town file** that it needs a click;
    - fences: a straight-line drag works, but a "click" places the nearest edge, which is hard to aim with a head.
 5. **Two-hand zoom feel:** it is direct now (the gap ratio per frame). It may need smoothing and a dead zone.
 6. **Production polish:**
    - the controls in the menu and the cursor styled with the other HUD;
-   - `aria-live` announcements of what is recognised;
+   - `aria-live` announcements of what is recognised (the panel's status, pause and eye-test notes are live regions);
    - reduced-motion behaviour;
    - quieter MediaPipe logs.
 7. **Tests:**
@@ -219,7 +246,7 @@ npm run dev
 Click **Start camera** (the browser asks for the camera), then:
 
 - **Hand:** keep your hand inside the dashed box in the preview. Pinch the Road card, then pinch and drag on the map. Make a fist and move it to slide the map.
-- **Head:** sit square to the camera and hold still for the first half second while it centres. **Re-centre** retakes the neutral pose, and **Sensitivity** scales the movement.
+- **Head:** sit square to the camera and hold still for the first half second while it centres. **Re-centre** retakes the neutral pose, and **Sensitivity** scales the movement. Run the **Eye test** (about 10 s) so blinks fit your eyes and winks can be bound; **Bindings** and **Timing** change what each face gesture does.
 
 Reproducible checks (each needs a dev server running on `PORT`, default 5188):
 
