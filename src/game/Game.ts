@@ -823,6 +823,10 @@ export class Game {
       },
       hideDebugUi: (hidden: boolean) => this.debug.setHidden(hidden),
       cellToClient: (x: number, z: number) => this.picker.cellToClient({ x, z }),
+      emitIntent: (type: string, payload?: unknown) => {
+        if (!type.startsWith('intent:')) throw new Error(`Not an intent: ${type}`);
+        (this.bus.emit as (type: string, payload?: unknown) => void)(type, payload);
+      },
       setCameraPose: (pose) => {
         this.cameraController.setPose(pose);
         this.renderNow();

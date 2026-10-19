@@ -168,6 +168,11 @@ interface ThreeGameTestHooks {
    * null returns to the schedule. Test states switch spontaneous showers off until a reload.
    */
   setWeather?(kind: string | null): void;
+  /**
+   * Emits an `intent:*` event on the game bus, as a UI control or input device would (throws for any
+   * other name). For inputs a test can't produce for real, such as hand and head tracking.
+   */
+  emitIntent?(type: string, payload?: unknown): void;
 }
 
 interface Window {

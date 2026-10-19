@@ -297,6 +297,7 @@ Targets and the latest measurements: `docs/release.md` §Budgets. The `stress-to
 - `spawnFlock(species?)`: launches a flock now; returns its bird count (0 when the sky is full);
 - `setMatchNight(on | null)`: `true` holds a stadium match at full level (lights and crowd, once it is dark), `false` holds none, `null` returns to the schedule. Applies at once, even while paused;
 - `setWeather(kind | null)`: `'light' | 'rain' | 'storm'` holds that rain, `'clear'` holds dry skies, `null` returns to the schedule (and the player's setting no longer applies until it is changed). Applies at once with no fade, even while paused. Unknown kinds throw.
+- `emitIntent(type, payload)`: emits an `intent:*` event on the bus, as a control or input device would; any other name throws. For inputs a test can't produce for real (hand and head tracking).
 
 Demo towns (`sampleTown.ts`, zero rejections, tested):
 - `sample-town` uses every placing tool (46; Move and Bulldoze are modes): homes 8, residents 25, amenities 9 (incl. the stadium south of the shops, its gate on the side street, and the cinema east of it), trees 5, roadTiles 46 (incl. the large car park facing the side street), props 31 (incl. the pond plants and bird house in the 32-cell pond north-east of the car park, 3 ducks), fences 28.
