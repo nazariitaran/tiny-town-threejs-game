@@ -13,7 +13,10 @@ Known gaps and follow-ups. An item stays until it is fixed or dropped; when it i
 ## Hands-free controls (experimental, `?gestures`)
 Research, measurements and the full roadmap: [`research/mediapipe-gestures.md`](research/mediapipe-gestures.md).
 - **Owner decisions:** vendor the MediaPipe models (Apache-2.0, 12.2 MB) or keep fetching them from Google; how the feature is offered (flag, menu, title); move the panel into `UiRoot` / the menu.
-- **Never tried by a person on a real webcam:** all tracking so far ran on photos through Chromium's fake camera, without a GPU. Measure latency (`scripts/gesture-bench.mjs`) and tune the thresholds with real people.
+- **Never tried by a person on a real webcam:** all tracking so far ran on photos through Chromium's fake camera (30 results/s in game on an M2 Max laptop). Tune the thresholds with real people, ideally people who can only move their head; **Record** in the panel saves a session as numbers for replay tests.
+- **The aim's tooltip** is placed by the pointer, so while the pointer is over the Aim buttons a blocked placement's reason shows by the pad, not by the aimed cell.
+- **Head angle pointer source:** its gains (2.5 / 3 per radian) are an estimate, and nobody has tried it with a nasal ventilation mask, the case it is meant for.
+- **The fit wizard can only be left early with a click trigger** (it freezes the pointer and turns dwell off); with none bound, each step times out after 30 s.
 - **Hands-free gaps:** sliders outside the panel can't be dragged; **Open a town file** needs a real click (no user activation from a gesture).
 - **Blinks and winks have only been tested on painted photos** (`gesture-smoke.mjs`) and synthetic series. Tune the defaults (shut at 0.5 / open at 0.35 without the eye test, 60 % / 40 % of the measured range with it, the 0.35 s slow blink, the 0.6 smile gate) with real people, glasses and poor light.
 - **The panel can outgrow a short screen**, and a head can't scroll it: one section opens at a time and scrolls into view, but below ~700 px tall the lower buttons may still be out of reach. A compact layout or scroll buttons would close it.

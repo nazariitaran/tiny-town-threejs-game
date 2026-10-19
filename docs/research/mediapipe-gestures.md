@@ -8,7 +8,7 @@ Can a player choose and place things in Tiny Town with their hands or their head
 - **Three modes:** *Hand* (point with the hand, pinch to click and drag, fist to move the map), *Head* (the nose points; face triggers bound in the panel: by default a slow blink clicks, a left wink toggles a drag, a long blink pauses, resting on a button presses it) and *Head + hand* (the head points, a pinch with either hand clicks).
 - **Cost to everyone else: almost nothing.** The main JS chunk grows by 2.0 kB (0.6 kB gzip), for the three new intent handlers. Everything else (a 27 kB panel chunk, the 156 kB worker, the 11.8 MB WASM runtime at 3.5 MB gzip, and 8.4 MB + 3.8 MB of models) loads only after the flag *and* a click on **Start camera**.
 - **Recommendation:** worth taking further as an **accessibility and "party trick" input mode**, not as a replacement for the mouse. Hand mode is the most promising. Head mode is the most valuable for accessibility but needs testing with real people. Before it ships beyond a flag, the owner needs to decide on model hosting and licensing (§Decisions). Some interactions also need hands-free counterparts: file dialogs, sliders, and rotate in head mode.
-- **Not yet tried with a real person on a real webcam.** This container has no camera or GPU. All tracking here ran on photos through Chromium's fake camera, on 4 slow CPU cores with software WebGL. Latency and comfort numbers from a real laptop are the first follow-up (§How to try it).
+- **Not yet tried with a real person on a real webcam.** All tracking so far ran on photos through Chromium's fake camera: first in a cloud container (4 slow CPU cores, software WebGL, about 4 results a second), then on an M2 Max laptop, where it keeps up with the camera at 30 results a second in game (§Validation). Comfort and threshold tuning with real people is the first follow-up (§How to try it).
 
 ## What MediaPipe offers for this
 
@@ -188,7 +188,18 @@ All checks below ran in this cloud container: 4 Xeon cores at 2.1 GHz, no GPU (C
 | Both (Head + hand) | 105 / 124 ms | 753 / 824 ms |
 | Load (WASM + model, warm HTTP cache) | 0.3–0.6 s, first frame 0.2–0.3 s | 0.4–0.6 s, first frame 2.2–5.9 s |
 
-In the game here, the worker shares the 4 cores with the game rendering through SwiftShader. The smoke run therefore got about 4 results a second (170–180 ms each) on the Low preset at 960 × 540, and under one a second (1.4–1.6 s each) on Medium at 1280 × 720. These are worst-case numbers from a machine with no GPU. **They say nothing about a real laptop**, where the game renders on the GPU and MediaPipe can use a real GPU delegate; expect it to be much faster, but it has not been measured. Measuring it is the first follow-up.
+In the game here, the worker shares the 4 cores with the game rendering through SwiftShader. The smoke run therefore got about 4 results a second (170–180 ms each) on the Low preset at 960 × 540, and under one a second (1.4–1.6 s each) on Medium at 1280 × 720. These are worst-case numbers from a machine with no GPU.
+
+**On a laptop** (Apple M2 Max, Chromium headed, so WebGL runs on ANGLE Metal; `gesture-bench.mjs --frames 60 --headed`):
+
+| | CPU delegate: median / p90 | GPU delegate: median / p90 |
+| --- | --- | --- |
+| Gesture Recognizer (2 hands) | 40 / 41 ms | 17 / 17 ms |
+| Face Landmarker (+ blendshapes) | 11 / 12 ms | 10 / 12 ms |
+| Both (Head + hand) | 48 / 49 ms | 22 / 22 ms |
+| Load (WASM + model, warm HTTP cache) | 0.1–0.2 s, first frame 0.1 s | 0.1–0.2 s, first frame 0.3–4.9 s |
+
+In the game on the High preset (`gesture-smoke.mjs --headed --graphics high`), tracking kept up with the 30 fps camera: hands 23.5 ms a frame at 30.0 results/s, head 13.0 ms at 29.6 results/s. That is fast enough to time blinks and winks, which turn themselves off below 13 results/s. Headless Chromium on the same machine falls back to SwiftShader (GPU face 40 ms, hands 162 ms), so measure headed.
 
 **Latency budget**, in the usual case: at most one camera frame waiting (≤ 33 ms) + inference + one message hop. The tracker never queues frames: while the worker is busy, newer frames are dropped, so lag doesn't grow on a slow machine; the result rate falls instead. The interpreters are time-based (seconds, not frames), so holds and filters behave the same at 4 or 30 results a second.
 
@@ -218,7 +229,7 @@ In the game here, the worker shares the 4 cores with the game rendering through 
 ## Roadmap if it goes ahead
 
 1. **Measure on real hardware:**
-   - `node scripts/gesture-bench.mjs` on a laptop (GPU and CPU) and a desktop;
+   - `node scripts/gesture-bench.mjs` on a laptop (GPU and CPU) and a desktop (*done* on an M2 Max laptop, §Validation; a desktop and a low-end laptop are still to measure);
    - try each mode with a few people, in different lighting, with glasses, at different distances;
    - tune `DEFAULT_HAND_TUNING` / `DEFAULT_HEAD_TUNING` (thresholds, region, filters).
 
