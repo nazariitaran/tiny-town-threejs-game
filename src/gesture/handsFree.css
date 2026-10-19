@@ -34,6 +34,11 @@
   cursor: pointer;
 }
 
+/* Show FPS puts its pill in the same corner: sit to its right. */
+body:has(.ui-fps.is-on) .hf-toggle {
+  left: calc(var(--safe-left) + 70px);
+}
+
 .hf-live {
   display: none;
   width: 8px;

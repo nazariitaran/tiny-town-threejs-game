@@ -39,8 +39,8 @@ npm run gen:licenses   # regenerate public/licenses.txt (runtime dependencies + 
 node scripts/render-icons.mjs [--size 128] [--only pond,reeds]   # re-render the tool icons (tool-<id>.png, + tool-<id>-v<n>.png per extra model) from in-game models (needs a dev server on PORT)
 node scripts/compose-models.mjs              # rebuild public/assets/models/composed/*.glb (needs assets-src/, incl. assets-src/polypizza/)
 node scripts/fetch-mediapipe-models.mjs      # download the hands-free (?gestures) MediaPipe models into the gitignored public/assets/mediapipe/
-node scripts/gesture-smoke.mjs               # hands-free end to end with real MediaPipe tracking on test photos via a fake camera (needs a dev server on PORT, ffmpeg)
-node scripts/gesture-bench.mjs               # MediaPipe inference time per model and delegate in the tracking worker (needs a dev server on PORT)
+node scripts/gesture-smoke.mjs [--headed] [--graphics low|medium|high] [--only hands|head|eyes|pointer] [--out <dir>]   # hands-free end to end with real MediaPipe tracking on test photos via a fake camera (needs a dev server on PORT, ffmpeg)
+node scripts/gesture-bench.mjs [--frames 30] [--delegates CPU,GPU] [--headed]   # MediaPipe inference time per model and delegate (needs a dev server on PORT); --headed uses the real GPU, headless falls back to SwiftShader
 /Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-parking.py   # rebuild public/assets/models/parking/*.glb
 /Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-stadium.py   # rebuild public/assets/models/stadium/stadium.glb
 /Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build-cars.py   # rebuild public/assets/models/cars/*.glb from the Kenney originals in assets-src/car-kit/

@@ -5,7 +5,7 @@ Full phone support is not a priority; the existing phone infrastructure is left 
 ## Hands-free controls (`?gestures`)
 - **Layout:** the panel sits at the top left, 260 px wide, and would cover a third of a phone screen; it needs a phone layout (a bottom sheet, or a small preview badge).
 - **Camera and tracking on phones:** the front camera, portrait frames (the hand region and head gains assume 4:3 landscape), and MediaPipe's speed on phone CPUs / GPUs are untested; hands-free on a phone in the hand is also of doubtful use (one hand holds the phone).
-- **Face triggers and the switch key:** blink and wink timing needs 15 tracking results a second, which a phone may not reach (the triggers then stay off with a note); the eye test assumes the face fills a steady frame, not a hand-held phone; the switch key needs a hardware keyboard or a Bluetooth switch paired to the phone. The panel's Bindings, Timing and Eye test sections need the phone layout above.
+- **Face triggers and the switch key:** blink and wink timing needs about 15 tracking results a second (they switch off below 13, back on at 15), which a phone may not reach (the triggers then stay off with a note); the eye test assumes the face fills a steady frame, not a hand-held phone; the switch key needs a hardware keyboard or a Bluetooth switch paired to the phone. The panel's Bindings, Timing and Eye test sections need the phone layout above.
 - **Touch alongside:** the virtual pointer is a mouse with one button; with a finger on the screen as well, both drive the same hover and strokes.
 
 ## Test infrastructure

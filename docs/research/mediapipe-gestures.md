@@ -6,7 +6,7 @@ Can a player choose and place things in Tiny Town with their hands or their head
 
 - **It works end to end.** MediaPipe runs in a Web Worker, and its output drives the game through the same code paths as the mouse. In an automated run with real MediaPipe tracking (MediaPipe's own hand photos played as a fake camera), a pinch on the Road card picks the tool, a pinch-drag lays a road of 9 blocks, ✌ rotates, 👎 acts as Esc and a fist drags the map. Every check passed, and pinch presses landed within 3 px of their targets.
 - **Three modes:** *Hand* (point with the hand, pinch to click and drag, fist to move the map), *Head* (the nose points; face triggers bound in the panel: by default a slow blink clicks, a left wink toggles a drag, a long blink pauses, resting on a button presses it) and *Head + hand* (the head points, a pinch with either hand clicks).
-- **Cost to everyone else: almost nothing.** The main JS chunk grows by 2.0 kB (0.6 kB gzip), for the three new intent handlers. Everything else (a 27 kB panel chunk, the 156 kB worker, the 11.8 MB WASM runtime at 3.5 MB gzip, and 8.4 MB + 3.8 MB of models) loads only after the flag *and* a click on **Start camera**.
+- **Cost to everyone else: small.** The main JS chunk grows by 15 kB (4 kB gzip) and the main CSS by 2 kB. That is the on-screen camera pad, Aim and the intent handlers, which every player gets, not only hands-free players. Everything else (the 68 kB panel chunk with its 7 kB CSS, the 156 kB worker, the 323 kB WASM loader, the 11.8 MB WASM runtime at 3.5 MB gzip, and 12.1 MB of models) loads only after the flag *and* a click on **Start camera**.
 - **Recommendation:** worth taking further as an **accessibility and "party trick" input mode**, not as a replacement for the mouse. Hand mode is the most promising. Head mode is the most valuable for accessibility but needs testing with real people. Before it ships beyond a flag, the owner needs to decide on model hosting and licensing (§Decisions). Some interactions still need hands-free counterparts: file dialogs and sliders outside the panel.
 - **Head-only play.** The head modes now aim at someone who can move only their head and face (§Playing with the head only). That brought on-screen camera controls and an Aim pad into the game itself, plus low-effort face triggers (blinks, winks after an eye test, pause, a switch key) and a pointer that fits a small or uneven range of movement.
 - **Not yet tried with a real person on a real webcam.** All tracking so far ran on photos through Chromium's fake camera: first in a cloud container (4 slow CPU cores, software WebGL, about 4 results a second), then on an M2 Max laptop, where it keeps up with the camera at 30 results a second in game (§Validation). Comfort and threshold tuning with real people is the first follow-up (§How to try it).
@@ -57,7 +57,7 @@ Before building, the plan went to a model from another family (DeepSeek, through
   - Any gesture command other than rotate was sent as Esc, so it became an exhaustive switch.
   - The worker posted only 4 blendshapes, so the eye ones were added.
   - At 4 results a second, one missed detection dropped a held drag, so the loss timeout now follows the result rate.
-- **Existing events were reused.** Pan, zoom and reset already had intents, so only `intent:camera-step` was added, for eased steps.
+- **Existing events were reused.** Pan, zoom and reset kept their intents; the eased camera step got `intent:camera-step`. Later work added its own events for the pad setting, Aim and the tracking mode.
 - **Speed was measured before blinks were built.** On an M2 Max, in game, tracking runs at 30 results a second (§Validation), fast enough to time blinks.
 
 ### Still to learn
@@ -72,7 +72,7 @@ Every default (blink length, thresholds, the 0.6 smile gate, head-angle gains, j
 | Point | the pinch point (between thumb and index tips, steadied by the index knuckle), mirrored | the nose's position inside the face outline, or the head's yaw / pitch; relative to a neutral pose taken in the first 0.6 s; direct or joystick; fitted per direction to the player's range | head |
 | Click | pinch thumb and index | Low effort: close both eyes 0.35–1.5 s (a slow blink); Classic: open the mouth; or a switch / key | pinch with either hand (face triggers as Head) |
 | Drag | hold the pinch (roads, fences, scatter) | Low effort: wink left to start, again to end; Classic: keep the mouth open; or hold the key | hold the pinch |
-| Move the map | fist and move; two fists apart / together to zoom | (none) | fist and move |
+| Move the map | fist and move; two fists apart / together to zoom | (none; the on-screen camera pad, shown in head modes, pans, rotates and zooms) | fist and move |
 | Rotate (R) | hold ✌ 0.35 s | bindable (Classic: hold a broad smile 0.9 s) | hold ✌ |
 | Esc (put back, put tool away, close) | hold 👎 0.35 s | wink right, or raise the eyebrows 0.4 s | hold 👎 |
 | Pause hands-free | (none) | Low effort: keep the eyes closed 1.5 s (again to resume) | as Head |
@@ -99,7 +99,7 @@ One-shot actions: click (a tap), drag on / off, rotate, Esc, pause, re-centre. H
 - **Left and right are the player's own eyes.** MediaPipe's `eyeBlinkLeft` is the subject's left eye: covering the eye on image-left (the subject's right, landmarks 33 / 133 / 159 / 145) raises `eyeBlinkRight` (0.29 → 0.64 on the portrait), and the smoke run's painted winks agree. The wink test also catches the wrong eye ("That looked like your right eye").
 - **Winks are opt-in.** Many people can't close one eye cleanly, and a half-closed other eye is a misfire waiting to happen, so a wink binding stays off ("Needs eye test") until the one-eye test passes: 60 % of the samples must show the asked eye ≥ 60 % shut and the other ≤ 35 %.
 - **The eye test** measures each eye open (1 s) and shut (1 s after closure is seen; a soft sound says when to open), and sets each eye's thresholds at 60 % (shut) and 40 % (open again) of that range. Without it the defaults are 0.5 / 0.35.
-- **Gates:** eye triggers are off during a broad smile (the cheeks close the eyes; above `max(0.6, resting smile + 0.25)`, so a face that smiles at rest isn't gated forever), during the eye test, until the eyes have been seen open after any of these, while the face is lost, and while tracking runs under 15 results a second (blink timing needs it; the panel says so). A face counts as lost only after `max(0.3 s, 2.5 result intervals)`, so a 4-results-a-second machine doesn't drop a held drag on one missed detection.
+- **Gates:** eye triggers are off during a broad smile (the cheeks close the eyes; above `max(0.6, resting smile + 0.25)`, so a face that smiles at rest isn't gated forever), during the eye test, until the eyes have been seen open after any of these, while the face is lost, and while tracking runs slowly (off below 13 results a second, back on at 15; blink timing needs it, and the panel says so). A face counts as lost only after `max(0.3 s, 2.5 result intervals)`, so a 4-results-a-second machine doesn't drop a held drag on one missed detection.
 - **Pause** releases any press, stops dwell and dims the cursor; only the trigger bound to pause does anything until it resumes.
 - **The panel is hands-free too:** buttons only (presets, a cycle button per binding, − / + steppers for sensitivity and timings), one section open at a time; settings and calibration persist per browser in `localStorage`.
 
@@ -128,7 +128,7 @@ Many people who play with their head can turn it only a little, or further one w
 
 ```
 camera ─► <video> ─rVFC─► createImageBitmap ─transfer─► tracker.worker.ts (MediaPipe, GPU or CPU)
-                                                              │ landmarks, gestures, 6 blendshapes
+                                                              │ landmarks, gestures, 6 blendshapes, head yaw / pitch
                                   HandsFree ◄────────────────┘
                                      │  HandInterpreter / HeadInterpreter   (pure: filters, thresholds, holds)
                                      ▼  GestureFrame { x, y, pressed, grab, zoom, command… }
@@ -148,14 +148,24 @@ camera ─► <video> ─rVFC─► createImageBitmap ─transfer─► tracker.
 | `src/gesture/handInterpreter.ts`, `headInterpreter.ts` | pure: landmarks → `GestureFrame` |
 | `src/gesture/oneEuro.ts`, `pointerSmoother.ts`, `triggers.ts` | pure: One Euro filter, back-dated press, latches, hold triggers, two-threshold switches |
 | `src/gesture/GestureRouter.ts` | where the frame goes: canvas, a DOM control, the camera |
+| `src/gesture/eyeTriggers.ts` | pure: blinks and winks classed by length and by eye; the eye gates |
+| `src/gesture/bindings.ts` | pure: what each face trigger does, timings, the eye calibration, the pointer's source, style and fitted ranges, saved per browser |
+| `src/gesture/headPointer.ts` | pure: head offset → pointer target, Direct or Joystick, per-direction fit |
+| `src/gesture/rangeFit.ts` | pure: the Fit to my movement wizard (centre, then each extreme) |
+| `src/gesture/faceAngles.ts` | head yaw and pitch from the facial transformation matrix (the worker uses it) |
+| `src/gesture/recorder.ts` | records a session to JSON (tracking numbers only) and parses one back |
+| `src/gesture/replay.ts` | runs recorded frames through the interpreters, for tests and tuning |
+| `src/gesture/fixtures/` | recorded sessions for the replay tests (`slow-blink.track.json`) |
 | `src/gesture/protocol.ts` | shared types, worker messages |
 
 **Changes to existing code** (small, additive):
 
-- `events.ts` gains `intent:virtual-pointer`, `intent:pan-camera` and `intent:zoom-camera`. These are new entries only, which the shared-contract rule allows.
-- `ToolController` handles the virtual pointer. Its pointer-up logic moved into `releaseStroke`, shared with the mouse, and the virtual pointer counts as "coarse" for picking fences to bulldoze.
-- `CameraController` gains `dragGround(dx, dy)` and `zoomBy(factor)`.
-- `Game` wires those intents (building phase only) and counts virtual-pointer input as activity for the frame budget.
+- `events.ts` gains `intent:virtual-pointer`, `intent:pan-camera` and `intent:zoom-camera`, then `intent:camera-step`, `intent:set-camera-pad`, `intent:aim-nudge` and `intent:aim-place`, and the events `camera-pad:changed`, `hands-free:changed` and `aim:changed`. These are new entries only, which the shared-contract rule allows.
+- `ToolController` handles the virtual pointer. Its pointer-up logic moved into `releaseStroke`, shared with the mouse, and the virtual pointer counts as "coarse" for picking fences to bulldoze. It also owns Aim (the aimed cell, `aim:changed`); the screen-to-grid maths is in `interaction/aimMath.ts`.
+- `CameraController` gains `dragGround(dx, dy)`, `zoomBy(factor)` and `panStep(x, y)`, which uses `framing.panStepDelta` for the eased pan step.
+- `ui/CameraPad.ts` (the on-screen buttons) and `ui/cameraPadLogic.ts` (visibility, hold-to-repeat), with entries in `ui/testIds.ts` and `ui/glyphs.ts`; `UiRoot` mounts the pad.
+- `Game` wires those intents (building phase only), handles the camera step and the pad setting, counts virtual-pointer input as activity for the frame budget, adds the `emitIntent` test hook and the diagnostics field `aim`.
+- `SaveStore` gains `settings.cameraPad` (default off).
 - `UiRoot` places the invalid-placement tooltip by the virtual pointer.
 - `vite.config.ts` pre-bundles MediaPipe for the dev server.
 - `scripts/gen-licenses.mjs` supplies the Apache-2.0 text, since the package ships none.
@@ -165,8 +175,8 @@ camera ─► <video> ─rVFC─► createImageBitmap ─transfer─► tracker.
 - Only `TownEditor` mutates the town, reached through ToolController exactly as the mouse reaches it.
 - The UI still emits intents and renders facts.
 - There is no randomness.
-- Test hooks are untouched.
-- The save format is untouched.
+- Test hooks: one is added, `emitIntent`, which emits `intent:*` events only and does nothing until a test calls it. One diagnostics field is added, `aim`.
+- The town save format is untouched. The settings gain `cameraPad` (default off).
 
 **One deliberate deviation:** the panel and cursor are DOM outside `UiRoot`, because the whole module is a lazy experiment. To productionise, fold the controls into the menu and keep only the cursor overlay separate (§Roadmap).
 
@@ -185,31 +195,48 @@ camera ─► <video> ─rVFC─► createImageBitmap ─transfer─► tracker.
 
 ## Validation
 
-All checks below ran in this cloud container: 4 Xeon cores at 2.1 GHz, no GPU (Chromium falls back to SwiftShader), Chromium 141, and a Chromium fake camera playing MJPEG files composed from MediaPipe's own test photos (Apache-2.0, downloaded by the scripts, never committed).
+Two machines ran the checks, and the Where column says which:
 
-| Check | Result |
-| --- | --- |
-| `npm run verify` (local paths, licences, typecheck, unit tests, production build) | pass: 700 tests, 699 passed, 1 skipped (as on `main`) |
-| Unit tests, `src/gesture/gesture.test.ts` | 23 pass: One Euro filter, back-dated press, triggers, pinch geometry and mirror mapping, pinch hysteresis and loss, fist grab deltas, two-fist zoom, held commands, hand picking, nose offset, head calibration, mouth / pinch press, eyebrow and smile commands, re-centring |
-| `tests/gestures.spec.ts` (Chromium fake camera; no hand in view) | 3 pass: without the flag no gesture code or MediaPipe request at all; with it the panel starts the camera, frames go through the worker, Stop releases the camera; switching mode restarts with the face model |
-| `scripts/gesture-smoke.mjs` (real tracking on photos; Low preset, 960 × 540) | all checks pass (table below) |
-| `src/gesture/headPointer.test.ts` | fit mapping (asymmetric ranges, the edge at 90 %), the joystick (dead zone, speed, the same distance at 4 and 30 results a second, back-dated clicks), the fit wizard (holds, wobble, too small a move, timeout, lost face, cancel, back), yaw / pitch from a matrix, old settings without the pointer fields |
-| Existing e2e specs (interaction, build-flow, move, smoke; 1 worker, 180 s timeout) | inconclusive on this machine: 4 pass, 9 fail, all on timeouts or wall-clock checks (a 1.5 s tooltip, the F-reset camera pose). `main` (`origin/main`) fails the same smoke and interaction tests here, the camera-pose assertion identically. **Re-run the full suite on a machine with a GPU before merging.** |
+- **Cloud container:** 4 Xeon cores at 2.1 GHz, no GPU (Chromium falls back to SwiftShader), Chromium 141, about 4 results a second.
+- **M2 Max laptop:** Chromium headed, so WebGL runs on ANGLE Metal; tracking keeps up with the camera at about 30 results a second in game.
 
-**Smoke journey, hand mode** (each step's check is read from `__THREE_GAME_DIAGNOSTICS__`):
+Both used a Chromium fake camera playing MJPEG files composed from MediaPipe's own test photos (Apache-2.0, downloaded by the scripts, never committed).
 
-| Step | Check | Result |
+| Check | Where | Result |
 | --- | --- | --- |
-| point at the Road card, pinch, release | tool = road | ✓ (a real DOM click through UiRoot) |
-| point at cell A, pinch | a road block appears at once | ✓ cursor 529,182 for target 526,183 |
-| pinch-drag A → B, release | ≥ 6 road blocks, one stroke | ✓ 9 blocks |
-| hold ✌ | rotation changes | ✓ 0 → 3 |
-| hold 👎 | tool put away | ✓ |
-| fist moved 140 px across the frame | camera target moves > 0.5 units | ✓ |
-| *Head mode:* face centred, then sliding 140 px | pointer stays within 10 % of the screen width of the centre | ✓ worst 19 px (2.0 %) |
-| *Head mode:* a held smile (the portrait smiles) | rotation changes | ✓ |
-| *Pointer:* the portrait warped right / left / down / up nearer, nose and head angle | right of left, down below up, both sources | ✓ nose x 601 vs 316, y 371 vs 171; angle x 524 vs 410, y 290 vs 161 (on a Mac, 30 results/s) |
-| *Pointer:* Fit to my movement on the warped portraits (nose) | the wizard completes and the fit is saved | ✓ |
+| `npm run verify` (local paths, licences, typecheck, unit tests, production build) | M2 Max | pass: 53 test files, 873 passed, 1 skipped |
+| Unit tests, `src/gesture/gesture.test.ts` (23) | cloud | pass: One Euro filter, back-dated press, triggers, pinch geometry and mirror mapping, pinch hysteresis and loss, fist grab deltas, two-fist zoom, held commands, hand picking, nose offset, head calibration, mouth / pinch press, eyebrow and smile commands, re-centring |
+| Unit tests, `src/gesture/headPointer.test.ts` (23) | M2 Max (in `verify`) | fit mapping (asymmetric ranges, the edge at 90 %), the joystick (dead zone, speed, the same distance at 4 and 30 results a second, back-dated clicks), the fit wizard (holds, wobble, too small a move, timeout, lost face, cancel, back), yaw / pitch from a matrix, old settings without the pointer fields |
+| Unit tests, newer files: `eyeTriggers.test.ts` (21), `GestureRouter.test.ts` (5), `recorder.test.ts` (10), `aimMath.test.ts` (8), `cameraPadLogic.test.ts` (7) | M2 Max (in `verify`) | pass |
+| `tests/gestures.spec.ts` (6 tests; Chromium fake camera, no hand in view) | M2 Max (full e2e) | pass: without the flag no gesture code or MediaPipe request at all; the panel starts the camera and Stop releases it; switching mode restarts with the face model; head presets, bindings and timing are buttons and persist in the browser; tracking announces `hands-free:changed`, the eye test starts and cancels; the Pointer section cycles source and style, persists, and the fit starts and cancels |
+| `tests/camera-pad.spec.ts` (6 tests) | M2 Max (full e2e) | pass: the pad is off by default, the menu switch shows it and it is remembered; clicks turn, zoom, move and reset the camera; holding a pan button repeats it; the Aim group shows only while a tool is active; head tracking shows the pad with the setting off; the Aim buttons nudge and place with real clicks |
+| `tests/aim.spec.ts` (6 tests, driven through the `emitIntent` test hook) | M2 Max (full e2e) | pass: road nudges and Place; object tools place on the aimed cell; Move carries and drops; hedges slide the aimed edge and Place grows it; directions stay screen-relative after the camera turns; a pointer moving over the map, Esc or a tool change ends the aim |
+| Full `npm run test:e2e -- --workers=6` | M2 Max | **142 passed in 2.8 min** |
+| `scripts/gesture-smoke.mjs` (real tracking on photos; Low preset, 960 × 540) | cloud | all checks pass (tables below) |
+| `scripts/gesture-smoke.mjs --headed` | M2 Max | every check passed, 0 page errors (tables below) |
+| Earlier e2e run in the cloud (interaction, build-flow, move, smoke; 1 worker, 180 s timeout) | cloud | timed out: 4 pass, 9 fail, all on timeouts or wall-clock checks (a 1.5 s tooltip, the F-reset camera pose). `main` fails the same smoke and interaction tests there. The cloud box is too slow for the full suite; the M2 Max run above replaces that check. |
+
+**Rates in game** (M2 Max, headed smoke run): hands 21.9 ms, 28.9 results/s; head 13.6 ms, 30.1 results/s; eyes 19.0 ms, 29.9 results/s; pointer 19.5 ms, 30.0 results/s.
+
+**Smoke journeys** (each step's check is read from `__THREE_GAME_DIAGNOSTICS__`):
+
+| Step | Where | Check | Result |
+| --- | --- | --- | --- |
+| point at the Road card, pinch, release | cloud | tool = road | ✓ (a real DOM click through UiRoot) |
+| point at cell A, pinch | cloud | a road block appears at once | ✓ cursor 529,182 for target 526,183 |
+| pinch-drag A → B, release | cloud | ≥ 6 road blocks, one stroke | ✓ 9 blocks |
+| hold ✌ | cloud | rotation changes | ✓ 0 → 3 |
+| hold 👎 | cloud | tool put away | ✓ |
+| fist moved 140 px across the frame | cloud | camera target moves > 0.5 units | ✓ |
+| *Head mode:* face centred, then sliding 140 px | cloud | pointer stays within 10 % of the screen width of the centre | ✓ worst 19 px (2.0 %) |
+| *Head mode (Classic preset):* a held smile (the portrait smiles) | cloud | rotation changes | ✓ |
+| *Head mode (Classic preset):* worst stray of the pointer | M2 Max | pointer stays within 10 % of the screen width of the centre | ✓ worst 13 px (1.4 %) |
+| *Eyes:* the eye test's shut step, then its left and right wink steps | M2 Max | each step passes | ✓ |
+| *Eyes:* a slow blink | M2 Max | clicks (taps +1) | ✓ |
+| *Eyes:* wink left, then wink right | M2 Max | wink left starts a drag, wink right ends it as Esc | ✓ |
+| *Eyes:* a long blink | M2 Max | pauses, then resumes | ✓ |
+| *Pointer:* the portrait warped right / left / down / up nearer, nose and head angle | M2 Max | right of left, down below up, both sources | ✓ nose x 601 vs 316, y 371 vs 171; angle x 524 vs 410, y 289 vs 161 |
+| *Pointer:* Fit to my movement on the warped portraits (nose) | M2 Max | the wizard completes and the fit is saved | ✓ |
 
 **Inference time** (`node scripts/gesture-bench.mjs --frames 30`: the real worker on its own, no game rendering beside it; 640 × 480 frames; renderer reported as SwiftShader):
 
@@ -244,7 +271,7 @@ In the game on the High preset (`gesture-smoke.mjs --headed --graphics high`), t
    - `CLAUDE.md` lists CC0, CC-BY and owner-supplied as allowed *asset* sources. ML weights are arguably a software dependency, but the rule doesn't say.
    - The prototype's choice for now: the models are **not** committed. `node scripts/fetch-mediapipe-models.mjs` downloads them into the gitignored `public/assets/mediapipe/`; without them the game fetches them from `storage.googleapis.com`.
    - Options:
-     - **(a)** Vendor them (12.2 MB in git and in `dist/`; under Cloudflare's 25 MiB per-file limit), with a `CREDITS.md` and `docs/assets.md` entry.
+     - **(a)** Vendor them (12.1 MB in git and in `dist/`; under Cloudflare's 25 MiB per-file limit), with a `CREDITS.md` and `docs/assets.md` entry.
      - **(b)** Keep fetching from Google's bucket (third-party request, IP visible to Google, availability out of our hands).
      - **(c)** Download at build time.
    - Recommendation: **(a)**, once the licence fits the policy.
@@ -273,9 +300,10 @@ In the game on the High preset (`gesture-smoke.mjs --headed --graphics high`), t
    - per-player sensitivity, saved (*done*, with bindings, timings and the eye calibration).
 4. **Hands-free gaps:**
    - rotate in head mode: *done*, any face trigger or the key can be bound to it;
+   - the camera without drag, wheel or keys, and aiming without a precise pointer: *done*, with the on-screen camera controls and Aim (§Playing with the head only);
    - a stepper for sliders: *done in the panel*; the game's volume sliders still can't be dragged;
    - a message on **Open a town file** that it needs a click;
-   - fences: a straight-line drag works, but a "click" places the nearest edge, which is hard to aim with a head.
+   - fences: *done with Aim*. The aimed edge slides along its line (nudge), R turns it, and Place lays it. A straight-line drag still works.
 5. **Two-hand zoom feel:** it is direct now (the gap ratio per frame). It may need smoothing and a dead zone.
 6. **Production polish:**
    - the controls in the menu and the cursor styled with the other HUD;
@@ -283,7 +311,7 @@ In the game on the High preset (`gesture-smoke.mjs --headed --graphics high`), t
    - reduced-motion behaviour;
    - quieter MediaPipe logs.
 7. **Tests:**
-   - a deterministic e2e for the virtual pointer (drive `intent:virtual-pointer` through a test-only path); *done for the interpreters:* replay recorded landmark streams (`replayHead` / `replayHands`);
+   - a deterministic e2e for the virtual pointer: the path exists (`emitIntent`, used by `tests/aim.spec.ts`), and what is still open is a down / move / up stroke spec; *done for the interpreters:* replay recorded landmark streams (`replayHead` / `replayHands`);
    - keep `gesture-smoke.mjs` as a manual pre-release check, since it needs network, ffmpeg and about 3 minutes.
 8. **Custom gestures** (Model Maker) only if the canned 7 and the pinch prove too few.
 9. **Phones:** see `docs/mobile-backlog.md`.

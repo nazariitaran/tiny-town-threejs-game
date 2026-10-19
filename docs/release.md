@@ -16,7 +16,8 @@ npm run preview         # serves dist/ on PORT − 1000 (default 4188): test thi
 - **Base path.** `base: './'`, so the same `dist/` works at a domain root or any sub-path. Every runtime URL goes through `assetUrl()` (`src/game/config.ts`), which prefixes `import.meta.env.BASE_URL`; never hard-code `"/assets/..."` in a `fetch`, loader, `<img src>` or `<audio src>`. Check: every hit of `grep -rn "/assets/" src` is a catalog or constant path passed to `assetUrl()`.
 - **Version.** `package.json` `version` is the only source: `define` in `vite.config.ts` turns it into `__APP_VERSION__`, and `VERSION_LABEL` in `src/ui/UiRoot.ts` shows it as `v0.9.1` on the title screen and under Menu → Help. Bump it and cut the CHANGELOG section together.
 - **Chunks.** three.js is its own vendor chunk; `PhotoFrame` is a lazy chunk. `chunkSizeWarningLimit` is 900 kB.
-- **Hands-free controls** (`?gestures`) are lazy and never part of the initial download: the `HandsFree` chunk (27 kB) loads with the flag; the tracking worker (156 kB), the MediaPipe WASM runtime (`vision_wasm_module_internal-*.wasm`, 11.8 MB, 3.5 MB gzip) and the models (8.4 + 3.8 MB, from `assets/mediapipe/` when fetched there, else Google's bucket) only on Start camera. Cloudflare's 25 MiB per-file limit leaves room.
+- **Hands-free controls** (`?gestures`) are lazy and never part of the initial download: the `HandsFree` chunk (68 kB, 22 kB gzip, plus 7 kB of CSS) loads with the flag; the tracking worker (156 kB), the MediaPipe WASM loader (`vision_wasm_module_internal-*.js`, 323 kB) and runtime (`*.wasm`, 11.8 MB, 3.5 MB gzip) and the models (8.4 + 3.8 MB, from `assets/mediapipe/` when fetched there, else Google's bucket) only on Start camera. Cloudflare's 25 MiB per-file limit leaves room.
+- **`dist/` carries the hands-free files.** The WASM loader and runtime are always emitted (12.1 MB), and a build made after `node scripts/fetch-mediapipe-models.mjs` also copies the 12.1 MB of models from `public/assets/mediapipe/`, so a deploy from such a checkout serves them. Decide model hosting (`docs/research/mediapipe-gestures.md` §Decisions) before deploying this branch.
 - **Sourcemaps.** `sourcemap: 'hidden'`: `.map` files are written, but the JS has no `sourceMappingURL`. Don't deploy them.
 - **CSS.** Minified by lightningcss, which drops `translate:` when the same rule also sets `transform:`. Never combine the two in one rule; run the visual baselines against the preview after CSS changes.
 - **Stadium crowd.** `assets/audio/stadium-crowd.mp3` (277 kB) is not part of the initial download either: it is fetched the first time a match is audible.
@@ -78,8 +79,8 @@ Full 64 × 64 town (`stress-town`), production preview, Medium preset, headless 
 | DPR cap | Low 1, Medium 1.5, High 2 | per preset |
 | CPU per rendered frame | ≤ 8 ms | stress 1.39 ms building / 1.94 ms idle; sample town 1.68 / 2.88 ms |
 | Frame cap | 60 active / 30 idle (Low 30 / 30) | held |
-| Download before the title (JS, CSS, font, models, SFX, icons, name list) | ≤ 8 MB | 5.09 MB (what the production preview serves up to the title, plus the sounds fetched on Start); `dist/` without maps or music 6.08 MB |
-| Main JS chunk | < 900 kB | 408 kB (129 kB gzip) + three.js 642 kB (162 kB gzip) |
+| Download before the title (JS, CSS, font, models, SFX, icons, name list) | ≤ 8 MB | 5.10 MB (what the production preview serves up to the title, plus the sounds fetched on Start; no hands-free file without `?gestures`); `dist/` without maps or music 6.11 MB for the game, 18.4 MB with the hands-free runtime, 30.6 MB with locally fetched models |
+| Main JS chunk | < 900 kB | 423 kB (133 kB gzip) + three.js 642 kB (162 kB gzip) |
 
 **Large towns** (84 × 84): the same stress layout built on a Large plot (1,323 objects against 675), loaded with `loadTown`, production preview, Medium, desktop 1280 × 720: 33 draw calls, 528.9k triangles, 15 textures (the small stress town in the same run: 33, 331.1k, 15). A Large town has its own desktop triangle target, 600k, and a full one is inside it. CPU per frame was not re-measured.
 
