@@ -10,6 +10,10 @@
  * can still turn it into a camera gesture.
  *
  * Hand / head tracking arrives as `intent:virtual-pointer`: the same strokes, with no DOM pointer to capture.
+ *
+ * Aim (`intent:aim-nudge` / `intent:aim-place`): a cell moved step by step in screen directions, which
+ * the hover, ghost and a synthesised click use as if a pointer stood on it, until a pointer moves over
+ * the canvas, Esc, a tool change or the end of the building phase. Fence tools aim an edge.
  */
 import * as THREE from 'three';
 import { EDGE_MODELS, GROUND_MODELS, ZEBRA_PIECE_MODELS } from '../catalog/models';
@@ -52,6 +56,7 @@ import type { CameraController } from './CameraController';
 import { GhostPreview, GROUND_GHOST_LIFT, objectGhostPart, type GhostPart, type GhostState } from './GhostPreview';
 import type { GridPicker, PickResult } from './GridPicker';
 import { isEditableTarget } from './keyboard';
+import { screenToGridSide, sideEdge, sideX, sideZ, stepCell, stepEdge, type AimSide } from './aimMath';
 import { clampCellNearPlot, isNearEdge, KeyedThrottle, lineEdges, lockAxis, segmentSamples, type GridPoint, type LineAxis } from './strokeMath';
 
 /** Lawn/meadow slab top height in TownRenderer (tufts and flowers stand on it). */
@@ -74,6 +79,10 @@ const BULLDOZE_EDGE_RANGE = 0.3;
 const BULLDOZE_EDGE_RANGE_COARSE = 0.4;
 /** Stroke id of the hand / head pointer (`intent:virtual-pointer`); DOM pointer ids are never negative. */
 const VIRTUAL_POINTER_ID = -2;
+/** Stroke id of an aim Place (a press and release in one go). */
+const AIM_POINTER_ID = -3;
+/** Bulldoze aim: the pick sits this far (cells) inside the aimed side, so a fence there is in range. */
+const AIM_EDGE_INSET = 0.15;
 
 interface Stroke {
   pointerId: number;
@@ -155,6 +164,16 @@ export class ToolController {
    */
   private settlingId: number | null = null;
   private readonly invalidThrottle = new KeyedThrottle(400);
+  /** The aimed cell (null: no aim); while set, aimPick stands in for the pointer's pick. */
+  private aim: Cell | null = null;
+  private aimPick: PickResult | null = null;
+  /**
+   * The aimed cell's side: the last nudge's grid direction (bulldoze targets a fence there), or, for
+   * fence tools, the aimed edge. Null until the first nudge.
+   */
+  private aimSide: AimSide | null = null;
+  /** The last in-plot hovered (or aimed) cell, where an aim starts once the pointer has left the canvas. */
+  private lastHoverCell: Cell | null = null;
   private readonly unsubscribers: Array<() => void> = [];
 
   constructor(
@@ -203,6 +222,8 @@ export class ToolController {
         this.hoverDirty = true;
       }),
       bus.on('intent:virtual-pointer', (event) => this.onVirtualPointer(event)),
+      bus.on('intent:aim-nudge', ({ dx, dy }) => this.aimNudge(dx, dy)),
+      bus.on('intent:aim-place', () => this.aimPlace()),
     );
 
     const folder = debug?.folder('Ghost');
@@ -245,6 +266,7 @@ export class ToolController {
     this.enabled = enabled;
     this.cameraController.setInputEnabled(enabled);
     if (!enabled) {
+      this.clearAim();
       this.putBack();
       this.cancelGesture();
       this.touchPointers.clear();
@@ -261,6 +283,7 @@ export class ToolController {
   selectTool(toolId: ToolId | null): void {
     this.putBack();
     this.cancelGesture();
+    this.clearAim();
     this.toolId = this.toolId === toolId ? null : toolId;
     this.justPlaced.clear();
     this.cameraController.setToolActive(this.toolId !== null);
@@ -321,6 +344,13 @@ export class ToolController {
       this.emitSelection();
       return;
     }
+    if (this.aim && this.isEdgeTool()) {
+      // Aiming a fence: R turns the aimed edge to the next side of the aimed cell.
+      this.aimSide = (((this.aimSide ?? 0) + (direction === 1 ? 1 : 3)) % 4) as AimSide;
+      this.setAim(this.aim);
+      this.bus.emit('build:rotated', { rotation: this.rotation });
+      return;
+    }
     this.rotation = nextRotation(this.rotation, direction === 1 ? -1 : 1);
     this.hoverDirty = true;
     this.bus.emit('build:rotated', { rotation: this.rotation });
@@ -379,6 +409,7 @@ export class ToolController {
       return;
     }
     if (event.button !== 0 || event.altKey || !this.toolId || this.stroke) return;
+    this.clearAim(); // a press acts where the pointer is, even one that hasn't moved since the aim began
     this.trackPointer(event);
     if (event.pointerType === 'touch') {
       this.pendingTouch = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, startMs: performance.now() };
@@ -466,6 +497,8 @@ export class ToolController {
   }
 
   private trackAt(clientX: number, clientY: number, coarse: boolean): void {
+    // A pointer moving over the map takes over from the aim (an event that doesn't move it doesn't).
+    if (this.aim && (!this.pointer || this.pointer.x !== clientX || this.pointer.y !== clientY)) this.clearAim();
     this.pointer = { x: clientX, y: clientY };
     this.coarsePointer = coarse;
     this.lastPick = this.picker.pick(clientX, clientY);
@@ -493,6 +526,7 @@ export class ToolController {
       this.hoverDirty = true;
       return;
     }
+    if (phase === 'down') this.clearAim();
     this.trackAt(clientX, clientY, true);
     if (phase === 'down') {
       if (this.toolId && !this.stroke) this.beginStroke(VIRTUAL_POINTER_ID, clientX, clientY);
@@ -503,6 +537,109 @@ export class ToolController {
     }
   }
 
+  /** One aim step toward a screen direction; the first starts from the hovered cell. */
+  private aimNudge(dx: number, dy: number): void {
+    if (!this.enabled) return;
+    const start = this.aim ?? this.aimStart();
+    if (!start) return;
+    const side = screenToGridSide(dx, dy, this.cameraController.getPose().azimuth);
+    const state = this.editor.state;
+    let cell = start;
+    if (side !== null) {
+      if (this.isEdgeTool()) {
+        const next = stepEdge(start, this.aimSide ?? side, side, state.width, state.depth);
+        cell = next.cell;
+        this.aimSide = next.edgeSide;
+      } else {
+        cell = stepCell(start, side, this.aimStep(), state.width, state.depth);
+        this.aimSide = side;
+      }
+    }
+    this.setAim(cell);
+  }
+
+  /** A click of the active tool on the aimed cell (the hovered one when there is no aim yet). */
+  private aimPlace(): void {
+    if (!this.enabled || !this.toolId || this.stroke) return;
+    if (!this.aim) {
+      const start = this.aimStart();
+      if (!start) return;
+      this.setAim(start, false);
+    }
+    const pick = this.aimPick!;
+    const carried = this.carry;
+    this.beginStrokeAt(AIM_POINTER_ID, pick);
+    this.releaseStroke(AIM_POINTER_ID);
+    const picked = !carried && this.carry ? this.editor.state.getObject(this.carry.id) : undefined;
+    if (picked) {
+      // Picked up: aim at the cell that puts it back where it stands, so nudges move it from there.
+      const [w, d] = rotatedFootprint(placedFootprint(picked), picked.rotation);
+      this.setAim({ x: picked.anchor.x + Math.floor((w - 1) / 2), z: picked.anchor.z + Math.floor((d - 1) / 2) });
+    } else {
+      this.setAim(this.aim!);
+    }
+  }
+
+  /**
+   * Where a new aim starts: the cell under the pointer, else the last hovered one, else the one under the
+   * screen centre; on the block grid for block-snapped tools. Null when even the centre misses the plot.
+   */
+  private aimStart(): Cell | null {
+    const state = this.editor.state;
+    const pointed = this.lastPick && state.inBounds(this.lastPick.cell) ? this.lastPick.cell : null;
+    let cell = pointed ?? (this.lastHoverCell && state.inBounds(this.lastHoverCell) ? this.lastHoverCell : null);
+    if (!cell) {
+      const rect = this.canvas.getBoundingClientRect();
+      const centre = this.picker.pick(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      if (!centre) return null;
+      cell = { x: Math.min(Math.max(centre.cell.x, 0), state.width - 1), z: Math.min(Math.max(centre.cell.z, 0), state.depth - 1) };
+    }
+    this.aimSide = this.isEdgeTool() ? screenToGridSide(0, -1, this.cameraController.getPose().azimuth) : null;
+    return this.aimStep() === ROAD_BLOCK ? roadBlockAnchor(cell) : { x: cell.x, z: cell.z };
+  }
+
+  /** Aim at `cell`: the hover and ghost follow it as they would a pointer there. */
+  private setAim(cell: Cell, announce = true): void {
+    this.aim = cell;
+    const side = this.aimSide;
+    const toolId = this.toolId;
+    // Bulldoze picks next to the side last nudged toward (a fence there goes first, as a click there would).
+    const inset = side !== null && toolId && toolDef(toolId).layer === 'bulldoze' ? 0.5 - AIM_EDGE_INSET : 0;
+    const grid = { x: cell.x + 0.5 + (side === null ? 0 : sideX(side) * inset), z: cell.z + 0.5 + (side === null ? 0 : sideZ(side) * inset) };
+    const world = cellToWorld(cell);
+    this.aimPick = {
+      cell,
+      edge: sideEdge(cell, side ?? 0),
+      world: new THREE.Vector3(world.x, 0, world.z),
+      grid,
+    };
+    this.hoverDirty = true;
+    if (announce) this.bus.emit('aim:changed', { cell: { x: cell.x, z: cell.z } });
+  }
+
+  private clearAim(): void {
+    if (!this.aim) return;
+    this.aim = null;
+    this.aimPick = null;
+    this.aimSide = null;
+    this.hoverDirty = true;
+    this.bus.emit('aim:changed', { cell: null });
+  }
+
+  /** Cells per nudge: a road block for the road tool and block-snapped objects, else one. */
+  private aimStep(): number {
+    const toolId = this.toolId;
+    if (!toolId || this.carry) return 1;
+    if (toolId === 'road') return ROAD_BLOCK;
+    if (toolDef(toolId).layer !== 'object') return 1;
+    const def = objectDef(toolId as ObjectKind);
+    return def.roadFeature || def.roadMarking ? ROAD_BLOCK : 1;
+  }
+
+  private isEdgeTool(): boolean {
+    return this.toolId !== null && toolDef(this.toolId).layer === 'edge';
+  }
+
   private commitPendingTouch(): void {
     const pending = this.pendingTouch;
     if (!pending) return;
@@ -511,9 +648,12 @@ export class ToolController {
   }
 
   private beginStroke(pointerId: number, clientX: number, clientY: number): void {
-    if (!this.toolId) return;
     const pick = this.picker.pick(clientX, clientY);
-    if (!pick || !this.editor.state.inBounds(pick.cell)) return;
+    if (pick) this.beginStrokeAt(pointerId, pick);
+  }
+
+  private beginStrokeAt(pointerId: number, pick: PickResult): void {
+    if (!this.toolId || !this.editor.state.inBounds(pick.cell)) return;
     const def = toolDef(this.toolId);
     if (def.layer === 'move') {
       this.moveClick(pick);
@@ -544,7 +684,7 @@ export class ToolController {
     };
     this.stroke = stroke;
     try {
-      if (pointerId !== VIRTUAL_POINTER_ID && !this.canvas.hasPointerCapture(pointerId)) this.canvas.setPointerCapture(pointerId);
+      if (pointerId >= 0 && !this.canvas.hasPointerCapture(pointerId)) this.canvas.setPointerCapture(pointerId);
     } catch {
       // Synthetic or already-released pointers can't be captured; blur/visibility still end the stroke.
     }
@@ -838,7 +978,7 @@ export class ToolController {
     this.stroke = null;
     this.editor.endStroke();
     try {
-      if (stroke.pointerId !== VIRTUAL_POINTER_ID && this.canvas.hasPointerCapture(stroke.pointerId)) this.canvas.releasePointerCapture(stroke.pointerId);
+      if (stroke.pointerId >= 0 && this.canvas.hasPointerCapture(stroke.pointerId)) this.canvas.releasePointerCapture(stroke.pointerId);
     } catch {
       // Pointer already gone.
     }
@@ -865,9 +1005,10 @@ export class ToolController {
   private refreshHover(): void {
     this.hoverDirty = false;
     this.syncSelectionGhost();
-    const pick = this.enabled ? this.lastPick : null;
+    const pick = this.enabled ? this.aimPick ?? this.lastPick : null;
     const state = this.editor.state;
     const cell = pick && state.inBounds(pick.cell) ? { ...pick.cell } : null;
+    if (cell) this.lastHoverCell = cell;
     if (!pick || !cell) {
       this.ghost.hide();
       this.publishHover({ cell: null, edge: null, valid: true, reason: null });
@@ -1088,6 +1229,7 @@ export class ToolController {
         break;
       case 'Escape':
         if (event.repeat) break;
+        this.clearAim();
         if (this.carry) this.putBack(true);
         else if (this.toolId) this.selectTool(null);
         else this.bus.emit('intent:open-menu');
