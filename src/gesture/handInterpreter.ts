@@ -10,7 +10,7 @@
 import { createGestureFrame, type GestureFrame, type HandObservation, type Point3 } from './protocol';
 import { PointerSmoother } from './pointerSmoother';
 import type { OneEuroTuning } from './oneEuro';
-import { HoldTrigger, Latch, ThresholdSwitch } from './triggers';
+import { FrameClock, HoldTrigger, Latch, ThresholdSwitch } from './triggers';
 
 export const WRIST = 0;
 export const THUMB_TIP = 4;
@@ -41,7 +41,7 @@ export interface HandTuning {
   grabOnS: number;
   grabOffS: number;
   commandHoldS: number;
-  /** A hand missing for this long is gone (a press is released). */
+  /** A hand missing for this long is gone (a press is released); longer when results come slowly. */
   lostS: number;
   /**
    * Which hand counts when several are seen: 'follow' keeps the one it had (it moves the pointer);
@@ -111,6 +111,7 @@ export class HandInterpreter {
   private readonly rotate: HoldTrigger;
   private readonly cancel: HoldTrigger;
   private lastSeen = -Infinity;
+  private readonly clock = new FrameClock();
   /** The tracked hand's pinch point last frame (image coords), to follow the same hand when two are seen. */
   private readonly last = { x: 0.5, y: 0.5 };
   private hasLast = false;
@@ -133,9 +134,11 @@ export class HandInterpreter {
     const f = this.frame;
     const tuning = this.tuning;
     f.command = null;
+    f.tap = false;
     f.zoom = 1;
     f.grabDx = 0;
     f.grabDy = 0;
+    this.clock.tick(t);
 
     if (hands.length >= 2 && this.isFist(hands[0]) && this.isFist(hands[1])) {
       this.twoHandZoom(hands[0], hands[1], aspect);
@@ -145,7 +148,7 @@ export class HandInterpreter {
 
     const hand = this.pickHand(hands, aspect);
     if (!hand) {
-      if (t - this.lastSeen >= tuning.lostS) this.lose();
+      if (t - this.lastSeen >= this.clock.lostAfter(tuning.lostS)) this.lose();
       return f;
     }
     this.lastSeen = t;
@@ -199,6 +202,7 @@ export class HandInterpreter {
   reset(): void {
     this.lose();
     this.lastSeen = -Infinity;
+    this.clock.reset();
   }
 
   private lose(): void {

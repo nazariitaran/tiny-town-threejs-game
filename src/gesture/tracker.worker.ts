@@ -13,8 +13,8 @@ interface WorkerScope {
 }
 const scope = self as unknown as WorkerScope;
 
-/** The blendshapes HeadInterpreter reads; the other 47 aren't posted. */
-const BLENDSHAPES = new Set(['jawOpen', 'browInnerUp', 'mouthSmileLeft', 'mouthSmileRight']);
+/** The blendshapes HeadInterpreter reads; the rest aren't posted. */
+const BLENDSHAPES = new Set(['jawOpen', 'browInnerUp', 'mouthSmileLeft', 'mouthSmileRight', 'eyeBlinkLeft', 'eyeBlinkRight']);
 
 let recognizer: GestureRecognizer | null = null;
 let faces: FaceLandmarker | null = null;

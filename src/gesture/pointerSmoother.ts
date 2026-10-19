@@ -1,7 +1,8 @@
 /**
  * A tracked 2D pointer: One Euro smoothing plus a back-dated press. Making a click (pinching, opening
  * the mouth) moves the hand or head a little, so a press lands where the pointer was `backdateS`
- * earlier and holds there for `holdS`, then follows again (a drag).
+ * earlier and holds there for `holdS`, then follows again (a drag). An eye click is back-dated to when
+ * the eyes began to close, up to ~3 s at 30 results a second.
  */
 import { OneEuroFilter, type OneEuroTuning } from './oneEuro';
 
@@ -10,7 +11,7 @@ export interface PressTuning {
   holdS: number;
 }
 
-const HISTORY = 32;
+const HISTORY = 96;
 
 export class PointerSmoother {
   readonly point = { x: 0.5, y: 0.5 };
@@ -51,15 +52,29 @@ export class PointerSmoother {
     return this.point;
   }
 
-  /** A press at time t: pins the pointer to where it was `backdateS` ago, for `holdS`. */
-  pressAt(t: number): { x: number; y: number } {
-    const target = t - this.press.backdateS;
-    // Newest to oldest: the first sample at or before the target time (or the oldest we have).
+  /** A press at time t: pins the pointer to where it was at `at` (default `backdateS` ago), for `holdS`. */
+  pressAt(t: number, at = t - this.press.backdateS): { x: number; y: number } {
+    this.holdAt(at, t + this.press.holdS);
+    return this.point;
+  }
+
+  /** Holds the pointer where it was at `at` until unpin() or the next press (eyes shut: nothing to aim with). */
+  pin(at: number): void {
+    if (this.holdUntil === Infinity) return;
+    this.holdAt(at, Infinity);
+  }
+
+  unpin(): void {
+    if (this.holdUntil === Infinity) this.holdUntil = -Infinity;
+  }
+
+  private holdAt(at: number, until: number): void {
+    // Newest to oldest: the first sample at or before `at` (or the oldest we have).
     let best = -1;
     for (let k = 1; k <= this.count; k += 1) {
       const i = ((this.head - k + HISTORY) % HISTORY) * 3;
       best = i;
-      if (this.history[i] <= target) break;
+      if (this.history[i] <= at) break;
     }
     if (best >= 0) {
       this.held.x = this.history[best + 1];
@@ -68,10 +83,9 @@ export class PointerSmoother {
       this.held.x = this.point.x;
       this.held.y = this.point.y;
     }
-    this.holdUntil = t + this.press.holdS;
+    this.holdUntil = until;
     this.point.x = this.held.x;
     this.point.y = this.held.y;
-    return this.point;
   }
 
   reset(): void {
