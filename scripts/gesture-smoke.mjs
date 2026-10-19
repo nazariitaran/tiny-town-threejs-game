@@ -5,9 +5,11 @@
 // checking the game after each step through __THREE_GAME_DIAGNOSTICS__:
 //   pinch the Road card → pinch-drag a road on the map → ✌ rotates → 👎 is Esc → a fist drags the map.
 // Then head mode: a face sliding across the frame keeps the pointer near the centre (the pointer follows
-// the nose inside the face, not the face in the frame), and a held smile rotates.
+// the nose inside the face, not the face in the frame), and a held smile rotates (Classic bindings).
+// Then blinks and winks (Low effort bindings) on the same portrait with its eyelids painted shut: the eye
+// test, a slow blink clicks, wink left drags, wink right is Esc, a long blink pauses and resumes.
 // Needs a dev server on PORT and ffmpeg. Writes videos, screenshots and report.json to --out.
-// Run: node scripts/gesture-smoke.mjs [--out artifacts/gesture-smoke] [--graphics low] [--headed]
+// Run: node scripts/gesture-smoke.mjs [--out artifacts/gesture-smoke] [--graphics low] [--headed] [--only hands|head|eyes]
 import { chromium } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -123,145 +125,223 @@ const game = (page) =>
     return { tool: d.tool, rotation: d.rotation, roadTiles: d.town.roadTiles, hover: d.hover, camera: d.camera };
   });
 
-// --- Pass 1: where does each pose's pinch point land? ---------------------------------------------
-const centred = (path) => {
-  const [w, h] = size(path);
-  return [(FRAME.width - w) / 2, (FRAME.height - h) / 2];
-};
-const CALIBRATE = ['point', 'pinch'];
-const calibrationVideo = buildVideo('calibrate', [
-  { pose: null, seconds: LEAD_IN },
-  ...CALIBRATE.map((name) => ({ pose: POSES[name], from: centred(POSES[name]), seconds: 5 })),
-]);
-const offsets = {};
-const layout = {};
-{
-  const { browser, page } = await open(calibrationVideo);
-  layout.road = await page.evaluate(() => {
-    const r = document.querySelector('[data-tool="road"]').getBoundingClientRect();
-    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-  });
-  const cell = (x, z) => page.evaluate(([cx, cz]) => window.__THREE_GAME_TEST_HOOKS__.cellToClient(cx, cz), [x, z]);
-  layout.a = await cell(30, 24);
-  layout.b = await cell(46, 24);
-  let t = LEAD_IN;
-  for (const name of CALIBRATE) {
-    t += 5;
-    await videoAt(page, t - 0.3);
-    const { x, y, present } = await panel(page);
-    if (present !== 'true') throw new Error(`calibration: no hand found for ${name}`);
-    const u = 1 - (REGION.left + (Number(x) / VIEW.width) * (REGION.right - REGION.left));
-    const v = REGION.top + (Number(y) / VIEW.height) * (REGION.bottom - REGION.top);
-    const [left, top] = centred(POSES[name]);
-    offsets[name] = [u * FRAME.width - left, v * FRAME.height - top];
-  }
-  await browser.close();
-}
-console.log('pinch-point offsets (px in the pose image):', JSON.stringify(offsets));
-console.log('targets (CSS px):', JSON.stringify(layout));
-
-// --- Pass 2: the journey --------------------------------------------------------------------------
-const at = (name, target) => placeFor(offsets[name] ?? offsets.point, target.x, target.y);
-const fistFrom = [FRAME.width / 2 + 40, FRAME.height / 2 - HAND_HEIGHT / 2];
-const STEPS = [
-  { name: 'lead-in', pose: null, seconds: LEAD_IN },
-  { name: 'hover Road card', pose: 'point', at: layout.road, seconds: 3.5 },
-  { name: 'pinch on Road card', pose: 'pinch', at: layout.road, seconds: 2.5 },
-  { name: 'release on Road card', pose: 'point', at: layout.road, seconds: 3, check: (g) => g.tool === 'road' },
-  { name: 'move to the map', pose: 'point', at: layout.road, to: layout.a, seconds: 3 },
-  { name: 'hover A', pose: 'point', at: layout.a, seconds: 2.5 },
-  { name: 'pinch at A', pose: 'pinch', at: layout.a, seconds: 2.5, check: (g) => g.roadTiles >= 1 },
-  { name: 'drag A → B', pose: 'pinch', at: layout.a, to: layout.b, seconds: 5 },
-  { name: 'hold at B', pose: 'pinch', at: layout.b, seconds: 1.5 },
-  { name: 'release at B', pose: 'point', at: layout.b, seconds: 3, check: (g, first) => g.roadTiles >= 6 && g.roadTiles > first.roadTiles },
-  { name: '✌ rotates', pose: 'victory', at: layout.b, seconds: 3.5, check: (g) => g.rotation !== 0 },
-  { name: '👎 is Esc', pose: 'thumbDown', at: layout.b, seconds: 3.5, check: (g) => g.tool === null },
-  { name: 'fist drags the map', pose: 'fist', from: fistFrom, toFrame: [fistFrom[0] - 140, fistFrom[1]], seconds: 5, check: (g, first) => Math.hypot(g.camera.targetX - first.camera.targetX, g.camera.targetZ - first.camera.targetZ) > 0.5 },
-  { name: 'hand gone', pose: null, seconds: 3 },
-];
-const journeyVideo = buildVideo(
-  'journey',
-  STEPS.map((step) =>
-    !step.pose
-      ? { pose: null, seconds: step.seconds }
-      : step.from
-      ? { pose: POSES[step.pose], from: step.from, to: step.toFrame, seconds: step.seconds }
-      : { pose: POSES[step.pose], from: at(step.pose, step.at), to: step.to ? at(step.pose, step.to) : undefined, seconds: step.seconds },
-  ),
-);
-
-const { browser, page, errors } = await open(journeyVideo);
-const first = await game(page);
-const results = [];
-let t = 0;
-for (const [i, step] of STEPS.entries()) {
-  t += step.seconds;
-  await videoAt(page, t - 0.2);
-  const state = await game(page);
-  const hands = await panel(page);
-  const ok = step.check ? step.check(state, first) : null;
-  results.push({ step: step.name, ok, tool: state.tool, rotation: state.rotation, roadTiles: state.roadTiles, cursor: [Number(hands.x), Number(hands.y)], label: hands.label, pressed: hands.pressed, grab: hands.grab });
-  console.log(`${ok === null ? '·' : ok ? '✓' : '✗'} ${step.name.padEnd(24)} tool=${state.tool} rot=${state.rotation} roads=${state.roadTiles} cursor=${hands.x},${hands.y} ${hands.label}`);
-  if (step.check || i === 1) await page.screenshot({ path: join(out, `step-${String(i).padStart(2, '0')}.png`) });
-}
-const stats = await panel(page);
-await browser.close();
-
-// --- Pass 3: head mode ----------------------------------------------------------------------------
-const [faceWidth] = size(FACE);
-const faceLeft = (FRAME.width - faceWidth) / 2;
-const HEAD_STEPS = [
-  { name: 'lead-in', seconds: LEAD_IN, video: { pose: null, seconds: LEAD_IN } },
-  { name: 'face centred (calibrates)', seconds: 3, video: { pose: FACE, from: [faceLeft, 40], seconds: 3 } },
-  { name: 'face slides 140 px', seconds: 5, video: { pose: FACE, from: [faceLeft, 40], to: [faceLeft - 140, 40], seconds: 5 } },
-];
-const headVideo = buildVideo('head', HEAD_STEPS.map((step) => step.video));
-const head = await open(headVideo, 'head');
-const headStart = await game(head.page);
-const headResults = [];
-let headT = 0;
-const centre = { x: VIEW.width / 2, y: VIEW.height / 2 };
-for (const step of HEAD_STEPS) {
-  headT += step.seconds;
-  // Sample through the step: how far does the pointer stray from the centre?
-  let worst = 0;
-  let present = false;
-  while ((await head.page.evaluate(() => document.querySelector('.hf-video').currentTime)) < headT - 0.2) {
-    const p = await panel(head.page);
-    if (p.present === 'true' && step.name !== 'lead-in') {
-      present = true;
-      worst = Math.max(worst, Math.hypot(Number(p.x) - centre.x, Number(p.y) - centre.y));
+async function handPasses() {
+  // --- Pass 1: where does each pose's pinch point land? ---------------------------------------------
+  const centred = (path) => {
+    const [w, h] = size(path);
+    return [(FRAME.width - w) / 2, (FRAME.height - h) / 2];
+  };
+  const CALIBRATE = ['point', 'pinch'];
+  const calibrationVideo = buildVideo('calibrate', [
+    { pose: null, seconds: LEAD_IN },
+    ...CALIBRATE.map((name) => ({ pose: POSES[name], from: centred(POSES[name]), seconds: 5 })),
+  ]);
+  const offsets = {};
+  const layout = {};
+  {
+    const { browser, page } = await open(calibrationVideo);
+    layout.road = await page.evaluate(() => {
+      const r = document.querySelector('[data-tool="road"]').getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    });
+    const cell = (x, z) => page.evaluate(([cx, cz]) => window.__THREE_GAME_TEST_HOOKS__.cellToClient(cx, cz), [x, z]);
+    layout.a = await cell(30, 24);
+    layout.b = await cell(46, 24);
+    let t = LEAD_IN;
+    for (const name of CALIBRATE) {
+      t += 5;
+      await videoAt(page, t - 0.3);
+      const { x, y, present } = await panel(page);
+      if (present !== 'true') throw new Error(`calibration: no hand found for ${name}`);
+      const u = 1 - (REGION.left + (Number(x) / VIEW.width) * (REGION.right - REGION.left));
+      const v = REGION.top + (Number(y) / VIEW.height) * (REGION.bottom - REGION.top);
+      const [left, top] = centred(POSES[name]);
+      offsets[name] = [u * FRAME.width - left, v * FRAME.height - top];
     }
-    await head.page.waitForTimeout(150);
+    await browser.close();
   }
-  const state = await game(head.page);
-  const p = await panel(head.page);
-  const strayPct = (worst / VIEW.width) * 100;
-  const ok = step.name === 'lead-in' ? null : present && strayPct < 10;
-  headResults.push({ step: step.name, ok, present, worstStrayPx: Math.round(worst), strayPctOfWidth: Number(strayPct.toFixed(1)), rotation: state.rotation, label: p.label });
-  console.log(`${ok === null ? '·' : ok ? '✓' : '✗'} head: ${step.name.padEnd(26)} found=${present} worst stray=${Math.round(worst)} px (${strayPct.toFixed(1)} % of width) rot=${state.rotation} ${p.label}`);
-}
-const smileOk = (await game(head.page)).rotation !== headStart.rotation;
-headResults.push({ step: 'held smile rotates', ok: smileOk });
-console.log(`${smileOk ? '✓' : '✗'} head: held smile rotates`);
-await head.page.screenshot({ path: join(out, 'head.png') });
-const headStats = await panel(head.page);
-await head.browser.close();
+  console.log('pinch-point offsets (px in the pose image):', JSON.stringify(offsets));
+  console.log('targets (CSS px):', JSON.stringify(layout));
 
+  // --- Pass 2: the journey --------------------------------------------------------------------------
+  const at = (name, target) => placeFor(offsets[name] ?? offsets.point, target.x, target.y);
+  const fistFrom = [FRAME.width / 2 + 40, FRAME.height / 2 - HAND_HEIGHT / 2];
+  const STEPS = [
+    { name: 'lead-in', pose: null, seconds: LEAD_IN },
+    { name: 'hover Road card', pose: 'point', at: layout.road, seconds: 3.5 },
+    { name: 'pinch on Road card', pose: 'pinch', at: layout.road, seconds: 2.5 },
+    { name: 'release on Road card', pose: 'point', at: layout.road, seconds: 3, check: (g) => g.tool === 'road' },
+    { name: 'move to the map', pose: 'point', at: layout.road, to: layout.a, seconds: 3 },
+    { name: 'hover A', pose: 'point', at: layout.a, seconds: 2.5 },
+    { name: 'pinch at A', pose: 'pinch', at: layout.a, seconds: 2.5, check: (g) => g.roadTiles >= 1 },
+    { name: 'drag A → B', pose: 'pinch', at: layout.a, to: layout.b, seconds: 5 },
+    { name: 'hold at B', pose: 'pinch', at: layout.b, seconds: 1.5 },
+    { name: 'release at B', pose: 'point', at: layout.b, seconds: 3, check: (g, first) => g.roadTiles >= 6 && g.roadTiles > first.roadTiles },
+    { name: '✌ rotates', pose: 'victory', at: layout.b, seconds: 3.5, check: (g) => g.rotation !== 0 },
+    { name: '👎 is Esc', pose: 'thumbDown', at: layout.b, seconds: 3.5, check: (g) => g.tool === null },
+    { name: 'fist drags the map', pose: 'fist', from: fistFrom, toFrame: [fistFrom[0] - 140, fistFrom[1]], seconds: 5, check: (g, first) => Math.hypot(g.camera.targetX - first.camera.targetX, g.camera.targetZ - first.camera.targetZ) > 0.5 },
+    { name: 'hand gone', pose: null, seconds: 3 },
+  ];
+  const journeyVideo = buildVideo(
+    'journey',
+    STEPS.map((step) =>
+      !step.pose
+        ? { pose: null, seconds: step.seconds }
+        : step.from
+        ? { pose: POSES[step.pose], from: step.from, to: step.toFrame, seconds: step.seconds }
+        : { pose: POSES[step.pose], from: at(step.pose, step.at), to: step.to ? at(step.pose, step.to) : undefined, seconds: step.seconds },
+    ),
+  );
+
+  const { browser, page, errors } = await open(journeyVideo);
+  const first = await game(page);
+  const results = [];
+  let t = 0;
+  for (const [i, step] of STEPS.entries()) {
+    t += step.seconds;
+    await videoAt(page, t - 0.2);
+    const state = await game(page);
+    const hands = await panel(page);
+    const ok = step.check ? step.check(state, first) : null;
+    results.push({ step: step.name, ok, tool: state.tool, rotation: state.rotation, roadTiles: state.roadTiles, cursor: [Number(hands.x), Number(hands.y)], label: hands.label, pressed: hands.pressed, grab: hands.grab });
+    console.log(`${ok === null ? '·' : ok ? '✓' : '✗'} ${step.name.padEnd(24)} tool=${state.tool} rot=${state.rotation} roads=${state.roadTiles} cursor=${hands.x},${hands.y} ${hands.label}`);
+    if (step.check || i === 1) await page.screenshot({ path: join(out, `step-${String(i).padStart(2, '0')}.png`) });
+  }
+  const stats = await panel(page);
+  await browser.close();
+  return { results, stats, offsets, layout, errors };
+}
+
+async function headPass() {
+  // --- Pass 3: head mode ----------------------------------------------------------------------------
+  const [faceWidth] = size(FACE);
+  const faceLeft = (FRAME.width - faceWidth) / 2;
+  const HEAD_STEPS = [
+    { name: 'lead-in', seconds: LEAD_IN, video: { pose: null, seconds: LEAD_IN } },
+    { name: 'face centred (calibrates)', seconds: 3, video: { pose: FACE, from: [faceLeft, 40], seconds: 3 } },
+    { name: 'face slides 140 px', seconds: 5, video: { pose: FACE, from: [faceLeft, 40], to: [faceLeft - 140, 40], seconds: 5 } },
+  ];
+  const headVideo = buildVideo('head', HEAD_STEPS.map((step) => step.video));
+  const head = await open(headVideo, 'head');
+  // Classic bindings: a held smile rotates.
+  await head.page.click('#hf-preset-classic');
+  const headStart = await game(head.page);
+  const headResults = [];
+  let headT = 0;
+  const centre = { x: VIEW.width / 2, y: VIEW.height / 2 };
+  for (const step of HEAD_STEPS) {
+    headT += step.seconds;
+    // Sample through the step: how far does the pointer stray from the centre?
+    let worst = 0;
+    let present = false;
+    while ((await head.page.evaluate(() => document.querySelector('.hf-video').currentTime)) < headT - 0.2) {
+      const p = await panel(head.page);
+      if (p.present === 'true' && step.name !== 'lead-in') {
+        present = true;
+        worst = Math.max(worst, Math.hypot(Number(p.x) - centre.x, Number(p.y) - centre.y));
+      }
+      await head.page.waitForTimeout(150);
+    }
+    const state = await game(head.page);
+    const p = await panel(head.page);
+    const strayPct = (worst / VIEW.width) * 100;
+    const ok = step.name === 'lead-in' ? null : present && strayPct < 10;
+    headResults.push({ step: step.name, ok, present, worstStrayPx: Math.round(worst), strayPctOfWidth: Number(strayPct.toFixed(1)), rotation: state.rotation, label: p.label });
+    console.log(`${ok === null ? '·' : ok ? '✓' : '✗'} head: ${step.name.padEnd(26)} found=${present} worst stray=${Math.round(worst)} px (${strayPct.toFixed(1)} % of width) rot=${state.rotation} ${p.label}`);
+  }
+  const smileOk = (await game(head.page)).rotation !== headStart.rotation;
+  headResults.push({ step: 'held smile rotates', ok: smileOk });
+  console.log(`${smileOk ? '✓' : '✗'} head: held smile rotates`);
+  await head.page.screenshot({ path: join(out, 'head.png') });
+  const headStats = await panel(head.page);
+  await head.browser.close();
+  return { results: headResults, stats: headStats, errors: head.errors };
+}
+
+// --- Pass 4: blinks and winks ---------------------------------------------------------------------
+// MediaPipe's test photos have no closed eyes, so the eyelids are painted over (a skin-coloured patch and
+// a lash line) on the portrait, with its smile covered too. Crude, but the Face Landmarker reads them as
+// shut. The eye test runs first (its levels and the wink checks), then Low effort's bindings are played.
+async function eyePass() {
+  const crop = 'crop=300:300:250:30,scale=600:600';
+  const lid = (x) => `drawbox=x=${x}:y=266:w=100:h=42:color=0xc88569:t=fill,drawbox=x=${x + 6}:y=289:w=88:h=3:color=0x3a2418:t=fill`;
+  const mouth = 'drawbox=x=198:y=412:w=220:h=80:color=0xc07f63:t=fill,drawbox=x=250:y=450:w=120:h=3:color=0x5a3020:t=fill';
+  // Image-right is the subject's left eye. The right wink is the left one mirrored: the patch on the
+  // other eye reads weaker, and a mirror keeps the two winks alike.
+  const eyeImage = (name, lids, flip = false) => {
+    const path = join(imageDir, `eyes-${name}.png`);
+    ffmpeg('-i', join(imageDir, 'portrait.jpg'), '-vf', [crop, ...lids, mouth, 'scale=-2:470', ...(flip ? ['hflip'] : [])].join(','), path);
+    return path;
+  };
+  const EYES = { open: eyeImage('open', []), shut: eyeImage('shut', [lid(186), lid(345)]), left: eyeImage('wink-left', [lid(345)]), right: eyeImage('wink-right', [lid(345)], true) };
+  const [w] = size(EYES.open);
+  const at = [(FRAME.width - w) / 2, 5];
+  const STEPS = [
+    { name: 'lead-in', image: null, seconds: LEAD_IN },
+    { name: 'face (centres)', image: 'open', seconds: 3 },
+    { name: 'eye test: eyes open', image: 'open', seconds: 3, before: ['#hf-eye-test summary', '#hf-eye-test-start'] },
+    { name: 'eye test: eyes shut', image: 'shut', seconds: 2, check: (p) => p.eyeTest === 'idle' && /open your eyes/i.test(p.eyeTestText) },
+    { name: 'open', image: 'open', seconds: 2 },
+    { name: 'eye test: left wink', image: 'left', seconds: 2, before: ['#hf-wink-test-left'], check: (p) => /Left wink works/.test(p.eyeTestText) },
+    { name: 'open', image: 'open', seconds: 2 },
+    { name: 'eye test: right wink', image: 'right', seconds: 2, before: ['#hf-wink-test-right'], check: (p) => /Right wink works/.test(p.eyeTestText) },
+    { name: 'open (winks bindable)', image: 'open', seconds: 2, check: (p) => p.eyes === 'live' },
+    { name: 'slow blink clicks', image: 'shut', seconds: 0.7, mark: true },
+    { name: 'open', image: 'open', seconds: 1.5, check: (p, first) => Number(p.taps) === Number(first.taps) + 1 },
+    { name: 'wink left: drag on', image: 'left', seconds: 0.6 },
+    { name: 'open (dragging)', image: 'open', seconds: 1.5, check: (p) => p.pressed === 'true' },
+    { name: 'wink right: Esc ends it', image: 'right', seconds: 0.6, mark: true },
+    { name: 'open', image: 'open', seconds: 1.5, check: (p, first) => p.pressed === 'false' && Number(p.commands) > Number(first.commands) },
+    { name: 'long blink pauses', image: 'shut', seconds: 2.2, check: (p) => p.paused === 'true' },
+    { name: 'open (paused)', image: 'open', seconds: 1.5, check: (p) => p.paused === 'true' },
+    { name: 'long blink resumes', image: 'shut', seconds: 2.2 },
+    { name: 'open (resumed)', image: 'open', seconds: 1.5, check: (p) => p.paused === 'false' },
+  ];
+  const video = buildVideo('eyes', STEPS.map((step) => (step.image ? { pose: EYES[step.image], from: at, seconds: step.seconds } : { pose: null, seconds: step.seconds })));
+  const run = await open(video, 'head');
+  const { page } = run;
+  const eyePanel = async () => ({ ...(await panel(page)), eyeTestText: await page.textContent('#hf-eye-test-text') });
+  let first = null;
+  const results = [];
+  let t = 0;
+  for (const step of STEPS) {
+    if (step.before) for (const selector of step.before) await page.click(selector);
+    if (step.mark) first = await eyePanel();
+    t += step.seconds;
+    await videoAt(page, t - 0.15);
+    const p = await eyePanel();
+    const ok = step.check ? step.check(p, first ?? p) : null;
+    results.push({ step: step.name, ok, label: p.label, pressed: p.pressed, paused: p.paused, taps: Number(p.taps), commands: Number(p.commands), eyes: p.eyes, eyeLevels: p.eyeLevels, eyeTest: p.eyeTestText });
+    console.log(`${ok === null ? '·' : ok ? '✓' : '✗'} eyes: ${step.name.padEnd(26)} ${p.label} · taps=${p.taps} pressed=${p.pressed} paused=${p.paused} eyes=${p.eyes} L/R=${p.eyeLevels} · ${p.eyeTestText}`);
+  }
+  await page.screenshot({ path: join(out, 'eyes.png') });
+  const stats = await panel(page);
+  await run.browser.close();
+  return { results, stats, errors: run.errors };
+}
+
+const only = option('only', null);
+const hands = !only || only === 'hands' ? await handPasses() : null;
+const head = !only || only === 'head' ? await headPass() : null;
+const eyes = !only || only === 'eyes' ? await eyePass() : null;
+
+const tracking = (stats) => stats && { delegate: stats.delegate, loadMs: Number(stats.loadMs), inferMs: Number(stats.inferMs), fps: Number(stats.fps), frames: Number(stats.frames), dropped: Number(stats.dropped), models: stats.models };
 const report = {
   date: new Date().toISOString(),
   graphics,
   viewport: VIEW,
-  offsets,
-  layout,
-  steps: results,
-  tracking: { delegate: stats.delegate, loadMs: Number(stats.loadMs), inferMs: Number(stats.inferMs), fps: Number(stats.fps), frames: Number(stats.frames), dropped: Number(stats.dropped), models: stats.models },
-  counts: { domClicks: Number(stats.domClicks), canvasPresses: Number(stats.canvasPresses), commands: Number(stats.commands) },
-  head: { steps: headResults, tracking: { delegate: headStats.delegate, loadMs: Number(headStats.loadMs), inferMs: Number(headStats.inferMs), fps: Number(headStats.fps) } },
-  pageErrors: [...errors, ...head.errors],
+  offsets: hands?.offsets,
+  layout: hands?.layout,
+  steps: hands?.results ?? [],
+  tracking: tracking(hands?.stats),
+  counts: hands && { domClicks: Number(hands.stats.domClicks), canvasPresses: Number(hands.stats.canvasPresses), commands: Number(hands.stats.commands) },
+  head: head && { steps: head.results, tracking: tracking(head.stats) },
+  eyes: eyes && { steps: eyes.results, tracking: tracking(eyes.stats) },
+  pageErrors: [...(hands?.errors ?? []), ...(head?.errors ?? []), ...(eyes?.errors ?? [])],
 };
 writeFileSync(join(out, 'report.json'), JSON.stringify(report, null, 2));
-const failed = [...results, ...headResults].filter((r) => r.ok === false);
-console.log(`tracking (hands): ${stats.delegate}, ${stats.inferMs} ms a frame, ${stats.fps} results/s · (head): ${headStats.inferMs} ms, ${headStats.fps} results/s · page errors: ${report.pageErrors.length}`);
+const failed = [...(hands?.results ?? []), ...(head?.results ?? []), ...(eyes?.results ?? [])].filter((r) => r.ok === false);
+const rate = (name, stats) => (stats ? `(${name}): ${stats.delegate}, ${stats.inferMs} ms a frame, ${stats.fps} results/s` : null);
+console.log(`tracking ${[rate('hands', hands?.stats), rate('head', head?.stats), rate('eyes', eyes?.stats)].filter(Boolean).join(' · ')} · page errors: ${report.pageErrors.length}`);
 console.log(failed.length ? `FAILED: ${failed.map((r) => r.step).join(', ')}` : 'all checks passed');
 process.exit(failed.length || report.pageErrors.length ? 1 : 0);

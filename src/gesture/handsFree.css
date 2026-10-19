@@ -145,6 +145,11 @@
   background: #2f2c27;
 }
 
+/* Head modes need less of the picture: a shorter preview keeps the panel's buttons in reach. */
+.hf-root:not([data-mode='hand']) .hf-preview {
+  aspect-ratio: 16 / 10;
+}
+
 .hf-video,
 .hf-preview canvas {
   position: absolute;
@@ -177,15 +182,49 @@
   background: var(--brick-dark);
 }
 
-.hf-legend {
-  font-size: 0.78rem;
-  color: var(--ink-soft);
+.hf-alert {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--sun);
+  font-size: 0.8rem;
+  font-weight: 800;
 }
 
-.hf-legend summary {
+.hf-section {
+  font-size: 0.8rem;
+}
+
+.hf-section summary {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-weight: 800;
   color: var(--ink);
   cursor: pointer;
+}
+
+.hf-section summary::before {
+  content: '';
+  width: 0;
+  height: 0;
+  border-left: 5px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform var(--fast) var(--ease);
+}
+
+.hf-section[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.hf-section > :not(summary) + * {
+  margin-top: 6px;
+}
+
+.hf-legend {
+  color: var(--ink-soft);
 }
 
 .hf-legend ul {
@@ -206,21 +245,110 @@
   display: grid;
 }
 
-/* Dwell is for head mode alone: with a hand to pinch it only adds accidental clicks. */
-.hf-root[data-mode='head-hand'] .hf-dwell-row {
+.hf-root[data-mode='hand'] .hf-head-only {
   display: none;
 }
 
-.hf-row {
-  display: flex;
+.hf-label {
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.hf-presets {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+}
+
+.hf-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 4px;
+}
+
+.hf-switch[aria-pressed='true'],
+.hf-btn[aria-pressed='true'] {
+  border-color: var(--green-dark);
+  background: var(--green-tint);
+}
+
+.hf-stepper {
+  display: grid;
+  grid-template-columns: 1fr 32px 64px 32px;
+  align-items: center;
+  gap: 4px;
+}
+
+.hf-stepper output {
+  text-align: center;
+  font-weight: 800;
   font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.hf-step {
+  min-height: 32px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  font-weight: 900;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.hf-binds {
+  display: grid;
+  gap: 4px;
+}
+
+.hf-bind {
+  display: grid;
+  grid-template-columns: 1fr 36px 104px;
+  align-items: center;
+  gap: 6px;
   font-weight: 700;
 }
 
-.hf-row input[type='range'] {
-  flex: 1;
+.hf-meter,
+.hf-progress {
+  display: block;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+.hf-meter b,
+.hf-progress b {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--green);
+}
+
+.hf-cycle {
+  min-height: 30px;
+  padding: 0 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  font-weight: 800;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.hf-cycle:disabled {
+  border-style: dashed;
+  color: var(--ink-faint);
+  cursor: default;
+}
+
+.hf-small {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
 }
 
 .hf-note {
@@ -283,6 +411,14 @@
   border-style: dashed;
 }
 
+.hf-cursor.is-paused {
+  opacity: 0.45;
+}
+
+.hf-cursor.is-paused .hf-ring {
+  border-color: var(--ink-faint);
+}
+
 .hf-cursor.is-calibrating .hf-ring {
   border-color: var(--ink-faint);
   border-style: dotted;
@@ -299,7 +435,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hf-ring {
+  .hf-ring,
+  .hf-section summary::before {
     transition: none;
   }
 }

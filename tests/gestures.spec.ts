@@ -60,3 +60,69 @@ test('switching mode while tracking restarts with the face model', async ({ page
   await expect.poll(async () => (await root.getAttribute('data-models')) ?? '', { timeout: 30_000 }).toContain('face_landmarker.task');
   await expect(page.locator('#hf-recentre')).toBeVisible();
 });
+
+test('head mode: presets, bindings and timing are buttons, and they persist in this browser', async ({ page }) => {
+  const errors = trackErrors(page);
+  await gotoTitle(page, '?gestures=head');
+  const root = page.locator('#hf-root');
+  await expect(root).toHaveAttribute('data-preset', 'low-effort');
+  // Dwell can't operate a select or drag a slider.
+  await expect(page.locator('#hf-panel select, #hf-panel input[type="range"]')).toHaveCount(0);
+
+  await page.locator('#hf-bindings summary').click();
+  await expect(page.locator('#hf-bind-blink')).toHaveText('Click');
+  await expect(page.locator('#hf-bind-long-blink')).toHaveText('Pause');
+  // Winks wait for the eye test.
+  await expect(page.locator('#hf-bind-wink-left')).toBeDisabled();
+  await expect(page.locator('#hf-bind-wink-left')).toHaveText('Needs eye test');
+  await expect(page.locator('#hf-bind-note')).toBeVisible();
+
+  await page.locator('#hf-preset-classic').click();
+  await expect(root).toHaveAttribute('data-preset', 'classic');
+  await expect(page.locator('#hf-bind-mouth')).toHaveText('Hold to drag');
+  await expect(page.locator('#hf-legend')).toContainText('Open your mouth');
+  await page.locator('#hf-bind-smile').click();
+  await expect(root).toHaveAttribute('data-preset', 'custom');
+
+  await page.locator('#hf-set-key').click();
+  await expect(page.locator('#hf-set-key')).toHaveText('Press a key…');
+  await page.keyboard.press('KeyJ');
+  await expect(page.locator('#hf-bind-name-key')).toHaveText('Key: J');
+
+  await page.locator('#hf-timing summary').click();
+  await expect(page.locator('#hf-bindings')).not.toHaveAttribute('open', '');
+  await page.locator('[data-step="blinkMinS"][data-dir="1"]').click();
+  await expect(page.locator('#hf-step-blinkMinS')).toHaveText('0.40 s');
+
+  await page.reload();
+  await expect(page.locator('#hf-root')).toHaveAttribute('data-preset', 'custom');
+  await expect(page.locator('#hf-step-blinkMinS')).toHaveText('0.40 s');
+  await expect(page.locator('#hf-bind-name-key')).toHaveText('Key: J');
+  errors.expectNone();
+});
+
+test('head mode: tracking announces hands-free:changed, the eye test starts and cancels, Stop announces null', async ({ page }) => {
+  test.setTimeout(150_000);
+  await gotoTitle(page, '?gestures=head');
+  const root = page.locator('#hf-root');
+  await page.locator('#hf-eye-test summary').click();
+  await page.locator('#hf-eye-test-start').click();
+  await expect(page.locator('#hf-eye-test-text')).toContainText('Start the camera');
+
+  await page.locator('#hf-start').click();
+  await expect(root).toHaveAttribute('data-status', 'tracking', { timeout: 90_000 });
+  await expect(root).toHaveAttribute('data-announced', 'head');
+  await page.locator('#hf-eye-test-start').click();
+  await expect(root).toHaveAttribute('data-eye-test', 'open');
+  await expect(page.locator('#hf-eye-test-text')).toContainText('eyes open');
+  await page.locator('#hf-eye-test-cancel').click();
+  await expect(root).toHaveAttribute('data-eye-test', 'idle');
+  await expect(page.locator('#hf-eye-test-text')).toContainText('cancelled');
+
+  // A mode change restarts the camera without announcing a stop in between.
+  await page.locator('#hf-mode-head-hand').click();
+  await expect(root).toHaveAttribute('data-announced', 'head-hand');
+  await expect(root).toHaveAttribute('data-status', 'tracking', { timeout: 90_000 });
+  await page.locator('#hf-start').click();
+  await expect(root).toHaveAttribute('data-announced', 'none');
+});

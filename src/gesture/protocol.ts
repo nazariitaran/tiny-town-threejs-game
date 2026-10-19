@@ -78,6 +78,12 @@ export type FromWorker =
   | { type: 'error'; message: string }
   | { type: 'result'; frame: TrackFrame };
 
+/**
+ * A one-shot command. rotate and cancel go to the game (R, Esc); pause and recentre are acted on by the
+ * interpreter that recognised them and only reported here.
+ */
+export type GestureCommand = 'rotate' | 'cancel' | 'pause' | 'recentre';
+
 /** What an interpreter makes of one frame; written in place, never reallocated. */
 export interface GestureFrame {
   /** Someone is being tracked. */
@@ -85,8 +91,10 @@ export interface GestureFrame {
   /** The pointer, in viewport fractions [0, 1]. */
   x: number;
   y: number;
-  /** A click is held (pinch closed, mouth open). */
+  /** A click is held (pinch closed, mouth open, a drag toggled on). */
   pressed: boolean;
+  /** A click this frame alone (press and release at once), at x, y. Never while `pressed`. */
+  tap: boolean;
   /** 0..1 towards a press, for the cursor ring. */
   pressure: number;
   /** Fist: the hand drags the map. */
@@ -97,13 +105,15 @@ export interface GestureFrame {
   /** Two fists: zoom by this factor this frame (1 = none; > 1 = in). */
   zoom: number;
   /** A one-shot command recognised this frame. */
-  command: 'rotate' | 'cancel' | null;
+  command: GestureCommand | null;
   /** 0..1 towards the command being held, for the cursor. */
   commandProgress: number;
   /** A short human label of what is recognised, for the panel. */
   label: string;
   /** Head modes: still finding the neutral pose. */
   calibrating: boolean;
+  /** Head modes: input paused; only the trigger bound to pause does anything. */
+  paused: boolean;
 }
 
 export function createGestureFrame(): GestureFrame {
@@ -112,6 +122,7 @@ export function createGestureFrame(): GestureFrame {
     x: 0.5,
     y: 0.5,
     pressed: false,
+    tap: false,
     pressure: 0,
     grab: false,
     grabDx: 0,
@@ -121,5 +132,6 @@ export function createGestureFrame(): GestureFrame {
     commandProgress: 0,
     label: '',
     calibrating: false,
+    paused: false,
   };
 }

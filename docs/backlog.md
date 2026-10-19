@@ -14,7 +14,10 @@ Known gaps and follow-ups. An item stays until it is fixed or dropped; when it i
 Research, measurements and the full roadmap: [`research/mediapipe-gestures.md`](research/mediapipe-gestures.md).
 - **Owner decisions:** vendor the MediaPipe models (Apache-2.0, 12.2 MB) or keep fetching them from Google; how the feature is offered (flag, menu, title); move the panel into `UiRoot` / the menu.
 - **Never tried by a person on a real webcam:** all tracking so far ran on photos through Chromium's fake camera, without a GPU. Measure latency (`scripts/gesture-bench.mjs`) and tune the thresholds with real people.
-- **Hands-free gaps:** no rotate control in head mode without the smile (the dock's Rotate button is touch-only); sliders can't be dragged; **Open a town file** needs a real click (no user activation from a gesture).
+- **Hands-free gaps:** sliders outside the panel can't be dragged; **Open a town file** needs a real click (no user activation from a gesture).
+- **Blinks and winks have only been tested on painted photos** (`gesture-smoke.mjs`) and synthetic series. Tune the defaults (shut at 0.5 / open at 0.35 without the eye test, 60 % / 40 % of the measured range with it, the 0.35 s slow blink, the 0.6 smile gate) with real people, glasses and poor light.
+- **The panel can outgrow a short screen**, and a head can't scroll it: one section opens at a time and scrolls into view, but below ~700 px tall the lower buttons may still be out of reach. A compact layout or scroll buttons would close it.
+- **The switch key takes Enter by default** while a head mode is tracking, so keyboard Enter stops activating focused buttons then. A key nobody else uses (or no default) may suit keyboard users better.
 - **MediaPipe logs to the console** (some through `console.error`); quieten them before it ships beyond a flag.
 
 ## Match nights at the stadium

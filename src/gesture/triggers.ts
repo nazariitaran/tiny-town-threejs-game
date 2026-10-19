@@ -32,7 +32,8 @@ export class Latch {
 /** Fires once when the condition has held for `holdS`; re-arms when it stops. `progress` is 0..1 towards firing. */
 export class HoldTrigger {
   progress = 0;
-  private since: number | null = null;
+  /** When the current hold began (null: not holding). */
+  since: number | null = null;
   private fired = false;
 
   constructor(private readonly holdS: number) {}
@@ -93,5 +94,37 @@ export class ThresholdSwitch {
   reset(): void {
     this.on = false;
     this.streak = 0;
+  }
+}
+
+/**
+ * The tracking rate, measured from result timestamps (every result counts, with or without a face).
+ * A slow machine delivers a result every 0.25 s or so, so "lost" must outlast a couple of those.
+ */
+export class FrameClock {
+  /** Smoothed seconds between results; 0 until two have arrived. */
+  interval = 0;
+  private last = -Infinity;
+
+  tick(t: number): void {
+    const dt = t - this.last;
+    this.last = t;
+    if (!(dt > 0) || dt > 2) return;
+    this.interval = this.interval === 0 ? dt : this.interval * 0.8 + dt * 0.2;
+  }
+
+  /** Results per second (0 until measured). */
+  get rate(): number {
+    return this.interval > 0 ? 1 / this.interval : 0;
+  }
+
+  /** How long without a detection counts as lost: `minS`, or 2.5 result intervals when those are longer. */
+  lostAfter(minS: number): number {
+    return Math.max(minS, 2.5 * this.interval);
+  }
+
+  reset(): void {
+    this.interval = 0;
+    this.last = -Infinity;
   }
 }
