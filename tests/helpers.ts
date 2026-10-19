@@ -10,7 +10,8 @@ import type { ToolCategory, ToolId } from '../src/catalog/tools';
 import { toolDef } from '../src/catalog/tools';
 import { footprintOf, objectDef } from '../src/catalog/objects';
 import { rotatedFootprint } from '../src/town/grid';
-import type { Cell, ObjectKind, Rotation } from '../src/town/types';
+import { SAVE_STORAGE_KEY } from '../src/game/config';
+import type { Cell, GroundKind, ObjectKind, Rotation, SavedTown } from '../src/town/types';
 import { SFX_TABLE } from '../src/audio/sfxTable';
 import { UI_TEST_IDS } from '../src/ui/testIds';
 import type { MenuTab } from '../src/ui/testIds';
@@ -109,6 +110,22 @@ export async function selectTool(page: Page, toolId: ToolId): Promise<void> {
     await byId(page, UI_TEST_IDS.tool(toolId)).click();
   }
   await expect.poll(async () => (await diagnostics(page)).tool).toBe(toolId);
+}
+
+/** The autosaved town, once the save has settled. */
+export async function savedTown(page: Page): Promise<SavedTown> {
+  await expect.poll(async () => (await diagnostics(page)).save.pending, { timeout: 5_000 }).toBe(false);
+  return page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null'), SAVE_STORAGE_KEY);
+}
+
+/** The ground kind of `cell` in a saved town (its run-length ground codes). */
+export function groundAt(town: SavedTown, cell: Cell): GroundKind {
+  let index = cell.z * town.width + cell.x;
+  for (const [kind, count] of town.ground) {
+    if (index < count) return kind;
+    index -= count;
+  }
+  return 'field';
 }
 
 /** Client point of a cell centre, verified to land on the game canvas (not on UI). */
