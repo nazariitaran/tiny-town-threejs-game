@@ -3,7 +3,6 @@
  * real clicks turn, zoom, move and reset the camera (read from diagnostics `camera`), a held button
  * repeats, the Aim group follows the active tool, and head tracking shows the pad with the setting off.
  */
-import { readdirSync, readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import type { CameraStep } from '../src/game/events';
 import { byId, diagnostics, gotoTitle, openMenuTab, selectTool, startBuilding, trackErrors, UI_TEST_IDS, waitFrames } from './helpers';
@@ -213,14 +212,8 @@ test('the Aim group shows only while a tool is active', async ({ page }) => {
   await expect(aim).toBeVisible();
 });
 
-/** The tracking-mode fact comes from the gesture module; until it emits it, there is nothing to drive. */
-const gestureEmitsMode = readdirSync('src/gesture')
-  .filter((name) => name.endsWith('.ts') && !name.endsWith('.test.ts'))
-  .some((name) => readFileSync(`src/gesture/${name}`, 'utf8').includes("'hands-free:changed'"));
-
 test.describe('head tracking', () => {
   test('head tracking shows the pad with the setting off; stopping the camera hides it', async ({ page }) => {
-    test.skip(!gestureEmitsMode, 'the gesture module does not emit hands-free:changed yet');
     test.setTimeout(150_000);
     await gotoTitle(page, '?gestures');
     await startBuilding(page);
