@@ -36,6 +36,8 @@ export interface GameSettings {
   timeMode: TimeMode;
   rainMode: RainMode;
   graphics: GraphicsPreset;
+  /** The on-screen camera controls (head tracking shows them whatever this says). */
+  cameraPad: boolean;
 }
 
 export const DEFAULT_SETTINGS: Readonly<GameSettings> = {
@@ -48,6 +50,7 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = {
   timeMode: 'auto',
   rainMode: 'auto',
   graphics: DEFAULT_GRAPHICS,
+  cameraPad: false,
 };
 
 const isTimeMode = (value: unknown): value is TimeMode => (TIME_MODES as readonly unknown[]).includes(value);
@@ -239,6 +242,7 @@ export class SaveStore {
     if (isTimeMode(r.timeMode)) settings.timeMode = r.timeMode;
     if (isRainMode(r.rainMode)) settings.rainMode = r.rainMode;
     if (isGraphicsPreset(r.graphics)) settings.graphics = r.graphics;
+    if (typeof r.cameraPad === 'boolean') settings.cameraPad = r.cameraPad;
     return settings;
   }
 
@@ -253,6 +257,7 @@ export class SaveStore {
     if (isTimeMode(patch.timeMode)) next.timeMode = patch.timeMode;
     if (isRainMode(patch.rainMode)) next.rainMode = patch.rainMode;
     if (isGraphicsPreset(patch.graphics)) next.graphics = patch.graphics;
+    if (typeof patch.cameraPad === 'boolean') next.cameraPad = patch.cameraPad;
     this.setItem(this.settingsKey, JSON.stringify(next));
     return next;
   }

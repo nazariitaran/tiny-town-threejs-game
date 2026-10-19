@@ -42,7 +42,7 @@ import { createSeededRandom, entropySeed } from '../utils/random';
 import { createDaySample, DAY_LENGTH_S, DayClock, nightAt, sampleDay, T_AFTERNOON, T_NIGHT, TIME_MODES, type DayPhase, type TimeMode } from '../world/dayCycle';
 import { Environment } from '../world/Environment';
 import { assetUrl, DEFAULT_TOWN_SIZE, plot, PLOT_DEPTH, PLOT_WIDTH } from './config';
-import { createGameBus, type GamePhase } from './events';
+import { createGameBus, type CameraStep, type GamePhase } from './events';
 import { LoadProgress } from './loadProgress';
 import { effectivePixelRatio, GRAPHICS_PROFILES, isGraphicsPreset, needsReload, type GraphicsPreset, type GraphicsProfile } from './graphics';
 import { materialFamily } from '../render/materials';
@@ -252,6 +252,11 @@ export class Game {
     this.bus.on('intent:zoom-camera', ({ factor }) => {
       if (this.phase === 'building') this.cameraController.zoomBy(factor);
     });
+    this.bus.on('intent:camera-step', ({ step }) => this.cameraStep(step));
+    this.bus.on('intent:set-camera-pad', ({ visible }) => {
+      this.saves.setSettings({ cameraPad: visible });
+      this.bus.emit('camera-pad:changed', { visible });
+    });
     this.bus.on('intent:take-photo', () => this.takePhoto());
     this.bus.on('intent:toggle-grid', ({ visible }) => {
       this.gridPreferred = visible;
@@ -279,6 +284,7 @@ export class Game {
     if (this.saves.getSettings().fps) this.bus.emit('intent:toggle-fps', { visible: true }); // sync the UI switch and counter
     this.announceDaytime(); // sync the UI time button with the stored mode
     this.bus.emit('rain:changed', { mode: this.rainMode }); // sync the UI rain button with the stored mode
+    this.bus.emit('camera-pad:changed', { visible: this.saves.getSettings().cameraPad });
     resizeRenderer(this.renderer, this.camera, this.tuning.maxDpr, this.tuning.renderScale);
     this.installTestHooks();
     this.installDiagnostics();
@@ -354,6 +360,22 @@ export class Game {
     } catch (error) {
       console.warn('[town-name] no name suggestions:', error);
     }
+  }
+
+  /** The on-screen camera controls: each step is its key's (Q / E, + / −, W / S / A / D). */
+  private cameraStep(step: CameraStep): void {
+    if (this.phase !== 'building') return;
+    // A head pointer's synthetic clicks aren't DOM input FrameBudget sees.
+    this.frameBudget.markActive();
+    const camera = this.cameraController;
+    if (step === 'orbit-left') camera.orbitStep(-1);
+    else if (step === 'orbit-right') camera.orbitStep(1);
+    else if (step === 'zoom-in') camera.zoomStep(1);
+    else if (step === 'zoom-out') camera.zoomStep(-1);
+    else if (step === 'pan-up') camera.panStep(0, 1);
+    else if (step === 'pan-down') camera.panStep(0, -1);
+    else if (step === 'pan-left') camera.panStep(-1, 0);
+    else camera.panStep(1, 0);
   }
 
   private setPhase(phase: GamePhase): void {

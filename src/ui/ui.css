@@ -936,6 +936,143 @@
   box-shadow: inset 0 -2px 0 #2f78bf;
 }
 
+/* On-screen camera controls (CameraPad): the right edge, centred between the top bar and the dock.
+   Only the buttons take pointer events; the panels let clicks through to the map. */
+
+.ui-pad {
+  --pad-btn: 64px;
+  position: absolute;
+  top: calc(var(--safe-top) + var(--topbar-h) + 8px);
+  /* The dock (≤ 150 px) and its style strip above it. */
+  bottom: calc(var(--safe-bottom) + 160px);
+  right: var(--safe-right);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+
+/* Short or narrow screens (where the dock reaches under the pad): Aim sits beside View. */
+@media (max-width: 1199px), (max-height: 709px) {
+  .ui-pad {
+    flex-direction: row-reverse;
+    align-items: center;
+  }
+}
+
+.ui-pad-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 6px 6px;
+  border-radius: 20px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-soft);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.ui-pad-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 16px;
+  padding-left: 6px;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ui-pad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, var(--pad-btn));
+  grid-template-rows: repeat(3, var(--pad-btn));
+  gap: 4px;
+}
+
+.ui-pad-btn {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  width: var(--pad-btn);
+  height: var(--pad-btn);
+  border-radius: var(--radius);
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  box-shadow: inset 0 -2px 0 rgba(60, 40, 20, 0.08);
+  color: var(--ink);
+  touch-action: none;
+  transition:
+    background-color var(--fast) var(--ease),
+    transform var(--fast) var(--ease);
+}
+
+.ui-pad-btn .ui-glyph {
+  width: 28px;
+  height: 28px;
+}
+
+.ui-pad-btn:hover {
+  background: var(--panel-solid);
+}
+
+.ui-pad-btn:active {
+  transform: scale(0.94);
+  background: rgba(60, 40, 20, 0.1);
+}
+
+#ui-root .ui-pad-btn:focus-visible {
+  outline-offset: 1px;
+}
+
+.ui-pad-text {
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.ui-pad-reset {
+  color: var(--green-dark);
+}
+
+.ui-pad-place {
+  background: var(--green);
+  border-color: var(--green-dark);
+  box-shadow: inset 0 -3px 0 var(--green-dark);
+  color: #fff;
+}
+
+.ui-pad-place .ui-glyph {
+  width: 24px;
+  height: 24px;
+}
+
+.ui-pad-place:hover {
+  background: var(--green-dark);
+}
+
+/* A cell is aimed: a sun dot by the title and a ring on Place. */
+.ui-pad-aim[data-aimed='true'] .ui-pad-title::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sun);
+  box-shadow: 0 0 0 2px rgba(244, 196, 78, 0.3);
+}
+
+.ui-pad-aim[data-aimed='true'] .ui-pad-place {
+  box-shadow:
+    inset 0 -3px 0 var(--green-dark),
+    0 0 0 3px var(--sun);
+}
+
 /* Cursor tooltip */
 
 .ui-tooltip {

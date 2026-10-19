@@ -19,6 +19,7 @@ Full phone support is not a priority; the existing phone infrastructure is left 
 - **FPS counter** (`.ui-fps`): it shares the row under the top bar with the centred hint line; on a narrow screen a long hint runs under it. Give the counter its own spot or shorten the hint's width there.
 - **Tray arrows** (`.ui-tray-arrow`): they show on phones too, over the swipeable tray, 44 × 44 px in the touch layout, so they cover part of the end cards. Decide whether phones keep them or hide them under a coarse pointer and rely on the swipe.
 - **Town size**: the Small / Large control sits in the name dialog under the name field, which on a phone shares the screen with the keyboard; check it stays reachable. A Large town is fitted like a Small one (`SAFE_INSETS.narrow`), so at the phone start pose it is about 4 × the screen width and its cells about 8 px; decide whether phones should start closer in or on Small only.
+- **On-screen camera controls** (`ui/CameraPad.ts`): the View and Aim pads are 64 px buttons at the right edge, laid out for a desktop window; on a phone they would cover a large part of the map, and the narrow-screen row layout puts them over the tray's height band. A phone layout would need smaller or collapsible pads (or a bottom sheet) and a check against the full-width dock and the safe areas.
 - **Ponds and ducks**: pond plants are 1 × 1 and small; at the phone start pose (a cell ≈ 10.6 px) lily pads and ducks are a few pixels and need a pinch-zoom. Check the pond ghost and shore read at that size.
 
 ## Rain
