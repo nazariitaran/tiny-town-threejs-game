@@ -1,8 +1,10 @@
 /**
- * What each face trigger does in the head modes, the timings, and the player's eye calibration, saved
+ * What each face trigger does in the head modes, the timings, the player's eye calibration and the
+ * pointer's source, style and fitted ranges, saved
  * per browser (a per-viewer convenience: never in the town save or the game settings).
  */
 import { DEFAULT_EYE_TIMING, isCalibrated, type EyeCalibration } from './eyeTriggers';
+import { HALF_AXES, POINTER_SOURCES, POINTER_STYLES, SOURCE_TUNING, type HeadRange, type HeadRanges, type PointerSource, type PointerStyle } from './headPointer';
 
 export const FACE_TRIGGERS = ['blink', 'long-blink', 'wink-left', 'wink-right', 'mouth', 'brows', 'smile', 'key'] as const;
 export type FaceTrigger = (typeof FACE_TRIGGERS)[number];
@@ -110,6 +112,14 @@ export interface HandsFreeSettings {
   key: string;
   dwell: boolean;
   sensitivity: number;
+  pointer: PointerSettings;
+}
+
+export interface PointerSettings {
+  source: PointerSource;
+  style: PointerStyle;
+  /** Fitted ranges per source (each source has its own units). */
+  fits: HeadRanges;
 }
 
 export const SENSITIVITY_LIMITS = { min: 0.5, max: 2, step: 0.1 } as const;
@@ -122,6 +132,7 @@ export function defaultSettings(): HandsFreeSettings {
     key: 'Enter',
     dwell: true,
     sensitivity: 1,
+    pointer: { source: 'nose', style: 'direct', fits: { nose: null, angle: null } },
   };
 }
 
@@ -169,7 +180,28 @@ export function parseSettings(raw: string | null): HandsFreeSettings {
   if (typeof data.sensitivity === 'number' && Number.isFinite(data.sensitivity)) {
     settings.sensitivity = Math.min(SENSITIVITY_LIMITS.max, Math.max(SENSITIVITY_LIMITS.min, roundTo(data.sensitivity, SENSITIVITY_LIMITS.step)));
   }
+  if (isRecord(data.pointer)) {
+    const pointer = data.pointer;
+    if ((POINTER_SOURCES as readonly unknown[]).includes(pointer.source)) settings.pointer.source = pointer.source as PointerSource;
+    if ((POINTER_STYLES as readonly unknown[]).includes(pointer.style)) settings.pointer.style = pointer.style as PointerStyle;
+    if (isRecord(pointer.fits)) {
+      for (const source of POINTER_SOURCES) settings.pointer.fits[source] = parseRange(pointer.fits[source], source);
+    }
+  }
   return settings;
+}
+
+/** A fit with every half-axis present, positive and believable for its source; otherwise none. */
+function parseRange(value: unknown, source: PointerSource): HeadRange | null {
+  if (!isRecord(value)) return null;
+  const range: HeadRange = { left: 0, right: 0, up: 0, down: 0 };
+  const { minMove, maxRange } = SOURCE_TUNING[source];
+  for (const half of HALF_AXES) {
+    const v = value[half];
+    if (typeof v !== 'number' || !Number.isFinite(v) || v < minMove || v > maxRange) return null;
+    range[half] = v;
+  }
+  return range;
 }
 
 function parseCalibration(value: unknown): EyeCalibration | null {

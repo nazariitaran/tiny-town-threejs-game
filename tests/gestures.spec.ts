@@ -126,3 +126,45 @@ test('head mode: tracking announces hands-free:changed, the eye test starts and 
   await page.locator('#hf-start').click();
   await expect(root).toHaveAttribute('data-announced', 'none');
 });
+
+test('head mode: the Pointer section cycles source and style, they persist, and the fit starts and cancels', async ({ page }) => {
+  test.setTimeout(150_000);
+  const errors = trackErrors(page);
+  await gotoTitle(page, '?gestures=head');
+  const root = page.locator('#hf-root');
+  // Collapsed by default: the panel already needs scrolling on short screens.
+  await expect(page.locator('#hf-pointer')).not.toHaveAttribute('open', '');
+  await page.locator('#hf-pointer summary').click();
+  await expect(page.locator('#hf-pointer-source')).toHaveText('Nose');
+  await expect(page.locator('#hf-pointer-style')).toHaveText('Direct');
+  await expect(page.locator('#hf-fit-summary')).toContainText('not fitted');
+  await expect(page.locator('#hf-fit-reset')).toBeDisabled();
+  await page.locator('#hf-pointer-source').click();
+  await page.locator('#hf-pointer-style').click();
+  await expect(root).toHaveAttribute('data-pointer', 'angle joystick');
+  await page.locator('#hf-fit-start').click();
+  await expect(page.locator('#hf-fit-text')).toContainText('Start the camera');
+
+  await page.reload();
+  await expect(root).toHaveAttribute('data-pointer', 'angle joystick');
+  await page.locator('#hf-pointer summary').click();
+  await expect(page.locator('#hf-pointer-source')).toHaveText('Head angle');
+  await expect(page.locator('#hf-pointer-style')).toHaveText('Joystick');
+  await expect(page.locator('#hf-panel select, #hf-panel input[type="range"]')).toHaveCount(0);
+
+  await page.locator('#hf-start').click();
+  await expect(root).toHaveAttribute('data-status', 'tracking', { timeout: 90_000 });
+  await page.locator('#hf-fit-start').click();
+  await expect(root).toHaveAttribute('data-fit', 'centre');
+  await expect(page.locator('#hf-fit-text')).toContainText('middle of the screen');
+  await expect(page.locator('#hf-fit-start')).toBeHidden();
+  await expect(page.locator('#hf-fit-back')).toBeVisible();
+  await page.locator('#hf-fit-cancel').click();
+  await expect(root).toHaveAttribute('data-fit', 'idle');
+  await expect(page.locator('#hf-fit-text')).toContainText('cancelled');
+  await expect(page.locator('#hf-fit-start')).toBeVisible();
+  await page.locator('#hf-start').click();
+  await expect(root).toHaveAttribute('data-status', 'off');
+  expect(errors.pageErrors).toEqual([]);
+  expect(errors.consoleErrors.filter((text) => !/^INFO:|XNNPACK/.test(text))).toEqual([]);
+});

@@ -32,6 +32,9 @@ export interface FaceObservation {
   forehead: Point3;
   chin: Point3;
   blendshapes: Record<string, number>;
+  /** Head angles in radians from the facial transformation matrix (`headAngles`), when it came. */
+  yaw?: number;
+  pitch?: number;
 }
 
 export interface TrackFrame {

@@ -37,6 +37,8 @@ import { EyeTest, isCalibrated, type EyeTestStep } from './eyeTriggers';
 import { GestureRouter } from './GestureRouter';
 import { DEFAULT_HAND_TUNING, HandInterpreter } from './handInterpreter';
 import { HeadInterpreter } from './headInterpreter';
+import { extremeOf, POINTER_SOURCES, POINTER_STYLES, type HalfAxis, type PointerSource, type PointerStyle } from './headPointer';
+import { RangeFit, type FitEvent, type FitStep } from './rangeFit';
 import { isTrackingMode, type Delegate, type GestureFrame, type TrackFrame, type TrackingMode } from './protocol';
 import { Tracker, type TrackerStatus } from './Tracker';
 import './handsFree.css';
@@ -59,6 +61,14 @@ export const HF_IDS = {
   eyeTestStart: 'hf-eye-test-start',
   eyeTestCancel: 'hf-eye-test-cancel',
   setKey: 'hf-set-key',
+  pointer: 'hf-pointer',
+  pointerSource: 'hf-pointer-source',
+  pointerStyle: 'hf-pointer-style',
+  fitText: 'hf-fit-text',
+  fitStart: 'hf-fit-start',
+  fitCancel: 'hf-fit-cancel',
+  fitBack: 'hf-fit-back',
+  fitReset: 'hf-fit-reset',
   mode: (mode: TrackingMode) => `hf-mode-${mode}`,
   preset: (preset: PresetId) => `hf-preset-${preset}`,
   bind: (trigger: FaceTrigger) => `hf-bind-${trigger}`,
@@ -167,6 +177,8 @@ export class HandsFree {
   private readonly bindings: Bindings = { ...this.settings.bindings };
   private eyeTest: EyeTest | null = null;
   private eyeTestText = '';
+  private readonly fit = new RangeFit();
+  private fitText = '';
   private capturingKey = false;
   /** The mode last announced on `hands-free:changed` (undefined: nothing yet). */
   private announced: HandsFreeMode | null | undefined = undefined;
@@ -261,6 +273,7 @@ export class HandsFree {
           </div>
         </div>
         <details class="hf-section hf-legend" open><summary>Gestures</summary><ul id="hf-legend"></ul></details>
+        ${this.pointerSection()}
         <details class="hf-section hf-head-only" id="${HF_IDS.bindings}"><summary>Bindings</summary>
           <div class="hf-binds">${rows}</div>
           <p class="hf-small" id="hf-bind-note" hidden></p>
@@ -313,6 +326,7 @@ export class HandsFree {
     else if (button.id === HF_IDS.eyeTestStart) this.startEyeTest('open');
     else if (button.id === HF_IDS.eyeTestCancel) this.endEyeTest('Eye test cancelled. Nothing was changed.');
     else if (data.wink === 'left' || data.wink === 'right') this.startEyeTest(data.wink === 'left' ? 'wink-left' : 'wink-right');
+    else if (this.onPointerClick(button.id)) return;
     else if (data.mode && isTrackingMode(data.mode)) this.setMode(data.mode);
     else if (data.preset && (PRESET_IDS as readonly string[]).includes(data.preset)) this.update(() => Object.assign(this.settings.bindings, PRESETS[data.preset as PresetId]));
     else if (data.bind && (FACE_TRIGGERS as readonly string[]).includes(data.bind)) {
@@ -360,6 +374,8 @@ export class HandsFree {
     this.applyEyeTiming();
     effectiveBindings(this.settings.bindings, this.settings.calibration, this.bindings);
     this.head.configure(this.bindings, isCalibrated(this.settings.calibration) ? this.settings.calibration : null);
+    const pointer = this.settings.pointer;
+    this.head.configurePointer(pointer.source, pointer.style, pointer.fits[pointer.source]);
     this.applyDwell();
     this.renderControls();
   }
@@ -463,12 +479,16 @@ export class HandsFree {
       button.setAttribute('aria-pressed', String(button.dataset.mode === this.mode));
     }
     this.root.dataset.mode = this.mode;
-    if (this.mode === 'hand') this.endEyeTest(null);
+    if (this.mode === 'hand') {
+      this.endEyeTest(null);
+      this.endFit(null);
+    }
     this.applySettings();
   }
 
   private applyDwell(): void {
-    const on = this.mode !== 'hand' && this.settings.dwell;
+    // The fit holds the pointer still on its own Cancel: dwell would press it.
+    const on = this.mode !== 'hand' && this.settings.dwell && !this.fit.running;
     this.router.setDwell(on ? this.settings.timing.dwellS : 0);
   }
 
@@ -498,6 +518,7 @@ export class HandsFree {
     this.el(HF_IDS.dwell).setAttribute('aria-pressed', String(s.dwell));
     this.renderLegend();
     this.renderEyeTest();
+    this.renderPointer();
   }
 
   private renderLegend(): void {
@@ -564,6 +585,7 @@ export class HandsFree {
       this.renderEyeTest();
       return;
     }
+    this.endFit(null);
     this.eyeTest = new EyeTest(calibration);
     this.eyeTest.start(step, this.lastT);
     this.head.eyesSuspended = true;
@@ -634,6 +656,172 @@ export class HandsFree {
     this.root.dataset.eyeTest = running ? test!.step! : 'idle';
   }
 
+  // --- Pointer: source, style and the range fit ---------------------------------------------------
+
+  private pointerSection(): string {
+    return `
+        <details class="hf-section hf-head-only" id="${HF_IDS.pointer}"><summary>Pointer</summary>
+          <div class="hf-row"><span class="hf-label" id="hf-pointer-source-label">Source</span><button type="button" class="hf-cycle" id="${HF_IDS.pointerSource}" aria-describedby="hf-pointer-source-label"></button></div>
+          <div class="hf-row"><span class="hf-label" id="hf-pointer-style-label">Style</span><button type="button" class="hf-cycle" id="${HF_IDS.pointerStyle}" aria-describedby="hf-pointer-style-label"></button></div>
+          <div class="hf-row hf-range-row">
+            <i class="hf-range" id="hf-range" aria-hidden="true"><i class="hf-range-dead"></i><b class="hf-range-dot" id="hf-range-dot"></b></i>
+            <span class="hf-small" id="hf-fit-summary"></span>
+          </div>
+          <p class="hf-small" id="${HF_IDS.fitText}" aria-live="polite"></p>
+          <i class="hf-progress" aria-hidden="true"><b id="hf-fit-progress"></b></i>
+          <div class="hf-pair">
+            <button type="button" class="hf-btn" id="${HF_IDS.fitStart}">Fit to my movement</button>
+            <button type="button" class="hf-btn" id="${HF_IDS.fitCancel}" hidden>Cancel</button>
+            <button type="button" class="hf-btn" id="${HF_IDS.fitBack}" hidden>Redo last step</button>
+            <button type="button" class="hf-btn" id="${HF_IDS.fitReset}">Reset fit</button>
+          </div>
+        </details>`;
+  }
+
+  /** True when the button was one of the Pointer section's. */
+  private onPointerClick(id: string): boolean {
+    const pointer = this.settings.pointer;
+    switch (id) {
+      case HF_IDS.pointerSource:
+        this.endFit(this.fit.running ? 'Fit cancelled: the source changed. Nothing was changed.' : null);
+        this.update(() => (pointer.source = cycle(POINTER_SOURCES, pointer.source)));
+        return true;
+      case HF_IDS.pointerStyle:
+        this.update(() => (pointer.style = cycle(POINTER_STYLES, pointer.style)));
+        return true;
+      case HF_IDS.fitStart:
+        this.startFit();
+        return true;
+      case HF_IDS.fitCancel:
+        this.endFit('Fit cancelled. Nothing was changed.');
+        return true;
+      case HF_IDS.fitBack:
+        this.fit.back(this.lastT);
+        this.renderFit();
+        return true;
+      case HF_IDS.fitReset:
+        this.endFit(null);
+        this.fitText = 'Back to the usual range.';
+        this.update(() => (pointer.fits[pointer.source] = null));
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private startFit(): void {
+    if (this.tracker.status !== 'tracking' || this.mode === 'hand') {
+      this.fitText = 'Start the camera in a head mode first.';
+      this.renderFit();
+      return;
+    }
+    this.endEyeTest(null);
+    this.fit.start(this.settings.pointer.source, this.lastT);
+    this.head.pointerFrozen = true;
+    this.applyDwell();
+    this.renderFit();
+  }
+
+  private endFit(text: string | null): void {
+    const was = this.fit.running;
+    this.fit.cancel();
+    this.head.pointerFrozen = false;
+    if (text !== null) this.fitText = text;
+    if (was) this.applyDwell();
+    this.renderFit();
+  }
+
+  private feedFit(t: number): void {
+    if (!this.fit.running) return;
+    const seen = this.lastFrame?.present === true && this.head.hasSignal;
+    const signal = this.head.signal;
+    const event = this.fit.feed(seen ? signal.x : null, seen ? signal.y : null, t);
+    if (event) this.onFitEvent(event);
+  }
+
+  private onFitEvent(event: FitEvent): void {
+    switch (event.kind) {
+      case 'step':
+        // The player may be turned away from the screen: a sound says the step is done.
+        this.bus.emit('ui:sfx', { event: 'ui-click' });
+        this.renderFit();
+        return;
+      case 'failed':
+        this.bus.emit('ui:sfx', { event: 'invalid' });
+        this.endFit(`I couldn't see a steady hold ${event.step === 'centre' ? 'in the middle' : `to the ${event.step}`}. Nothing was changed.`);
+        return;
+      case 'done': {
+        this.bus.emit('ui:sfx', { event: 'ui-open' });
+        const pointer = this.settings.pointer;
+        this.endFit('Done: the pointer now fits your movement. Re-centre keeps the fit; Reset fit goes back to the usual range.');
+        this.update(() => (pointer.fits[pointer.source] = event.range));
+        this.head.setNeutral(event.neutral.x, event.neutral.y);
+        return;
+      }
+      default: {
+        const never: never = event;
+        return never;
+      }
+    }
+  }
+
+  private renderPointer(): void {
+    const pointer = this.settings.pointer;
+    const source = this.el(HF_IDS.pointerSource);
+    source.textContent = SOURCE_LABEL[pointer.source];
+    source.title = 'Nose: follows the nose inside the face. Head angle: the turn and tilt of the whole face (works with the nose covered).';
+    const style = this.el(HF_IDS.pointerStyle);
+    style.textContent = STYLE_LABEL[pointer.style];
+    style.title = 'Direct: the pointer goes where the head points. Joystick: turn past the middle to move it, back to the middle to stop.';
+    const fit = pointer.fits[pointer.source];
+    const tuning = this.head.mapper.tuning;
+    // Each half-axis as a share of the usual range (the one the fixed gains give).
+    const share = (half: HalfAxis): string => `${Math.round((extremeOf(half, pointer.source, fit, tuning.reach) / extremeOf(half, pointer.source, null, tuning.reach)) * 100)} %`;
+    this.el('hf-fit-summary').textContent = fit ? `Fitted, of the usual range: left ${share('left')} · right ${share('right')} · up ${share('up')} · down ${share('down')}` : 'The usual range (not fitted)';
+    const range = this.el('hf-range');
+    range.classList.toggle('is-joystick', pointer.style === 'joystick');
+    range.style.setProperty('--hf-dead', String(tuning.deadZone));
+    const data = this.root.dataset;
+    data.pointer = `${pointer.source} ${pointer.style}`;
+    data.fitted = String(fit !== null);
+    this.renderFit();
+  }
+
+  private renderFit(): void {
+    const fit = this.fit;
+    const step = fit.step;
+    const fitted = this.settings.pointer.fits[this.settings.pointer.source] !== null;
+    let text = this.fitText || 'Fits the pointer to how far you can turn and tilt, each way on its own: about 15 seconds.';
+    if (step !== null) {
+      const hint = fit.status === 'lost' ? " (I can't see your face.)" : fit.status === 'further' ? ' A little further if you can.' : fit.status === 'hold' && fit.progress > 0 ? ' Hold it…' : '';
+      text = `${FIT_PROMPT[step]}${hint}`;
+    }
+    const el = this.el(HF_IDS.fitText);
+    if (el.textContent !== text) el.textContent = text;
+    this.el('hf-fit-progress').style.width = `${Math.round(fit.overall * 100)}%`;
+    const start = this.el(HF_IDS.fitStart);
+    start.hidden = step !== null;
+    start.textContent = fitted ? 'Redo fit' : 'Fit to my movement';
+    const reset = this.el<HTMLButtonElement>(HF_IDS.fitReset);
+    reset.hidden = step !== null;
+    reset.disabled = !fitted;
+    this.el(HF_IDS.fitCancel).hidden = step === null;
+    this.el(HF_IDS.fitBack).hidden = step === null;
+    this.root.dataset.fit = step ?? 'idle';
+  }
+
+  /** The live offset inside the fitted range: the box's edges are the comfortable extremes. */
+  private renderPointerLive(): void {
+    const unit = this.head.mapper.unit;
+    const live = this.lastFrame?.present === true && this.head.hasSignal && this.head.neutralPose !== null;
+    const dot = this.el('hf-range-dot');
+    dot.style.setProperty('--hf-x', (live ? Math.max(-1, Math.min(1, unit.x)) : 0).toFixed(3));
+    dot.style.setProperty('--hf-y', (live ? Math.max(-1, Math.min(1, unit.y)) : 0).toFixed(3));
+    dot.classList.toggle('is-off', !live);
+    this.root.dataset.unit = `${unit.x.toFixed(2)} ${unit.y.toFixed(2)}`;
+    if (this.fit.running) this.renderFit();
+  }
+
   // --- Camera and frames --------------------------------------------------------------------------
 
   private async start(): Promise<void> {
@@ -670,6 +858,7 @@ export class HandsFree {
       this.router.release();
       this.head.keyInput(false);
       if (this.eyeTest) this.endEyeTest('Eye test stopped: the camera is off.');
+      if (this.fit.running) this.endFit('Fit stopped: the camera is off. Nothing was changed.');
       this.renderCursor();
     }
     this.renderStatus(true);
@@ -694,7 +883,10 @@ export class HandsFree {
       if (hand.grab) frame.label = hand.label;
     }
     this.lastFrame = frame;
-    if (this.mode !== 'hand') this.feedEyeTest(t);
+    if (this.mode !== 'hand') {
+      this.feedEyeTest(t);
+      this.feedFit(t);
+    }
     this.router.apply(frame, t);
     this.renderCursor();
     this.drawPreview(track);
@@ -760,6 +952,7 @@ export class HandsFree {
         meter.style.width = `${Math.round((signals[meter.dataset.meter as FaceTrigger] ?? 0) * 100)}%`;
       }
       if (this.eyeTest) this.renderEyeTest();
+      this.renderPointerLive();
     }
     // For tests and the smoke script.
     const data = this.root.dataset;
@@ -835,6 +1028,22 @@ const EYE_TEST_PROMPT: Record<EyeTestStep, string> = {
   'wink-left': 'Close only your left eye (on the left in the picture) until you hear a sound.',
   'wink-right': 'Close only your right eye (on the right in the picture) until you hear a sound.',
 };
+
+const SOURCE_LABEL: Record<PointerSource, string> = { nose: 'Nose', angle: 'Head angle' };
+const STYLE_LABEL: Record<PointerStyle, string> = { direct: 'Direct', joystick: 'Joystick' };
+
+/** Left and right are the player's own, as in a mirror: the same as the screen's. */
+const FIT_PROMPT: Record<FitStep, string> = {
+  centre: 'Look at the middle of the screen and hold still.',
+  left: 'Turn your head left, as far as is comfortable, and hold it there.',
+  right: 'Now turn right, as far as is comfortable, and hold.',
+  up: 'Now tilt your head up, as far as is comfortable, and hold.',
+  down: 'Now tilt it down, as far as is comfortable, and hold.',
+};
+
+function cycle<T>(values: readonly T[], value: T): T {
+  return values[(values.indexOf(value) + 1) % values.length];
+}
 
 /** Mounts the hands-free controls; returns a disposer. `flag` is the `gestures` URL parameter's value. */
 export function installHandsFree(bus: GameBus, canvas: HTMLCanvasElement, flag: string | null): () => void {

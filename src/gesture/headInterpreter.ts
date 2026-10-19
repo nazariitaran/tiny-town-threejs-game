@@ -1,14 +1,16 @@
 /**
  * A face → pointer, clicks and commands (pure; no DOM, no MediaPipe).
  *
- *  pointer   where the nose tip sits inside the face outline: turning or tilting the head moves it, moving
- *            the whole head sideways does not. Relative to a neutral pose taken while calibrating.
+ *  pointer   the nose tip inside the face outline (turning or tilting the head moves it, moving the whole
+ *            head sideways does not), or the head's yaw and pitch; relative to a neutral pose taken while
+ *            calibrating, mapped by headPointer.ts (fixed gains or a fit, direct or joystick).
  *  triggers  blink, long blink, wink left / right (eyeTriggers), mouth open (jawOpen), raised eyebrows
  *            (browInnerUp, held), smile (held), and a key or switch; each bound to an action (bindings.ts).
  *            In head + hand mode a pinch also presses.
  */
 import { createGestureFrame, type FaceObservation, type GestureFrame } from './protocol';
 import { PointerSmoother } from './pointerSmoother';
+import { HeadPointer, type HeadRange, type PointerSource, type PointerStyle } from './headPointer';
 import type { OneEuroTuning } from './oneEuro';
 import { FrameClock, HoldTrigger, ThresholdSwitch } from './triggers';
 import { PRESETS, type Bindings, type FaceTrigger } from './bindings';
@@ -16,10 +18,7 @@ import { DEFAULT_EYE_TIMING, EyeTriggers, smileGate, type EyeCalibration, type E
 
 export interface HeadTuning {
   filter: OneEuroTuning;
-  /** Viewport fractions per unit of nose offset (offset = fraction of face width / height). */
-  gainX: number;
-  gainY: number;
-  /** Multiplies both gains (the panel's sensitivity). */
+  /** Multiplies the pointer's movement (the panel's sensitivity): gains or fit, and joystick speed. */
   sensitivity: number;
   calibrateS: number;
   mouthOpen: number;
@@ -39,8 +38,6 @@ export interface HeadTuning {
 
 export const DEFAULT_HEAD_TUNING: HeadTuning = {
   filter: { minCutoff: 0.6, beta: 4, dCutoff: 1 },
-  gainX: 5,
-  gainY: 7,
   sensitivity: 1,
   calibrateS: 0.6,
   mouthOpen: 0.4,
@@ -73,9 +70,25 @@ export function noseOffset(face: FaceObservation, out: { x: number; y: number } 
   return out;
 }
 
+/** The pointer source's raw signal for this face; null when it has none (no angles came with it). */
+export function sourceSignal(face: FaceObservation, source: PointerSource, out: { x: number; y: number }): { x: number; y: number } | null {
+  if (source === 'nose') return noseOffset(face, out);
+  if (face.yaw === undefined || face.pitch === undefined) return null;
+  out.x = face.yaw;
+  out.y = face.pitch;
+  return out;
+}
+
 export class HeadInterpreter {
   readonly frame: GestureFrame = createGestureFrame();
   readonly pointer: PointerSmoother;
+  /** Source, style and fit of the pointer. */
+  readonly mapper = new HeadPointer();
+  /** This frame's raw source signal (see `sourceSignal`); `hasSignal` false when the face gave none. */
+  readonly signal = { x: 0, y: 0 };
+  hasSignal = false;
+  /** The fit wizard is running: the pointer holds still (its Cancel sits under it) while the head roams. */
+  pointerFrozen = false;
   readonly eyes: EyeTriggers;
   readonly clock = new FrameClock();
   readonly signals: TriggerSignals = { blink: 0, 'long-blink': 0, 'wink-left': 0, 'wink-right': 0, mouth: 0, brows: 0, smile: 0, key: 0 };
@@ -96,7 +109,6 @@ export class HeadInterpreter {
   private readonly sum = { x: 0, y: 0 };
   private calibrated = false;
   private lastSeen = -Infinity;
-  private readonly offset = { x: 0, y: 0 };
   private paused = false;
   /** A drag toggled on (drag-toggle): the press stays down until the trigger fires again. */
   private toggled = false;
@@ -142,7 +154,7 @@ export class HeadInterpreter {
     this.keyDown = down;
   }
 
-  /** Take the current pose as neutral again (the pointer re-centres). */
+  /** Take the current pose as neutral again (the pointer re-centres; a fit's ranges stay). */
   recalibrate(): void {
     this.calibrated = false;
     this.calibrationStart = null;
@@ -150,6 +162,34 @@ export class HeadInterpreter {
     this.sum.x = 0;
     this.sum.y = 0;
     this.pointer.reset();
+    this.mapper.reset();
+  }
+
+  /** A new source re-centres (its signal has other units); a new style continues from where the pointer is. */
+  configurePointer(source: PointerSource, style: PointerStyle, fit: HeadRange | null): void {
+    const mapper = this.mapper;
+    mapper.fit = fit;
+    if (style !== mapper.style) {
+      mapper.style = style;
+      mapper.reset(this.pointer.point.x, this.pointer.point.y);
+    }
+    if (source !== mapper.source) {
+      mapper.source = source;
+      this.recalibrate();
+    }
+  }
+
+  /** The neutral pose in source units, once calibrated. */
+  get neutralPose(): { readonly x: number; readonly y: number } | null {
+    return this.calibrated ? this.neutral : null;
+  }
+
+  /** Takes a measured neutral pose (the fit wizard's centre) instead of calibrating. */
+  setNeutral(x: number, y: number): void {
+    this.neutral.x = x;
+    this.neutral.y = y;
+    this.calibrated = true;
+    this.calibrationStart = null;
   }
 
   /**
@@ -174,14 +214,17 @@ export class HeadInterpreter {
     }
     this.lastSeen = t;
     f.present = true;
-    const offset = noseOffset(face, this.offset);
+    const signal = sourceSignal(face, this.mapper.source, this.signal);
+    this.hasSignal = signal !== null;
     const shapes = face.blendshapes;
 
     if (!this.calibrated) {
       if (this.calibrationStart === null) this.calibrationStart = t;
-      this.sum.x += offset.x;
-      this.sum.y += offset.y;
-      this.samples += 1;
+      if (signal) {
+        this.sum.x += signal.x;
+        this.sum.y += signal.y;
+        this.samples += 1;
+      }
       f.calibrating = true;
       f.x = 0.5;
       f.y = 0.5;
@@ -190,17 +233,26 @@ export class HeadInterpreter {
       f.label = 'Hold still: centring';
       this.keyPresses = 0;
       this.readRaw(shapes);
-      if (t - this.calibrationStart < tuning.calibrateS) return f;
+      if (t - this.calibrationStart < tuning.calibrateS || this.samples === 0) return f;
       this.neutral.x = this.sum.x / this.samples;
       this.neutral.y = this.sum.y / this.samples;
       this.calibrated = true;
     }
     f.calibrating = false;
 
-    const k = tuning.sensitivity;
-    const sx = clamp01(0.5 + (offset.x - this.neutral.x) * tuning.gainX * k);
-    const sy = clamp01(0.5 + (offset.y - this.neutral.y) * tuning.gainY * k);
-    this.pointer.update(sx, sy, t);
+    if (signal) {
+      const dx = signal.x - this.neutral.x;
+      const dy = signal.y - this.neutral.y;
+      if (this.pointerFrozen) {
+        this.mapper.measure(dx, dy);
+        this.mapper.pause();
+      } else {
+        const target = this.mapper.update(dx, dy, t, tuning.sensitivity, this.pointer.isHolding(t) ? this.pointer.point : null);
+        this.pointer.update(target.x, target.y, t);
+      }
+    } else {
+      this.mapper.pause();
+    }
 
     const bindings = this.bindings;
     const signals = this.signals;
@@ -365,6 +417,8 @@ export class HeadInterpreter {
     this.smile.reset();
     this.eyes.reset();
     this.pointer.unpin();
+    this.mapper.pause();
+    this.hasSignal = false;
     this.toggled = false;
     this.wasPressed = false;
     this.keyPresses = 0;

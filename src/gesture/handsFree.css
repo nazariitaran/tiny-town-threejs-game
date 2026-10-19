@@ -345,6 +345,55 @@
   cursor: default;
 }
 
+.hf-row {
+  display: grid;
+  grid-template-columns: 1fr 120px;
+  align-items: center;
+  gap: 6px;
+}
+
+.hf-range-row {
+  grid-template-columns: 64px 1fr;
+}
+
+/* The head's live offset (the dot) inside the fitted range (the box's edges); joystick shows its dead zone. */
+.hf-range {
+  position: relative;
+  display: block;
+  height: 44px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  --hf-dead: 0.15;
+}
+
+.hf-range-dead {
+  position: absolute;
+  inset: calc(50% * (1 - var(--hf-dead)));
+  display: none;
+  border: 1px dashed var(--ink-faint);
+  border-radius: 2px;
+}
+
+.hf-range.is-joystick .hf-range-dead {
+  display: block;
+}
+
+.hf-range-dot {
+  position: absolute;
+  top: calc(50% + 50% * var(--hf-y, 0));
+  left: calc(50% + 50% * var(--hf-x, 0));
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green-dark);
+  transform: translate(-50%, -50%);
+}
+
+.hf-range-dot.is-off {
+  background: var(--ink-faint);
+}
+
 .hf-small {
   margin: 0;
   font-size: 0.75rem;

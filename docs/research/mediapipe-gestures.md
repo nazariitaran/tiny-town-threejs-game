@@ -37,7 +37,7 @@ All tasks run in a WASM runtime (SIMD; about 11.8 MB) with a **CPU** (XNNPACK) o
 
 | | Hand | Head | Head + hand |
 | --- | --- | --- | --- |
-| Point | the pinch point (between thumb and index tips, steadied by the index knuckle), mirrored | the nose's position inside the face outline, relative to a neutral pose taken in the first 0.6 s | head |
+| Point | the pinch point (between thumb and index tips, steadied by the index knuckle), mirrored | the nose's position inside the face outline, or the head's yaw / pitch; relative to a neutral pose taken in the first 0.6 s; direct or joystick; fitted per direction to the player's range | head |
 | Click | pinch thumb and index | Low effort: close both eyes 0.35–1.5 s (a slow blink); Classic: open the mouth; or a switch / key | pinch with either hand (face triggers as Head) |
 | Drag | hold the pinch (roads, fences, scatter) | Low effort: wink left to start, again to end; Classic: keep the mouth open; or hold the key | hold the pinch |
 | Move the map | fist and move; two fists apart / together to zoom | (none) | fist and move |
@@ -70,6 +70,16 @@ One-shot actions: click (a tap), drag on / off, rotate, Esc, pause, re-centre. H
 - **Gates:** eye triggers are off during a broad smile (the cheeks close the eyes; above `max(0.6, resting smile + 0.25)`, so a face that smiles at rest isn't gated forever), during the eye test, until the eyes have been seen open after any of these, while the face is lost, and while tracking runs under 15 results a second (blink timing needs it; the panel says so). A face counts as lost only after `max(0.3 s, 2.5 result intervals)`, so a 4-results-a-second machine doesn't drop a held drag on one missed detection.
 - **Pause** releases any press, stops dwell and dims the cursor; only the trigger bound to pause does anything until it resumes.
 - **The panel is hands-free too:** buttons only (presets, a cycle button per binding, − / + steppers for sensitivity and timings), one section open at a time; settings and calibration persist per browser in `localStorage`.
+
+### The head pointer for a small or uneven range
+
+Many people who play with their head can turn it only a little, or further one way than the other, or rest it on a headrest. The **Pointer** section adapts the mapping:
+
+- **Source:** *Nose* (the nose tip inside the face outline, as before) or *Head angle* (yaw and pitch from the Face Landmarker's facial transformation matrix, `outputFacialTransformationMatrixes`). The angle uses the whole face mesh, so it should hold up when the nose is covered (a nasal ventilation mask); it hasn't been tried on such a mask yet.
+- **Signs.** The matrix is column-major (the translation sits in elements 12–14, z ≈ −45 cm), camera space y up, the face's forward axis is the third column. On the smoke portrait warped in perspective (the side made nearer reads as a turn away from it), both sources moved the pointer the same way: right-side-nearer gave nose x +0.026 and yaw +0.020 rad, top-nearer nose y +0.027 and pitch +0.011 rad. So yaw = atan2(−fx, fz) and pitch = asin(−fy) are signed like the nose offset (x towards screen right in the mirror, y down).
+- **Unfitted gains:** nose 5 / 7 viewport fractions per unit (as before), angle 2.5 / 3 per radian (the edge at about 11.5° of turn and 9.5° of tilt). The planar warps can't calibrate one against the other (a flat photo has no real nose depth), so the angle gains are a geometric estimate; the fit makes them matter less.
+- **Fit to my movement:** centre, then left, right, up, down, each "as far as is comfortable, and hold". A step completes when the head is at least a minimum from neutral the asked way (nose 0.015 of the face, angle 0.05 rad ≈ 3°) and then held within max(a floor, 20 % of that distance) for 0.6 s. Each half-axis maps on its own, neutral to the centre and 90 % of the extreme to the edge. The pointer holds still during the fit (its Cancel sits under it), dwell is off, and a sound marks each step, since the player is looking away from the screen.
+- **Style:** *Direct*, or *Joystick*: past a dead zone of 15 % of each extreme the pointer moves at up to 1 viewport fraction a second at 90 % of the extreme, the speed rising as the 1.5 power; it stays put back at neutral. Joystick suits very small ranges, at the cost of speed. Both are time-based, and clicks stay back-dated.
 
 ### Why these choices
 
@@ -151,6 +161,7 @@ All checks below ran in this cloud container: 4 Xeon cores at 2.1 GHz, no GPU (C
 | Unit tests, `src/gesture/gesture.test.ts` | 23 pass: One Euro filter, back-dated press, triggers, pinch geometry and mirror mapping, pinch hysteresis and loss, fist grab deltas, two-fist zoom, held commands, hand picking, nose offset, head calibration, mouth / pinch press, eyebrow and smile commands, re-centring |
 | `tests/gestures.spec.ts` (Chromium fake camera; no hand in view) | 3 pass: without the flag no gesture code or MediaPipe request at all; with it the panel starts the camera, frames go through the worker, Stop releases the camera; switching mode restarts with the face model |
 | `scripts/gesture-smoke.mjs` (real tracking on photos; Low preset, 960 × 540) | all checks pass (table below) |
+| `src/gesture/headPointer.test.ts` | fit mapping (asymmetric ranges, the edge at 90 %), the joystick (dead zone, speed, the same distance at 4 and 30 results a second, back-dated clicks), the fit wizard (holds, wobble, too small a move, timeout, lost face, cancel, back), yaw / pitch from a matrix, old settings without the pointer fields |
 | Existing e2e specs (interaction, build-flow, move, smoke; 1 worker, 180 s timeout) | inconclusive on this machine: 4 pass, 9 fail, all on timeouts or wall-clock checks (a 1.5 s tooltip, the F-reset camera pose). `main` (`origin/main`) fails the same smoke and interaction tests here, the camera-pose assertion identically. **Re-run the full suite on a machine with a GPU before merging.** |
 
 **Smoke journey, hand mode** (each step's check is read from `__THREE_GAME_DIAGNOSTICS__`):
@@ -165,6 +176,8 @@ All checks below ran in this cloud container: 4 Xeon cores at 2.1 GHz, no GPU (C
 | fist moved 140 px across the frame | camera target moves > 0.5 units | ✓ |
 | *Head mode:* face centred, then sliding 140 px | pointer stays within 10 % of the screen width of the centre | ✓ worst 19 px (2.0 %) |
 | *Head mode:* a held smile (the portrait smiles) | rotation changes | ✓ |
+| *Pointer:* the portrait warped right / left / down / up nearer, nose and head angle | right of left, down below up, both sources | ✓ nose x 601 vs 316, y 371 vs 171; angle x 524 vs 410, y 290 vs 161 (on a Mac, 30 results/s) |
+| *Pointer:* Fit to my movement on the warped portraits (nose) | the wizard completes and the fit is saved | ✓ |
 
 **Inference time** (`node scripts/gesture-bench.mjs --frames 30`: the real worker on its own, no game rendering beside it; 640 × 480 frames; renderer reported as SwiftShader):
 
@@ -212,7 +225,7 @@ In the game here, the worker shares the 4 cores with the game rendering through 
    The smoke and bench scripts make the numbers reproducible.
 2. **Delegate choice from measurement.** Run both delegates for a few frames at start and keep the faster. Today: GPU unless the renderer is software, with a watchdog.
 3. **Calibration UX:**
-   - a short guided step ("hold your hand in the box", "look at the centre"); *done for the eyes:* the eye test;
+   - a short guided step ("hold your hand in the box", "look at the centre"); *done for the eyes:* the eye test; *done for the head pointer:* Fit to my movement (per direction, per source), with a head-angle source and a joystick style;
    - a region the player can resize;
    - per-player sensitivity, saved (*done*, with bindings, timings and the eye calibration).
 4. **Hands-free gaps:**
@@ -246,7 +259,7 @@ npm run dev
 Click **Start camera** (the browser asks for the camera), then:
 
 - **Hand:** keep your hand inside the dashed box in the preview. Pinch the Road card, then pinch and drag on the map. Make a fist and move it to slide the map.
-- **Head:** sit square to the camera and hold still for the first half second while it centres. **Re-centre** retakes the neutral pose, and **Sensitivity** scales the movement. Run the **Eye test** (about 10 s) so blinks fit your eyes and winks can be bound; **Bindings** and **Timing** change what each face gesture does.
+- **Head:** sit square to the camera and hold still for the first half second while it centres. **Re-centre** retakes the neutral pose, and **Sensitivity** scales the movement. **Pointer** → **Fit to my movement** fits it to how far you can turn each way; Source and Style switch to the head angle or a joystick. Run the **Eye test** (about 10 s) so blinks fit your eyes and winks can be bound; **Bindings** and **Timing** change what each face gesture does.
 
 Reproducible checks (each needs a dev server running on `PORT`, default 5188):
 

@@ -3,6 +3,7 @@
  * worker answers with the few landmarks the interpreters need. One frame in flight at a time.
  */
 import { FaceLandmarker, GestureRecognizer } from '@mediapipe/tasks-vision';
+import { headAngles } from './faceAngles';
 import { FACE_POINTS, type Delegate, type FaceObservation, type FromWorker, type HandObservation, type Point3, type ToWorker, type WorkerInit } from './protocol';
 
 /** The worker global (the project's TS lib is the DOM one). */
@@ -19,6 +20,7 @@ const BLENDSHAPES = new Set(['jawOpen', 'browInnerUp', 'mouthSmileLeft', 'mouthS
 let recognizer: GestureRecognizer | null = null;
 let faces: FaceLandmarker | null = null;
 let lastTimestamp = -1;
+const angles = { yaw: 0, pitch: 0 };
 
 scope.onmessage = (event) => {
   const message = event.data;
@@ -69,6 +71,7 @@ async function createTasks(options: WorkerInit, delegate: Delegate, gestureModel
       runningMode: 'VIDEO',
       numFaces: 1,
       outputFaceBlendshapes: true,
+      outputFacialTransformationMatrixes: true,
     });
   }
 }
@@ -138,6 +141,12 @@ function detect(bitmap: ImageBitmap, t: number): void {
           chin: point(mesh[FACE_POINTS.chin]),
           blendshapes,
         };
+        const matrix = result.facialTransformationMatrixes?.[0]?.data;
+        if (matrix && matrix.length >= 16) {
+          headAngles(matrix, angles);
+          face.yaw = angles.yaw;
+          face.pitch = angles.pitch;
+        }
       }
     }
   } catch (error) {
