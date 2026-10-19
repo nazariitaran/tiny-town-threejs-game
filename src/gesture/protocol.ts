@@ -2,6 +2,7 @@
  * What the tracking worker sees and what the interpreters make of it. Image coordinates are
  * MediaPipe's normalised ones: x, y in [0, 1] of the camera frame, unmirrored (as the camera sees you).
  */
+import type { HandsFreeMode } from '../game/events';
 
 export interface Point3 {
   x: number;
@@ -43,7 +44,7 @@ export interface TrackFrame {
 }
 
 /** Hands: pinch to click; Head: the nose points, an open mouth clicks; Head + hand: the nose points, a pinch clicks. */
-export type TrackingMode = 'hand' | 'head' | 'head-hand';
+export type TrackingMode = HandsFreeMode;
 
 export const TRACKING_MODES: readonly TrackingMode[] = ['hand', 'head', 'head-hand'];
 

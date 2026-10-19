@@ -13,6 +13,12 @@ import type { RainMode } from '../weather/weatherSchedule';
 
 export type GamePhase = 'loading' | 'title' | 'building' | 'menu' | 'error';
 
+/** One animated camera step, like its key: Q / E orbit, + / − zoom, W / S / A / D pan. */
+export type CameraStep = 'orbit-left' | 'orbit-right' | 'zoom-in' | 'zoom-out' | 'pan-up' | 'pan-down' | 'pan-left' | 'pan-right';
+
+/** Hand / head tracking modes (`src/gesture/protocol.ts` TrackingMode). */
+export type HandsFreeMode = 'hand' | 'head' | 'head-hand';
+
 export type GameEvents = {
   /** `name` and `size` (default small) start a 'new' town; 'continue' takes both from the save. */
   'intent:start': { mode: 'continue' | 'new'; name?: string; size?: TownSize };
@@ -66,6 +72,17 @@ export type GameEvents = {
   'intent:pan-camera': { dx: number; dy: number };
   /** Zoom by a factor (> 1 = closer), clamped to the camera's range (building only). */
   'intent:zoom-camera': { factor: number };
+  /** The on-screen camera controls' buttons (building only). */
+  'intent:camera-step': { step: CameraStep };
+  /** Persisted as settings.cameraPad. Head tracking shows the controls whatever this says. */
+  'intent:set-camera-pad': { visible: boolean };
+  /**
+   * Aim: move the aimed cell one step in a screen direction (dy −1 = up the screen), starting from the
+   * hovered cell. The aim holds until a pointer moves over the map again, Esc, or a tool change.
+   */
+  'intent:aim-nudge': { dx: -1 | 0 | 1; dy: -1 | 0 | 1 };
+  /** Aim: a click (press and release) of the active tool on the aimed cell. */
+  'intent:aim-place': void;
 
   'phase:changed': { phase: GamePhase; previous: GamePhase };
   /** `label`: the loading screen's line for the current stage (`LOAD_STAGES`), shown as is. */
@@ -116,6 +133,12 @@ export type GameEvents = {
   'rain:changed': { mode: RainMode };
   /** On a mode or phase change and once at boot; never per frame. */
   'daytime:changed': { mode: TimeMode; phase: DayPhase };
+  /** The camera-controls setting, once at boot and on every change. */
+  'camera-pad:changed': { visible: boolean };
+  /** Hand / head tracking started (its mode), changed mode, or stopped (null). */
+  'hands-free:changed': { mode: HandsFreeMode | null };
+  /** The aimed cell (null: no aim), on every nudge, place and clear. */
+  'aim:changed': { cell: Cell | null };
 
   /** `blob` stays valid until the next photo; the UI owns any object URL it makes from it. */
   'photo:ready': { blob: Blob; width: number; height: number; fileName: string };
