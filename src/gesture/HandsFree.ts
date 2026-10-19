@@ -38,6 +38,7 @@ import { GestureRouter } from './GestureRouter';
 import { DEFAULT_HAND_TUNING, HandInterpreter } from './handInterpreter';
 import { HeadInterpreter } from './headInterpreter';
 import { isTrackingMode, type Delegate, type GestureFrame, type TrackFrame, type TrackingMode } from './protocol';
+import { downloadTrack, TrackRecorder } from './recorder';
 import { Tracker, type TrackerStatus } from './Tracker';
 import './handsFree.css';
 
@@ -59,6 +60,8 @@ export const HF_IDS = {
   eyeTestStart: 'hf-eye-test-start',
   eyeTestCancel: 'hf-eye-test-cancel',
   setKey: 'hf-set-key',
+  record: 'hf-record',
+  recordStatus: 'hf-record-status',
   mode: (mode: TrackingMode) => `hf-mode-${mode}`,
   preset: (preset: PresetId) => `hf-preset-${preset}`,
   bind: (trigger: FaceTrigger) => `hf-bind-${trigger}`,
@@ -177,6 +180,8 @@ export class HandsFree {
   private statusTimer = 0;
   private lastFrame: GestureFrame | null = null;
   private lastT = 0;
+  /** A session being saved to a file (Record / Stop and save). */
+  private recorder: TrackRecorder | null = null;
 
   constructor(
     private readonly bus: GameBus,
@@ -281,7 +286,8 @@ export class HandsFree {
             <button type="button" class="hf-btn" id="${HF_IDS.winkTest('right')}" data-wink="right">Right wink</button>
           </div>
         </details>
-        <p class="hf-note">Runs on this device with Google MediaPipe. The camera picture never leaves your browser.</p>
+        <div class="hf-pair"><button type="button" class="hf-btn" id="${HF_IDS.record}" disabled>Record 30 s</button><span class="hf-small" id="${HF_IDS.recordStatus}" aria-live="polite"></span></div>
+        <p class="hf-note">Runs on this device with Google MediaPipe. The camera picture never leaves your browser. A recording holds only tracking numbers, never pictures, and stays on the device unless you share it.</p>
       </section>
       <div class="hf-cursor" id="${HF_IDS.cursor}" hidden><i class="hf-ring"></i><i class="hf-dot"></i></div>
     `;
@@ -310,6 +316,7 @@ export class HandsFree {
     } else if (button.id === HF_IDS.recentre) this.head.recalibrate();
     else if (button.id === HF_IDS.dwell) this.update(() => (this.settings.dwell = !this.settings.dwell));
     else if (button.id === HF_IDS.setKey) this.setCapturingKey(!this.capturingKey);
+    else if (button.id === HF_IDS.record) this.toggleRecording();
     else if (button.id === HF_IDS.eyeTestStart) this.startEyeTest('open');
     else if (button.id === HF_IDS.eyeTestCancel) this.endEyeTest('Eye test cancelled. Nothing was changed.');
     else if (data.wink === 'left' || data.wink === 'right') this.startEyeTest(data.wink === 'left' ? 'wink-left' : 'wink-right');
@@ -659,6 +666,7 @@ export class HandsFree {
       this.statusTimer = 0;
     }
     this.el(HF_IDS.start).textContent = status === 'off' || status === 'error' ? 'Start camera' : 'Stop camera';
+    this.el<HTMLButtonElement>(HF_IDS.record).disabled = status !== 'tracking';
     if (status === 'tracking') {
       this.restarting = false;
       this.announce(this.mode);
@@ -667,6 +675,7 @@ export class HandsFree {
       this.announce(null);
     }
     if (status !== 'tracking') {
+      this.finishRecording();
       this.router.release();
       this.head.keyInput(false);
       if (this.eyeTest) this.endEyeTest('Eye test stopped: the camera is off.');
@@ -678,6 +687,10 @@ export class HandsFree {
   private onFrame(track: TrackFrame): void {
     const t = track.t;
     this.lastT = t;
+    if (this.recorder) {
+      this.recorder.push(track);
+      if (!this.recorder.recording) this.finishRecording();
+    }
     let frame: GestureFrame;
     if (this.mode === 'hand') {
       frame = this.hand.update(track.hands, this.tracker.aspect, t);
@@ -699,6 +712,39 @@ export class HandsFree {
     this.renderCursor();
     this.drawPreview(track);
     this.renderStatus(false);
+  }
+
+  // --- Recording ----------------------------------------------------------------------------------
+
+  private toggleRecording(): void {
+    if (this.recorder?.recording) {
+      this.finishRecording();
+      return;
+    }
+    if (this.tracker.status !== 'tracking') return;
+    this.recorder = new TrackRecorder(this.mode);
+    this.recorder.start();
+    this.renderRecord();
+  }
+
+  /** Saves what was recorded, whether stopped by the player, at the cap, or by the camera stopping. */
+  private finishRecording(): void {
+    const recorder = this.recorder;
+    if (!recorder) return;
+    this.recorder = null;
+    recorder.stop();
+    downloadTrack(recorder);
+    this.renderRecord();
+  }
+
+  private renderRecord(): void {
+    const recorder = this.recorder;
+    const label = recorder?.recording ? 'Stop and save' : 'Record 30 s';
+    const button = this.el<HTMLButtonElement>(HF_IDS.record);
+    if (button.textContent !== label) button.textContent = label;
+    const text = recorder?.recording ? `● Recording ${Math.floor(recorder.elapsed)} s` : '';
+    const status = this.el(HF_IDS.recordStatus);
+    if (status.textContent !== text) status.textContent = text;
   }
 
   private renderCursor(): void {
@@ -740,6 +786,7 @@ export class HandsFree {
     const tracker = this.tracker;
     const stats = tracker.stats;
     const frame = this.lastFrame;
+    this.renderRecord();
     const status = this.el(HF_IDS.status);
     if (tracker.status === 'error') {
       status.textContent = `Couldn't start: ${tracker.error ?? 'unknown error'}`;
