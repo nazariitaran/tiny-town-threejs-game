@@ -127,8 +127,9 @@ describe('parseTrack', () => {
     return JSON.parse(JSON.stringify(recorder)) as Record<string, unknown>;
   };
 
-  it('accepts a good file', () => {
+  it('accepts a good file, in any mode', () => {
     expect(parseTrack(good())).toHaveLength(1);
+    expect(parseTrack({ ...good(), mode: 'palms' })).toHaveLength(1);
   });
 
   it('rejects anything that is not a track', () => {
@@ -139,7 +140,7 @@ describe('parseTrack', () => {
     rejects({ ...good(), format: 'something-else' });
     rejects({ ...good(), version: 2 }, /Unsupported track version 2/);
     rejects({ ...good(), startedAt: 12 });
-    rejects({ ...good(), mode: 'keyboard' });
+    rejects({ ...good(), mode: 'keyboard' }, /mode should be hand, head, head-hand or palms/);
     rejects({ ...good(), frames: 'many' });
     rejects({ ...good(), frames: Array.from({ length: MAX_RECORD_FRAMES + 1 }, () => ({ t: 0, hands: [], face: null })) }, /limit/);
   });

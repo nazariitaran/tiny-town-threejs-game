@@ -97,7 +97,7 @@ export interface GestureFrame {
   /** The pointer, in viewport fractions [0, 1]. */
   x: number;
   y: number;
-  /** A click is held (pinch closed, mouth open, a drag toggled on). */
+  /** A click is held (pinch closed, mouth open, the other hand moved, a drag toggled on). */
   pressed: boolean;
   /** A click this frame alone (press and release at once), at x, y. Never while `pressed`. */
   tap: boolean;
@@ -116,9 +116,9 @@ export interface GestureFrame {
   commandProgress: number;
   /** A short human label of what is recognised, for the panel. */
   label: string;
-  /** Head modes: still finding the neutral pose. */
+  /** Head and Palms modes: still finding the neutral pose. */
   calibrating: boolean;
-  /** Head modes: input paused; only the trigger bound to pause does anything. */
+  /** Head and Palms modes: input paused; only the trigger bound to pause does anything. */
   paused: boolean;
 }
 
