@@ -5,9 +5,9 @@ import type { GamePhase, HandsFreeMode } from '../game/events';
 export const HOLD_DELAY_MS = 450;
 export const HOLD_INTERVAL_MS = 250;
 
-/** Building only; shown by the setting or by head tracking (which leaves the setting alone). */
+/** Building only; shown by the setting or by tracking without hand gestures for the camera (which leaves the setting alone). */
 export function cameraPadVisible(phase: GamePhase, setting: boolean, handsFree: HandsFreeMode | null): boolean {
-  return phase === 'building' && (setting || handsFree === 'head' || handsFree === 'head-hand');
+  return phase === 'building' && (setting || handsFree === 'head' || handsFree === 'head-hand' || handsFree === 'palms');
 }
 
 type TimerHandle = unknown;

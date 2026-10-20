@@ -10,11 +10,12 @@
  */
 import { createGestureFrame, type FaceObservation, type GestureFrame } from './protocol';
 import { PointerSmoother } from './pointerSmoother';
-import { HeadPointer, type HeadRange, type PointerSource, type PointerStyle } from './headPointer';
+import { HeadPointer, type FittablePointer, type HeadPointerSource, type HeadRange, type PointerSource, type PointerStyle } from './headPointer';
 import type { OneEuroTuning } from './oneEuro';
 import { FrameClock, HoldTrigger, ThresholdSwitch } from './triggers';
 import { PRESETS, type Bindings, type FaceTrigger } from './bindings';
 import { DEFAULT_EYE_TIMING, EyeTriggers, smileGate, type EyeCalibration, type EyeTiming } from './eyeTriggers';
+import { TriggerActions } from './triggerActions';
 
 export interface HeadTuning {
   filter: OneEuroTuning;
@@ -70,16 +71,26 @@ export function noseOffset(face: FaceObservation, out: { x: number; y: number } 
   return out;
 }
 
-/** The pointer source's raw signal for this face; null when it has none (no angles came with it). */
+/** The pointer source's raw signal for this face; null when it has none (no angles came with it, or a source a face can't give). */
 export function sourceSignal(face: FaceObservation, source: PointerSource, out: { x: number; y: number }): { x: number; y: number } | null {
-  if (source === 'nose') return noseOffset(face, out);
-  if (face.yaw === undefined || face.pitch === undefined) return null;
-  out.x = face.yaw;
-  out.y = face.pitch;
-  return out;
+  switch (source) {
+    case 'nose':
+      return noseOffset(face, out);
+    case 'angle':
+      if (face.yaw === undefined || face.pitch === undefined) return null;
+      out.x = face.yaw;
+      out.y = face.pitch;
+      return out;
+    case 'palm':
+      return null;
+    default: {
+      const never: never = source;
+      return never;
+    }
+  }
 }
 
-export class HeadInterpreter {
+export class HeadInterpreter implements FittablePointer {
   readonly frame: GestureFrame = createGestureFrame();
   readonly pointer: PointerSmoother;
   /** Source, style and fit of the pointer. */
@@ -109,13 +120,10 @@ export class HeadInterpreter {
   private readonly sum = { x: 0, y: 0 };
   private calibrated = false;
   private lastSeen = -Infinity;
-  private paused = false;
-  /** A drag toggled on (drag-toggle): the press stays down until the trigger fires again. */
-  private toggled = false;
+  private readonly actions: TriggerActions;
   private keyDown = false;
   /** Key presses since the last frame (a press and release can both fall between two frames). */
   private keyPresses = 0;
-  private wasPressed = false;
 
   constructor(
     readonly tuning: HeadTuning = { ...DEFAULT_HEAD_TUNING },
@@ -126,6 +134,7 @@ export class HeadInterpreter {
     this.brows = new HoldTrigger(tuning.commandHoldS);
     this.smile = new HoldTrigger(tuning.smileHoldS);
     this.eyes = new EyeTriggers(eyeTiming);
+    this.actions = new TriggerActions(this.frame, this.pointer, () => this.recalibrate());
   }
 
   /** The bindings in force (winks already gated by the eye test) and the eye calibration. */
@@ -135,17 +144,16 @@ export class HeadInterpreter {
       this.calibration = calibration;
       this.eyes.calibrate(calibration);
     }
-    if (this.paused && !Object.values(bindings).includes('pause')) this.paused = false;
-    if (this.toggled && !Object.values(bindings).includes('drag-toggle')) this.toggled = false;
+    this.actions.configure(Object.values(bindings));
   }
 
   get isPaused(): boolean {
-    return this.paused;
+    return this.actions.paused;
   }
 
   /** Esc from anywhere ends a toggled drag. */
   releaseToggle(): void {
-    this.toggled = false;
+    this.actions.toggled = false;
   }
 
   /** The switch key went down or up (between frames; read on the next one). */
@@ -166,7 +174,7 @@ export class HeadInterpreter {
   }
 
   /** A new source re-centres (its signal has other units); a new style continues from where the pointer is. */
-  configurePointer(source: PointerSource, style: PointerStyle, fit: HeadRange | null): void {
+  configurePointer(source: HeadPointerSource, style: PointerStyle, fit: HeadRange | null): void {
     const mapper = this.mapper;
     mapper.fit = fit;
     if (style !== mapper.style) {
@@ -269,8 +277,9 @@ export class HeadInterpreter {
     else if (mouthOn) this.fire('mouth', t - this.pointer.press.backdateS, t);
     const keyPresses = this.keyPresses;
     this.keyPresses = 0;
+    const actions = this.actions;
     if (bindings.key === 'hold') {
-      if (keyPresses > 0 && !this.keyDown && !this.paused) this.tap(t, t);
+      if (keyPresses > 0 && !this.keyDown && !actions.paused) actions.tap(t, t);
       levelHeld ||= this.keyDown;
       if (this.keyDown && !this.mouth.on) pressFrom = t;
     } else if (keyPresses > 0) {
@@ -288,15 +297,15 @@ export class HeadInterpreter {
     if (this.eyes.holding && this.bindsEyeAction(this.eyes)) this.pointer.pin(this.eyes.from);
     else this.pointer.unpin();
 
-    const pressed = !this.paused && (this.toggled || levelHeld || externalPress === true);
-    if (pressed && !this.wasPressed && !f.tap) {
-      if (externalPress === true && !this.toggled && !levelHeld) pressFrom = t - this.pointer.press.backdateS;
+    const pressed = !actions.paused && (actions.toggled || levelHeld || externalPress === true);
+    if (pressed && !actions.wasPressed && !f.tap) {
+      if (externalPress === true && !actions.toggled && !levelHeld) pressFrom = t - this.pointer.press.backdateS;
       this.pointer.pressAt(t, Math.min(pressFrom, t));
     }
-    this.wasPressed = pressed;
+    actions.wasPressed = pressed;
     f.pressed = pressed;
     if (pressed) f.tap = false;
-    f.paused = this.paused;
+    f.paused = actions.paused;
     f.x = this.pointer.point.x;
     f.y = this.pointer.point.y;
 
@@ -319,7 +328,7 @@ export class HeadInterpreter {
     this.recalibrate();
     this.clock.reset();
     this.eyesLive = false;
-    this.paused = false;
+    this.actions.paused = false;
   }
 
   private readRaw(shapes: Record<string, number>): void {
@@ -342,58 +351,12 @@ export class HeadInterpreter {
 
   /** A one-shot trigger fired; `from` is where a click from it lands (when the gesture began). */
   private fire(trigger: FaceTrigger, from: number, t: number): void {
-    const action = this.bindings[trigger];
-    if (this.paused) {
-      if (action === 'pause') {
-        this.paused = false;
-        this.frame.command = 'pause';
-      }
-      return;
-    }
-    switch (action) {
-      case 'off':
-      case 'hold':
-        return;
-      case 'click':
-        if (!this.toggled) this.tap(from, t);
-        return;
-      case 'drag-toggle':
-        this.toggled = !this.toggled;
-        // Down and up both land where the gesture began.
-        this.pointer.pressAt(t, Math.min(from, t));
-        this.wasPressed = this.toggled;
-        return;
-      case 'cancel':
-        this.toggled = false;
-        this.frame.command = 'cancel';
-        return;
-      case 'rotate':
-        this.frame.command = 'rotate';
-        return;
-      case 'pause':
-        this.paused = true;
-        this.toggled = false;
-        this.frame.command = 'pause';
-        return;
-      case 'recentre':
-        this.frame.command = 'recentre';
-        this.recalibrate();
-        return;
-      default: {
-        const never: never = action;
-        return never;
-      }
-    }
-  }
-
-  private tap(from: number, t: number): void {
-    this.frame.tap = true;
-    this.pointer.pressAt(t, Math.min(from, t));
+    this.actions.fire(this.bindings[trigger], from, t);
   }
 
   private label(brow: number, smile: number, levelHeld: boolean, externalPress: boolean | null): string {
-    if (this.paused) return 'Paused';
-    if (this.toggled) return 'Dragging';
+    if (this.actions.paused) return 'Paused';
+    if (this.actions.toggled) return 'Dragging';
     if (externalPress) return 'Pinch: click';
     if (levelHeld) return this.mouth.on ? 'Mouth open: click' : 'Key held: click';
     const eyes = this.eyes;
@@ -419,8 +382,8 @@ export class HeadInterpreter {
     this.pointer.unpin();
     this.mapper.pause();
     this.hasSignal = false;
-    this.toggled = false;
-    this.wasPressed = false;
+    this.actions.toggled = false;
+    this.actions.wasPressed = false;
     this.keyPresses = 0;
   }
 }

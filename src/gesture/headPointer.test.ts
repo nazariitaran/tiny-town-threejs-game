@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { defaultSettings, parseSettings, PRESETS } from './bindings';
+import { CLICK_LENGTH, defaultSettings, LIFT_ACTIONS, nextLiftAction, nextPointingHand, parseSettings, PRESETS } from './bindings';
 import { headAngles } from './faceAngles';
-import { HeadInterpreter } from './headInterpreter';
+import { HeadInterpreter, sourceSignal } from './headInterpreter';
 import { DEFAULT_HEAD_POINTER, directTarget, HeadPointer, joystickSpeed, SOURCE_TUNING, unitOffset, type HeadRange } from './headPointer';
 import type { FaceObservation } from './protocol';
 import { RangeFit, type FitEvent } from './rangeFit';
@@ -248,10 +248,83 @@ describe('pointer settings', () => {
     expect(parseSettings(JSON.stringify({ pointer: 'nose' })).pointer).toEqual(defaultSettings().pointer);
   });
 
+  it('the source is a head one; fits parse for every source, the palm in palm sizes', () => {
+    expect(parseSettings(JSON.stringify({ pointer: { source: 'palm' } })).pointer.source).toBe('nose');
+    const palm = { left: 1.2, right: 1.5, up: 0.8, down: 1 };
+    expect(parseSettings(JSON.stringify({ pointer: { fits: { palm } } })).pointer.fits.palm).toEqual(palm);
+    // A nose-sized fit is too small for a palm, a palm-sized one too big for a nose.
+    expect(parseSettings(JSON.stringify({ pointer: { fits: { palm: { left: 0.02, right: 0.05, up: 0.03, down: 0.04 } } } })).pointer.fits.palm).toBeNull();
+    expect(parseSettings(JSON.stringify({ pointer: { fits: { nose: palm } } })).pointer.fits.nose).toBeNull();
+  });
+
   it('round-trips', () => {
     const settings = defaultSettings();
-    settings.pointer = { source: 'angle', style: 'joystick', fits: { nose: null, angle: { left: 0.2, right: 0.3, up: 0.1, down: 0.15 } } };
+    settings.pointer = { source: 'angle', style: 'joystick', fits: { nose: null, angle: { left: 0.2, right: 0.3, up: 0.1, down: 0.15 }, palm: { left: 1.2, right: 1.5, up: 0.8, down: 1 } } };
     expect(parseSettings(JSON.stringify(settings)).pointer).toEqual(settings.pointer);
+  });
+});
+
+describe('palm settings', () => {
+  it('old blobs without them get the defaults', () => {
+    const parsed = parseSettings(JSON.stringify({ bindings: { key: 'click' }, pointer: { source: 'angle', fits: { nose: null, angle: null } } }));
+    expect(parsed.palm).toEqual({ pointing: 'right', lift: 'hold', click: null });
+    expect(parsed.pointer.fits.palm).toBeNull();
+    expect(parsed.bindings.key).toBe('click');
+    expect(parsed.pointer.source).toBe('angle');
+  });
+
+  it('keeps valid choices and drops malformed ones', () => {
+    const good = parseSettings(JSON.stringify({ palm: { pointing: 'one', lift: 'drag-toggle', click: { x: 1.2, y: 0.1 } } }));
+    expect(good.palm).toEqual({ pointing: 'one', lift: 'drag-toggle', click: { x: 1.2, y: 0.1 } });
+    const bad = parseSettings(JSON.stringify({ palm: { pointing: 'both', lift: 'wave', click: { x: 'far', y: 0 } } }));
+    expect(bad.palm).toEqual(defaultSettings().palm);
+    const tooShort = CLICK_LENGTH.min * 0.9;
+    expect(parseSettings(JSON.stringify({ palm: { click: { x: 0, y: -tooShort } } })).palm.click).toBeNull();
+    expect(parseSettings(JSON.stringify({ palm: { click: { x: CLICK_LENGTH.max, y: 1 } } })).palm.click).toBeNull();
+    expect(parseSettings(JSON.stringify({ palm: 'left' })).palm).toEqual(defaultSettings().palm);
+  });
+
+  it('every action can be bound to the click move; the cycles wrap', () => {
+    for (const lift of LIFT_ACTIONS) expect(parseSettings(JSON.stringify({ palm: { lift } })).palm.lift).toBe(lift);
+    let action = LIFT_ACTIONS[0];
+    for (let i = 0; i < LIFT_ACTIONS.length; i += 1) action = nextLiftAction(action);
+    expect(action).toBe(LIFT_ACTIONS[0]);
+    expect([nextPointingHand('right'), nextPointingHand('left'), nextPointingHand('one')]).toEqual(['left', 'one', 'right']);
+  });
+
+  it('round-trips', () => {
+    const settings = defaultSettings();
+    settings.palm = { pointing: 'left', lift: 'click', click: { x: -0.9, y: 0.4 } };
+    expect(parseSettings(JSON.stringify(settings)).palm).toEqual(settings.palm);
+  });
+});
+
+describe('palm pointer source', () => {
+  it('without a fit the edge is at 1.5 palm sizes across and 1.1 up or down', () => {
+    const unit = unitOffset(1.5, -1.1, 'palm', null, REACH, { x: 0, y: 0 });
+    expect(directTarget(unit.x, REACH, 1)).toBeCloseTo(1, 2);
+    expect(directTarget(unit.y, REACH, 1)).toBeCloseTo(0, 1);
+  });
+
+  it('a palm fit runs through the wizard in palm sizes', () => {
+    const fit = new RangeFit();
+    fit.start('palm', 0);
+    let r = feed(fit, 0, 0, 0.8, 0);
+    // A held palm wobbles by a tenth of its size: still a hold.
+    let t = r.t;
+    for (let i = 0; i < 24; i += 1, t += 1 / 30) fit.feed(-1.2 + (i % 2 ? 0.05 : -0.05), 0, t);
+    expect(fit.step).toBe('right');
+    r = feed(fit, 1.4, 0, 0.8, t);
+    r = feed(fit, 0, -0.9, 0.8, r.t);
+    r = feed(fit, 0, 1, 0.8, r.t);
+    const done = r.events.find((e) => e.kind === 'done');
+    expect(done?.kind === 'done' && done.range.left).toBeCloseTo(1.2, 1);
+    expect(done?.kind === 'done' && done.range.right).toBeCloseTo(1.4, 6);
+  });
+
+  it('a face gives no palm signal', () => {
+    expect(sourceSignal(face({ yaw: 0.1, pitch: 0 }), 'palm', { x: 0, y: 0 })).toBeNull();
+    expect(sourceSignal(face({ yaw: 0.1, pitch: 0.2 }), 'angle', { x: 0, y: 0 })).toEqual({ x: 0.1, y: 0.2 });
   });
 });
 

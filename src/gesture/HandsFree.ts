@@ -37,7 +37,7 @@ import { EyeTest, isCalibrated, type EyeTestStep } from './eyeTriggers';
 import { GestureRouter } from './GestureRouter';
 import { DEFAULT_HAND_TUNING, HandInterpreter } from './handInterpreter';
 import { HeadInterpreter } from './headInterpreter';
-import { extremeOf, POINTER_SOURCES, POINTER_STYLES, type HalfAxis, type PointerSource, type PointerStyle } from './headPointer';
+import { extremeOf, HEAD_POINTER_SOURCES, POINTER_STYLES, type HalfAxis, type HeadPointerSource, type PointerStyle } from './headPointer';
 import { RangeFit, type FitEvent, type FitStep } from './rangeFit';
 import { isTrackingMode, type Delegate, type GestureFrame, type TrackFrame, type TrackingMode } from './protocol';
 import { downloadTrack, TrackRecorder } from './recorder';
@@ -78,7 +78,7 @@ export const HF_IDS = {
   winkTest: (side: 'left' | 'right') => `hf-wink-test-${side}`,
 } as const;
 
-const MODE_LABEL: Record<TrackingMode, string> = { hand: 'Hand', head: 'Head', 'head-hand': 'Head + hand' };
+const MODE_LABEL: Record<TrackingMode, string> = { hand: 'Hand', head: 'Head', 'head-hand': 'Head + hand', palms: 'Palms' };
 
 const HAND_LEGEND = [
   'Point with your hand: the cursor follows the gap between thumb and index finger',
@@ -691,7 +691,7 @@ export class HandsFree {
     switch (id) {
       case HF_IDS.pointerSource:
         this.endFit(this.fit.running ? 'Fit cancelled: the source changed. Nothing was changed.' : null);
-        this.update(() => (pointer.source = cycle(POINTER_SOURCES, pointer.source)));
+        this.update(() => (pointer.source = cycle(HEAD_POINTER_SOURCES, pointer.source)));
         return true;
       case HF_IDS.pointerStyle:
         this.update(() => (pointer.style = cycle(POINTER_STYLES, pointer.style)));
@@ -1076,7 +1076,7 @@ const EYE_TEST_PROMPT: Record<EyeTestStep, string> = {
   'wink-right': 'Close only your right eye (on the right in the picture) until you hear a sound.',
 };
 
-const SOURCE_LABEL: Record<PointerSource, string> = { nose: 'Nose', angle: 'Head angle' };
+const SOURCE_LABEL: Record<HeadPointerSource, string> = { nose: 'Nose', angle: 'Head angle' };
 const STYLE_LABEL: Record<PointerStyle, string> = { direct: 'Direct', joystick: 'Joystick' };
 
 /** Left and right are the player's own, as in a mirror: the same as the screen's. */

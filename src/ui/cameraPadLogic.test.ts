@@ -41,9 +41,10 @@ describe('cameraPadVisible', () => {
     expect(cameraPadVisible('building', false, null)).toBe(false);
   });
 
-  it('head tracking shows it with the setting off; hand tracking does not', () => {
+  it('head and palm tracking show it with the setting off; hand tracking does not', () => {
     expect(cameraPadVisible('building', false, 'head')).toBe(true);
     expect(cameraPadVisible('building', false, 'head-hand')).toBe(true);
+    expect(cameraPadVisible('building', false, 'palms')).toBe(true);
     expect(cameraPadVisible('building', false, 'hand')).toBe(false);
   });
 

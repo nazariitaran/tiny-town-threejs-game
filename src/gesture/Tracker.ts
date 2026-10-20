@@ -151,9 +151,9 @@ export class Tracker {
       wasmLoaderPath: absolute(wasmLoaderUrl),
       wasmBinaryPath: absolute(wasmBinaryUrl),
       gestureModel: mode !== 'head' ? sources(MODEL_SOURCES.gesture) : null,
-      faceModel: mode !== 'hand' ? sources(MODEL_SOURCES.face) : null,
+      faceModel: mode === 'head' || mode === 'head-hand' ? sources(MODEL_SOURCES.face) : null,
       delegate,
-      // Two hands: two fists zoom, and in head + hand mode a second hand in view mustn't hide the one that pinches.
+      // Two hands: two fists zoom, Palms points with one and clicks with the other, and in head + hand mode a second hand in view mustn't hide the one that pinches.
       numHands: 2,
     });
   }

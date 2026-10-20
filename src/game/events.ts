@@ -17,7 +17,7 @@ export type GamePhase = 'loading' | 'title' | 'building' | 'menu' | 'error';
 export type CameraStep = 'orbit-left' | 'orbit-right' | 'zoom-in' | 'zoom-out' | 'pan-up' | 'pan-down' | 'pan-left' | 'pan-right';
 
 /** Hand / head tracking modes (`src/gesture/protocol.ts` TrackingMode). */
-export type HandsFreeMode = 'hand' | 'head' | 'head-hand';
+export type HandsFreeMode = 'hand' | 'head' | 'head-hand' | 'palms';
 
 export type GameEvents = {
   /** `name` and `size` (default small) start a 'new' town; 'continue' takes both from the save. */

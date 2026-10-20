@@ -1,18 +1,22 @@
 /**
- * Head offset → pointer target (pure). The offset is the head's pose minus its neutral pose, in the
- * source's own units: fractions of the face for the nose, radians for the head angle.
+ * Head or palm offset → pointer target (pure). The offset is the pose minus its neutral pose, in the
+ * source's own units: fractions of the face for the nose, radians for the head angle, palm sizes for a palm.
  *
  *  fit       per half-axis (left / right / up / down) comfortable extremes, from the Fit wizard; without
  *            one, fixed gains apply. `unit` is the offset as a fraction of that half-axis's extreme.
  *  direct    the pointer sits where the head points: neutral is the screen centre, `reach` of each
  *            extreme is that edge (so the edge comes without straining).
  *  joystick  past a dead zone the pointer moves at a speed rising with the offset; it stays put when the
- *            head comes back to neutral. Time-based, so the same at 4 or 30 results a second.
+ *            head (or hand) comes back to neutral. Time-based, so the same at 4 or 30 results a second.
  */
 import { OneEuroFilter, type OneEuroTuning } from './oneEuro';
 
-export const POINTER_SOURCES = ['nose', 'angle'] as const;
+export const POINTER_SOURCES = ['nose', 'angle', 'palm'] as const;
 export type PointerSource = (typeof POINTER_SOURCES)[number];
+
+/** The sources a face gives (the head modes' Source choice). */
+export const HEAD_POINTER_SOURCES = ['nose', 'angle'] as const;
+export type HeadPointerSource = (typeof HEAD_POINTER_SOURCES)[number];
 
 export const POINTER_STYLES = ['direct', 'joystick'] as const;
 export type PointerStyle = (typeof POINTER_STYLES)[number];
@@ -47,7 +51,26 @@ export const SOURCE_TUNING: Record<PointerSource, SourceTuning> = {
   nose: { gainX: 5, gainY: 7, minMove: 0.015, steady: 0.006, maxRange: 1 },
   // The edge at ~11.5° of turn and ~9.5° of tilt.
   angle: { gainX: 2.5, gainY: 3, minMove: 0.05, steady: 0.02, maxRange: 1.4 },
+  // The edge at 1.5 palm sizes across and 1.1 up or down; a held palm trembles more than a held head.
+  palm: { gainX: 1 / 3, gainY: 0.45, minMove: 0.2, steady: 0.15, maxRange: 8 },
 };
+
+/**
+ * What the pointer fit drives: an interpreter whose raw `signal` minus `neutralPose` is the offset its
+ * `mapper` maps (HeadInterpreter, PalmInterpreter).
+ */
+export interface FittablePointer {
+  readonly signal: { readonly x: number; readonly y: number };
+  /** False when this frame gave no signal (no face angles, no pointing hand). */
+  readonly hasSignal: boolean;
+  /** The fit wizard is running: the pointer holds still while the signal still updates. */
+  pointerFrozen: boolean;
+  readonly mapper: HeadPointer;
+  readonly neutralPose: { readonly x: number; readonly y: number } | null;
+  setNeutral(x: number, y: number): void;
+  recalibrate(): void;
+  readonly tuning: { sensitivity: number };
+}
 
 export interface HeadPointerTuning {
   /** The share of each extreme that reaches the screen edge (direct) or full speed (joystick). */

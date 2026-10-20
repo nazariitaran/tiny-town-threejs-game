@@ -46,10 +46,13 @@ export interface TrackFrame {
   inferMs: number;
 }
 
-/** Hands: pinch to click; Head: the nose (or head angle) points, face triggers click; Head + hand: the head points, a pinch clicks. */
+/**
+ * Hands: pinch to click; Head: the nose (or head angle) points, face triggers click; Head + hand: the head
+ * points, a pinch clicks; Palms: one palm points, moving the other hand clicks (no finger gestures).
+ */
 export type TrackingMode = HandsFreeMode;
 
-export const TRACKING_MODES: readonly TrackingMode[] = ['hand', 'head', 'head-hand'];
+export const TRACKING_MODES: readonly TrackingMode[] = ['hand', 'head', 'head-hand', 'palms'];
 
 export function isTrackingMode(value: unknown): value is TrackingMode {
   return (TRACKING_MODES as readonly unknown[]).includes(value);

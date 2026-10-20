@@ -1,10 +1,10 @@
 /**
- * What each face trigger does in the head modes, the timings, the player's eye calibration and the
- * pointer's source, style and fitted ranges, saved
- * per browser (a per-viewer convenience: never in the town save or the game settings).
+ * What each face trigger does in the head modes, the timings, the player's eye calibration, the
+ * pointer's source, style and fitted ranges, and the Palms mode's hands and click, saved per browser
+ * (a per-viewer convenience: never in the town save or the game settings).
  */
 import { DEFAULT_EYE_TIMING, isCalibrated, type EyeCalibration } from './eyeTriggers';
-import { HALF_AXES, POINTER_SOURCES, POINTER_STYLES, SOURCE_TUNING, type HeadRange, type HeadRanges, type PointerSource, type PointerStyle } from './headPointer';
+import { HALF_AXES, HEAD_POINTER_SOURCES, POINTER_SOURCES, POINTER_STYLES, SOURCE_TUNING, type HeadPointerSource, type HeadRange, type HeadRanges, type PointerSource, type PointerStyle } from './headPointer';
 
 export const FACE_TRIGGERS = ['blink', 'long-blink', 'wink-left', 'wink-right', 'mouth', 'brows', 'smile', 'key'] as const;
 export type FaceTrigger = (typeof FACE_TRIGGERS)[number];
@@ -82,8 +82,43 @@ export function pauseTrigger(bindings: Bindings): FaceTrigger | null {
 }
 
 export function nextAction(trigger: FaceTrigger, action: TriggerAction): TriggerAction {
-  const allowed = ALLOWED_ACTIONS[trigger];
-  return allowed[(allowed.indexOf(action) + 1) % allowed.length];
+  return cycle(ALLOWED_ACTIONS[trigger], action);
+}
+
+/** Palms: which of the player's own hands points; 'one' points with whichever hand is seen and has no click hand. */
+export const POINTING_HANDS = ['right', 'left', 'one'] as const;
+export type PointingHand = (typeof POINTING_HANDS)[number];
+
+/** The other hand's click move can do anything a face trigger can, holding included. */
+export const LIFT_ACTIONS: readonly TriggerAction[] = TRIGGER_ACTIONS;
+
+/** A fitted click move: from the click hand's rest, in palm sizes, x > 0 towards screen right, y > 0 down. */
+export interface ClickVector {
+  x: number;
+  y: number;
+}
+
+/** The lengths a click move may have, in palm sizes (shorter is lost in tremble). */
+export const CLICK_LENGTH = { min: 0.5, max: 6 } as const;
+
+export interface PalmSettings {
+  pointing: PointingHand;
+  /** What moving the click hand does. */
+  lift: TriggerAction;
+  /** The fitted click move; null: straight up. */
+  click: ClickVector | null;
+}
+
+export function nextPointingHand(hand: PointingHand): PointingHand {
+  return cycle(POINTING_HANDS, hand);
+}
+
+export function nextLiftAction(action: TriggerAction): TriggerAction {
+  return cycle(LIFT_ACTIONS, action);
+}
+
+function cycle<T>(values: readonly T[], value: T): T {
+  return values[(values.indexOf(value) + 1) % values.length];
 }
 
 export interface Timing {
@@ -113,10 +148,12 @@ export interface HandsFreeSettings {
   dwell: boolean;
   sensitivity: number;
   pointer: PointerSettings;
+  palm: PalmSettings;
 }
 
 export interface PointerSettings {
-  source: PointerSource;
+  /** The head modes' source; Palms always points with the palm. */
+  source: HeadPointerSource;
   style: PointerStyle;
   /** Fitted ranges per source (each source has its own units). */
   fits: HeadRanges;
@@ -132,7 +169,8 @@ export function defaultSettings(): HandsFreeSettings {
     key: 'Enter',
     dwell: true,
     sensitivity: 1,
-    pointer: { source: 'nose', style: 'direct', fits: { nose: null, angle: null } },
+    pointer: { source: 'nose', style: 'direct', fits: { nose: null, angle: null, palm: null } },
+    palm: { pointing: 'right', lift: 'hold', click: null },
   };
 }
 
@@ -182,13 +220,27 @@ export function parseSettings(raw: string | null): HandsFreeSettings {
   }
   if (isRecord(data.pointer)) {
     const pointer = data.pointer;
-    if ((POINTER_SOURCES as readonly unknown[]).includes(pointer.source)) settings.pointer.source = pointer.source as PointerSource;
+    if ((HEAD_POINTER_SOURCES as readonly unknown[]).includes(pointer.source)) settings.pointer.source = pointer.source as HeadPointerSource;
     if ((POINTER_STYLES as readonly unknown[]).includes(pointer.style)) settings.pointer.style = pointer.style as PointerStyle;
     if (isRecord(pointer.fits)) {
       for (const source of POINTER_SOURCES) settings.pointer.fits[source] = parseRange(pointer.fits[source], source);
     }
   }
+  if (isRecord(data.palm)) {
+    const palm = data.palm;
+    if ((POINTING_HANDS as readonly unknown[]).includes(palm.pointing)) settings.palm.pointing = palm.pointing as PointingHand;
+    if ((LIFT_ACTIONS as readonly unknown[]).includes(palm.lift)) settings.palm.lift = palm.lift as TriggerAction;
+    settings.palm.click = parseClick(palm.click);
+  }
   return settings;
+}
+
+function parseClick(value: unknown): ClickVector | null {
+  if (!isRecord(value)) return null;
+  const { x, y } = value;
+  if (typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+  const length = Math.hypot(x, y);
+  return length >= CLICK_LENGTH.min && length <= CLICK_LENGTH.max ? { x, y } : null;
 }
 
 /** A fit with every half-axis present, positive and believable for its source; otherwise none. */

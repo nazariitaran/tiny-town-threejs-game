@@ -196,7 +196,7 @@ export function parseTrack(json: unknown): RecordedFrame[] {
   if (file.format !== TRACK_FORMAT) fail('format', `"${TRACK_FORMAT}"`);
   if (file.version !== TRACK_VERSION) throw new Error(`Unsupported track version ${String(file.version)}; this build reads version ${TRACK_VERSION}`);
   text(file.startedAt, 'startedAt');
-  if (!isTrackingMode(file.mode)) fail('mode', 'hand, head or head-hand');
+  if (!isTrackingMode(file.mode)) fail('mode', 'hand, head, head-hand or palms');
   if (!Array.isArray(file.frames)) fail('frames', 'an array');
   if (file.frames.length > MAX_RECORD_FRAMES) throw new Error(`Track has ${file.frames.length} frames; the limit is ${MAX_RECORD_FRAMES}`);
   const frames: RecordedFrame[] = [];
