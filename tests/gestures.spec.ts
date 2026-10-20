@@ -168,3 +168,103 @@ test('head mode: the Pointer section cycles source and style, they persist, and 
   expect(errors.pageErrors).toEqual([]);
   expect(errors.consoleErrors.filter((text) => !/^INFO:|XNNPACK/.test(text))).toEqual([]);
 });
+
+test('palms mode: the Hands section cycles and persists, and only the controls Palms uses show', async ({ page }) => {
+  const errors = trackErrors(page);
+  await gotoTitle(page, '?gestures=palms');
+  const root = page.locator('#hf-root');
+  await expect(page.locator('#hf-mode-palms')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#hf-mode-palms')).toHaveAttribute('title', /no finger gestures/);
+  await expect(root).toHaveAttribute('data-family', 'palms');
+  await expect(page.locator('#hf-panel select, #hf-panel input[type="range"]')).toHaveCount(0);
+
+  // Face-only controls hide; the pointer's controls stay.
+  await expect(page.locator('#hf-preset-low-effort')).toBeHidden();
+  await expect(page.locator('#hf-eye-test')).toBeHidden();
+  await expect(page.locator('#hf-step-sensitivity')).toBeVisible();
+  await expect(page.locator('#hf-recentre')).toBeVisible();
+  await expect(page.locator('#hf-dwell')).toBeVisible();
+  await expect(page.locator('#hf-pointer')).toBeVisible();
+  await expect(page.locator('#hf-legend')).toContainText('Move your right hand');
+  await expect(page.locator('#hf-legend')).toContainText('Move your other hand up to click');
+
+  await page.locator('#hf-hands summary').click();
+  await expect(page.locator('#hf-pointing')).toHaveText('Right hand');
+  await expect(page.locator('#hf-bind-lift')).toHaveText('Hold to drag');
+  await expect(page.locator('#hf-rest-text')).toContainText('camera off');
+  await expect(page.locator('#hf-click-fit-reset')).toBeDisabled();
+  await page.locator('#hf-pointing').click();
+  await page.locator('#hf-bind-lift').click();
+  await expect(root).toHaveAttribute('data-pointing', 'left');
+  await expect(root).toHaveAttribute('data-lift', 'drag-toggle');
+  await expect(page.locator('#hf-legend')).toContainText('Move your left hand');
+  await page.locator('#hf-click-fit-start').click();
+  await expect(page.locator('#hf-click-fit-text')).toContainText('Start the camera');
+  await expect(root).toHaveAttribute('data-click-fit', 'idle');
+
+  await page.locator('#hf-pointer summary').click();
+  await expect(page.locator('#hf-hands')).not.toHaveAttribute('open', '');
+  await expect(page.locator('#hf-pointer-source')).toBeHidden();
+  await expect(page.locator('#hf-pointer-style')).toBeVisible();
+  await expect(root).toHaveAttribute('data-pointer', 'palm direct');
+  await page.locator('#hf-bindings summary').click();
+  await expect(page.locator('#hf-bind-key')).toBeVisible();
+  await expect(page.locator('#hf-bind-blink')).toBeHidden();
+  await page.locator('#hf-timing summary').click();
+  await expect(page.locator('#hf-step-dwellS')).toBeVisible();
+  await expect(page.locator('#hf-step-blinkMinS')).toBeHidden();
+
+  await page.reload();
+  await expect(root).toHaveAttribute('data-pointing', 'left');
+  await expect(root).toHaveAttribute('data-lift', 'drag-toggle');
+  await page.locator('#hf-hands summary').click();
+  await expect(page.locator('#hf-pointing')).toHaveText('Left hand');
+  await expect(page.locator('#hf-bind-lift')).toHaveText('Drag on / off');
+  // One hand has no other hand to click with.
+  await page.locator('#hf-pointing').click();
+  await expect(page.locator('#hf-pointing')).toHaveText('One hand');
+  await expect(page.locator('#hf-bind-lift')).toBeDisabled();
+  await expect(page.locator('#hf-rest-text')).toContainText('One hand');
+  await expect(page.locator('#hf-click-fit-start')).toBeHidden();
+  await expect(page.locator('#hf-legend')).toContainText('Move either hand');
+  errors.expectNone();
+});
+
+test('palms mode: tracking loads the hand model only, announces palms, and Fit my click starts and cancels', async ({ page }) => {
+  test.setTimeout(150_000);
+  const errors = trackErrors(page);
+  await gotoTitle(page, '?gestures=palms');
+  const root = page.locator('#hf-root');
+  await page.locator('#hf-start').click();
+  await expect(root).toHaveAttribute('data-status', 'tracking', { timeout: 90_000 });
+  await expect(root).toHaveAttribute('data-announced', 'palms');
+  const models = (await root.getAttribute('data-models')) ?? '';
+  expect(models).toContain('gesture_recognizer.task');
+  expect(models).not.toContain('face_landmarker');
+  await expect(page.locator('#hf-status')).toContainText('Show your hands');
+
+  await page.locator('#hf-hands summary').click();
+  await expect(page.locator('#hf-rest-text')).toHaveText('Other hand: not seen.');
+  await expect(root).toHaveAttribute('data-rest', 'none');
+  await page.locator('#hf-click-fit-start').click();
+  await expect(root).toHaveAttribute('data-click-fit', 'rest');
+  await expect(page.locator('#hf-click-fit-text')).toContainText('Rest your other hand');
+  await expect(page.locator('#hf-click-fit-text')).toContainText("can't see your other hand");
+  await expect(page.locator('#hf-click-fit-start')).toBeHidden();
+  await expect(page.locator('#hf-click-fit-back')).toBeVisible();
+  await page.locator('#hf-click-fit-cancel').click();
+  await expect(root).toHaveAttribute('data-click-fit', 'idle');
+  await expect(page.locator('#hf-click-fit-text')).toContainText('cancelled');
+
+  await page.locator('#hf-pointer summary').click();
+  await page.locator('#hf-fit-start').click();
+  await expect(root).toHaveAttribute('data-fit', 'centre');
+  await expect(page.locator('#hf-fit-text')).toContainText('Rest your pointing hand');
+  await page.locator('#hf-fit-cancel').click();
+  await expect(root).toHaveAttribute('data-fit', 'idle');
+
+  await page.locator('#hf-start').click();
+  await expect(root).toHaveAttribute('data-announced', 'none');
+  expect(errors.pageErrors).toEqual([]);
+  expect(errors.consoleErrors.filter((text) => !/^INFO:|XNNPACK/.test(text))).toEqual([]);
+});

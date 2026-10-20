@@ -1,7 +1,7 @@
 /**
  * On-screen camera controls (CameraPad): off by default, the menu switch shows them and is remembered,
  * real clicks turn, zoom, move and reset the camera (read from diagnostics `camera`), a held button
- * repeats, the Aim group follows the active tool, and head tracking shows the pad with the setting off.
+ * repeats, the Aim group follows the active tool, and head or Palms tracking shows the pad with the setting off.
  */
 import { expect, test, type Page } from '@playwright/test';
 import type { CameraStep } from '../src/game/events';
@@ -22,7 +22,7 @@ import {
   waitFrames,
 } from './helpers';
 
-// Chromium's fake camera for the head-tracking test (a test pattern, no face).
+// Chromium's fake camera for the tracking tests (a test pattern, no face or hand).
 test.use({ launchOptions: { args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] } });
 
 const ids = UI_TEST_IDS;
@@ -238,6 +238,26 @@ test.describe('head tracking', () => {
     const root = page.locator('#hf-root');
     if ((await root.getAttribute('data-panel')) === 'closed') await page.locator('#hf-toggle').click();
     await page.locator('#hf-mode-head').click();
+    await page.locator('#hf-start').click();
+    await expect(root).toHaveAttribute('data-status', 'tracking', { timeout: 90_000 });
+    await expect(pad(page)).toBeVisible();
+    await openMenuTab(page, 'graphics');
+    await expect(byId(page, ids.cameraPadSwitch), 'the setting stays off').not.toBeChecked();
+    await page.keyboard.press('Escape');
+    await expect(pad(page)).toBeVisible();
+
+    await page.locator('#hf-start').click();
+    await expect(root).toHaveAttribute('data-status', 'off');
+    await expect(pad(page)).toBeHidden();
+  });
+
+  test('Palms tracking shows the pad with the setting off; stopping the camera hides it', async ({ page }) => {
+    test.setTimeout(150_000);
+    await gotoTitle(page, '?gestures=palms');
+    await startBuilding(page);
+    await expect(pad(page)).toBeHidden();
+    const root = page.locator('#hf-root');
+    if ((await root.getAttribute('data-panel')) === 'closed') await page.locator('#hf-toggle').click();
     await page.locator('#hf-start').click();
     await expect(root).toHaveAttribute('data-status', 'tracking', { timeout: 90_000 });
     await expect(pad(page)).toBeVisible();
