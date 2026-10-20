@@ -22,6 +22,13 @@ Research, measurements and the full roadmap: [`research/mediapipe-gestures.md`](
 - **The panel can outgrow a short screen**, and a head can't scroll it: one section opens at a time and scrolls into view, but below ~700 px tall the lower buttons may still be out of reach. A compact layout or scroll buttons would close it.
 - **The switch key takes Enter by default** while a head mode is tracking, so keyboard Enter stops activating focused buttons then. A key nobody else uses (or no default) may suit keyboard users better.
 - **MediaPipe logs to the console** (some through `console.error`); quieten them before it ships beyond a flag.
+- **Palms has never been tried by a person,** nor with a hand that has missing fingers, a splint or a glove, the players it is for. Whether the palm detector finds such hands at all is the first thing to learn.
+- **Palms numbers are estimates:** the palm pointer's gains (1.5 palm sizes to the edge across, 1.1 up or down), the click move's 0.75 / 0.45 thresholds and 0.15 s hold, the rest's drift (τ 10 s), the 1 s role hold and the side band, all from synthetic series. Tune them with real players.
+- **Crossed hands aren't supported in Palms:** new roles go by side and then follow each hand by distance from where it was, so hands that cross, or come back into view on each other's side, can swap roles.
+- **Dwell is off during Fit my click** (as in the pointer fit) and the click move is suspended, so with no key bound its Cancel can't be pressed: the wizard ends only when it finishes or a step times out after 30 s.
+- **The 2 × 2 mode grid makes the panel taller,** which adds to the short-screen problem above.
+- **The key's legend line in Palms reads oddly:** bound to Hold it says "Press Enter to click; keep it up to drag", worded for a mouth or a hand, not a key.
+- **Palms uses the Gesture Recognizer only for its landmarks;** the Hand Landmarker alone would load 0.6 MB less and run a little faster.
 
 ## Match nights at the stadium
 - **Nobody has listened to it.** The crowd's level against the music and the placement sounds (`CROWD_TRIM`), the distance curve and the loop seam are set by measurement and tests, not by ear. Play a match night with sound on and adjust `CROWD_TRIM`, `CROWD_FULL_DISTANCE` and `CROWD_CUTOFF_DISTANCE`.

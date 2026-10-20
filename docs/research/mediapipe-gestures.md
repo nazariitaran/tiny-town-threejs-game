@@ -5,10 +5,11 @@ Can a player choose and place things in Tiny Town with their hands or their head
 ## Summary
 
 - **It works end to end.** MediaPipe runs in a Web Worker, and its output drives the game through the same code paths as the mouse. In an automated run with real MediaPipe tracking (MediaPipe's own hand photos played as a fake camera), a pinch on the Road card picks the tool, a pinch-drag lays a road of 9 blocks, ✌ rotates, 👎 acts as Esc and a fist drags the map. Every check passed, and pinch presses landed within 3 px of their targets.
-- **Three modes:** *Hand* (point with the hand, pinch to click and drag, fist to move the map), *Head* (the nose points; face triggers bound in the panel: by default a slow blink clicks, a left wink toggles a drag, a long blink pauses, resting on a button presses it) and *Head + hand* (the head points, a pinch with either hand clicks).
-- **Cost to everyone else: small.** The main JS chunk grows by 15 kB (4 kB gzip) and the main CSS by 2 kB. That is the on-screen camera pad, Aim and the intent handlers, which every player gets, not only hands-free players. Everything else (the 68 kB panel chunk with its 7 kB CSS, the 156 kB worker, the 323 kB WASM loader, the 11.8 MB WASM runtime at 3.5 MB gzip, and 12.1 MB of models) loads only after the flag *and* a click on **Start camera**.
+- **Four modes:** *Hand* (point with the hand, pinch to click and drag, fist to move the map), *Head* (the nose points; face triggers bound in the panel: by default a slow blink clicks, a left wink toggles a drag, a long blink pauses, resting on a button presses it), *Head + hand* (the head points, a pinch with either hand clicks) and *Palms* (one palm points, moving the other hand clicks; no finger is read).
+- **Cost to everyone else: small.** The main JS chunk grows by 15 kB (4 kB gzip) and the main CSS by 2 kB. That is the on-screen camera pad, Aim and the intent handlers, which every player gets, not only hands-free players. Everything else (the 92 kB panel chunk with its 7 kB CSS, the 156 kB worker, the 323 kB WASM loader, the 11.8 MB WASM runtime at 3.5 MB gzip, and 12.1 MB of models) loads only after the flag *and* a click on **Start camera**.
 - **Recommendation:** worth taking further as an **accessibility and "party trick" input mode**, not as a replacement for the mouse. Hand mode is the most promising. Head mode is the most valuable for accessibility but needs testing with real people. Before it ships beyond a flag, the owner needs to decide on model hosting and licensing (§Decisions). Some interactions still need hands-free counterparts: file dialogs and sliders outside the panel.
 - **Head-only play.** The head modes now aim at someone who can move only their head and face (§Playing with the head only). That brought on-screen camera controls and an Aim pad into the game itself, plus low-effort face triggers (blinks, winks after an eye test, pause, a switch key) and a pointer that fits a small or uneven range of movement.
+- **Hands without fingers.** *Palms* aims at someone who can move their hands and arms but can't rely on their fingers (§Playing with the hands, no fingers). It reuses the head pointer, the camera pad, Aim and dwell; the other hand clicks by moving from where it rests.
 - **Not yet tried with a real person on a real webcam.** All tracking so far ran on photos through Chromium's fake camera: first in a cloud container (4 slow CPU cores, software WebGL, about 4 results a second), then on an M2 Max laptop, where it keeps up with the camera at 30 results a second in game (§Validation). Comfort and threshold tuning with real people is the first follow-up (§How to try it).
 
 ## What MediaPipe offers for this
@@ -18,7 +19,7 @@ MediaPipe's web API is `@mediapipe/tasks-vision` (Apache-2.0; 1.0.1 at the time 
 | Task | Gives | Model (float16) | Used |
 | --- | --- | --- | --- |
 | Hand Landmarker | 21 points per hand (image and world space), handedness | 7.8 MB | via the Gesture Recognizer |
-| **Gesture Recognizer** | Hand Landmarker's output **plus** one of 7 canned gestures per hand (Closed_Fist, Open_Palm, Pointing_Up, Thumb_Down, Thumb_Up, Victory, ILoveYou) with a score; custom gestures can be trained with Model Maker | 8.4 MB | **Hand and Head + hand modes** |
+| **Gesture Recognizer** | Hand Landmarker's output **plus** one of 7 canned gestures per hand (Closed_Fist, Open_Palm, Pointing_Up, Thumb_Down, Thumb_Up, Victory, ILoveYou) with a score; custom gestures can be trained with Model Maker | 8.4 MB | **Hand, Head + hand and Palms modes** (Palms reads only the landmarks) |
 | **Face Landmarker** | 478 points, 52 ARKit-style blendshapes (`jawOpen`, `browInnerUp`, `mouthSmileLeft`…), an optional face transformation matrix | 3.8 MB | **Head and Head + hand modes** |
 | Pose Landmarker | 33 body points | 3–9 MB | no: arms-up pointing is tiring and coarser than a hand |
 | Holistic Landmarker | pose + face + hands in one graph | ~ all of the above | no: can't load only what a mode needs, heavier |
@@ -63,20 +64,61 @@ Before building, the plan went to a model from another family (DeepSeek, through
 ### Still to learn
 Every default (blink length, thresholds, the 0.6 smile gate, head-angle gains, joystick speed) was tuned only on painted photos and synthetic series. The next step is real players, ideally people who use only their head, with **Record** saving their sessions as numbers for replay tests. Open questions are in `docs/backlog.md` §Hands-free controls.
 
+## Playing with the hands, no fingers
+
+### Who it is for
+*Palms* is for players who can move their hands and arms but can't rely on their fingers: no pinch, no fist, no ✌ or 👎. As with the head modes, the assumptions below come from general knowledge, not from testing with players or therapists, so they need checking with real users:
+
+- **Cervical spinal cord injury (C5–C7):** the wrist and elbow move, the fingers are weak or don't move at all.
+- **Arthritis:** pinching hurts. **Tremor:** a pinch chatters, and the palm is steadier than a fingertip.
+- **Cerebral palsy, dystonia:** fingers that won't open or close on purpose. **Stroke:** often only one usable hand.
+- **Limb difference, missing fingers, splints or gloves:** the fingers a pinch or a canned gesture needs may be missing or covered.
+- **The model.** MediaPipe's finger landmarks and canned gestures are trained on typical hands. The palm (the wrist and the knuckles, what the palm detector anchors on) should hold up better when fingers are curled, missing or covered. That is an assumption, not a result: a typical hand making a fist on a test photo says nothing about how a hand with missing fingers or a splint is detected.
+
+### What follows for the design
+- **The palm points, never a finger.** The pointer follows the pointing hand's palm centre: the mean of the wrist and the four knuckles (landmarks 0, 5, 9, 13, 17). No fingertip is read, so curled, missing or shaking fingers don't move it; a unit test gives random finger landmarks and gets the same output.
+- **The head pointer's mapping.** The palm's offset from a neutral pose (taken in the first 0.6 s; Re-centre retakes it) goes through the head pointer: fixed gains or Fit to my movement per direction, Direct or Joystick, the shared sensitivity (§The head pointer for a small or uneven range). Unfitted, the edge is at 1.5 palm sizes across and 1.1 up or down.
+- **Palm sizes, so distance doesn't matter.** The offset is measured in the image and divided by the palm's current size, smoothed over about 0.5 s, so leaning back mid-session doesn't shrink the reach. The size is the longer of the palm's length (wrist to middle knuckle) and 1.3 × its width (index to little-finger knuckle), corrected for the frame's aspect: tipping the hand forward shortens the first, turning it the second.
+- **The other hand clicks by moving.** Its palm moves from its own rest along the click direction (straight up unless fitted), in palm sizes: past 0.75 for 0.15 s presses, back under 0.45 releases. The pointing hand stays where it is, so a click doesn't nudge the pointer, and the press is back-dated to 0.1 s before the move crossed the threshold. The move is bound like a face trigger, to any action; the default, Hold, clicks on a short move and drags while the hand stays there.
+- **Fit my click** gives another direction. Rest the other hand, then move it the way that is easiest and hold it there for 0.6 s. That move (0.5 to 6 palm sizes) becomes the click: it presses at 50 % of the move and releases at 30 %. It suits someone who can slide a hand sideways on a table but can't lift it.
+- **Sticky roles.** With two hands in view, the side decides: by default the player's right hand points, as seen in the mirror (or the left; with *One hand*, any hand points and there is no click hand). A hand followed for 1 s keeps its role wherever it moves, and no hand changes role during a press or a toggled drag. A lone hand within 8 % of the frame width of the middle isn't placed by side, and a lone hand that isn't clearly the pointing one becomes the click hand, so the cursor doesn't jump to it. Crossed hands aren't supported.
+- **A returning hand rests first.** A click hand not seen at calibration, or back after a second out of view, must hold still (within 0.15 palm sizes) for 0.5 s, and that becomes its new rest. It never presses by surprise.
+- **Slow drift.** A resting hand sags and shifts, so the rest follows it, with a 10 s time constant. It does so only while the hand is still, within 30 % of the press distance from the rest and not pressing, so a very slow lift still crosses the threshold.
+- **The camera and buttons as in the head modes.** There is no fist drag or two-fist zoom. The on-screen camera pad and Aim show while Palms tracks, resting on a button presses it, and the switch key works.
+- **One-hand play.** With one usable hand, dwell presses buttons and Aim → Place clicks the map (from the hovered cell). The dock's Rotate button and clicking the active card again cover rotate and putting the tool away.
+
+### How the plan was checked
+As for the head modes, the plan went to DeepSeek through the `second-opinion` skill, and each point was checked against the code. It changed the plan in these ways:
+
+- **Units.** Offsets are divided by the current, smoothed palm size, measured so it holds up when the hand tilts, not by one size fixed at calibration.
+- **Sticky roles.** Roles last at least 1 s of continuity, a band around the middle of the frame is never assigned by side, no role changes during a press or a drag, and a lone hand that might not be the pointing one clicks rather than points. A hand counts as lost by the head's rule (`FrameClock.lostAfter`), so one missed detection at 4 results a second doesn't drop a press.
+- **A time-based click hold.** The move must stay past the threshold for 0.15 s, not 2 frames, so it behaves the same at 4 and 30 results a second.
+- **Drift only when still.** The rest follows only a still hand near it, and slowly (10 s, not the planned 2 s), so a slow, effortful lift isn't absorbed into the rest.
+- **Fit thresholds for the palm.** A held palm trembles more than a held head: a hold allows 0.15 palm sizes, a step needs at least 0.2, and a stored extreme over 8 is rejected.
+- **Code traps.**
+  - `HandsFree` branched on `mode !== 'hand'`, which would have run Palms as a head mode. It now dispatches by mode family (`pinch`: Hand; `face`: Head and Head + hand; `palms`: Palms), with exhaustive switches.
+  - `sourceSignal` became exhaustive over the pointer sources, so a face never gives a palm signal.
+  - The head's Source cycle and the saved `pointer.source` take only the head sources (nose, angle); fits are parsed for all three.
+
+The one point not taken: the review questioned Hold as the click move's default. It stays, because a short move still clicks, a drag lasts only as long as the player wants it, and a player who can't keep a hand up can fit a sideways slide instead. A one-hand click without dwell is a follow-up (§Roadmap).
+
+### Still to learn
+Nobody has tried Palms: not with a real person on a real webcam, and not with a hand that has missing fingers, a splint or a glove. The first question is whether the palm detector finds such hands at all. Every number (the gains, the 0.75 / 0.45 thresholds, the 0.15 s hold, the drift, the 1 s role hold, the side band) is an estimate from synthetic series. **Record** saves sessions in Palms too, and `replayPalms` runs them through the interpreter. Open questions are in `docs/backlog.md` §Hands-free controls.
+
 ## Interaction design
 
 ### Mappings
 
-| | Hand | Head | Head + hand |
-| --- | --- | --- | --- |
-| Point | the pinch point (between thumb and index tips, steadied by the index knuckle), mirrored | the nose's position inside the face outline, or the head's yaw / pitch; relative to a neutral pose taken in the first 0.6 s; direct or joystick; fitted per direction to the player's range | head |
-| Click | pinch thumb and index | Low effort: close both eyes 0.35–1.5 s (a slow blink); Classic: open the mouth; or a switch / key | pinch with either hand (face triggers as Head) |
-| Drag | hold the pinch (roads, fences, scatter) | Low effort: wink left to start, again to end; Classic: keep the mouth open; or hold the key | hold the pinch |
-| Move the map | fist and move; two fists apart / together to zoom | (none; the on-screen camera pad, shown in head modes, pans, rotates and zooms) | fist and move |
-| Rotate (R) | hold ✌ 0.35 s | bindable (Classic: hold a broad smile 0.9 s) | hold ✌ |
-| Esc (put back, put tool away, close) | hold 👎 0.35 s | wink right, or raise the eyebrows 0.4 s | hold 👎 |
-| Pause hands-free | (none) | Low effort: keep the eyes closed 1.5 s (again to resume) | as Head |
-| DOM buttons | point + pinch | point + any click trigger, or rest on it 1 s (dwell) | point + pinch, or dwell |
+| | Hand | Head | Head + hand | Palms |
+| --- | --- | --- | --- | --- |
+| Point | the pinch point (between thumb and index tips, steadied by the index knuckle), mirrored | the nose's position inside the face outline, or the head's yaw / pitch; relative to a neutral pose taken in the first 0.6 s; direct or joystick; fitted per direction to the player's range | head | the pointing palm's centre (wrist and knuckles), mirrored, in palm sizes from a neutral pose taken in the first 0.6 s; direct or joystick; fitted per direction like the head |
+| Click | pinch thumb and index | Low effort: close both eyes 0.35–1.5 s (a slow blink); Classic: open the mouth; or a switch / key | pinch with either hand (face triggers as Head) | move the other hand up from its rest (or the fitted move); or the key |
+| Drag | hold the pinch (roads, fences, scatter) | Low effort: wink left to start, again to end; Classic: keep the mouth open; or hold the key | hold the pinch | keep the other hand there (Hold, the default); or hold the key |
+| Move the map | fist and move; two fists apart / together to zoom | (none; the on-screen camera pad, shown in head modes, pans, rotates and zooms) | fist and move | (none; the camera pad, as in the head modes) |
+| Rotate (R) | hold ✌ 0.35 s | bindable (Classic: hold a broad smile 0.9 s) | hold ✌ | bindable to the click move or the key; the dock's Rotate button |
+| Esc (put back, put tool away, close) | hold 👎 0.35 s | wink right, or raise the eyebrows 0.4 s | hold 👎 | bindable to the click move or the key; clicking the active card puts the tool away |
+| Pause hands-free | (none) | Low effort: keep the eyes closed 1.5 s (again to resume) | as Head | bindable (off by default) |
+| DOM buttons | point + pinch | point + any click trigger, or rest on it 1 s (dwell) | point + pinch, or dwell | point + the click move or the key, or dwell |
 
 ### Head-mode triggers (face only)
 
@@ -130,7 +172,7 @@ Many people who play with their head can turn it only a little, or further one w
 camera ─► <video> ─rVFC─► createImageBitmap ─transfer─► tracker.worker.ts (MediaPipe, GPU or CPU)
                                                               │ landmarks, gestures, 6 blendshapes, head yaw / pitch
                                   HandsFree ◄────────────────┘
-                                     │  HandInterpreter / HeadInterpreter   (pure: filters, thresholds, holds)
+                                     │  HandInterpreter / HeadInterpreter / PalmInterpreter   (pure: filters, thresholds, holds)
                                      ▼  GestureFrame { x, y, pressed, grab, zoom, command… }
                                   GestureRouter
              over the canvas ─► intent:virtual-pointer {down|move|up|leave} ─► ToolController (same strokes as a mouse)
@@ -145,13 +187,15 @@ camera ─► <video> ─rVFC─► createImageBitmap ─transfer─► tracker.
 | `src/gesture/HandsFree.ts`, `handsFree.css` | composition, the panel (mode, preview with skeleton, status, Start/Stop, head settings) and the cursor |
 | `src/gesture/Tracker.ts` | camera, worker lifecycle, frame pump (one frame in flight, extra frames dropped), delegate choice, GPU watchdog |
 | `src/gesture/tracker.worker.ts` | MediaPipe in a module worker; posts only what the interpreters read |
-| `src/gesture/handInterpreter.ts`, `headInterpreter.ts` | pure: landmarks → `GestureFrame` |
+| `src/gesture/handInterpreter.ts`, `headInterpreter.ts`, `palmInterpreter.ts` | pure: landmarks → `GestureFrame` (Palms reads only the wrist and knuckles, gives the hands their roles, and turns the other hand's move into a press) |
+| `src/gesture/triggerActions.ts` | pure: what a bound one-shot trigger does (click, drag on / off, Esc, rotate, pause, re-centre), shared by the head and palm interpreters |
 | `src/gesture/oneEuro.ts`, `pointerSmoother.ts`, `triggers.ts` | pure: One Euro filter, back-dated press, latches, hold triggers, two-threshold switches |
 | `src/gesture/GestureRouter.ts` | where the frame goes: canvas, a DOM control, the camera |
 | `src/gesture/eyeTriggers.ts` | pure: blinks and winks classed by length and by eye; the eye gates |
-| `src/gesture/bindings.ts` | pure: what each face trigger does, timings, the eye calibration, the pointer's source, style and fitted ranges, saved per browser |
-| `src/gesture/headPointer.ts` | pure: head offset → pointer target, Direct or Joystick, per-direction fit |
+| `src/gesture/bindings.ts` | pure: what each face trigger does, timings, the eye calibration, the pointer's source, style and fitted ranges, the Palms hands and click, saved per browser |
+| `src/gesture/headPointer.ts` | pure: head or palm offset → pointer target, Direct or Joystick, per-direction fit |
 | `src/gesture/rangeFit.ts` | pure: the Fit to my movement wizard (centre, then each extreme) |
+| `src/gesture/clickFit.ts` | pure: the Fit my click wizard (rest, then the chosen move) |
 | `src/gesture/faceAngles.ts` | head yaw and pitch from the facial transformation matrix (the worker uses it) |
 | `src/gesture/recorder.ts` | records a session to JSON (tracking numbers only) and parses one back |
 | `src/gesture/replay.ts` | runs recorded frames through the interpreters, for tests and tuning |
@@ -160,10 +204,10 @@ camera ─► <video> ─rVFC─► createImageBitmap ─transfer─► tracker.
 
 **Changes to existing code** (small, additive):
 
-- `events.ts` gains `intent:virtual-pointer`, `intent:pan-camera` and `intent:zoom-camera`, then `intent:camera-step`, `intent:set-camera-pad`, `intent:aim-nudge` and `intent:aim-place`, and the events `camera-pad:changed`, `hands-free:changed` and `aim:changed`. These are new entries only, which the shared-contract rule allows.
+- `events.ts` gains `intent:virtual-pointer`, `intent:pan-camera` and `intent:zoom-camera`, then `intent:camera-step`, `intent:set-camera-pad`, `intent:aim-nudge` and `intent:aim-place`, and the events `camera-pad:changed`, `hands-free:changed` and `aim:changed`. These are new entries only, which the shared-contract rule allows. `HandsFreeMode` later gains `'palms'`, also additive.
 - `ToolController` handles the virtual pointer. Its pointer-up logic moved into `releaseStroke`, shared with the mouse, and the virtual pointer counts as "coarse" for picking fences to bulldoze. It also owns Aim (the aimed cell, `aim:changed`); the screen-to-grid maths is in `interaction/aimMath.ts`.
 - `CameraController` gains `dragGround(dx, dy)`, `zoomBy(factor)` and `panStep(x, y)`, which uses `framing.panStepDelta` for the eased pan step.
-- `ui/CameraPad.ts` (the on-screen buttons) and `ui/cameraPadLogic.ts` (visibility, hold-to-repeat), with entries in `ui/testIds.ts` and `ui/glyphs.ts`; `UiRoot` mounts the pad.
+- `ui/CameraPad.ts` (the on-screen buttons) and `ui/cameraPadLogic.ts` (visibility, hold-to-repeat; the head modes and Palms show the pad), with entries in `ui/testIds.ts` and `ui/glyphs.ts`; `UiRoot` mounts the pad.
 - `Game` wires those intents (building phase only), handles the camera step and the pad setting, counts virtual-pointer input as activity for the frame budget, adds the `emitIntent` test hook and the diagnostics field `aim`.
 - `SaveStore` gains `settings.cameraPad` (default off).
 - `UiRoot` places the invalid-placement tooltip by the virtual pointer.
@@ -204,16 +248,19 @@ Both used a Chromium fake camera playing MJPEG files composed from MediaPipe's o
 
 | Check | Where | Result |
 | --- | --- | --- |
-| `npm run verify` (local paths, licences, typecheck, unit tests, production build) | M2 Max | pass: 53 test files, 873 passed, 1 skipped |
+| `npm run verify` (local paths, licences, typecheck, unit tests, production build) | M2 Max | pass: 55 test files, 920 passed, 1 skipped |
 | Unit tests, `src/gesture/gesture.test.ts` (23) | cloud | pass: One Euro filter, back-dated press, triggers, pinch geometry and mirror mapping, pinch hysteresis and loss, fist grab deltas, two-fist zoom, held commands, hand picking, nose offset, head calibration, mouth / pinch press, eyebrow and smile commands, re-centring |
-| Unit tests, `src/gesture/headPointer.test.ts` (23) | M2 Max (in `verify`) | fit mapping (asymmetric ranges, the edge at 90 %), the joystick (dead zone, speed, the same distance at 4 and 30 results a second, back-dated clicks), the fit wizard (holds, wobble, too small a move, timeout, lost face, cancel, back), yaw / pitch from a matrix, old settings without the pointer fields |
+| Unit tests, `src/gesture/headPointer.test.ts` (31) | M2 Max (in `verify`) | fit mapping (asymmetric ranges, the edge at 90 %), the joystick (dead zone, speed, the same distance at 4 and 30 results a second, back-dated clicks), the fit wizard (holds, wobble, too small a move, timeout, lost face, cancel, back), yaw / pitch from a matrix, old settings without the pointer fields; the palm source (unfitted edge, a fit in palm sizes, no palm signal from a face) and the Palms settings (defaults for old blobs, malformed values dropped, round trip) |
+| Unit tests, `src/gesture/palmInterpreter.test.ts` (32) | M2 Max (in `verify`) | palm centre and size (a tipped hand, the frame aspect); calibration, mirroring, palm sizes near and far, re-centre, frozen pointer, joystick; random finger landmarks give the same output; roles by side, One hand, a lone unsure hand clicks, a dropped frame keeps roles, young roles follow the side and then stick, none change during a press; loss at 4 results a second; the 0.15 s press and lower release, other moves doing nothing, a returning hand resting first, drift with a very slow lift still pressing, a fitted sideways click, back-dating, the same at 4 and 30 results a second; every binding of the click move and the key; Fit my click suspending clicks; a recorded replay |
+| Unit tests, `src/gesture/clickFit.test.ts` (7) | M2 Max (in `verify`) | Fit my click: a sideways move in palm sizes whatever the distance and aspect, the 0.6 s hold at 4 results a second too, too small a move timing out, a lost hand, back and cancel, a move cut to the longest click, the fitted move clicking at half its length in the interpreter |
 | Unit tests, newer files: `eyeTriggers.test.ts` (21), `GestureRouter.test.ts` (5), `recorder.test.ts` (10), `aimMath.test.ts` (8), `cameraPadLogic.test.ts` (7) | M2 Max (in `verify`) | pass |
-| `tests/gestures.spec.ts` (6 tests; Chromium fake camera, no hand in view) | M2 Max (full e2e) | pass: without the flag no gesture code or MediaPipe request at all; the panel starts the camera and Stop releases it; switching mode restarts with the face model; head presets, bindings and timing are buttons and persist in the browser; tracking announces `hands-free:changed`, the eye test starts and cancels; the Pointer section cycles source and style, persists, and the fit starts and cancels |
-| `tests/camera-pad.spec.ts` (6 tests) | M2 Max (full e2e) | pass: the pad is off by default, the menu switch shows it and it is remembered; clicks turn, zoom, move and reset the camera; holding a pan button repeats it; the Aim group shows only while a tool is active; head tracking shows the pad with the setting off; the Aim buttons nudge and place with real clicks |
+| `tests/gestures.spec.ts` (8 tests; Chromium fake camera, no hand in view) | M2 Max (full e2e) | pass: without the flag no gesture code or MediaPipe request at all; the panel starts the camera and Stop releases it; switching mode restarts with the face model; head presets, bindings and timing are buttons and persist in the browser; tracking announces `hands-free:changed`, the eye test starts and cancels; the Pointer section cycles source and style, persists, and the fit starts and cancels; in Palms the Hands section cycles and persists, face-only controls hide, One hand disables the click move, tracking loads the hand model only and announces `palms`, and Fit my click and the pointer fit start and cancel |
+| `tests/camera-pad.spec.ts` (7 tests) | M2 Max (full e2e) | pass: the pad is off by default, the menu switch shows it and it is remembered; clicks turn, zoom, move and reset the camera; holding a pan button repeats it; the Aim group shows only while a tool is active; head tracking and Palms tracking show the pad with the setting off; the Aim buttons nudge and place with real clicks |
 | `tests/aim.spec.ts` (6 tests, driven through the `emitIntent` test hook) | M2 Max (full e2e) | pass: road nudges and Place; object tools place on the aimed cell; Move carries and drops; hedges slide the aimed edge and Place grows it; directions stay screen-relative after the camera turns; a pointer moving over the map, Esc or a tool change ends the aim |
-| Full `npm run test:e2e -- --workers=6` | M2 Max | **142 passed in 2.8 min** |
+| Full `npm run test:e2e -- --workers=6` | M2 Max | **145 passed in 3.0 min** |
 | `scripts/gesture-smoke.mjs` (real tracking on photos; Low preset, 960 × 540) | cloud | all checks pass (tables below) |
 | `scripts/gesture-smoke.mjs --headed` | M2 Max | every check passed, 0 page errors (tables below) |
+| `scripts/gesture-smoke.mjs --only palms` (a fist points with its palm, another hand clicks by moving up: dwell picks Road, a lift places a block, a held lift drags a road, the pointer stays put while the other hand lifts, dwell on the camera pad turns the camera) | M2 Max | results to come. A typical hand making a fist shows that curled fingers don't steer the pointer, not that atypical hands are detected |
 | Earlier e2e run in the cloud (interaction, build-flow, move, smoke; 1 worker, 180 s timeout) | cloud | timed out: 4 pass, 9 fail, all on timeouts or wall-clock checks (a 1.5 s tooltip, the F-reset camera pose). `main` fails the same smoke and interaction tests there. The cloud box is too slow for the full suite; the M2 Max run above replaces that check. |
 
 **Rates in game** (M2 Max, headed smoke run): hands 21.9 ms, 28.9 results/s; head 13.6 ms, 30.1 results/s; eyes 19.0 ms, 29.9 results/s; pointer 19.5 ms, 30.0 results/s.
@@ -290,7 +337,7 @@ In the game on the High preset (`gesture-smoke.mjs --headed --graphics high`), t
 1. **Measure on real hardware:**
    - `node scripts/gesture-bench.mjs` on a laptop (GPU and CPU) and a desktop (*done* on an M2 Max laptop, §Validation; a desktop and a low-end laptop are still to measure);
    - try each mode with a few people, in different lighting, with glasses, at different distances;
-   - tune `DEFAULT_HAND_TUNING` / `DEFAULT_HEAD_TUNING` (thresholds, region, filters).
+   - tune `DEFAULT_HAND_TUNING` / `DEFAULT_HEAD_TUNING` / `DEFAULT_PALM_TUNING` (thresholds, region, filters).
 
    The smoke and bench scripts make the numbers reproducible.
 2. **Delegate choice from measurement.** Run both delegates for a few frames at start and keep the faster. Today: GPU unless the renderer is software, with a watchdog.
@@ -314,7 +361,13 @@ In the game on the High preset (`gesture-smoke.mjs --headed --graphics high`), t
    - a deterministic e2e for the virtual pointer: the path exists (`emitIntent`, used by `tests/aim.spec.ts`), and what is still open is a down / move / up stroke spec; *done for the interpreters:* replay recorded landmark streams (`replayHead` / `replayHands`);
    - keep `gesture-smoke.mjs` as a manual pre-release check, since it needs network, ffmpeg and about 3 minutes.
 8. **Custom gestures** (Model Maker) only if the canned 7 and the pinch prove too few.
-9. **Phones:** see `docs/mobile-backlog.md`.
+9. **Palms follow-ups:**
+   - the Hand Landmarker alone instead of the Gesture Recognizer: Palms reads only landmarks, so the canned gestures are wasted (0.6 MB less, a little faster);
+   - the Pose Landmarker's wrists as a source for hands the palm detector misses;
+   - a lower detection confidence for atypical hands, if real players show the default misses them;
+   - a one-hand click without dwell, for players with one usable hand;
+   - a second trigger for the other hand, such as Esc by reaching out.
+10. **Phones:** see `docs/mobile-backlog.md`.
 
 ## How to try it
 
@@ -325,12 +378,14 @@ node scripts/fetch-mediapipe-models.mjs     # optional: self-host the models (el
 npm run dev
 # open http://127.0.0.1:5188/?gestures        hand mode
 #      http://127.0.0.1:5188/?gestures=head   head mode   (=head-hand for both; add ,cpu to skip the GPU)
+#      http://127.0.0.1:5188/?gestures=palms  Palms mode
 ```
 
 Click **Start camera** (the browser asks for the camera), then:
 
 - **Hand:** keep your hand inside the dashed box in the preview. Pinch the Road card, then pinch and drag on the map. Make a fist and move it to slide the map.
 - **Head:** sit square to the camera and hold still for the first half second while it centres. **Re-centre** retakes the neutral pose, and **Sensitivity** scales the movement. **Pointer** → **Fit to my movement** fits it to how far you can turn each way; Source and Style switch to the head angle or a joystick. Run the **Eye test** (about 10 s) so blinks fit your eyes and winks can be bound; **Bindings** and **Timing** change what each face gesture does.
+- **Palms:** show both hands and hold the pointing hand (your right by default) still for the first half second; rest the other hand where it is comfortable. Move the pointing hand to point, and move the other hand up to click; keep it there to drag. **Hands** sets which hand points (or One hand), what the other hand's move does, and **Fit my click** (about 5 s) for a move other than up. **Pointer** → **Fit to my movement** works as in the head modes.
 
 Reproducible checks (each needs a dev server running on `PORT`, default 5188):
 
