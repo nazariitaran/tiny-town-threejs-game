@@ -11,8 +11,11 @@
 // Then the pointer sources: the portrait warped in perspective (one side nearer, as a turned or tilted
 // head) moves the pointer the same way with the nose and with the head angle; and the Fit wizard
 // completes on the warped portraits (nose source).
+// Then Palms: a fist points with its palm while another hand clicks by moving up: dwell picks Road, a lift
+// places a block, a held lift drags a road, the pointer stays put while the other hand lifts, and a dwell
+// on the camera pad turns the camera.
 // Needs a dev server on PORT and ffmpeg. Writes videos, screenshots and report.json to --out.
-// Run: node scripts/gesture-smoke.mjs [--out artifacts/gesture-smoke] [--graphics low] [--headed] [--only hands|head|eyes|pointer]
+// Run: node scripts/gesture-smoke.mjs [--out artifacts/gesture-smoke] [--graphics low] [--headed] [--only hands|head|eyes|pointer|palms]
 import { chromium } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -49,9 +52,9 @@ for (const file of ['pointing_up.jpg', 'victory.jpg', 'fist.jpg', 'thumb_up.jpg'
   writeFileSync(path, Buffer.from(await response.arrayBuffer()));
 }
 const ffmpeg = (...a) => execFileSync('ffmpeg', ['-loglevel', 'error', '-y', ...a]);
-const pose = (name, source, filter) => {
+const pose = (name, source, filter, height = HAND_HEIGHT) => {
   const path = join(imageDir, `${name}.png`);
-  ffmpeg('-i', join(imageDir, source), '-vf', `${filter ? `${filter},` : ''}scale=-2:${HAND_HEIGHT}`, path);
+  ffmpeg('-i', join(imageDir, source), '-vf', `${filter ? `${filter},` : ''}scale=-2:${height}`, path);
   return path;
 };
 const POSES = {
@@ -68,21 +71,29 @@ ffmpeg('-i', join(imageDir, 'portrait.jpg'), '-vf', 'crop=560:560:130:0,scale=-2
 const size = (path) => execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', path], { encoding: 'utf8' }).trim().split(',').map(Number);
 
 // --- Video ----------------------------------------------------------------------------------------
-/** A segment: `pose` (or null: empty) with its top-left moving from `from` to `to` (frame px) over `seconds`. */
+/**
+ * A segment: `pose` (or null: empty) with its top-left moving from `from` to `to` (frame px) over `seconds`;
+ * or `layers`, several such poses at once (later ones drawn over earlier ones).
+ */
 function buildVideo(name, segments) {
   const parts = [];
   segments.forEach((segment, i) => {
     const part = join(out, `${name}-${i}.mjpeg`);
     const d = segment.seconds;
     const colour = `color=c=${BACKGROUND}:s=${FRAME.width}x${FRAME.height}:r=30:d=${d}`;
-    if (!segment.pose) {
+    const layers = segment.layers ?? (segment.pose ? [segment] : []);
+    if (layers.length === 0) {
       ffmpeg('-f', 'lavfi', '-i', colour, '-f', 'mjpeg', '-q:v', '4', part);
     } else {
-      const [x0, y0] = segment.from;
-      const [x1, y1] = segment.to ?? segment.from;
-      const x = `${x0.toFixed(1)}+(${(x1 - x0).toFixed(1)})*t/${d}`;
-      const y = `${y0.toFixed(1)}+(${(y1 - y0).toFixed(1)})*t/${d}`;
-      ffmpeg('-f', 'lavfi', '-i', colour, '-loop', '1', '-i', segment.pose, '-filter_complex', `[0][1]overlay=x='${x}':y='${y}':shortest=1`, '-f', 'mjpeg', '-q:v', '4', part);
+      const inputs = layers.flatMap((layer) => ['-loop', '1', '-i', layer.pose]);
+      const chain = layers.map((layer, j) => {
+        const [x0, y0] = layer.from;
+        const [x1, y1] = layer.to ?? layer.from;
+        const x = `${x0.toFixed(1)}+(${(x1 - x0).toFixed(1)})*t/${d}`;
+        const y = `${y0.toFixed(1)}+(${(y1 - y0).toFixed(1)})*t/${d}`;
+        return `[${j === 0 ? '0' : `v${j}`}][${j + 1}]overlay=x='${x}':y='${y}':shortest=1${j === layers.length - 1 ? '' : `[v${j + 1}]`}`;
+      });
+      ffmpeg('-f', 'lavfi', '-i', colour, ...inputs, '-filter_complex', chain.join(';'), '-f', 'mjpeg', '-q:v', '4', part);
     }
     parts.push(part);
   });
@@ -401,11 +412,185 @@ async function pointerPass() {
   return { results, stats, positions, errors };
 }
 
+// --- Pass 6: Palms ---------------------------------------------------------------------------------
+// Two hands, no finger gestures: the fist (the player's right hand, on image-left) points with its palm
+// and the other hand (pointing_up, mirrored into a left hand) clicks by moving up. A first run measures
+// how far the cursor moves per image px of the fist and how big the other hand's palm is; the journey is
+// built from that: rest both hands → dwell picks Road → lift at A places a block → lift held while the fist
+// moves A → B drags a road, lowering releases → dwell on the camera pad turns the camera.
+const PALM_HEIGHT = 200;
+
+async function palmsPass() {
+  const POINT = pose('palm-point', 'fist.jpg', 'crop=190:354:90:0', PALM_HEIGHT);
+  const CLICK = pose('palm-click', 'pointing_up.jpg', 'crop=170:376:70:0,hflip', PALM_HEIGHT);
+  const [pointW] = size(POINT);
+  const [clickW] = size(CLICK);
+  const P0 = [200 - pointW / 2, 150];
+  const C0 = [460 - clickW / 2, 170];
+  const shift = (p, dx, dy) => [p[0] + dx, p[1] + dy];
+  const both = (seconds, point, click) => ({ seconds, layers: [{ pose: CLICK, ...click }, { pose: POINT, ...point }] });
+  const centre = { x: VIEW.width / 2, y: VIEW.height / 2 };
+
+  /** Samples #hf-root until the video reaches `until` (s). */
+  const sample = async (page, until) => {
+    const samples = [];
+    while ((await page.evaluate(() => document.querySelector('.hf-video').currentTime)) < until) {
+      samples.push(await panel(page));
+      await page.waitForTimeout(100);
+    }
+    return samples;
+  };
+  const bothSeen = (samples) => samples.filter((s) => s.pointerHand === 'true' && s.clickHand === 'true').length / Math.max(1, samples.length);
+
+  // --- Calibration: cursor per image px of the fist, and the other hand's palm size --------------------
+  const PROBE = { x: 45, y: 35, lift: 20 };
+  const probes = [
+    { name: 'rest', point: [0, 0], click: [0, 0] },
+    { name: 'click probe', point: [0, 0], click: [0, -PROBE.lift] },
+    { name: 'rest again', point: [0, 0], click: [0, 0] },
+    { name: 'image-left', point: [-PROBE.x, 0], click: [0, 0] },
+    { name: 'image-right', point: [PROBE.x, 0], click: [0, 0] },
+    { name: 'image-up', point: [0, -PROBE.y], click: [0, 0] },
+    { name: 'image-down', point: [0, PROBE.y], click: [0, 0] },
+  ];
+  const segments = [{ pose: null, seconds: LEAD_IN }];
+  let previous = probes[0];
+  for (const probe of probes) {
+    segments.push(both(0.5, { from: shift(P0, ...previous.point), to: shift(P0, ...probe.point) }, { from: shift(C0, ...previous.click), to: shift(C0, ...probe.click) }));
+    segments.push(both(3, { from: shift(P0, ...probe.point) }, { from: shift(C0, ...probe.click) }));
+    previous = probe;
+  }
+  const calibration = {};
+  const layout = {};
+  {
+    const { browser, page } = await open(buildVideo('palms-calibrate', segments), 'palms');
+    layout.road = await page.evaluate(() => {
+      const r = document.querySelector('[data-tool="road"]').getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    });
+    layout.orbit = await page.evaluate(() => {
+      const r = document.querySelector('#btn-cam-orbit-left').getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2, width: r.width };
+    });
+    const cell = (x, z) => page.evaluate(([cx, cz]) => window.__THREE_GAME_TEST_HOOKS__.cellToClient(cx, cz), [x, z]);
+    // Clear of the hands-free panel and the camera pad's View and Aim groups.
+    layout.a = await cell(14, 36);
+    layout.b = await cell(30, 36);
+    let t = LEAD_IN;
+    for (const probe of probes) {
+      t += 3.5;
+      const samples = await sample(page, t - 0.3);
+      const p = await panel(page);
+      calibration[probe.name] = { x: Number(p.x), y: Number(p.y), liftLevel: Number(p.liftLevel), rest: p.rest, both: Number(bothSeen(samples).toFixed(2)) };
+      console.log(`· palms calibration: ${probe.name.padEnd(12)} cursor=${p.x},${p.y} lift=${p.liftLevel} rest=${p.rest} both hands seen ${Math.round(bothSeen(samples) * 100)} % ${p.label}`);
+    }
+    await page.screenshot({ path: join(out, 'palms-calibrate.png') });
+    await browser.close();
+  }
+  const rest = calibration.rest;
+  const gain = {
+    left: (calibration['image-right'].x - rest.x) / PROBE.x,
+    right: (calibration['image-left'].x - rest.x) / -PROBE.x,
+    up: (calibration['image-up'].y - rest.y) / -PROBE.y,
+    down: (calibration['image-down'].y - rest.y) / PROBE.y,
+  };
+  // Unfitted, a palm size of offset moves the cursor 1/3 of the width across and 0.45 of the height down.
+  const palmPx = {
+    left: (VIEW.width / 3) / Math.abs(gain.left),
+    right: (VIEW.width / 3) / Math.abs(gain.right),
+    up: (VIEW.height * 0.45) / Math.abs(gain.up),
+    down: (VIEW.height * 0.45) / Math.abs(gain.down),
+  };
+  // The lift level is the move up over the 0.75 palm-size threshold.
+  const clickPalmPx = PROBE.lift / (calibration['click probe'].liftLevel * 0.75);
+  const lift = Math.round(1.4 * clickPalmPx);
+  console.log('palms: cursor px per image px', JSON.stringify(gain), '· implied fist palm px', JSON.stringify(palmPx), `· other hand palm ${clickPalmPx.toFixed(0)} px → lift ${lift} px`);
+  console.log('palms: targets (CSS px):', JSON.stringify(layout));
+  for (const g of Object.values(gain)) if (!(Math.abs(g) > 0.1)) throw new Error(`palms calibration: the cursor did not follow the fist (${JSON.stringify(calibration)})`);
+  if (!Number.isFinite(clickPalmPx) || clickPalmPx <= 0) throw new Error(`palms calibration: the other hand's lift did not register (${JSON.stringify(calibration['click probe'])})`);
+
+  /** Where the fist's top-left goes for the cursor to land on `target`. */
+  const at = (target) => {
+    const dx = target.x - rest.x;
+    const dy = target.y - rest.y;
+    return shift(P0, dx / (dx >= 0 ? gain.right : gain.left), dy / (dy >= 0 ? gain.down : gain.up));
+  };
+  const up = shift(C0, 0, -lift);
+  const STEPS = [
+    { name: 'lead-in', seconds: LEAD_IN, video: { pose: null, seconds: LEAD_IN } },
+    { name: 'both hands at rest', seconds: 4, video: both(4, { from: P0 }, { from: C0 }), check: (g, p) => p.present === 'true' && p.pointerHand === 'true' && p.clickHand === 'true' && p.rest === 'ready' },
+    { name: 'camera pad shows', seconds: 0.5, video: both(0.5, { from: P0 }, { from: C0 }), check: (g, p, s) => s.pad },
+    { name: 'to the Road card', seconds: 1.5, video: both(1.5, { from: P0, to: at(layout.road) }, { from: C0 }) },
+    { name: 'dwell on the Road card', seconds: 3, target: layout.road, video: both(3, { from: at(layout.road) }, { from: C0 }), check: (g) => g.tool === 'road' },
+    { name: 'to A', seconds: 2, video: both(2, { from: at(layout.road), to: at(layout.a) }, { from: C0 }) },
+    { name: 'hover A', seconds: 2, target: layout.a, mark: true, video: both(2, { from: at(layout.a) }, { from: C0 }), check: (g, p, s) => s.onMap },
+    { name: 'other hand lifts at A', seconds: 2.5, target: layout.a, still: true, video: both(2.5, { from: at(layout.a) }, { from: C0, to: up }), check: (g, p) => g.roadTiles >= 1 && p.pressed === 'true' },
+    { name: 'held lift: drag A → B', seconds: 4, video: both(4, { from: at(layout.a), to: at(layout.b) }, { from: up }) },
+    { name: 'hold at B', seconds: 1, target: layout.b, video: both(1, { from: at(layout.b) }, { from: up }), check: (g, p, s) => s.onMap },
+    { name: 'other hand lowers', seconds: 2, video: both(2, { from: at(layout.b) }, { from: up, to: C0 }), check: (g, p, s, first) => p.pressed === 'false' && g.roadTiles >= 6 && Number(p.canvasPresses) === Number(first.canvasPresses) + 1 },
+    { name: 'to the camera pad', seconds: 2, video: both(2, { from: at(layout.b), to: at(layout.orbit) }, { from: C0 }) },
+    { name: 'dwell on Rotate left', seconds: 3.5, target: layout.orbit, camera: true, video: both(3.5, { from: at(layout.orbit) }, { from: C0 }), check: (g, p, s, first) => Math.abs(g.camera.azimuth - first.camera.azimuth) > 0.05 },
+    { name: 'hands gone', seconds: 2, video: { pose: null, seconds: 2 } },
+  ];
+  const { browser, page, errors } = await open(buildVideo('palms', STEPS.map((step) => step.video)), 'palms');
+  const results = [];
+  let first = null;
+  let t = 0;
+  let allSamples = [];
+  for (const [i, step] of STEPS.entries()) {
+    if (step.mark) first = { ...(await panel(page)), ...(await game(page)) };
+    if (step.camera) first = { ...first, camera: (await game(page)).camera };
+    const before = await panel(page);
+    t += step.seconds;
+    const samples = await sample(page, t - 0.2);
+    if (step.name !== 'lead-in' && step.name !== 'hands gone') allSamples = allSamples.concat(samples);
+    const g = await game(page);
+    const p = await panel(page);
+    const pad = await page.evaluate(() => {
+      const el = document.querySelector('#ui-camera-pad');
+      const r = el?.getBoundingClientRect();
+      return !!el && !el.hidden && r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden';
+    });
+    // Nothing on screen covers the target: the press lands on the map itself.
+    const onMap = step.target ? await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.tagName === 'CANVAS', step.target) : null;
+    const ok = step.check ? step.check(g, p, { pad, onMap }, first ?? before) : null;
+    const cursor = [Number(p.x), Number(p.y)];
+    const result = { step: step.name, ok, tool: g.tool, roadTiles: g.roadTiles, cursor, pressed: p.pressed, rest: p.rest, pointerHand: p.pointerHand, clickHand: p.clickHand, liftLevel: Number(p.liftLevel), canvasPresses: Number(p.canvasPresses), azimuth: Number(g.camera.azimuth.toFixed(3)), pad, onMap, label: p.label, bothSeen: Number(bothSeen(samples).toFixed(2)) };
+    if (step.target) {
+      result.target = [Math.round(step.target.x), Math.round(step.target.y)];
+      result.missPx = Math.round(Math.hypot(cursor[0] - step.target.x, cursor[1] - step.target.y));
+    }
+    let extra = '';
+    if (step.still) {
+      // The other hand lifting must not move the pointer.
+      const from = [Number(before.x), Number(before.y)];
+      const worst = Math.max(0, ...samples.filter((s) => s.present === 'true').map((s) => Math.hypot(Number(s.x) - from[0], Number(s.y) - from[1])));
+      result.stillWorstPx = Math.round(worst);
+      result.stillWorstPct = Number(((worst / VIEW.width) * 100).toFixed(1));
+      extra = ` · pointer moved ≤ ${result.stillWorstPx} px (${result.stillWorstPct} % of width) while the other hand lifted`;
+    }
+    results.push(result);
+    console.log(`${ok === null ? '·' : ok ? '✓' : '✗'} palms: ${step.name.padEnd(24)} tool=${g.tool} roads=${g.roadTiles} cursor=${p.x},${p.y}${result.target ? ` target=${result.target} (miss ${result.missPx} px)${onMap ? ' on the map' : ''}` : ''} pressed=${p.pressed} rest=${p.rest} lift=${p.liftLevel} presses=${p.canvasPresses} az=${result.azimuth} pad=${pad} both=${Math.round(result.bothSeen * 100)} % ${p.label}${extra}`);
+    if (step.still) {
+      const ok = result.stillWorstPct < 3;
+      results.push({ step: 'pointer stays put while the other hand lifts', ok, worstPx: result.stillWorstPx, worstPct: result.stillWorstPct });
+      console.log(`${ok ? '✓' : '✗'} palms: pointer stays put while the other hand lifts (worst ${result.stillWorstPx} px, ${result.stillWorstPct} % of width; < 3 %)`);
+    }
+    if (step.check || i === 3) await page.screenshot({ path: join(out, `palms-${String(i).padStart(2, '0')}.png`) });
+  }
+  const stats = await panel(page);
+  await browser.close();
+  const seen = Number(bothSeen(allSamples).toFixed(2));
+  console.log(`· palms: both hands seen in ${Math.round(seen * 100)} % of ${allSamples.length} samples while in view`);
+  return { results, stats, calibration, gain, palmPx, clickPalmPx: Number(clickPalmPx.toFixed(1)), lift, layout, bothSeen: seen, errors };
+}
+
 const only = option('only', null);
 const hands = !only || only === 'hands' ? await handPasses() : null;
 const head = !only || only === 'head' ? await headPass() : null;
 const eyes = !only || only === 'eyes' ? await eyePass() : null;
 const pointer = !only || only === 'pointer' ? await pointerPass() : null;
+const palms = !only || only === 'palms' ? await palmsPass() : null;
 
 const tracking = (stats) => stats && { delegate: stats.delegate, loadMs: Number(stats.loadMs), inferMs: Number(stats.inferMs), fps: Number(stats.fps), frames: Number(stats.frames), dropped: Number(stats.dropped), models: stats.models };
 const report = {
@@ -420,11 +605,12 @@ const report = {
   head: head && { steps: head.results, tracking: tracking(head.stats) },
   eyes: eyes && { steps: eyes.results, tracking: tracking(eyes.stats) },
   pointer: pointer && { steps: pointer.results, positions: pointer.positions, tracking: tracking(pointer.stats) },
-  pageErrors: [...(hands?.errors ?? []), ...(head?.errors ?? []), ...(eyes?.errors ?? []), ...(pointer?.errors ?? [])],
+  palms: palms && { steps: palms.results, calibration: palms.calibration, gain: palms.gain, palmPx: palms.palmPx, clickPalmPx: palms.clickPalmPx, lift: palms.lift, layout: palms.layout, bothSeen: palms.bothSeen, tracking: tracking(palms.stats) },
+  pageErrors: [...(hands?.errors ?? []), ...(head?.errors ?? []), ...(eyes?.errors ?? []), ...(pointer?.errors ?? []), ...(palms?.errors ?? [])],
 };
 writeFileSync(join(out, 'report.json'), JSON.stringify(report, null, 2));
-const failed = [...(hands?.results ?? []), ...(head?.results ?? []), ...(eyes?.results ?? []), ...(pointer?.results ?? [])].filter((r) => r.ok === false);
+const failed = [...(hands?.results ?? []), ...(head?.results ?? []), ...(eyes?.results ?? []), ...(pointer?.results ?? []), ...(palms?.results ?? [])].filter((r) => r.ok === false);
 const rate = (name, stats) => (stats ? `(${name}): ${stats.delegate}, ${stats.inferMs} ms a frame, ${stats.fps} results/s` : null);
-console.log(`tracking ${[rate('hands', hands?.stats), rate('head', head?.stats), rate('eyes', eyes?.stats), rate('pointer', pointer?.stats)].filter(Boolean).join(' · ')} · page errors: ${report.pageErrors.length}`);
+console.log(`tracking ${[rate('hands', hands?.stats), rate('head', head?.stats), rate('eyes', eyes?.stats), rate('pointer', pointer?.stats), rate('palms', palms?.stats)].filter(Boolean).join(' · ')} · page errors: ${report.pageErrors.length}`);
 console.log(failed.length ? `FAILED: ${failed.map((r) => r.step).join(', ')}` : 'all checks passed');
 process.exit(failed.length || report.pageErrors.length ? 1 : 0);
