@@ -114,7 +114,7 @@ body:has(.ui-fps.is-on) .hf-toggle {
 
 .hf-modes {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 4px;
 }
 
@@ -150,8 +150,8 @@ body:has(.ui-fps.is-on) .hf-toggle {
   background: #2f2c27;
 }
 
-/* Head modes need less of the picture: a shorter preview keeps the panel's buttons in reach. */
-.hf-root:not([data-mode='hand']) .hf-preview {
+/* Head and Palms modes need less of the picture: a shorter preview keeps the panel's buttons in reach. */
+.hf-root:not([data-family='pinch']) .hf-preview {
   aspect-ratio: 16 / 10;
 }
 
@@ -242,15 +242,14 @@ body:has(.ui-fps.is-on) .hf-toggle {
 }
 
 .hf-head-tools {
-  display: none;
+  display: grid;
   gap: 6px;
 }
 
-.hf-root:not([data-mode='hand']) .hf-head-tools {
-  display: grid;
-}
-
-.hf-root[data-mode='hand'] .hf-head-only {
+/* Controls by mode family (data-family): pinch is the hand mode, face the head modes, palms Palms. */
+.hf-root[data-family='pinch'] .hf-not-pinch,
+.hf-root:not([data-family='face']) .hf-face-only,
+.hf-root:not([data-family='palms']) .hf-palms-only {
   display: none;
 }
 
