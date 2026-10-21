@@ -58,7 +58,8 @@ A perspective camera (FOV 35°) orbits a target on the ground through three.js `
 
 | Tool kind | Hover | Press | Drag | Release |
 | --- | --- | --- | --- | --- |
-| Ground paint (road, pavement, grass, wildflowers, pond) | Cell highlight + flat ghost tile (road: the whole block) | Paint the cell (road: its block) | Paint every cell crossed, no gaps (road: each block once) | The stroke is **one** undo step |
+| Ground line (road, pavement) | Cell highlight + flat ghost tile (road: the whole block) | Paint the cell (road: its block) | A straight run along the pressed row or column, axis locked by the first move (a cell for pavement, a road block for road); the pointer may stray off the line and the ghost stays at the run's end. A corner takes two strokes | The stroke is **one** undo step |
+| Ground paint (grass, wildflowers, pond) | Cell highlight + flat ghost tile | Paint the cell | Paint every cell crossed, no gaps | The stroke is **one** undo step |
 | Object | Translucent ghost + a frame round the whole footprint, centred on the pointer and rotated; mint when valid, brick when not | Place, or the invalid feedback | Lamppost, planter, tulips, bush, trees, lily pads, reeds and cattails scatter (one per new valid cell; oaks two cells apart); everything else places once | Commit |
 | Edge (hedge, fences) | Ghost piece on the nearest edge | Place | A straight run of edges, axis locked by the first move | Commit |
 | Bulldoze | What will go is painted red where it stands (object > edge > ground; a whole footprint or road block), with a red frame | Remove | Remove along the drag | Commit |
@@ -109,7 +110,7 @@ Letter and digit keys use `event.code`, so layouts and Shift don't change the ma
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │ [🏡 Puddleton]                       [↶][↷] │ [🗂][📷][☀][🔊][☰]  │  top bar: town name pill · action pill
-│            "Drag to lay road — it joins up automatically"            │  hint pill (fades)
+│        "Drag to lay a straight road — it joins up automatically"     │  hint pill (fades)
 │                                                                      │
 │                          3D  TOWN  VIEW                              │
 │                                                                      │

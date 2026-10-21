@@ -4,6 +4,9 @@ Player-facing release notes for Tiny Town. How things behave is in `docs/game-de
 
 ## Unreleased
 
+### Changed
+- Roads and pavement go in a straight line, like fences: a drag follows the row or column you start it along, so a wobbly hand no longer paints a tile or two off to the side. Draw a corner as two drags.
+
 ## v0.9.1 — 2026-10-16
 
 ### Changed

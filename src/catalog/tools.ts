@@ -21,7 +21,7 @@ export type ModeToolId = 'move' | 'bulldoze';
  */
 export type ToolCategory = 'streets' | 'homes' | 'town' | 'nature' | 'garden';
 export type ToolLayer = 'ground' | 'object' | 'edge' | 'move' | 'bulldoze';
-/** paint: every crossed cell · scatter: each new valid cell while dragging · single: click only · line: straight edge run. */
+/** paint: every crossed cell · scatter: each new valid cell while dragging · single: click only · line: a straight run (fences: edges; road, pavement: cells), axis locked by the first move. */
 export type DragMode = 'paint' | 'scatter' | 'single' | 'line';
 
 export interface ToolDef {
@@ -48,8 +48,8 @@ const POND_PLANT = 'Click or drag across a pond to plant';
 const EDGE = 'Drag along cell edges';
 
 const ROWS: readonly ToolRow[] = [
-  { id: 'road', label: 'Road', category: 'streets', layer: 'ground', drag: 'paint', sfx: 'place-path', hint: 'Drag to lay road — it joins up automatically' },
-  { id: 'pavement', label: 'Pavement', category: 'streets', layer: 'ground', drag: 'paint', sfx: 'place-path', hint: 'Drag to lay pavement alongside roads' },
+  { id: 'road', label: 'Road', category: 'streets', layer: 'ground', drag: 'line', sfx: 'place-path', hint: 'Drag to lay a straight road — it joins up automatically' },
+  { id: 'pavement', label: 'Pavement', category: 'streets', layer: 'ground', drag: 'line', sfx: 'place-path', hint: 'Drag to lay a straight run of pavement' },
   { id: 'roundabout', label: 'Roundabout', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-path', hint: 'Click to build a roundabout — roads join its four arms' },
   { id: 'parking', label: 'Parking', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-path', hint: 'Click to build a car park — roads join its entrance · R to rotate' },
   { id: 'zebra-crossing', label: 'Zebra', category: 'streets', layer: 'object', drag: 'single', sfx: 'place-path', hint: 'Click a straight road or a junction to paint a zebra crossing' },
