@@ -4,6 +4,7 @@ import {
   edgeDistance,
   isNearEdge,
   KeyedThrottle,
+  lineCells,
   lineEdges,
   lockAxis,
   segmentSamples,
@@ -50,6 +51,38 @@ describe('fence line drags', () => {
     expect(edges).toEqual([
       { x: 22, z: 24, side: 'n' },
       { x: 23, z: 24, side: 'n' },
+    ]);
+  });
+});
+
+describe('road and pavement line drags', () => {
+  it('runs pavement along the press row however far the pointer strays from it', () => {
+    expect(lineCells({ x: 5, z: 5 }, { x: 8.5, z: 6.9 }, 'x', 1, 24, 24)).toEqual([
+      { x: 5, z: 5 },
+      { x: 6, z: 5 },
+      { x: 7, z: 5 },
+      { x: 8, z: 5 },
+    ]);
+  });
+  it('steps road one block at a time, backwards too, keeping the offset in the block', () => {
+    expect(lineCells({ x: 7, z: 9 }, { x: 6.2, z: 2.1 }, 'z', 2, 24, 24)).toEqual([
+      { x: 7, z: 9 },
+      { x: 7, z: 7 },
+      { x: 7, z: 5 },
+      { x: 7, z: 3 },
+    ]);
+  });
+  it('is only the press cell while the pointer stays in its block', () => {
+    expect(lineCells({ x: 4, z: 4 }, { x: 5.9, z: 4.5 }, 'x', 2, 24, 24)).toEqual([{ x: 4, z: 4 }]);
+  });
+  it('clamps to the plot', () => {
+    expect(lineCells({ x: 21, z: 0 }, { x: 40, z: 0.5 }, 'x', 2, 24, 24)).toEqual([
+      { x: 21, z: 0 },
+      { x: 23, z: 0 },
+    ]);
+    expect(lineCells({ x: 1, z: 3 }, { x: -6, z: 3.5 }, 'x', 1, 24, 24)).toEqual([
+      { x: 1, z: 3 },
+      { x: 0, z: 3 },
     ]);
   });
 });

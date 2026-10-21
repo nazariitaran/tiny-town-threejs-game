@@ -23,7 +23,7 @@ export function isNearEdge(point: GridPoint, edge: Edge, maxDistance = 0.3): boo
 }
 
 /**
- * Axis lock for fence 'line' drags: null until the pointer has moved `threshold` grid units
+ * Axis lock for 'line' drags: null until the pointer has moved `threshold` grid units
  * from the press point, then the dominant movement axis.
  */
 export function lockAxis(start: GridPoint, current: GridPoint, threshold = 0.4): LineAxis | null {
@@ -61,6 +61,26 @@ export function lineEdges(start: GridPoint, current: GridPoint, axis: LineAxis, 
     }
   }
   return edges;
+}
+
+/**
+ * Cells of a straight road or pavement run from the press cell towards `current` along `axis`: one
+ * per `step`-cell block (road: one per 2 × 2 block), each at the press cell's offset in its block.
+ * Clamped to the plot. Ordered from the press cell outwards.
+ */
+export function lineCells(start: Cell, current: GridPoint, axis: LineAxis, step: number, width: number, depth: number): Cell[] {
+  const size = axis === 'x' ? width : depth;
+  const from = axis === 'x' ? start.x : start.z;
+  const fromBlock = Math.floor(from / step);
+  const toBlock = clampInt(Math.floor((axis === 'x' ? current.x : current.z) / step), 0, Math.floor((size - 1) / step));
+  const direction = toBlock >= fromBlock ? 1 : -1;
+  const cells: Cell[] = [];
+  for (let block = fromBlock; ; block += direction) {
+    const along = from + (block - fromBlock) * step;
+    if (along >= 0 && along < size) cells.push(axis === 'x' ? { x: along, z: start.z } : { x: start.x, z: along });
+    if (block === toBlock) break;
+  }
+  return cells;
 }
 
 /**

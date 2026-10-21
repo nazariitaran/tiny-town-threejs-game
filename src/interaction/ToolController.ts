@@ -2,8 +2,8 @@
  * Owns the active tool and rotation, turns pointer gestures into TownEditor strokes, publishes hover
  * validity and drives the GhostPreview. Camera keys live in CameraController.
  *
- * Drag modes: paint (every crossed cell; roads once per 2 × 2 block), scatter (each new valid cell),
- * single (click only), line (fences: a straight edge run, axis locked by the first movement).
+ * Drag modes: paint (every crossed cell), scatter (each new valid cell), single (click only), line (a
+ * straight run, axis locked by the first movement: fence edges, or road blocks and pavement cells).
  * Every stroke is one undo entry; only a deliberate click reports build:invalid.
  *
  * Touch: one finger becomes the tool after TOUCH_COMMIT_MS or TOUCH_COMMIT_PX, so a second finger
@@ -50,7 +50,7 @@ import type { CameraController } from './CameraController';
 import { GhostPreview, GROUND_GHOST_LIFT, objectGhostPart, type GhostPart, type GhostState } from './GhostPreview';
 import type { GridPicker, PickResult } from './GridPicker';
 import { isEditableTarget } from './keyboard';
-import { clampCellNearPlot, isNearEdge, KeyedThrottle, lineEdges, lockAxis, segmentSamples, type GridPoint, type LineAxis } from './strokeMath';
+import { clampCellNearPlot, isNearEdge, KeyedThrottle, lineCells, lineEdges, lockAxis, segmentSamples, type GridPoint, type LineAxis } from './strokeMath';
 
 /** Lawn/meadow slab top height in TownRenderer (tufts and flowers stand on it). */
 const LAWN_TOP = GROUND_Y;
@@ -70,15 +70,21 @@ const RIGHT_CLICK_SLOP_PX = 5;
 /** Bulldoze targets a fence when the pointer is within this many cells of it (touch: coarser). */
 const BULLDOZE_EDGE_RANGE = 0.3;
 const BULLDOZE_EDGE_RANGE_COARSE = 0.4;
+/** Road and pavement runs lock their axis later than a fence (cells), so a shaky press doesn't pick the wrong one. */
+const PAVEMENT_LINE_LOCK = 0.6;
+const ROAD_LINE_LOCK = 1;
 
 interface Stroke {
   pointerId: number;
-  mode: DragMode | 'bulldoze';
+  /** ground-line: a 'line' tool on the ground layer (road, pavement). */
+  mode: DragMode | 'bulldoze' | 'ground-line';
   lastCell: Cell;
   lastGrid: GridPoint;
   startGrid: GridPoint;
   startEdge: Edge;
   axis: LineAxis | null;
+  /** ground-line: the far end of the run so far; the hover sits there instead of under the pointer. */
+  runEnd: Cell;
   visited: Set<string>;
   /** Bulldoze: the stroke started on a fence, so it only removes fences (never the road under them). */
   edgesOnly: boolean;
@@ -485,7 +491,7 @@ export class ToolController {
       this.moveClick(pick);
       return;
     }
-    const mode: Stroke['mode'] = def.layer === 'bulldoze' ? 'bulldoze' : def.drag;
+    const mode: Stroke['mode'] = def.layer === 'bulldoze' ? 'bulldoze' : def.layer === 'ground' && def.drag === 'line' ? 'ground-line' : def.drag;
 
     const target = this.targetCell(pick);
     if (mode === 'single') {
@@ -504,6 +510,7 @@ export class ToolController {
       startGrid: pick.grid,
       startEdge: pick.edge,
       axis: null,
+      runEnd: pick.cell,
       visited: new Set(),
       edgesOnly: false,
       removedAny: false,
@@ -515,7 +522,7 @@ export class ToolController {
       // Synthetic or already-released pointers can't be captured; blur/visibility still end the stroke.
     }
 
-    if (mode === 'paint' || mode === 'scatter') {
+    if (mode === 'paint' || mode === 'scatter' || mode === 'ground-line') {
       stroke.visited.add(this.strokeKey(target));
       this.applyAction(actionForTool(this.toolId, target, pick.edge, this.rotation, this.chosenVariant), target, true);
     } else if (mode === 'bulldoze') {
@@ -534,12 +541,6 @@ export class ToolController {
         if (sameCell(target, stroke.lastCell)) return;
         for (const cell of cellsOnLine(stroke.lastCell, target).slice(1)) {
           if (!state.inBounds(cell)) continue;
-          // Road: one action per 2 × 2 block per stroke (the first touch converts the whole block).
-          if (this.toolId === 'road') {
-            const key = this.strokeKey(cell);
-            if (stroke.visited.has(key)) continue;
-            stroke.visited.add(key);
-          }
           this.applyAction(actionForTool(this.toolId, cell, pick.edge, this.rotation, this.chosenVariant), cell, false);
         }
         stroke.lastCell = target;
@@ -557,6 +558,25 @@ export class ToolController {
       case 'bulldoze': {
         for (const point of segmentSamples(stroke.lastGrid, pick.grid)) this.bulldozeAt(point, false);
         stroke.lastGrid = pick.grid;
+        return;
+      }
+      case 'ground-line': {
+        const road = this.toolId === 'road';
+        if (stroke.axis === null) stroke.axis = lockAxis(stroke.startGrid, pick.grid, road ? ROAD_LINE_LOCK : PAVEMENT_LINE_LOCK);
+        if (stroke.axis === null) return;
+        const start = { x: Math.floor(stroke.startGrid.x), z: Math.floor(stroke.startGrid.z) };
+        const cells = lineCells(start, pick.grid, stroke.axis, road ? ROAD_BLOCK : 1, state.width, state.depth);
+        for (const cell of cells) {
+          const key = this.strokeKey(cell);
+          if (stroke.visited.has(key)) continue;
+          stroke.visited.add(key);
+          this.applyAction(actionForTool(this.toolId, cell, pick.edge, this.rotation, this.chosenVariant), cell, false);
+        }
+        const end = cells[cells.length - 1];
+        if (end && !sameCell(end, stroke.runEnd)) {
+          stroke.runEnd = end;
+          this.hoverDirty = true;
+        }
         return;
       }
       case 'line': {
@@ -780,6 +800,14 @@ export class ToolController {
     return { model: ZEBRA_PIECE_MODELS[look.piece] ? look.model : 'road-crossing', quarterTurns: look.rotation };
   }
 
+  /** A road or pavement run shows its hover at the run's end, not under a pointer that strayed off the line. */
+  private strokePick(pick: PickResult | null): PickResult | null {
+    const stroke = this.stroke;
+    if (!pick || stroke?.mode !== 'ground-line') return pick;
+    const end = stroke.runEnd;
+    return { ...pick, cell: { ...end }, grid: { x: end.x + 0.5, z: end.z + 0.5 } };
+  }
+
   /** Where the active tool acts for this pick: objects centre their footprint on the pointer. */
   private targetCell(pick: PickResult): Cell {
     if (!this.toolId || toolDef(this.toolId).layer !== 'object') return pick.cell;
@@ -802,6 +830,7 @@ export class ToolController {
     const stroke = this.stroke;
     if (!stroke) return;
     this.stroke = null;
+    this.hoverDirty = true;
     this.editor.endStroke();
     try {
       if (this.canvas.hasPointerCapture(stroke.pointerId)) this.canvas.releasePointerCapture(stroke.pointerId);
@@ -831,7 +860,7 @@ export class ToolController {
   private refreshHover(): void {
     this.hoverDirty = false;
     this.syncSelectionGhost();
-    const pick = this.enabled ? this.lastPick : null;
+    const pick = this.enabled ? this.strokePick(this.lastPick) : null;
     const state = this.editor.state;
     const cell = pick && state.inBounds(pick.cell) ? { ...pick.cell } : null;
     if (!pick || !cell) {

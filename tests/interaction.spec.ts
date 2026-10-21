@@ -177,6 +177,44 @@ test.describe('desktop mouse + keyboard', () => {
     expect(errors).toEqual([]);
   });
 
+  test('road and pavement drags stay on the press row when the hand wobbles', async ({ page }) => {
+    const errors = collectErrors(page);
+    await startBuilding(page);
+
+    // Road from (6, 12), wobbling up to 3 cells off its row: only the 9 blocks of rows 12–13, x 6–23.
+    await selectTool(page, 'streets', 'road');
+    const depth0 = (await diag(page)).history.undoDepth;
+    const roadStart = await cellPoint(page, 6, 12);
+    await page.mouse.move(roadStart.x, roadStart.y);
+    await page.mouse.down();
+    const offRow = await cellPoint(page, 14, 15);
+    await page.mouse.move(offRow.x, offRow.y, { steps: 12 });
+    // The ghost sits at the end of the run, not under the stray pointer.
+    await expect.poll(async () => (await diag(page)).hover).toMatchObject({ x: 14, z: 12 });
+    for (const [x, z] of [[18, 9], [22, 12]] as const) {
+      const p = await cellPoint(page, x, z);
+      await page.mouse.move(p.x, p.y, { steps: 12 });
+    }
+    await page.mouse.up();
+    await expect.poll(async () => (await diag(page)).town.roadTiles).toBe(9);
+    expect((await diag(page)).history.undoDepth).toBe(depth0 + 1);
+
+    // Pavement along row 30, wobbling 2 cells either side: cells x 6–20 of that row only.
+    await selectTool(page, 'streets', 'pavement');
+    const tiles0 = (await diag(page)).render.groundTiles;
+    const paveStart = await cellPoint(page, 6, 30);
+    await page.mouse.move(paveStart.x, paveStart.y);
+    await page.mouse.down();
+    for (const [x, z] of [[10, 32], [15, 28], [20, 30]] as const) {
+      const p = await cellPoint(page, x, z);
+      await page.mouse.move(p.x, p.y, { steps: 12 });
+    }
+    await page.mouse.up();
+    await expect.poll(async () => (await diag(page)).render.groundTiles).toBe(tiles0 + 15);
+    expect((await diag(page)).history.undoDepth).toBe(depth0 + 2);
+    expect(errors).toEqual([]);
+  });
+
   test('a release outside the window leaves no stuck stroke', async ({ page }) => {
     const errors = collectErrors(page);
     await startBuilding(page);

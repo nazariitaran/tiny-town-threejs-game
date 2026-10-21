@@ -64,7 +64,8 @@ test('a 30-tile road drag is rate-limited to 10..30 sound starts', async ({ page
   await expect.poll(async () => (await diag(page)).tool).toBe('road');
   await page.waitForTimeout(200);
 
-  // An L-shaped stroke, one point per 2×2 road block: 20 blocks along z=12, then 10 more down x=42.
+  // An L of two strokes (a road drag stays straight), one point per 2×2 road block: 20 blocks along
+  // z=12, then 10 more down x=42.
   const path: Array<[number, number]> = [];
   for (let x = 4; x <= 42; x += 2) path.push([x, 12]);
   for (let z = 14; z <= 32; z += 2) path.push([42, z]);
@@ -77,6 +78,10 @@ test('a 30-tile road drag is rate-limited to 10..30 sound starts', async ({ page
   // A brisk human drag, paced by wall clock: one cell every ~35 ms (about 1 s for the stroke).
   const t0 = Date.now();
   for (let i = 1; i < points.length; i += 1) {
+    if (i === 20) {
+      await page.mouse.up();
+      await page.mouse.down();
+    }
     await page.mouse.move(points[i].x, points[i].y, { steps: 2 });
     const wait = t0 + i * 35 - Date.now();
     if (wait > 0) await page.waitForTimeout(wait);
