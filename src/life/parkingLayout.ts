@@ -10,11 +10,14 @@
  *  - Aisle lots (medium, large): an entry runs from the gate's street lane at the lot edge to the stall; an
  *    exit reverses into the aisle and drives to the gate's outbound lane at the lot edge.
  *  - The small lot's bays open onto the street, so its routes include the manoeuvre inside the front block.
- * The numbers in the route tables are tuned against the models; parkingLayout.test.ts sweeps every route.
+ * The route tables are written for keeping right; with DRIVE_ON_LEFT every route is their mirror image
+ * (x → LOT_W − x), which the lots' symmetry allows. The numbers are tuned against the models;
+ * parkingLayout.test.ts sweeps every route.
  */
 import { placedFootprint } from '../catalog/objects';
 import { footprintCentreWorld } from '../game/config';
 import type { PlacedObject, Rotation } from '../town/types';
+import { DRIVE_ON_LEFT } from './lanePaths';
 
 export type LotStyle = 0 | 1 | 2;
 /** Lot-frame travel direction of a car entering the front block: 0 = +x, 1 = −x, 2 = +y. */
@@ -457,14 +460,49 @@ for (let style = 0; style < LOT_SPECS.length; style += 1) {
   })));
 }
 
+const MIRRORED = new Map<LotRoute, LotRoute>();
+
+/** A route's mirror image across the lot's middle (x → LOT_W − x); one per route, so shared routes stay shared. */
+function mirrorRoute(route: LotRoute | null): LotRoute | null {
+  if (!route) return null;
+  const known = MIRRORED.get(route);
+  if (known) return known;
+  const legs = route.legs.map((leg) => {
+    const points = Float32Array.from(leg.points, (v, i) => (i % 2 === 0 ? LOT_W - v : v));
+    const tangents = Float32Array.from(leg.tangents, (v, i) => (i % 2 === 0 ? -v : v));
+    return { ...leg, points, tangents };
+  });
+  const mirrored = { ...route, legs };
+  MIRRORED.set(route, mirrored);
+  return mirrored;
+}
+
+/** The stall in the mirror-image place: bays run left to right, aisle columns swap. */
+function mirrorStall(style: number, stall: number): number {
+  const count = STALLS[style].length;
+  return style === 0 ? count - 1 - stall : (stall + count / 2) % count;
+}
+
+/** Approach and exit sides: −x and +x swap, straight on stays. */
+const mirrorSide = (side: number): number => (side === 2 ? 2 : 1 - side);
+
+const HANDED_ENTRIES = DRIVE_ON_LEFT
+  ? ENTRIES.map((byGate, style) => byGate.map((_, gate) => [0, 1, 2].map((approach) =>
+      STALLS[style].map((__, stall) => mirrorRoute(ENTRIES[style][1 - gate][mirrorSide(approach)][mirrorStall(style, stall)])))))
+  : ENTRIES;
+const HANDED_EXITS = DRIVE_ON_LEFT
+  ? EXITS.map((byStall, style) => byStall.map((_, stall) => [0, 1].map((gate) => [0, 1, 2].map((exit) =>
+      mirrorRoute(EXITS[style][mirrorStall(style, stall)][1 - gate][mirrorSide(exit)])))))
+  : EXITS;
+
 /** The drive from the street into `stall`, or null when it cannot be driven cleanly from there. */
 export function entryRoute(style: LotStyle, gate: 0 | 1, approach: Approach, stall: number): LotRoute | null {
-  return ENTRIES[style][gate][approach][stall] ?? null;
+  return HANDED_ENTRIES[style][gate][approach][stall] ?? null;
 }
 
 /** The drive out of `stall` to the street through `gate`, or null when it cannot be driven cleanly. */
 export function exitRoute(style: LotStyle, stall: number, gate: 0 | 1, exit: ExitSide): LotRoute | null {
-  return EXITS[style][stall]?.[gate][exit] ?? null;
+  return HANDED_EXITS[style][stall]?.[gate][exit] ?? null;
 }
 
 /** Position and facing at arc length `s` along a leg (clamped). The facing turns smoothly between points. Writes into `out`. */

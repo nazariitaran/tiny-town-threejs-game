@@ -1,12 +1,13 @@
 /**
  * Pure lane geometry. A car crosses one road tile ("cell" below) per manoeuvre: it enters through the
- * edge it is travelling across (`inDir`) and leaves through `outDir`. Traffic keeps to the right, so
- * every manoeuvre starts and ends on the right-hand lane centre.
+ * edge it is travelling across (`inDir`) and leaves through `outDir`. Traffic keeps to the left
+ * (DRIVE_ON_LEFT). The builders below are written for keeping right, and every path is their mirror image
+ * east–west (x → −x), so each manoeuvre starts and ends on the left-hand lane centre:
  *  - straight  (out == in):      a line through the cell.
- *  - right turn (out == in + 1): a tight quarter arc around the near corner.
- *  - left turn  (out == in + 3): a wide quarter arc that crosses the oncoming lane.
+ *  - left turn  (out == in + 3): a tight quarter arc around the near corner.
+ *  - right turn (out == in + 1): a wide quarter arc that crosses the oncoming lane.
  *  - U-turn     (out == in + 2): drive to the middle, loop round, drive back.
- *  - roundabout: counter-clockwise on the outer lane of the ring road; see the roundabout section.
+ *  - roundabout: clockwise on the outer lane of the ring road; see the roundabout section.
  *
  * Paths are pre-sampled polylines in tile-local world units (tile centre = origin), so sampling is
  * allocation-free.
@@ -18,6 +19,9 @@ export type Dir = 0 | 1 | 2 | 3;
 
 export const DIR_X: readonly number[] = [0, 1, 0, -1];
 export const DIR_Z: readonly number[] = [-1, 0, 1, 0];
+
+/** Traffic keeps to the left. False builds the right-hand paths as written. */
+export const DRIVE_ON_LEFT = true;
 
 /** Distance of the lane centre from the road's middle line, in world units. */
 export const LANE_OFFSET = 0.18 * ROAD_TILE_SIZE;
@@ -120,7 +124,8 @@ function finishPath(kind: ManoeuvreKind, pts: readonly number[]): LanePath {
 }
 
 /*
- * Roundabout. Everything is worked out in island-centre coordinates (x east, z south) and shifted into
+ * Roundabout, written for keeping right (and mirrored like everything else, so the ring runs clockwise).
+ * Everything is worked out in island-centre coordinates (x east, z south) and shifted into
  * the block that owns each stretch. Arm `d` points from the island towards direction d. "a" is the
  * distance along the arm and "l" the offset to the right of a car driving in, so the entry lane is at
  * +LANE_OFFSET and the exit lane at -LANE_OFFSET. A car bends right onto the ring and right off it;
@@ -232,12 +237,29 @@ function buildRingPath(inDir: Dir, outDir: Dir): LanePath {
   return finishPath('right', pts);
 }
 
+/** A direction's mirror image east–west: north and south stay, east and west swap. */
+const mirrorDir = (dir: Dir): Dir => ((4 - dir) % 4) as Dir;
+
+/** The path for keeping to the side DRIVE_ON_LEFT names: `build` (written for keeping right) as is, or mirrored x → −x with mirrored directions. */
+function handed(build: (...dirs: Dir[]) => LanePath, dirs: Dir[], kind?: ManoeuvreKind): LanePath {
+  if (!DRIVE_ON_LEFT) return build(...dirs);
+  const source = build(...dirs.map(mirrorDir));
+  const pts = Array.from(source.points);
+  for (let i = 0; i < pts.length; i += 2) pts[i] = -pts[i];
+  return finishPath(kind ?? source.kind, pts);
+}
+
 /** All 16 manoeuvres, indexed [inDir * 4 + outDir]. */
-const PATHS: readonly LanePath[] = Array.from({ length: 16 }, (_, i) => buildPath((i >> 2) as Dir, (i & 3) as Dir));
-const RING_PATHS: readonly LanePath[] = Array.from({ length: 16 }, (_, i) => buildRingPath((i >> 2) as Dir, (i & 3) as Dir));
+const PATHS: readonly LanePath[] = Array.from({ length: 16 }, (_, i) => {
+  const dirs = [(i >> 2) as Dir, (i & 3) as Dir];
+  return handed(buildPath, dirs, manoeuvreKind(dirs[0], dirs[1]));
+});
+const RING_PATHS: readonly LanePath[] = Array.from({ length: 16 }, (_, i) => handed(buildRingPath, [(i >> 2) as Dir, (i & 3) as Dir]));
 const ARM_MANOEUVRES: readonly ArmManoeuvre[] = ['in', 'out', 'turn'];
 /** Indexed [arm * 3 + manoeuvre]. */
-const ARM_PATHS: readonly LanePath[] = Array.from({ length: 12 }, (_, i) => buildArmPath(Math.floor(i / 3) as Dir, ARM_MANOEUVRES[i % 3]));
+const ARM_PATHS: readonly LanePath[] = Array.from({ length: 12 }, (_, i) =>
+  handed((arm) => buildArmPath(arm, ARM_MANOEUVRES[i % 3]), [Math.floor(i / 3) as Dir]),
+);
 
 export function lanePath(inDir: Dir, outDir: Dir): LanePath {
   return PATHS[inDir * 4 + outDir];
