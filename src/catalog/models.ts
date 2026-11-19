@@ -140,6 +140,8 @@ export const MODELS = {
   cinema: M('/assets/models/cinema/cinema.glb', 1, 0, {
     posters: { url: '/assets/posters/cinema-posters.webp', slots: ['poster-1', 'poster-2', 'poster-3', 'poster-4'] },
   }),
+  // Built to game units by scripts/build-burger-restaurant.py; the shop front faces +Z natively.
+  'burger-restaurant': M('/assets/models/burger-restaurant/burger-restaurant.glb', 1, 0),
   // Composed from Fantasy Town fountain modules and parasols.
   'swimming-pool': M('/assets/models/composed/swimming-pool.glb', 0.5, 2),
   fountain: M('/assets/models/composed/fountain.glb', 0.45, 0),

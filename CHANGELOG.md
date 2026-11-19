@@ -4,6 +4,9 @@ Player-facing release notes for Tiny Town. How things behave is in `docs/game-de
 
 ## Unreleased
 
+### Added
+- A burger bar, under Town: a cream diner with a mint and white striped awning, a BURGERS sign, a big burger on the roof and a patio with parasols out front. It is 4 × 4 cells, the size of a house, and brings its own paving. In Town it takes key 8; Bus stop moves to 9 and Postbox has no key.
+
 ## v0.9.1 — 2026-10-16
 
 ### Changed
