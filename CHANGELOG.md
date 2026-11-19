@@ -4,6 +4,8 @@ Player-facing release notes for Tiny Town. How things behave is in `docs/game-de
 
 ## Unreleased
 
+## v0.9.3 — 2026-11-19
+
 ### Changed
 - Roads and pavement go in a straight line, like fences: a drag follows the row or column you start it along, so a wobbly hand no longer paints a tile or two off to the side. Draw a corner as two drags.
 - The cinema and the burger bar no longer bring a paved floor: they stand on whatever ground you build them on, like the houses. The cinema keeps its carpet and the burger bar its path to the door.
