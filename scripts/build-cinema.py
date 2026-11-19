@@ -26,8 +26,7 @@ ATLAS = os.path.join(ROOT, 'public/assets/models/roads/Textures/colormap.png')
 ATLAS_URI = '../roads/Textures/colormap.png'
 
 # colormap.png texels (Blender UV, v up); every colour is one of the City Kit's own swatches. The gradient
-# cells are sampled at one v. Glazing samples the cell the houses' windows use (column 11, row 1 from the
-# top: the game's `windows` night mask), so no wall may sample that cell.
+# cells are sampled at one v, except the glazing, which runs down the pale-blue gradient cell (glass_uv).
 UV = {
     'white': (0.5312, 0.375),         # ffffff
     'concrete': (0.4062, 0.375),      # a0a8c9
@@ -36,10 +35,17 @@ UV = {
     'slate': (0.2812, 0.375),         # 4f5260: base course, sign board, reveals
     'wall': (0.9688, 0.540),          # 6644be: facade walls (violet)
     'trim': (0.7812, 0.625),          # d0e8ff: frames, cornice, sign rim
-    'glass': (0.7188, 0.594),         # window glass, as on the supermarket (building-e): doors and ticket windows
+    'glass': (0.8438, 0.625),         # 9bbdec, the middle of the pale-blue gradient cell; panes use glass_uv()
     'bulb': (0.2812, 0.625),          # ffc044: marquee lamps
     'orange': (0.4688, 0.625),        # ff8744: the posters' title orange
 }
+
+
+def glass_uv(z, z0, z1):
+    """Kenney-style glass: the atlas's pale-blue gradient cell (column 13, row 1 from the top), lighter at the top of
+    each pane and darker at its bottom. It is no night-glow cell, so the glass stays dark at night."""
+    t = 0.25 + 0.5 * (z1 - z) / (z1 - z0)
+    return (13.5 / 16, 0.75 - 0.25 * t)
 
 LOT = (3.0, 2.0)                      # 6 x 4 cells
 HX = LOT[0] / 2 - 0.05                # building half width: 1.45
@@ -110,7 +116,7 @@ class Builder:
         except ValueError:
             return
         for loop in f.loops:
-            loop[self.uv].uv = UV[uv]
+            loop[self.uv].uv = glass_uv(loop.vert.co.z, *uv[1:]) if isinstance(uv, tuple) else UV[uv]
 
     def hexa(self, o, ax, ay, az, uv, faces=None, skip=()):
         """A box from a corner and three right-handed edge vectors; `faces` overrides texels per side."""
@@ -150,7 +156,7 @@ class Builder:
                 state = (0.0, base, base)
                 for rx0, rz0, rx1, rz1, depth, texel, reveal in rects:
                     if rx0 <= cx <= rx1 and rz0 <= cz <= rz1:
-                        state = (depth, texel, reveal)
+                        state = (depth, ('glass', rz0, rz1) if texel == 'glass' else texel, reveal)
                 cell[i, j] = state
         for (i, j), (depth, texel, reveal) in cell.items():
             a, b, c, d = xs[i], xs[i + 1], zs[j], zs[j + 1]

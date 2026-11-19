@@ -36,7 +36,7 @@ SWATCH = {
     'concrete_lt': ((240, 269), 'bdc5ed'),
     'concrete': ((208, 320), 'a0a8c9'),
     'concrete_dk': ((80, 320), '868ba1'),
-    'glass': ((368, 208), '5d6cc6'),        # the houses' window cell (11, 1): the `windows` night mask
+    'glass': ((432, 192), '9bbdec'),        # middle of the pale-blue gradient cell (13, 1); panes use glass_uv()
     'tomato': ((272, 144), 'cf534f'),
     'cheese': ((144, 192), 'ffc044'),
     'bun': ((240, 150), 'ff9644'),
@@ -44,6 +44,13 @@ SWATCH = {
     'lettuce': ((144, 80), '4fa24e'),
 }
 UV = {k: (p[0] / ATLAS_PX, 1 - p[1] / ATLAS_PX) for k, (p, _) in SWATCH.items()}
+
+
+def glass_uv(z, z0, z1):
+    """Kenney-style glass: the atlas's pale-blue gradient cell (column 13, row 1 from the top), lighter at the top of
+    each pane and darker at its bottom. It is no night-glow cell, so the glass stays dark at night."""
+    t = 0.25 + 0.5 * (z1 - z) / (z1 - z0)
+    return (13.5 / 16, 0.75 - 0.25 * t)
 
 LOT = 2.0                             # 4 x 4 cells
 L = LOT / 2
@@ -138,7 +145,7 @@ class Builder:
             self.skipped += 1
             return
         for loop in f.loops:
-            loop[self.uv].uv = UV[uv]
+            loop[self.uv].uv = glass_uv(loop.vert.co.z, *uv[1:]) if isinstance(uv, tuple) else UV[uv]
 
     def hexa(self, o, ax, ay, az, uv, faces=None, skip=()):
         """A box from a corner and three right-handed edge vectors; `faces` overrides texels per side."""
@@ -177,7 +184,7 @@ class Builder:
                 state = (0.0, base, base)
                 for ru0, rz0, ru1, rz1, depth, texel, reveal in rects:
                     if ru0 <= cu <= ru1 and rz0 <= cz <= rz1:
-                        state = (depth, texel, reveal)
+                        state = (depth, ('glass', rz0, rz1) if texel == 'glass' else texel, reveal)
                 cell[i, j] = state
         for (i, j), (depth, texel, reveal) in cell.items():
             a, b, c, d = us[i], us[i + 1], zs[j], zs[j + 1]

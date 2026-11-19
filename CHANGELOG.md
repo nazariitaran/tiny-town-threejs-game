@@ -6,6 +6,7 @@ Player-facing release notes for Tiny Town. How things behave is in `docs/game-de
 
 ### Changed
 - The cinema and the burger bar no longer bring a paved floor: they stand on whatever ground you build them on, like the houses. The cinema keeps its carpet and the burger bar its path to the door.
+- The corner shop, donut shop, cinema and burger bar have pale-blue glass like the houses' windows, lighter at the top. The shops still stay dark at night.
 
 ## v0.9.2 — 2026-11-19
 
