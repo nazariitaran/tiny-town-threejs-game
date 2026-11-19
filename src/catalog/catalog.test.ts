@@ -281,7 +281,7 @@ describe('catalog', () => {
 
   it('models that bring their own ground fill their whole footprint', () => {
     const covering = Object.values(OBJECTS).filter((def) => def.coversGround);
-    expect(covering.map((def) => def.kind)).toEqual(['stadium', 'cinema', 'burger-restaurant', 'swimming-pool']);
+    expect(covering.map((def) => def.kind)).toEqual(['stadium', 'swimming-pool']);
     for (const def of covering) {
       def.models.forEach((id, variant) => {
         const [w, d] = footprintOf(def, variant);

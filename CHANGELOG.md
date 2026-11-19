@@ -4,6 +4,9 @@ Player-facing release notes for Tiny Town. How things behave is in `docs/game-de
 
 ## Unreleased
 
+### Changed
+- The cinema and the burger bar no longer bring a paved floor: they stand on whatever ground you build them on, like the houses. The cinema keeps its carpet and the burger bar its path to the door.
+
 ## v0.9.2 — 2026-11-19
 
 ### Added

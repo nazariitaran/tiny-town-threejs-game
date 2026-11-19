@@ -47,7 +47,7 @@ UV = {k: (p[0] / ATLAS_PX, 1 - p[1] / ATLAS_PX) for k, (p, _) in SWATCH.items()}
 
 LOT = 2.0                             # 4 x 4 cells
 L = LOT / 2
-GROUND = 0.02                         # slab top: flush with field, pavement and kerbs
+STEP_Z = 0.03                         # top of the path and the door floors, just above the town's ground (0.02)
 BX = 0.78                             # building half width
 Y_FRONT, Y_BACK = -0.22, 0.78         # the shop front and back walls; the patio is in front
 BASE_H = 0.08                         # terracotta base course
@@ -249,28 +249,11 @@ class Builder:
 
     # ---- the lot ---------------------------------------------------------------------------------
 
-    def slab(self):
-        """Paving over the whole lot at ground level: a peach path to the door, pale concrete elsewhere."""
-        xs = [-L, -BX, -PATH_HALF, PATH_HALF, BX, L]
-        ys = [-L, Y_FRONT, Y_BACK, L]
-        for i in range(len(xs) - 1):
-            for j in range(len(ys) - 1):
-                cx, cy = (xs[i] + xs[i + 1]) / 2, (ys[j] + ys[j + 1]) / 2
-                if abs(cx) < BX and Y_FRONT < cy < Y_BACK:
-                    continue
-                uv = 'peach' if abs(cx) < PATH_HALF and cy < Y_FRONT else 'concrete_lt'
-                self.face([(xs[i], ys[j], GROUND), (xs[i + 1], ys[j], GROUND), (xs[i + 1], ys[j + 1], GROUND),
-                           (xs[i], ys[j + 1], GROUND)], uv)
-        # edge of the slab, seen where the lot meets lower ground (road asphalt at 0.01)
-        for j in range(len(ys) - 1):
-            self.face([(-L, ys[j], 0), (-L, ys[j + 1], 0), (-L, ys[j + 1], GROUND), (-L, ys[j], GROUND)], 'concrete_dk', want=(-1, 0, 0))
-            self.face([(L, ys[j], 0), (L, ys[j + 1], 0), (L, ys[j + 1], GROUND), (L, ys[j], GROUND)], 'concrete_dk', want=(1, 0, 0))
-        for i in range(len(xs) - 1):
-            uv = 'peach' if abs((xs[i] + xs[i + 1]) / 2) < PATH_HALF else 'concrete_dk'
-            self.face([(xs[i], -L, 0), (xs[i + 1], -L, 0), (xs[i + 1], -L, GROUND), (xs[i], -L, GROUND)], uv, want=(0, -1, 0))
-            self.face([(xs[i], L, 0), (xs[i + 1], L, 0), (xs[i + 1], L, GROUND), (xs[i], L, GROUND)], 'concrete_dk', want=(0, 1, 0))
-        # underside, seen while the player carries the building
-        self.face([(-L, -L, 0), (L, -L, 0), (L, L, 0), (-L, L, 0)], 'concrete_dk', want=(0, 0, -1))
+    def path(self):
+        """A peach path from the lot's front edge to the door; the town's own ground shows everywhere else."""
+        self.box(-PATH_HALF, -L, 0, PATH_HALF, Y_FRONT, STEP_Z, 'peach', skip=('-z', '+y'))
+        # underside of the building, seen while the player carries it
+        self.face([(-BX, Y_FRONT, 0), (BX, Y_FRONT, 0), (BX, Y_BACK, 0), (-BX, Y_BACK, 0)], 'concrete_dk', want=(0, 0, -1))
 
     # ---- the building ------------------------------------------------------------------------------
 
@@ -283,11 +266,11 @@ class Builder:
 
         # the shop front below the awning: base course, a glazed double door, a big window each side
         rects = [(-BX, 0, BX, BASE_H, 0, 'terracotta', None),
-                 (-DOOR_FRAME, GROUND, DOOR_FRAME, DOOR_TOP + 0.04, 0, 'mint', None),
-                 (-DOOR_HALF, GROUND, DOOR_HALF, DOOR_TOP, DOOR_DEPTH, 'slate', ('mint', 'peach'))]
+                 (-DOOR_FRAME, STEP_Z, DOOR_FRAME, DOOR_TOP + 0.04, 0, 'mint', None),
+                 (-DOOR_HALF, STEP_Z, DOOR_HALF, DOOR_TOP, DOOR_DEPTH, 'slate', ('mint', 'peach'))]
         for s in (-1, 1):
             a, b = sorted((s * 0.01, s * (DOOR_HALF - 0.01)))
-            rects.append((a, GROUND + 0.01, b, DOOR_TOP - 0.02, DOOR_DEPTH, 'glass', ('mint', 'peach')))
+            rects.append((a, STEP_Z + 0.01, b, DOOR_TOP - 0.02, DOOR_DEPTH, 'glass', ('mint', 'peach')))
             a, b = sorted((s * WIN_X0, s * WIN_X1))
             rects.append((a, WIN_Z0, b, WIN_Z1, 0, 'white', None))
             mid = (WIN_X0 + WIN_X1) / 2
@@ -328,8 +311,8 @@ class Builder:
         self.box(BX, 0.10, 0.15, BX + 0.05, 0.52, 0.17, 'white', skip=('-x',), faces={'-z': 'white'})
         self.awning(east, 0.08, 0.54, BAND_Z0, 0.45, 0.42, 0.47, 0.10, 5, ('mint', 'white'), 'mint_dk')
         # back: the kitchen door and an extract grille
-        back_rects = bands(-BX, BX) + [(-0.54, GROUND, -0.30, 0.40, 0, 'white', None),
-                                       (-0.51, GROUND, -0.33, 0.37, 0.02, 'slate', ('white', 'concrete_lt')),
+        back_rects = bands(-BX, BX) + [(-0.54, STEP_Z, -0.30, 0.40, 0, 'white', None),
+                                       (-0.51, STEP_Z, -0.33, 0.37, 0.02, 'slate', ('white', 'concrete_dk')),
                                        (0.20, 0.62, 0.42, 0.74, 0.015, 'slate', 'concrete_dk')]
         self.facade(back, back_rects, (-BX, 0, BX, WALL_TOP), 'cream')
 
@@ -525,7 +508,7 @@ def build_burger(export_glb=False, collection='Burger restaurant', location=(0.0
         if data.users == 0:
             bpy.data.meshes.remove(data)
     b = Builder()
-    b.slab()
+    b.path()
     b.walls()
     b.roof()
     b.burger()

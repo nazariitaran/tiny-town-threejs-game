@@ -44,10 +44,9 @@ UV = {
 LOT = (3.0, 2.0)                      # 6 x 4 cells
 HX = LOT[0] / 2 - 0.05                # building half width: 1.45
 Y_BACK = LOT[1] / 2 - 0.05            # 0.95
-Y_FORE = -Y_BACK                      # front edge of the forecourt, -0.95
 FRONT_Y = -0.80                       # the facade plane
 LOBBY_BACK = 0.20                     # the lobby (low front block) ends here, the auditoria start
-FORE_Z = 0.02                         # forecourt height: the road's kerb top
+CARPET_Z = 0.03                       # top of the carpet and the doorway floor, just above the town's ground (0.02)
 BASE_H = 0.12                         # slate base course
 WALL_TOP = 1.54                       # top of the facade wall, under the cornice
 CORNICE_H = 0.08
@@ -181,19 +180,8 @@ class Builder:
     def shell(self):
         # underside of the whole footprint
         self.face([(-HX, Y_BACK, 0), (HX, Y_BACK, 0), (HX, FRONT_Y, 0), (-HX, FRONT_Y, 0)], 'concrete_dk')
-        # forecourt slab with a carpet running to the doors
-        fz = FORE_Z
-        self.face([(-HX, Y_FORE, fz), (-DOOR_HALF, Y_FORE, fz), (-DOOR_HALF, FRONT_Y, fz), (-HX, FRONT_Y, fz)], 'concrete_lt')
-        self.face([(DOOR_HALF, Y_FORE, fz), (HX, Y_FORE, fz), (HX, FRONT_Y, fz), (DOOR_HALF, FRONT_Y, fz)], 'concrete_lt')
-        self.face([(-DOOR_HALF, Y_FORE, fz), (DOOR_HALF, Y_FORE, fz), (DOOR_HALF, FRONT_Y, fz), (-DOOR_HALF, FRONT_Y, fz)], 'orange')
-        self.face([(-HX, Y_FORE, 0), (-HX, FRONT_Y, 0), (HX, FRONT_Y, 0), (HX, Y_FORE, 0)], 'concrete_dk')
-        # paving round the building out to the lot edge, level with the forecourt
-        lx, ly = LOT[0] / 2, LOT[1] / 2
-        top = {'+z': 'concrete_lt'}
-        self.box(-lx, -ly, 0, lx, Y_FORE, fz, 'concrete_dk', faces=top, skip=('-z', '+y'))
-        self.box(-lx, Y_BACK, 0, lx, ly, fz, 'concrete_dk', faces=top, skip=('-z', '-y'))
-        self.box(-lx, Y_FORE, 0, -HX, Y_BACK, fz, 'concrete_dk', faces=top, skip=('-z', '-y', '+y', '+x'))
-        self.box(HX, Y_FORE, 0, lx, Y_BACK, fz, 'concrete_dk', faces=top, skip=('-z', '-y', '+y', '-x'))
+        # a carpet from the lot's front edge to the doors; the town's own ground shows everywhere else
+        self.box(-DOOR_HALF, -LOT[1] / 2, 0, DOOR_HALF, FRONT_Y, CARPET_Z, 'orange', skip=('-z', '+y'))
 
         # facade
         rects = []
@@ -202,13 +190,13 @@ class Builder:
             rects.append((x0, z0, x1, z1, depth, texel, reveal))
 
         rect(-HX, 0, HX, BASE_H, 0, 'slate')
-        # entrance: a pale-blue frame on the wall, a recess with two glass doors; its floor is the forecourt's height
+        # entrance: a pale-blue frame on the wall, a recess with two glass doors; its floor is the carpet's height
         # and carries the carpet, so the threshold is level
-        rect(-DOOR_HALF - 0.08, FORE_Z, DOOR_HALF + 0.08, CANOPY_Z0, 0, 'trim')
-        rect(-DOOR_HALF, FORE_Z, DOOR_HALF, DOOR_Z1, DOOR_DEPTH, 'slate', ('trim', 'orange'))
+        rect(-DOOR_HALF - 0.08, CARPET_Z, DOOR_HALF + 0.08, CANOPY_Z0, 0, 'trim')
+        rect(-DOOR_HALF, CARPET_Z, DOOR_HALF, DOOR_Z1, DOOR_DEPTH, 'slate', ('trim', 'orange'))
         for s in (-1, 1):
             a, b = sorted((s * 0.04, s * (DOOR_HALF - 0.05)))
-            rect(a, FORE_Z + 0.03, b, DOOR_Z1 - 0.05, DOOR_DEPTH, 'glass', ('trim', 'orange'))
+            rect(a, CARPET_Z + 0.03, b, DOOR_Z1 - 0.05, DOOR_DEPTH, 'glass', ('trim', 'orange'))
         # ticket windows either side
         for s in (-1, 1):
             a, b = sorted((s * 0.80, s * 1.30))
@@ -277,7 +265,7 @@ class Builder:
         p = 0.018
         for s in (-1, 1):
             x, y = s * (CANOPY_HALF - 0.05), y0 + 0.04
-            self.box(x - p, y - p, FORE_Z, x + p, y + p, CANOPY_Z0, 'trim', skip=('-z', '+z'))
+            self.box(x - p, y - p, 0, x + p, y + p, CANOPY_Z0, 'trim', skip=('-z', '+z'))
 
     def sign(self):
         """CINEMA in pixel letters, cut into a slate board with a pale-blue rim, standing on the roof behind the cornice."""
