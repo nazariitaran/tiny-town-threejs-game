@@ -4,6 +4,8 @@ Player-facing release notes for Tiny Town. How things behave is in `docs/game-de
 
 ## Unreleased
 
+## v0.9.4 — 2026-11-19
+
 ### Changed
 - Cars drive on the left. They go round roundabouts clockwise, and turn into and out of car parks from the left-hand lane.
 

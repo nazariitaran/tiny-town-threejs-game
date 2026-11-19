@@ -14,7 +14,7 @@ npm run preview         # serves dist/ on PORT − 1000 (default 4188): test thi
 - **Releasing.** Work merges into `dev`. To release: bump the version and cut the CHANGELOG section on `dev`, tag it (`git tag vX.Y.Z`), `git push origin dev --tags`, then `git checkout main && git merge --ff-only vX.Y.Z && git push`.
 
 - **Base path.** `base: './'`, so the same `dist/` works at a domain root or any sub-path. Every runtime URL goes through `assetUrl()` (`src/game/config.ts`), which prefixes `import.meta.env.BASE_URL`; never hard-code `"/assets/..."` in a `fetch`, loader, `<img src>` or `<audio src>`. Check: every hit of `grep -rn "/assets/" src` is a catalog or constant path passed to `assetUrl()`.
-- **Version.** `package.json` `version` is the only source: `define` in `vite.config.ts` turns it into `__APP_VERSION__`, and `VERSION_LABEL` in `src/ui/UiRoot.ts` shows it as `v0.9.3` on the title screen and under Menu → Help. Bump it and cut the CHANGELOG section together.
+- **Version.** `package.json` `version` is the only source: `define` in `vite.config.ts` turns it into `__APP_VERSION__`, and `VERSION_LABEL` in `src/ui/UiRoot.ts` shows it as `v0.9.4` on the title screen and under Menu → Help. Bump it and cut the CHANGELOG section together.
 - **Chunks.** three.js is its own vendor chunk; `PhotoFrame` is a lazy chunk. `chunkSizeWarningLimit` is 900 kB.
 - **Sourcemaps.** `sourcemap: 'hidden'`: `.map` files are written, but the JS has no `sourceMappingURL`. Don't deploy them.
 - **CSS.** Minified by lightningcss, which drops `translate:` when the same rule also sets `transform:`. Never combine the two in one rule; run the visual baselines against the preview after CSS changes.
