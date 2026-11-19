@@ -26,8 +26,7 @@ ATLAS = os.path.join(ROOT, 'public/assets/models/roads/Textures/colormap.png')
 ATLAS_URI = '../roads/Textures/colormap.png'
 
 # colormap.png texels (Blender UV, v up); every colour is one of the City Kit's own swatches. The gradient
-# cells are sampled at one v. Glazing samples the cell the houses' windows use (column 11, row 1 from the
-# top: the game's `windows` night mask), so no wall may sample that cell.
+# cells are sampled at one v, except the glazing, which runs down the pale-blue gradient cell (glass_uv).
 UV = {
     'white': (0.5312, 0.375),         # ffffff
     'concrete': (0.4062, 0.375),      # a0a8c9
@@ -36,18 +35,24 @@ UV = {
     'slate': (0.2812, 0.375),         # 4f5260: base course, sign board, reveals
     'wall': (0.9688, 0.540),          # 6644be: facade walls (violet)
     'trim': (0.7812, 0.625),          # d0e8ff: frames, cornice, sign rim
-    'glass': (0.7188, 0.594),         # window glass, as on the supermarket (building-e): doors and ticket windows
+    'glass': (0.8438, 0.625),         # 9bbdec, the middle of the pale-blue gradient cell; panes use glass_uv()
     'bulb': (0.2812, 0.625),          # ffc044: marquee lamps
     'orange': (0.4688, 0.625),        # ff8744: the posters' title orange
 }
 
+
+def glass_uv(z, z0, z1):
+    """Kenney-style glass: the atlas's pale-blue gradient cell (column 13, row 1 from the top), lighter at the top of
+    each pane and darker at its bottom. It is no night-glow cell, so the glass stays dark at night."""
+    t = 0.25 + 0.5 * (z1 - z) / (z1 - z0)
+    return (13.5 / 16, 0.75 - 0.25 * t)
+
 LOT = (3.0, 2.0)                      # 6 x 4 cells
 HX = LOT[0] / 2 - 0.05                # building half width: 1.45
 Y_BACK = LOT[1] / 2 - 0.05            # 0.95
-Y_FORE = -Y_BACK                      # front edge of the forecourt, -0.95
 FRONT_Y = -0.80                       # the facade plane
 LOBBY_BACK = 0.20                     # the lobby (low front block) ends here, the auditoria start
-FORE_Z = 0.02                         # forecourt height: the road's kerb top
+CARPET_Z = 0.03                       # top of the carpet and the doorway floor, just above the town's ground (0.02)
 BASE_H = 0.12                         # slate base course
 WALL_TOP = 1.54                       # top of the facade wall, under the cornice
 CORNICE_H = 0.08
@@ -111,7 +116,7 @@ class Builder:
         except ValueError:
             return
         for loop in f.loops:
-            loop[self.uv].uv = UV[uv]
+            loop[self.uv].uv = glass_uv(loop.vert.co.z, *uv[1:]) if isinstance(uv, tuple) else UV[uv]
 
     def hexa(self, o, ax, ay, az, uv, faces=None, skip=()):
         """A box from a corner and three right-handed edge vectors; `faces` overrides texels per side."""
@@ -151,7 +156,7 @@ class Builder:
                 state = (0.0, base, base)
                 for rx0, rz0, rx1, rz1, depth, texel, reveal in rects:
                     if rx0 <= cx <= rx1 and rz0 <= cz <= rz1:
-                        state = (depth, texel, reveal)
+                        state = (depth, ('glass', rz0, rz1) if texel == 'glass' else texel, reveal)
                 cell[i, j] = state
         for (i, j), (depth, texel, reveal) in cell.items():
             a, b, c, d = xs[i], xs[i + 1], zs[j], zs[j + 1]
@@ -181,19 +186,8 @@ class Builder:
     def shell(self):
         # underside of the whole footprint
         self.face([(-HX, Y_BACK, 0), (HX, Y_BACK, 0), (HX, FRONT_Y, 0), (-HX, FRONT_Y, 0)], 'concrete_dk')
-        # forecourt slab with a carpet running to the doors
-        fz = FORE_Z
-        self.face([(-HX, Y_FORE, fz), (-DOOR_HALF, Y_FORE, fz), (-DOOR_HALF, FRONT_Y, fz), (-HX, FRONT_Y, fz)], 'concrete_lt')
-        self.face([(DOOR_HALF, Y_FORE, fz), (HX, Y_FORE, fz), (HX, FRONT_Y, fz), (DOOR_HALF, FRONT_Y, fz)], 'concrete_lt')
-        self.face([(-DOOR_HALF, Y_FORE, fz), (DOOR_HALF, Y_FORE, fz), (DOOR_HALF, FRONT_Y, fz), (-DOOR_HALF, FRONT_Y, fz)], 'orange')
-        self.face([(-HX, Y_FORE, 0), (-HX, FRONT_Y, 0), (HX, FRONT_Y, 0), (HX, Y_FORE, 0)], 'concrete_dk')
-        # paving round the building out to the lot edge, level with the forecourt
-        lx, ly = LOT[0] / 2, LOT[1] / 2
-        top = {'+z': 'concrete_lt'}
-        self.box(-lx, -ly, 0, lx, Y_FORE, fz, 'concrete_dk', faces=top, skip=('-z', '+y'))
-        self.box(-lx, Y_BACK, 0, lx, ly, fz, 'concrete_dk', faces=top, skip=('-z', '-y'))
-        self.box(-lx, Y_FORE, 0, -HX, Y_BACK, fz, 'concrete_dk', faces=top, skip=('-z', '-y', '+y', '+x'))
-        self.box(HX, Y_FORE, 0, lx, Y_BACK, fz, 'concrete_dk', faces=top, skip=('-z', '-y', '+y', '-x'))
+        # a carpet from the lot's front edge to the doors; the town's own ground shows everywhere else
+        self.box(-DOOR_HALF, -LOT[1] / 2, 0, DOOR_HALF, FRONT_Y, CARPET_Z, 'orange', skip=('-z', '+y'))
 
         # facade
         rects = []
@@ -202,13 +196,13 @@ class Builder:
             rects.append((x0, z0, x1, z1, depth, texel, reveal))
 
         rect(-HX, 0, HX, BASE_H, 0, 'slate')
-        # entrance: a pale-blue frame on the wall, a recess with two glass doors; its floor is the forecourt's height
+        # entrance: a pale-blue frame on the wall, a recess with two glass doors; its floor is the carpet's height
         # and carries the carpet, so the threshold is level
-        rect(-DOOR_HALF - 0.08, FORE_Z, DOOR_HALF + 0.08, CANOPY_Z0, 0, 'trim')
-        rect(-DOOR_HALF, FORE_Z, DOOR_HALF, DOOR_Z1, DOOR_DEPTH, 'slate', ('trim', 'orange'))
+        rect(-DOOR_HALF - 0.08, CARPET_Z, DOOR_HALF + 0.08, CANOPY_Z0, 0, 'trim')
+        rect(-DOOR_HALF, CARPET_Z, DOOR_HALF, DOOR_Z1, DOOR_DEPTH, 'slate', ('trim', 'orange'))
         for s in (-1, 1):
             a, b = sorted((s * 0.04, s * (DOOR_HALF - 0.05)))
-            rect(a, FORE_Z + 0.03, b, DOOR_Z1 - 0.05, DOOR_DEPTH, 'glass', ('trim', 'orange'))
+            rect(a, CARPET_Z + 0.03, b, DOOR_Z1 - 0.05, DOOR_DEPTH, 'glass', ('trim', 'orange'))
         # ticket windows either side
         for s in (-1, 1):
             a, b = sorted((s * 0.80, s * 1.30))
@@ -277,7 +271,7 @@ class Builder:
         p = 0.018
         for s in (-1, 1):
             x, y = s * (CANOPY_HALF - 0.05), y0 + 0.04
-            self.box(x - p, y - p, FORE_Z, x + p, y + p, CANOPY_Z0, 'trim', skip=('-z', '+z'))
+            self.box(x - p, y - p, 0, x + p, y + p, CANOPY_Z0, 'trim', skip=('-z', '+z'))
 
     def sign(self):
         """CINEMA in pixel letters, cut into a slate board with a pale-blue rim, standing on the roof behind the cornice."""

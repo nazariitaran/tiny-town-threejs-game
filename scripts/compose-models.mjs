@@ -210,6 +210,100 @@ function dropMaterials(glb, names) {
   return glb;
 }
 
+/**
+ * Kenney-style windows: the triangles `isGlass(materialName, uv)` picks (uv: the triangle's mean TEXCOORD_0, or
+ * null) move to one material on the roads atlas's pale-blue gradient cell (column 13, row 1), lighter at the top of
+ * each pane and darker at its bottom, as the Kenney kits map their glass. The atlas is referenced, not embedded, so
+ * the game shares the texture with the roads; it is no night-glow cell, so the glass stays dark at night.
+ */
+function kenneyGlass(glb, isGlass) {
+  const j = glb.json;
+  const chunks = [glb.bin];
+  let binLen = glb.bin.length;
+  const addView = (data) => {
+    const pad = pad4(binLen) - binLen;
+    if (pad) { chunks.push(Buffer.alloc(pad)); binLen += pad; }
+    j.bufferViews.push({ buffer: 0, byteOffset: binLen, byteLength: data.length });
+    chunks.push(data); binLen += data.length;
+    return j.bufferViews.length - 1;
+  };
+  const reader = (index, size) => {
+    const acc = j.accessors[index];
+    const view = j.bufferViews[acc.bufferView];
+    const start = (view.byteOffset || 0) + (acc.byteOffset || 0);
+    const bytes = { 5121: 1, 5123: 2, 5125: 4, 5126: 4 }[acc.componentType];
+    const stride = view.byteStride || bytes * size;
+    const read = { 5121: (o) => glb.bin.readUInt8(o), 5123: (o) => glb.bin.readUInt16LE(o), 5125: (o) => glb.bin.readUInt32LE(o), 5126: (o) => glb.bin.readFloatLE(o) }[acc.componentType];
+    return { count: acc.count, get: (i, k = 0) => read(start + i * stride + k * bytes) };
+  };
+  let material;
+  const glassMaterial = () => {
+    if (material !== undefined) return material;
+    (j.images ||= []).push({ uri: '../roads/Textures/colormap.png', name: 'colormap' });
+    (j.samplers ||= []).push({ minFilter: 9987 });
+    (j.textures ||= []).push({ source: j.images.length - 1, sampler: j.samplers.length - 1 });
+    (j.materials ||= []).push({
+      name: 'kenney-glass', doubleSided: true,
+      pbrMetallicRoughness: { baseColorTexture: { index: j.textures.length - 1 }, metallicFactor: 0, roughnessFactor: 1 },
+    });
+    return (material = j.materials.length - 1);
+  };
+  for (const mesh of j.meshes) {
+    const added = [];
+    for (const p of mesh.primitives) {
+      if (p.indices === undefined || (p.mode ?? 4) !== 4) continue;
+      const name = j.materials?.[p.material]?.name;
+      const pos = reader(p.attributes.POSITION, 3);
+      const uv = p.attributes.TEXCOORD_0 === undefined ? null : reader(p.attributes.TEXCOORD_0, 2);
+      const idx = reader(p.indices, 1);
+      const glass = [], rest = [];
+      for (let t = 0; t < idx.count; t += 3) {
+        const tri = [idx.get(t), idx.get(t + 1), idx.get(t + 2)];
+        const mean = uv && [0, 1].map((k) => tri.reduce((s, v) => s + uv.get(v, k), 0) / 3);
+        (isGlass(name, mean) ? glass : rest).push(...tri);
+      }
+      if (!glass.length) continue;
+      // Panes: glass triangles joined by a shared corner position; each gets its own top-to-bottom gradient.
+      const key = (v) => [0, 1, 2].map((k) => Math.round(pos.get(v, k) * 1e5)).join(',');
+      const parent = new Map();
+      const find = (k) => { while (parent.get(k) !== k) k = parent.get(k); return k; };
+      for (const v of glass) if (!parent.has(key(v))) parent.set(key(v), key(v));
+      for (let t = 0; t < glass.length; t += 3) {
+        const a = find(key(glass[t]));
+        for (const v of glass.slice(t + 1, t + 3)) parent.set(find(key(v)), a);
+      }
+      const span = new Map();
+      for (const v of glass) {
+        const pane = find(key(v)), y = pos.get(v, 1), s = span.get(pane) || [Infinity, -Infinity];
+        span.set(pane, [Math.min(s[0], y), Math.max(s[1], y)]);
+      }
+      const uvs = Buffer.alloc(pos.count * 8);
+      for (const v of glass) {
+        const [lo, hi] = span.get(find(key(v)));
+        const depth = hi > lo ? (hi - pos.get(v, 1)) / (hi - lo) : 0.5;
+        uvs.writeFloatLE(13.5 / 16, v * 8);
+        uvs.writeFloatLE(0.25 + 0.25 * (0.25 + 0.5 * depth), v * 8 + 4);
+      }
+      j.accessors.push({ bufferView: addView(uvs), componentType: 5126, count: pos.count, type: 'VEC2' });
+      const uvAccessor = j.accessors.length - 1;
+      const indexData = Buffer.alloc(glass.length * 4);
+      glass.forEach((v, i) => indexData.writeUInt32LE(v, i * 4));
+      j.accessors.push({ bufferView: addView(indexData), componentType: 5125, count: glass.length, type: 'SCALAR' });
+      added.push({ attributes: { ...p.attributes, TEXCOORD_0: uvAccessor }, indices: j.accessors.length - 1, material: glassMaterial() });
+      if (rest.length) {
+        const restData = Buffer.alloc(rest.length * 4);
+        rest.forEach((v, i) => restData.writeUInt32LE(v, i * 4));
+        j.accessors.push({ bufferView: addView(restData), componentType: 5125, count: rest.length, type: 'SCALAR' });
+        p.indices = j.accessors.length - 1;
+      } else p.drop = true;
+    }
+    mesh.primitives = [...mesh.primitives.filter((p) => !p.drop), ...added];
+  }
+  glb.bin = Buffer.concat(chunks);
+  j.buffers[0].byteLength = glb.bin.length;
+  return glb;
+}
+
 /** Remove textures and images no material references any more (their bytes stay in the buffer). */
 function pruneTextures(glb) {
   const j = glb.json;
@@ -375,15 +469,19 @@ const recipes = {
   // the front to -Z, except for the church and corner shop, whose +Z front the catalog's rotationOffset handles.
   // "Church" by Poly by Google (CC-BY 3.0): 1.75 tall, 0.78 x 1.42 base.
   church: () => flatMaterials(merge([{ file: poly('church-steeple-salmon.glb'), name: 'church', scale: 0.01265, rotY: 0 }], GEN)),
-  // "Building" by Kay Lousberg (CC0): KayKit corner shop, 0.92 x 0.76 x 0.92.
-  'corner-shop': () => flatMaterials(merge([{ file: poly('corner-shop-awning.glb'), name: 'shop', scale: 0.46, rotY: 0 }], GEN)),
+  // "Building" by Kay Lousberg (CC0): KayKit corner shop, 0.92 x 0.76 x 0.92. Its glass (the streaky cell at the
+  // bottom left of the KayKit palette) becomes Kenney glass.
+  'corner-shop': () => kenneyGlass(flatMaterials(merge([{ file: poly('corner-shop-awning.glb'), name: 'shop', scale: 0.46, rotY: 0 }], GEN)),
+    (_, uv) => uv !== null && uv[0] < 0.25 && uv[1] > 0.75),
   // "Grill" by Zsky (CC-BY 3.0): kettle barbecue, 0.20 tall.
   barbecue: () => flatMaterials(merge([{ file: poly('bbq-kettle-red.glb'), name: 'grill', scale: 0.157 }], GEN)),
   // "Swing set" by Poly by Google (CC-BY 3.0): 0.42 tall, frame turned to run along X (0.56 long).
   swing: () => flatMaterials(merge([{ file: poly('swing-set-wood.glb'), name: 'swing', scale: 0.00367, rotY: 90 }], GEN)),
   // "Donut Store" by J-Toastie (CC-BY 3.0), remodelled by hand as one flat-coloured mesh with no ground slab
   // (scripts/data/donut-shop-optimised.glb, already at game scale).
-  'donut-shop': () => flatMaterials(merge([{ file: path.join(root, 'scripts/data/donut-shop-optimised.glb'), name: 'donut-shop' }], GEN)),
+  // Its glass becomes Kenney glass.
+  'donut-shop': () => kenneyGlass(flatMaterials(merge([{ file: path.join(root, 'scripts/data/donut-shop-optimised.glb'), name: 'donut-shop' }], GEN)),
+    (material) => material === 'Glass'),
   // "Fountain" by Poly by Google (CC-BY 3.0): the near-black stone and olive water are recoloured to match the Kenney fountain.
   // The source's lower basin holds its water on the basin floor; it is lifted to 0.08 (0.745 source units), under the 0.12 rim.
   'tiered-fountain': () => flatMaterials(recolor(liftVertices(merge([{ file: poly('fountain-tiered.glb'), name: 'fountain', scale: 0.107 }], GEN), 'lambert5SG', 1, 0.745), {

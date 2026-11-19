@@ -6,6 +6,13 @@ Player-facing release notes for Tiny Town. How things behave is in `docs/game-de
 
 ### Changed
 - Roads and pavement go in a straight line, like fences: a drag follows the row or column you start it along, so a wobbly hand no longer paints a tile or two off to the side. Draw a corner as two drags.
+- The cinema and the burger bar no longer bring a paved floor: they stand on whatever ground you build them on, like the houses. The cinema keeps its carpet and the burger bar its path to the door.
+- The corner shop, donut shop, cinema and burger bar have pale-blue glass like the houses' windows, lighter at the top. The shops still stay dark at night.
+
+## v0.9.2 — 2026-11-19
+
+### Added
+- A burger bar, under Town: a cream diner with a mint and white striped awning, a BURGERS sign, a big burger on the roof and a patio with parasols out front. It is 4 × 4 cells, the size of a house, and brings its own paving. In Town it takes key 8; Bus stop moves to 9 and Postbox has no key.
 
 ## v0.9.1 — 2026-10-16
 

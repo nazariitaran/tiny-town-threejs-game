@@ -68,6 +68,7 @@ const ROWS: readonly ToolRow[] = [
   { id: 'supermarket', label: 'Supermarket', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'stadium', label: 'Stadium', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'cinema', label: 'Cinema', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
+  { id: 'burger-restaurant', label: 'Burger bar', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: BUILD },
   { id: 'bus-stop', label: 'Bus stop', category: 'town', layer: 'object', drag: 'single', sfx: 'place-building', hint: 'Place next to a road · R to rotate' },
   { id: 'postbox', label: 'Postbox', category: 'town', layer: 'object', drag: 'single', sfx: 'place-prop-metal', hint: PLACE },
   { id: 'lamppost', label: 'Lamppost', category: 'town', layer: 'object', drag: 'scatter', sfx: 'place-prop-metal', hint: SCATTER },

@@ -81,7 +81,7 @@ test('loadTown loads a save as a test state; ground under a building that brings
   const errors = trackErrors(page);
   await gotoTitle(page);
 
-  // An 8 × 6 patch of pavement with a cinema (6 × 4) on its north-west corner.
+  // An 8 × 6 patch of pavement with a pool (4 × 3) on its north-west corner.
   const size = 64;
   const cells: string[] = new Array(size * size).fill('field');
   for (let z = 10; z < 16; z += 1) for (let x = 10; x < 18; x += 1) cells[z * size + x] = 'pavement';
@@ -96,7 +96,7 @@ test('loadTown loads a save as a test state; ground under a building that brings
     width: size,
     depth: size,
     ground,
-    objects: [{ id: 1, kind: 'cinema', anchor: { x: 10, z: 10 }, rotation: 0, variant: 0 }],
+    objects: [{ id: 1, kind: 'swimming-pool', anchor: { x: 10, z: 10 }, rotation: 0, variant: 0 }],
     edges: [],
     nextObjectId: 2,
   };
@@ -107,7 +107,7 @@ test('loadTown loads a save as a test state; ground under a building that brings
   expect(diag.phase).toBe('building');
   expect(diag.daytime.pinned).toBe(true);
   expect(diag.render.objects).toBe(1);
-  expect(diag.render.groundTiles, 'pavement tiles outside the cinema only').toBe(8 * 6 - 6 * 4);
+  expect(diag.render.groundTiles, 'pavement tiles outside the pool only').toBe(8 * 6 - 4 * 3);
 
   const bad = await page.evaluate(async () => {
     try {
