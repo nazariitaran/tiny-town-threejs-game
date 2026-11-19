@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { TownState } from '../town/TownState';
 import type { GroundKind, TownChange } from '../town/types';
 import { createSeededRandom } from '../utils/random';
-import { armPath, DIR_X, DIR_Z, LANE_OFFSET, lanePath, manoeuvreKind, opposite, RING_RADIUS, ringPath, samplePath, type Dir, type LanePath } from './lanePaths';
+import { armPath, DIR_X, DIR_Z, DRIVE_ON_LEFT, LANE_OFFSET, lanePath, manoeuvreKind, opposite, RING_RADIUS, ringPath, samplePath, type Dir, type LanePath } from './lanePaths';
 import { createGameBus } from '../game/events';
 import { buildSampleTown, demoOffset } from '../town/sampleTown';
 import { TownEditor, type BatchItem } from '../town/TownEditor';
@@ -43,6 +43,9 @@ function sampleTownRoads(): Array<[number, number]> {
   return cells;
 }
 
+/** +1 when the lane is right of travel, −1 when traffic keeps left. */
+const KEEP = DRIVE_ON_LEFT ? -1 : 1;
+
 describe('lane paths', () => {
   const sample = { x: 0, z: 0, hx: 0, hz: 0 };
   it('classifies manoeuvres', () => {
@@ -52,19 +55,19 @@ describe('lane paths', () => {
     expect(manoeuvreKind(1, 3)).toBe('uturn');
   });
 
-  it('every manoeuvre starts and ends on the right-hand lane at the cell edges, and is continuous', () => {
+  it('every manoeuvre starts and ends on its own lane at the cell edges, and is continuous', () => {
     for (let a = 0; a < 4; a += 1) {
       for (let b = 0; b < 4; b += 1) {
         const inDir = a as Dir;
         const outDir = b as Dir;
         const path = lanePath(inDir, outDir);
         samplePath(path, 0, sample);
-        // Entry edge midpoint + right of travel.
-        expect(sample.x).toBeCloseTo(-DIR_X[inDir] * 0.5 - DIR_Z[inDir] * LANE_OFFSET, 5);
-        expect(sample.z).toBeCloseTo(-DIR_Z[inDir] * 0.5 + DIR_X[inDir] * LANE_OFFSET, 5);
+        // Entry edge midpoint + the lane offset to the side traffic keeps to (right of travel is (−dz, dx)).
+        expect(sample.x).toBeCloseTo(-DIR_X[inDir] * 0.5 - DIR_Z[inDir] * KEEP * LANE_OFFSET, 5);
+        expect(sample.z).toBeCloseTo(-DIR_Z[inDir] * 0.5 + DIR_X[inDir] * KEEP * LANE_OFFSET, 5);
         samplePath(path, path.length, sample);
-        expect(sample.x).toBeCloseTo(DIR_X[outDir] * 0.5 - DIR_Z[outDir] * LANE_OFFSET, 5);
-        expect(sample.z).toBeCloseTo(DIR_Z[outDir] * 0.5 + DIR_X[outDir] * LANE_OFFSET, 5);
+        expect(sample.x).toBeCloseTo(DIR_X[outDir] * 0.5 - DIR_Z[outDir] * KEEP * LANE_OFFSET, 5);
+        expect(sample.z).toBeCloseTo(DIR_Z[outDir] * 0.5 + DIR_X[outDir] * KEEP * LANE_OFFSET, 5);
         let px = Number.NaN;
         let pz = Number.NaN;
         for (let s = 0; s <= path.length; s += 0.01) {
@@ -83,10 +86,11 @@ describe('lane paths', () => {
     }
   });
 
-  it('keeps to the right: a car heading north drives on the east (+x) half', () => {
+  it('keeps to the left: a car heading north drives on the west (−x) half', () => {
+    expect(DRIVE_ON_LEFT).toBe(true);
     const path = lanePath(0, 0);
     samplePath(path, path.length / 2, sample);
-    expect(sample.x).toBeCloseTo(LANE_OFFSET, 5);
+    expect(sample.x).toBeCloseTo(-LANE_OFFSET, 5);
     expect(sample.hz).toBeCloseTo(-1, 5);
   });
 });
@@ -248,7 +252,7 @@ describe('traffic: roundabouts', () => {
     expect(RING_RADIUS).toBeLessThan(1.05 - 0.1);
   });
 
-  it('ring arcs lie on the outer lane and run counter-clockwise, whichever arms they join', () => {
+  it('ring arcs lie on the outer lane and run clockwise, whichever arms they join', () => {
     for (let inDir = 0; inDir < 4; inDir += 1) {
       for (let outDir = 0; outDir < 4; outDir += 1) {
         const path = ringPath(inDir as Dir, outDir as Dir);
@@ -258,8 +262,8 @@ describe('traffic: roundabouts', () => {
           // Chords of the polyline sag a little inside the circle.
           expect(Math.hypot(sample.x, sample.z)).toBeGreaterThan(RING_RADIUS - 0.002);
           expect(Math.hypot(sample.x, sample.z)).toBeLessThan(RING_RADIUS + 1e-4);
-          // Counter-clockwise with north up: the heading turns left of the radius (cross product > 0).
-          expect(sample.x * -sample.hz - -sample.z * sample.hx).toBeGreaterThan(0);
+          // Clockwise with north up: the heading turns right of the radius (cross product < 0; > 0 keeping right).
+          expect(KEEP * (sample.x * -sample.hz - -sample.z * sample.hx)).toBeGreaterThan(0);
         }
       }
     }
@@ -267,8 +271,8 @@ describe('traffic: roundabouts', () => {
 
   it('ring arc lengths: the next arm is a short hop, straight on a third of a lap, the arm it came by most of a lap', () => {
     const lap = 2 * Math.PI * RING_RADIUS;
-    // Driving in towards north (from the south arm): next arm anticlockwise is east.
-    expect(ringPath(0, 1).length).toBeLessThan(lap * 0.15);
+    // Driving in towards north (from the south arm): the next arm round is west (east when keeping right).
+    expect(ringPath(0, DRIVE_ON_LEFT ? 3 : 1).length).toBeLessThan(lap * 0.15);
     expect(ringPath(0, 0).length).toBeGreaterThan(lap * 0.28);
     expect(ringPath(0, 0).length).toBeLessThan(lap * 0.35);
     expect(ringPath(0, 2).length).toBeGreaterThan(lap * 0.75);
@@ -334,11 +338,11 @@ describe('traffic: roundabouts', () => {
       const oz = DIR_Z[arm];
       const inward = inIslandFrame(armPath(arm as Dir, opposite(arm as Dir), opposite(arm as Dir)), arm);
       const outward = inIslandFrame(armPath(arm as Dir, arm as Dir, arm as Dir), arm);
-      // Right of a car driving in is (oz, −ox): the entry lane is on that side, the exit lane opposite.
-      expect(inward[0]).toBeCloseTo(ox * 1.5 + oz * LANE_OFFSET, 5);
-      expect(inward[1]).toBeCloseTo(oz * 1.5 - ox * LANE_OFFSET, 5);
-      expect(outward[outward.length - 2]).toBeCloseTo(ox * 1.5 - oz * LANE_OFFSET, 5);
-      expect(outward[outward.length - 1]).toBeCloseTo(oz * 1.5 + ox * LANE_OFFSET, 5);
+      // Right of a car driving in is (oz, −ox): the entry lane is on the side traffic keeps to, the exit lane opposite.
+      expect(inward[0]).toBeCloseTo(ox * 1.5 + oz * KEEP * LANE_OFFSET, 5);
+      expect(inward[1]).toBeCloseTo(oz * 1.5 - ox * KEEP * LANE_OFFSET, 5);
+      expect(outward[outward.length - 2]).toBeCloseTo(ox * 1.5 - oz * KEEP * LANE_OFFSET, 5);
+      expect(outward[outward.length - 1]).toBeCloseTo(oz * 1.5 + ox * KEEP * LANE_OFFSET, 5);
       // They meet the plain lane paths of the neighbouring road block (one tile further out).
       const next = lanePath(arm as Dir, arm as Dir);
       expect(outward[outward.length - 2]).toBeCloseTo(next.points[0] + ox * 2 * ROAD_TILE_SIZE, 5);
@@ -546,7 +550,7 @@ describe('traffic: night density', () => {
 });
 
 /** The trajectory hash of the sample-town roads, seed 7, two minutes at 60 Hz; it changes only if street driving does. */
-const PINNED_NO_LOT_HASH = -742453351;
+const PINNED_NO_LOT_HASH = -1038218148;
 
 describe('traffic: car parks', () => {
   /**

@@ -22,7 +22,7 @@
  */
 import type { TownChange, TownStateReader } from '../town/types';
 import { createSeededRandom } from '../utils/random';
-import { armPath, DIR_X, DIR_Z, lanePath, opposite, ringPath, samplePath, type Dir, type LanePath, type PathSample } from './lanePaths';
+import { armPath, DIR_X, DIR_Z, DRIVE_ON_LEFT, lanePath, opposite, ringPath, samplePath, type Dir, type LanePath, type PathSample } from './lanePaths';
 import { ROAD_TILE_SIZE, roadBlockCentreWorld } from '../game/config';
 import { objectDef } from '../catalog/objects';
 import { ROAD_BLOCK } from '../town/grid';
@@ -867,8 +867,8 @@ export class TrafficSim {
   /** Picks the gate and the direction a parked car leaves by; false when there is no way out. */
   private chooseWayOut(car: Car): boolean {
     const into = intoDir(car.frame);
-    // Aisle lots leave through gate 0 (the right-hand side of the way out) when they can.
-    const first = car.frame.style === 0 ? car.gate : 0;
+    // Aisle lots leave through the gate on the near-lane side of the way out when they can.
+    const first = car.frame.style === 0 ? car.gate : DRIVE_ON_LEFT ? 1 : 0;
     for (let n = 0; n < 2; n += 1) {
       const gate = ((first + n) % 2) as 0 | 1;
       this.gateBlock(car.frame, car.lotAx, car.lotAz, gate, this.gateOut);

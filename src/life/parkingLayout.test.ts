@@ -40,6 +40,7 @@ import {
   type LotSample,
   type LotStyle,
 } from './parkingLayout';
+import { DRIVE_ON_LEFT } from './lanePaths';
 
 const SCRIPT = fs.readFileSync(path.resolve(__dirname, '../../scripts/build-parking.py'), 'utf8');
 const scriptNumber = (name: string): number => Number(new RegExp(`^${name} = ([\\d.]+)`, 'm').exec(SCRIPT)![1]);
@@ -279,6 +280,23 @@ function frontKerbs(gate: number, lane: Poly | null, blocks: number): Poly[] {
   return out;
 }
 
+/**
+ * The routes are written for keeping right and mirrored (x → LOT_W − x) when traffic keeps left. Expectations
+ * below are written for keeping right too: `rightHanded` gives the case they describe, `mirrorSample` and
+ * `mirrorPoly` carry the answer back.
+ */
+const mirrorSide = (side: number): 0 | 1 | 2 => (side === 2 ? 2 : 1 - side) as 0 | 1 | 2;
+const mirrorStall = (style: number, stall: number): number => {
+  const count = stallCount(style as LotStyle);
+  return style === 0 ? count - 1 - stall : (stall + count / 2) % count;
+};
+function rightHanded<C extends { style: number; gate: number; stall: number; side: number }>(c: C): C {
+  if (!DRIVE_ON_LEFT) return c;
+  return { ...c, gate: 1 - c.gate, side: mirrorSide(c.side), stall: mirrorStall(c.style, c.stall) };
+}
+const mirrorSample = (s: LotSample): LotSample => (DRIVE_ON_LEFT ? { x: LOT_W - s.x, y: s.y, hx: -s.hx, hy: s.hy } : s);
+const mirrorPoly = (p: Poly): Poly => (DRIVE_ON_LEFT ? rect(LOT_W - p.maxX, p.minY, LOT_W - p.minX, p.maxY) : p);
+
 const ENTRY_LANES = (gate: number): Poly[] => [rect(gate - 0.5, -0.9, gate + 0.1, -0.5), rect(gate + 0.9, -0.5, gate + 1.5, -0.1), rect(gate + 0.5, -1.5, gate + 0.9, -0.9)];
 const EXIT_LANES = (gate: number): Poly[] => [rect(gate - 0.5, -0.5, gate + 0.1, -0.1), rect(gate + 0.9, -0.9, gate + 1.5, -0.5), rect(gate + 0.1, -1.5, gate + 0.5, -0.9)];
 
@@ -338,7 +356,11 @@ const bodyMinY = (s: LotSample): number => s.y - Math.abs(s.hy) * HALF_L - Math.
 const after = (a: Step, leg: number, s: number): boolean => a.leg > leg || (a.leg === leg && a.s >= s - 1e-6);
 
 /** Where a route starts (entries) or ends (exits) on the street, with its heading. */
-function streetEnd(c: Case): LotSample {
+function streetEnd(handed: Case): LotSample {
+  return mirrorSample(rightHandedStreetEnd(rightHanded(handed)));
+}
+
+function rightHandedStreetEnd(c: Case): LotSample {
   if (c.style !== 0) return c.entry ? { x: c.gate + LANE_IN, y: 0, hx: 0, hy: 1 } : { x: c.gate + LANE_OUT, y: 0, hx: 0, hy: -1 };
   if (c.entry) {
     return c.side === 0 ? { x: c.gate, y: -LANE_IN, hx: 1, hy: 0 } : c.side === 1 ? { x: c.gate + 1, y: -LANE_OUT, hx: -1, hy: 0 } : { x: c.gate + LANE_IN, y: -1, hx: 0, hy: 1 };
@@ -365,7 +387,8 @@ function obstaclesFor(c: Case): Obstacles {
   const lot = lots[c.style];
   const parked: Poly[] = [];
   for (let stall = 0; stall < stallCount(c.style); stall += 1) if (stall !== c.stall) parked.push(parkedBox(c.style, stall));
-  const lane = c.style === 0 ? (c.entry ? ENTRY_LANES(c.gate) : EXIT_LANES(c.gate))[c.side] : null;
+  const r = rightHanded(c);
+  const lane = c.style === 0 ? mirrorPoly((c.entry ? ENTRY_LANES(r.gate) : EXIT_LANES(r.gate))[r.side]) : null;
   return {
     parked,
     solids: lot.solids.map((face) => face.lot),
@@ -547,7 +570,8 @@ describe('routes', () => {
 
   it('coverage: every stall can be entered and left every way its lot allows', () => {
     // Entries that would be a loop in front of the stall are left out on purpose.
-    const loop = (c: { style: number; entry: boolean; gate: number; stall: number; side: number }): boolean =>
+    const loop = (handed: { style: number; entry: boolean; gate: number; stall: number; side: number }): boolean => rightHandedLoop(rightHanded(handed));
+    const rightHandedLoop = (c: { style: number; entry: boolean; gate: number; stall: number; side: number }): boolean =>
       c.entry && (c.style === 0 ? (c.gate === 0 && c.stall === 1 && c.side === 1) || (c.gate === 1 && c.stall === 2 && c.side === 0) : c.gate === 1 && c.stall >= stallCount(c.style as LotStyle) / 2 && c.stall < stallCount(c.style as LotStyle) / 2 + 2);
     const all = STYLES.flatMap((style) => cases(style));
     expect(all.filter(loop).length).toBeGreaterThan(0);
