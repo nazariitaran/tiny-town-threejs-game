@@ -13,7 +13,7 @@ npm run preview         # serves dist/ on PORT − 1000 (default 4188): test thi
 - **Cloudflare.** The live site is a Cloudflare Worker with static assets, built from `main` on push: `npm ci`, `npm run build`, then `npx wrangler deploy`, which uploads `dist/` as configured in `wrangler.jsonc`. `public/.assetsignore` keeps the `.map` files out of the upload. Cloudflare's build runs npm 10, so after a dependency change check that `npx -y npm@10.9.2 ci` accepts the lock file.
 
 - **Base path.** `base: './'`, so the same `dist/` works at a domain root or any sub-path. Every runtime URL goes through `assetUrl()` (`src/game/config.ts`), which prefixes `import.meta.env.BASE_URL`; never hard-code `"/assets/..."` in a `fetch`, loader, `<img src>` or `<audio src>`. Check: every hit of `grep -rn "/assets/" src` is a catalog or constant path passed to `assetUrl()`.
-- **Version.** `package.json` `version` is the only source: `define` in `vite.config.ts` turns it into `__APP_VERSION__`, and `VERSION_LABEL` in `src/ui/UiRoot.ts` shows it as `v0.9.1` on the title screen and under Menu → Help. Bump it and cut the CHANGELOG section together.
+- **Version.** `package.json` `version` is the only source: `define` in `vite.config.ts` turns it into `__APP_VERSION__`, and `VERSION_LABEL` in `src/ui/UiRoot.ts` shows it as `v0.9.2` on the title screen and under Menu → Help. Bump it and cut the CHANGELOG section together.
 - **Chunks.** three.js is its own vendor chunk; `PhotoFrame` is a lazy chunk. `chunkSizeWarningLimit` is 900 kB.
 - **Sourcemaps.** `sourcemap: 'hidden'`: `.map` files are written, but the JS has no `sourceMappingURL`. Don't deploy them.
 - **CSS.** Minified by lightningcss, which drops `translate:` when the same rule also sets `transform:`. Never combine the two in one rule; run the visual baselines against the preview after CSS changes.
@@ -70,13 +70,13 @@ Full 64 × 64 town (`stress-town`), production preview, Medium preset, headless 
 | Metric | Target desktop / mobile | Latest |
 | --- | --- | --- |
 | Draw calls | ≤ 150 / ≤ 120 | stress 32 (desktop; the night and mobile figures were not re-measured with the cinema and postbox cyphers), sample town 92 (a postbox is one more part than before: its cypher's atlas material; a cinema is two: building and posters); cars in car parks add none; a match night adds 2 (the floodlights' spill pool and mast halos; 1 on Low); a storm adds 2 for the rain, plus 3 by day for the night-light layers it switches on |
-| Triangles | ≤ 400k / ≤ 320k; a Large town ≤ 600k desktop | Large stress 528.9k desktop;  stress 330.9k desktop (above the mobile target), sample town 185.9k (the stadium is 1,724; the cinema 768; each car is about 1,070; the roundabout 906; a postbox 216 + its cypher's 145 to 367); rain submits 15–20k in a storm (sample town at distance 20: 199.7k), half on Low |
+| Triangles | ≤ 400k / ≤ 320k; a Large town ≤ 600k desktop | Large stress 528.9k desktop;  stress 330.9k desktop (above the mobile target), sample town 185.9k (the stadium is 1,724; the cinema 768; the burger bar 1,610; each car is about 1,070; the roundabout 906; a postbox 216 + its cypher's 145 to 367); rain submits 15–20k in a storm (sample town at distance 20: 199.7k), half on Low |
 | Textures | ≤ 30 | stress 15, sample town 30 (incl. the glow masks, the stadium's floodlight mask and the cinema's poster atlas, which loads with every town); a match night adds none; rain adds 1 while it falls (the splash surface map) |
 | Shadow map | 1 × 2048 (Low 1024) | per preset |
 | DPR cap | Low 1, Medium 1.5, High 2 | per preset |
 | CPU per rendered frame | ≤ 8 ms | stress 1.39 ms building / 1.94 ms idle; sample town 1.68 / 2.88 ms |
 | Frame cap | 60 active / 30 idle (Low 30 / 30) | held |
-| Download before the title (JS, CSS, font, models, SFX, icons, name list) | ≤ 8 MB | 5.09 MB (what the production preview serves up to the title, plus the sounds fetched on Start); `dist/` without maps or music 6.08 MB |
+| Download before the title (JS, CSS, font, models, SFX, icons, name list) | ≤ 8 MB | 5.09 MB (what the production preview serves up to the title, plus the sounds fetched on Start); `dist/` without maps or music 6.20 MB |
 | Main JS chunk | < 900 kB | 408 kB (129 kB gzip) + three.js 642 kB (162 kB gzip) |
 
 **Large towns** (84 × 84): the same stress layout built on a Large plot (1,323 objects against 675), loaded with `loadTown`, production preview, Medium, desktop 1280 × 720: 33 draw calls, 528.9k triangles, 15 textures (the small stress town in the same run: 33, 331.1k, 15). A Large town has its own desktop triangle target, 600k, and a full one is inside it. CPU per frame was not re-measured.

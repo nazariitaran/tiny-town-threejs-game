@@ -122,6 +122,8 @@ export function buildSampleTown(editor: TownEditor): DemoTownResult {
   place('cinema', 37, 33);
   // West of the side street: the donut shop faces the street (east), the tiered fountain below it.
   place('donut-shop', 19, 28, 1);
+  // North of the main street, the burger bar faces the side street (east).
+  place('burger-restaurant', 18, 10, 1);
   place('tiered-fountain', 18, 33);
   // South-west: a cottage by the garden path, a fountain with a bench, the pool in the meadow.
   place('cottage', 5, 27, 2);
@@ -208,6 +210,8 @@ export const GALLERY_OBJECTS: ReadonlyArray<readonly [ObjectKind, number, number
   ['stadium', 24, 31],
   // East of the stadium: the cinema.
   ['cinema', 39, 31],
+  // Below the cinema: the burger bar.
+  ['burger-restaurant', 39, 36],
 ];
 
 /** The road the gallery's car parks open onto (block anchors along rows 40–41). */
